@@ -80,7 +80,7 @@ Goal: know Jam as well as a power user who has used it every day for a year.
    - console logs at every level, including objects and errors with stacks;
    - a form with text, password and email inputs;
    - a route change, a modal, a long scrolling list, an iframe, an image from another origin;
-   - a `<canvas>` that draws text (Nuru has a canvas-based terminal, so this case matters);
+   - a `<canvas>` that draws text;
    - a WebSocket and a server-sent events stream;
    - a slow page that streams HTML.
 
@@ -171,7 +171,7 @@ Keep the parity scenarios from step 3 running. A Jam feature that the owner did 
 
 1. Test on Nuru, the owner's online coding course (organization `NuruProgramming` on GitHub; ask the owner for the repo and the deployment). Do not change Nuru's code for this test. Use the scenario from the owner: start a trace, open the first lesson, write code, run it, highlight the terminal output, comment, record a voice note, continue, then stop.
 2. Test on one more of the owner's apps with a different structure, preferably a Next.js app.
-3. Run the five experiments in "Part 2 specifics" (section "Experiments").
+3. Run the three experiments in "Part 2 specifics" (section "Experiments").
 4. Hand the feedback folders from real sessions to Claude Code, Codex and opencode. Each agent must find the cause of at least one real bug from the folder alone. Record the results in `docs/agent-handoff-results.md`.
 5. Show the owner the product:
    - a running instance and the extension, ready to install;
@@ -275,17 +275,6 @@ Production builds have no element-to-source mapping. Send a **locator packet** w
 
 Recognize SvelteKit data loads (`__data.json`) and form actions, and name them in the timeline. Recognize Next.js RSC requests too.
 
-### Nuru's terminal
-
-Nuru's terminal may draw to a canvas, so DOM capture can show an empty box. Get the terminal output from these sources, in this order:
-
-1. the network: the response to the "Run" request, or the WebSocket or SSE frames after it, or Web Worker messages;
-2. DOM text, if the terminal is DOM-rendered;
-3. OCR of the `captureVisibleTab` crop, labeled as OCR;
-4. canvas `fillText` hooks (probably useless for xterm.js).
-
-A later, optional, documented opt-in: if a page defines `window.__reviewSources = { terminal: () => text, editor: () => code }`, the extension reads it. Every feature must work without it.
-
 ### Privacy and prompt injection
 
 - Redact in the isolated world before upload: remove `Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key` and headers matching `token|secret|key`; remove password and token fields; scrub JWTs, emails and card numbers.
@@ -297,11 +286,9 @@ A later, optional, documented opt-in: if a page defines `window.__reviewSources 
 
 Run these in step 5, on Nuru:
 
-1. Find how Nuru draws its terminal and where its output comes from (one hour).
-2. Measure the rrweb recording size per minute and the CPU cost on a ten-minute lesson.
-3. Label 30 real actions by hand and compare with the span outcomes; tune the windows.
-4. If the terminal is a canvas: measure OCR accuracy on 20 terminal crops.
-5. Give one real folder to Claude Code, Codex and opencode with the same one-line prompt; check that each pulls it, reads `README.md` first, opens the right image and names the bad request.
+1. Measure the rrweb recording size per minute and the CPU cost on a ten-minute lesson.
+2. Label 30 real actions by hand and compare with the span outcomes; tune the windows.
+3. Give one real folder to Claude Code, Codex and opencode with the same one-line prompt; check that each pulls it, reads `README.md` first, opens the right image and names the bad request.
 
 ## Definition of done
 
