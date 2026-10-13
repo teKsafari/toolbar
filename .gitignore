@@ -1,0 +1,14 @@
+# Jam screenshots and notes stay out of git (clean-room rule)
+research/jam-private/
+
+node_modules/
+.svelte-kit/
+build/
+dist/
+.output/
+.wxt/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
