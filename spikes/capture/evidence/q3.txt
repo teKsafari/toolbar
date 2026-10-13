@@ -1,0 +1,26 @@
+first <script> in the lab page: {"type":"","src":"","inline":"\n\t\t\t\t{\n\t\t\t\t\t__sveltekit_14z8af2 = {\n\t\t\t\t\t\tbase: new URL(\".\", location).pathname."}
+fetch after hooks: {"fetchToString":"(e,t)=>((e instanceof Request?e.method:t?.method||`GET`)!==`GET`&&ht(e),ft(e,t))","consoleLogToString":"function log() { [native code] }","sveltekitGlobalsNow":["__sveltekit_14z8af2"]}
+
+== boot (from reload) ==
+{"kind":"isolated-boot","t":202.20000000018626,"readyState":"loading","frame":"http://localhost:5173/"}
+{"via":"port","kind":"boot","t":197.40000000037253,"readyState":"loading","scriptsInDom":0,"htmlChildren":0,"resourcesFetched":14,"sveltekitGlobals":[],"url":"http://localhost:5173/"}
+
+== after clicking "Log at every level" and "Submit order (hidden 500)" ==
+{"kind":"console","level":"log","via":"port","args":"[\"log: plain string\",42,true]"}
+{"kind":"console","level":"info","via":"port","args":"[\"info: object\",{\"user\":{\"id\":7,\"roles\":[\"admin\",\"editor\"]},\"at\":{\"$date\":\"2026-10-13T23:53:59.487Z\"}}]"}
+{"kind":"console","level":"warn","via":"port","args":"[\"warn: deprecated call\",[\"a\",\"b\",\"c\"]]"}
+{"kind":"console","level":"error","via":"port","args":"[\"error: with stack\",{\"$error\":\"Error\",\"message\":\"lab error object\",\"stack\":\"Error: lab error object\\n    at H"}
+{"kind":"console","level":"debug","via":"port","args":"[\"debug: nested\",{\"a\":{\"b\":{\"c\":{\"d\":\"deep\"}}}}]"}
+{"kind":"console","level":"table","via":"port","args":"[[{\"id\":1,\"name\":\"one\"},{\"id\":2,\"name\":\"two\"}]]"}
+{"kind":"console","level":"group","via":"port","args":"[\"group\"]"}
+{"kind":"console","level":"log","via":"port","args":"[\"inside group\"]"}
+{"kind":"console","level":"groupEnd","via":"port","args":"[]"}
+{"kind":"console","level":"trace","via":"port","args":"[\"trace: call site\"]"}
+{"kind":"console","level":"assert","via":"port","args":"[false,\"assert: failed assertion\"]"}
+{"kind":"console","level":"count","via":"port","args":"[\"count\"]"}
+{"kind":"console","level":"count","via":"port","args":"[\"count\"]"}
+{"kind":"console","level":"time","via":"port","args":"[\"timer\"]"}
+{"kind":"console","level":"timeEnd","via":"port","args":"[\"timer\"]"}
+{"kind":"net.request","via":"port","method":"POST","url":"http://localhost:5173/api/fail"}
+{"kind":"net.response","via":"port","status":500,"ok":false}
+{"kind":"net.body","via":"port","body":"{\"error\":\"database_unavailable\",\"detail\":\"connection refused to db:5432\",\"requestId\":\"beee0fe9-498f-4aa3-9251-581392f8fd"}

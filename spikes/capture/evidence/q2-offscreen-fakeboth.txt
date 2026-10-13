@@ -1,0 +1,11 @@
+variant offscreen-fakeboth [
+  '--use-fake-ui-for-media-stream',
+  '--use-fake-device-for-media-stream'
+]
+offscreen getDisplayMedia -> {"ok":true,"name":"screen-offscreen-gdm.webm","mimeType":"video/webm;codecs=vp9,opus","bytes":135070,"chunks":3,"settings":{"deviceId":"screen:-3:0"}}
+ffprobe stream|codec_name=vp9|codec_type=video|width=1440|height=810|nb_read_frames=58
+format|format_name=matroska,webm|duration=N/A|size=135070 
+last video pts 2.852000
+--- extension log ---
+2026-10-13T23:43:42.067Z service worker started
+2026-10-13T23:43:48.157Z screen offscreen gDM {"ok":true,"name":"screen-offscreen-gdm.webm","mimeType":"video/webm;codecs=vp9,opus","bytes":135070,"chunks":3,"settings":{"deviceId":"screen:-3:0"}}

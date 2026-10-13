@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "toolbar capture spike",
+  "version": "0.0.1",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArMAEp8Yl3xJk1pfnRmg9ys6IGLILEusA7W8ckcrNJRSq0xQvprd63VmjkU1bU+cAN+6UoatRtBr2vF4SI0REiTfLxKYggOlRe0MSR2oa070E/yAhXj8lssXoFDFs2BuTHsXyQp1JSPB2ti/Y8yxmoyGswKBTeGVuf/NqbhFxkM1irjagKcSbhz7q4VJZd+lza9ICdBJvoR4ZSIyB+t8XV/OxBLSu3TUGupdKjqJx+O1g5+WIVX3T8j4XmQWfp/QoaGKEixVpxj0LlERQsZJSYbnmjPvOtS8PxMDCt/Oq16+63Hz3zJnq9LIocvYVDs2CGtyFUuMGPAvNVhXDiNQ6wwIDAQAB",
+  "permissions": ["activeTab", "scripting", "tabCapture", "offscreen", "storage", "unlimitedStorage", "desktopCapture", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "toolbar spike", "default_icon": { "32": "icon.png" } },
+  "icons": { "128": "icon.png" },
+  "commands": {
+    "record-tab": {
+      "suggested_key": { "default": "Alt+Shift+Y" },
+      "description": "Record the current tab for 5 seconds"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://localhost/*"],
+      "js": ["main.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["http://localhost/*"],
+      "js": ["flags.js", "isolated.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

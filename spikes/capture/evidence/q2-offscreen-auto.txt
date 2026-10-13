@@ -1,0 +1,13 @@
+variant offscreen-auto [ '--auto-select-desktop-capture-source=Entire screen' ]
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+worker.evaluate: Target page, context or browser has been closed
+Browser logs:
+
+    at /home/dev/toolbar/.claude/worktrees/agent-addfe5fcd0b74546e/spikes/capture/run/q2.mjs:19:16 {
+  log: []
+}
+
+Node.js v24.20.0

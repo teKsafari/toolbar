@@ -1,0 +1,8 @@
+variant window-auto [ '--auto-select-desktop-capture-source=Entire screen' ]
+window page status after 4 s: {"ok":true,"name":"screen-window-gdm.webm","mimeType":"video/webm;codecs=vp9,opus","bytes":73351,"chunks":3,"settings":{"deviceId":"screen:336:0"}}
+window page status: {"ok":true,"name":"screen-window-gdm.webm","mimeType":"video/webm;codecs=vp9,opus","bytes":73351,"chunks":3,"settings":{"deviceId":"screen:336:0"}}
+ffprobe stream|codec_name=vp9|codec_type=video|width=1440|height=900|nb_read_frames=64
+format|format_name=matroska,webm|duration=N/A|size=73351 
+last video pts 2.896000
+--- extension log ---
+2026-10-13T23:41:32.999Z service worker started

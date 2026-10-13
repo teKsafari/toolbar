@@ -1,0 +1,117 @@
+
+===== RELEASE build (closed root) =====
+styles seen from inside the shadow root, with hostile page CSS applied:
+{
+ "mode": "closed",
+ "toolbar-root": {
+  "hostDisplay": "block",
+  "pageSeesShadowRoot": false,
+  "button": {
+   "bg": "rgb(228, 87, 46)",
+   "color": "rgb(255, 255, 255)",
+   "fontSize": "13px"
+  },
+  "text": {
+   "color": "rgb(0, 0, 0)",
+   "fontFamily": "system-ui, sans-serif",
+   "letterSpacing": "normal"
+  },
+  "rect": {
+   "x": 1113.515625,
+   "y": 660.8125,
+   "width": 61.34375,
+   "height": 26.1875,
+   "top": 660.8125,
+   "right": 1174.859375,
+   "bottom": 687,
+   "left": 1113.515625
+  }
+ },
+ "toolbar-noreset": {
+  "hostDisplay": "none",
+  "pageSeesShadowRoot": false,
+  "button": {
+   "bg": "rgb(228, 87, 46)",
+   "color": "rgb(255, 255, 255)",
+   "fontSize": "13px"
+  },
+  "text": {
+   "color": "rgb(255, 0, 0)",
+   "fontFamily": "system-ui, sans-serif",
+   "letterSpacing": "normal"
+  },
+  "rect": {
+   "x": 0,
+   "y": 0,
+   "width": 0,
+   "height": 0,
+   "top": 0,
+   "right": 0,
+   "bottom": 0,
+   "left": 0
+  }
+ }
+}
+page: host.shadowRoot is null
+Playwright locator("toolbar-root #tb-btn").count() = 0
+CDP pierce: host found = true shadowRootType = closed
+clicked via CDP box model + page.mouse at 1144.1875 673.90625
+extension log: [ '2026-10-13T23:45:38.186Z ui click toolbar-root {"isTrusted":true}' ]
+
+===== TEST build (open root) =====
+styles seen from inside the shadow root, with hostile page CSS applied:
+{
+ "mode": "open",
+ "toolbar-root": {
+  "hostDisplay": "block",
+  "pageSeesShadowRoot": true,
+  "button": {
+   "bg": "rgb(228, 87, 46)",
+   "color": "rgb(255, 255, 255)",
+   "fontSize": "13px"
+  },
+  "text": {
+   "color": "rgb(0, 0, 0)",
+   "fontFamily": "system-ui, sans-serif",
+   "letterSpacing": "normal"
+  },
+  "rect": {
+   "x": 1113.515625,
+   "y": 660.8125,
+   "width": 61.34375,
+   "height": 26.1875,
+   "top": 660.8125,
+   "right": 1174.859375,
+   "bottom": 687,
+   "left": 1113.515625
+  }
+ },
+ "toolbar-noreset": {
+  "hostDisplay": "none",
+  "pageSeesShadowRoot": true,
+  "button": {
+   "bg": "rgb(228, 87, 46)",
+   "color": "rgb(255, 255, 255)",
+   "fontSize": "13px"
+  },
+  "text": {
+   "color": "rgb(255, 0, 0)",
+   "fontFamily": "system-ui, sans-serif",
+   "letterSpacing": "normal"
+  },
+  "rect": {
+   "x": 0,
+   "y": 0,
+   "width": 0,
+   "height": 0,
+   "top": 0,
+   "right": 0,
+   "bottom": 0,
+   "left": 0
+  }
+ }
+}
+page: host.shadowRoot is [object ShadowRoot]
+Playwright locator("toolbar-root #tb-btn").count() = 1
+clicked through the locator
+extension log: [ '2026-10-13T23:45:47.206Z ui click toolbar-root {"isTrusted":true}' ]
