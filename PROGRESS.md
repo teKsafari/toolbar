@@ -18,5 +18,9 @@ A new session reads this file first.
 ### Not done
 - Everything else above.
 
-### Blocked on the owner
-- Jam login and extension install in the shared browser.
+### In flight (2026-10-13)
+- Workflow `jam-step1-catalogue`: seven serial browser sessions with Jam (popup and capture, annotation, capture per lab case, viewer and sharing, dashboard, MCP and agent output, flows and speed), public-doc research, owner-taste research (Agentation, Vercel Toolbar), then catalogue writing and an independent review loop for gate 1. Raw notes: `research/jam-private/notes/` (gitignored).
+- Architecture design for step 2: `docs/architecture.md`.
+
+### Owner status
+- Logged in to Jam; extension installed and pinned. Owner asked for end-to-end execution without steering (D-005).
