@@ -1,0 +1,5 @@
+variant window-fakeui [ '--use-fake-ui-for-media-stream' ]
+window page status after 4 s: ERROR NotReadableError: Could not start video source
+window page status: ERROR NotReadableError: Could not start video source
+--- extension log ---
+2026-10-13T23:42:55.893Z service worker started

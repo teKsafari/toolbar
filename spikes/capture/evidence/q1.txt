@@ -1,0 +1,25 @@
+lab tab 1030469985 extra args []
+A no gesture: {"ok":false,"error":"Extension has not been invoked for the current page (see activeTab permission). Chrome pages cannot be captured."}
+B extension page click: ERROR Extension has not been invoked for the current page (see activeTab permission). Chrome pages cannot be captured. isTrusted=true
+C icon at { x: 1127, y: 63 }
+C saved /home/dev/toolbar/.claude/worktrees/agent-addfe5fcd0b74546e/spikes/capture/out/tab-action.webm 
+C ffprobe stream|codec_name=vp9|codec_type=video|width=1270|height=708|nb_read_frames=107
+stream|codec_name=opus|codec_type=audio|nb_read_frames=73
+format|format_name=matroska,webm|duration=N/A|size=86406 
+C last video pts 4.994000
+D saved /home/dev/toolbar/.claude/worktrees/agent-addfe5fcd0b74546e/spikes/capture/out/tab-command.webm 
+D ffprobe stream|codec_name=vp9|codec_type=video|width=1270|height=708|nb_read_frames=136
+stream|codec_name=opus|codec_type=audio|nb_read_frames=77
+format|format_name=matroska,webm|duration=N/A|size=135857 
+D last video pts 4.961000
+--- extension log ---
+2026-10-13T23:50:04.075Z service worker started
+2026-10-13T23:50:04.450Z recordTab no-gesture tab 1030469985
+2026-10-13T23:50:04.457Z getMediaStreamId FAILED no-gesture Extension has not been invoked for the current page (see activeTab permission). Chrome pages cannot be captured.
+2026-10-13T23:50:08.228Z recordTab action tab 1030469985
+2026-10-13T23:50:08.253Z getMediaStreamId ok action
+2026-10-13T23:50:15.728Z record-tab result action {"ok":true,"name":"tab-action.webm","mimeType":"video/webm;codecs=vp9,opus","bytes":86406,"chunks":5,"settings":{"deviceId":"web-contents-media-stream://6:8?local_echo=false"}}
+2026-10-13T23:50:18.173Z command record-tab 1030469988
+2026-10-13T23:50:18.176Z recordTab command tab 1030469988
+2026-10-13T23:50:18.178Z getMediaStreamId ok command
+2026-10-13T23:50:23.262Z record-tab result command {"ok":true,"name":"tab-command.webm","mimeType":"video/webm;codecs=vp9,opus","bytes":135857,"chunks":5,"settings":{"deviceId":"web-contents-media-stream://17:8?local_echo=false"}}

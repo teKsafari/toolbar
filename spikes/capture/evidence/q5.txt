@@ -1,0 +1,15 @@
+
+== dpr1-zoom1 ==
+rect (CSS px) {"dpr":1,"h":38.78125,"ih":709,"iw":1272,"w":226.5625,"x":560.71875,"y":280.6875} 
+bitmap 1272x709 scale used 1 crop [sx,sy,sw,sh] 560,280,228,40
+crop file 228x40 | Playwright element screenshot 228x40 | pixels differing (fuzz 10%): 0 (0)
+
+== dpr2-zoom1 ==
+rect (CSS px) {"dpr":2,"h":38.296875,"ih":359,"iw":712,"w":226.5546875,"x":37,"y":160.59375} 
+bitmap 1424x718 scale used 2 crop [sx,sy,sw,sh] 74,321,454,77
+crop file 454x77 | Playwright element screenshot 454x78 | pixels differing (fuzz 10%): 1461.72 (0.0412775)
+
+== dpr1-zoom1.5 ==
+rect (CSS px) {"dpr":1.5,"h":38.79166793823242,"ih":473,"iw":848,"w":226.55209350585938,"x":560.3646240234375,"y":216.70834350585938} 
+bitmap 1272x709 scale used 1.5 crop [sx,sy,sw,sh] 840,325,341,59
+crop file 341x59 | Playwright element screenshot 227x39 | pixels differing (fuzz 10%): 1847.35 (0.0918213)

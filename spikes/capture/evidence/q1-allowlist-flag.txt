@@ -1,0 +1,9 @@
+lab tab 921370045 extra args [ '--allowlisted-extension-id=kbadilafkmgcdhpkbkhkihmihjpemhpp' ]
+A no gesture: {"ok":true,"name":"tab-no-gesture.webm","mimeType":"video/webm;codecs=vp9,opus","bytes":116595,"chunks":5,"settings":{"deviceId":"web-contents-media-stream://6:8?local_echo=false"}}
+A ffprobe stream|codec_name=vp9|codec_type=video|width=1278|height=712|nb_read_frames=120
+stream|codec_name=opus|codec_type=audio|nb_read_frames=71
+format|format_name=matroska,webm|duration=N/A|size=116595
+2026-10-13T23:37:10.326Z service worker started
+2026-10-13T23:37:10.365Z recordTab no-gesture tab 921370045
+2026-10-13T23:37:10.368Z getMediaStreamId ok no-gesture
+2026-10-13T23:37:16.758Z record-tab result no-gesture {"ok":true,"name":"tab-no-gesture.webm","mimeType":"video/webm;codecs=vp9,opus","bytes":116595,"chunks":5,"settings":{"deviceId":"web-contents-media-stream://6:8?local_echo=false"}}

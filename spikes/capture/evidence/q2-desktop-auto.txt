@@ -1,0 +1,5 @@
+variant desktop-auto [ '--auto-select-desktop-capture-source=Entire screen' ]
+desktopCapture -> {"ok":false,"error":"cancelled"}
+--- extension log ---
+2026-10-13T23:41:05.654Z service worker started
+2026-10-13T23:41:06.931Z chooseDesktopMedia returned {}
