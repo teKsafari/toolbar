@@ -13,6 +13,7 @@ A new session reads this file first.
 
 ### Done
 - Scaffolding.
+- Lab app in `lab/`, running as the `toolbar-lab` user service on :5173 (and :5174).
 
 ### Not done
 - Everything else above.
