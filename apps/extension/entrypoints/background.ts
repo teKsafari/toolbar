@@ -5,6 +5,7 @@ import type { CaptureEvent, CommandName } from '@toolbar/shared';
 import { registerCaptureScripts } from '../lib/registration';
 import { CAPTURE_PORT, type BgRequest, type PortMessage } from '../lib/messages';
 import { TEST_HOOKS } from '../lib/flags';
+import { registerDraftHandlers } from '../lib/bg/drafts';
 
 export default defineBackground(() => {
   const stats = { ports: 0, events: 0, byKind: {} as Record<string, number>, commands: [] as string[], pages: [] as string[] };
@@ -14,6 +15,7 @@ export default defineBackground(() => {
     console.error('[nib] content script registration failed', e);
     throw e;
   });
+  registerDraftHandlers();
   browser.runtime.onInstalled.addListener(() => void registerCaptureScripts());
   browser.runtime.onStartup.addListener(() => void registerCaptureScripts());
 
