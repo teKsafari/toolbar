@@ -7,6 +7,7 @@ import { runMigrations } from '#lib/server/db/migrate.ts';
 import { env, assertSafeSecrets } from '#lib/server/env.ts';
 import { startWorker } from '#lib/server/jobs/worker.ts';
 import { bearerFrom, resolveApiToken } from '#lib/server/tokens.ts';
+import { apiGate } from '#lib/server/auth/http.ts';
 
 export const init: ServerInit = async () => {
   const unsafe = assertSafeSecrets();
@@ -47,7 +48,7 @@ const authenticate: Handle = async ({ event, resolve }) => {
     const row = await resolveApiToken(db, bearer);
     if (row) {
       event.locals.user = row.user as App.Locals['user'];
-      event.locals.apiToken = { id: row.tokenId, kind: row.kind };
+      event.locals.apiToken = { id: row.tokenId, kind: row.kind, scopes: row.scopes };
     }
   } else if (!building) {
     const s = await auth.api.getSession({ headers: event.request.headers });
@@ -59,4 +60,4 @@ const authenticate: Handle = async ({ event, resolve }) => {
   return svelteKitHandler({ event, resolve, auth, building });
 };
 
-export const handle = sequence(securityHeaders, authenticate);
+export const handle = sequence(securityHeaders, authenticate, apiGate);

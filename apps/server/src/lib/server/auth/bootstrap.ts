@@ -1,0 +1,85 @@
+// One payload for the extension popup and in-page editor (J-001 budget, J-080, J-081, J-215).
+// Folders and integrations are read straight from the dashboard area's tables; when that area
+// lands its own list helpers (folder shortId, integration status) this file should call them.
+import { and, asc, count, eq, inArray, isNull } from 'drizzle-orm';
+import { LIMITS } from '@toolbar/shared';
+import { BUILT_INTEGRATIONS, DEFAULT_USER_SETTINGS, type ExtBootstrap, type Folder, type Integration } from '@toolbar/shared/api';
+import type { Db } from '../db/index.ts';
+import { folder, integration, recording, user } from '../db/schema/index.ts';
+import { activeWorkspaceId, listWorkspaces } from './workspaces.ts';
+
+type Person = { id: string; name: string; email: string; image: string | null };
+
+async function foldersOf(db: Db, workspaceId: string): Promise<Folder[]> {
+  const rows = await db
+    .select({ f: folder, by: { id: user.id, name: user.name, email: user.email, image: user.image } })
+    .from(folder)
+    .leftJoin(user, eq(user.id, folder.createdBy))
+    .where(eq(folder.organizationId, workspaceId))
+    .orderBy(asc(folder.name));
+  if (!rows.length) return [];
+  const counts = await db
+    .select({ id: recording.folderId, n: count() })
+    .from(recording)
+    .where(and(inArray(recording.folderId, rows.map((r) => r.f.id)), isNull(recording.deletedAt)))
+    .groupBy(recording.folderId);
+  const byId = new Map(counts.map((c) => [c.id, Number(c.n)]));
+  return rows.map(({ f, by }) => ({
+    id: f.id,
+    // Provisional: the dashboard area owns the real 4-character folder id (J-162).
+    shortId: f.id.replace(/-/g, '').slice(-4),
+    workspaceId: f.organizationId,
+    name: f.name,
+    parentId: f.parentId ?? null,
+    private: false,
+    captureCount: byId.get(f.id) ?? 0,
+    createdBy: by as Person | null,
+    createdAt: f.createdAt.toISOString(),
+  }));
+}
+
+async function integrationsOf(db: Db, workspaceId: string): Promise<Integration[]> {
+  const rows = await db
+    .select({ i: integration, by: { id: user.id, name: user.name, email: user.email, image: user.image } })
+    .from(integration)
+    .leftJoin(user, eq(user.id, integration.createdBy))
+    .where(eq(integration.organizationId, workspaceId));
+  const str = (v: unknown) => (typeof v === 'string' ? v : null);
+  return rows
+    .filter(({ i }) => (BUILT_INTEGRATIONS as readonly string[]).includes(i.type))
+    .map(({ i, by }) => {
+      const c = (i.config ?? {}) as Record<string, unknown>;
+      return {
+        id: i.id,
+        workspaceId: i.organizationId,
+        type: i.type as Integration['type'],
+        name: str(c.name) ?? i.type,
+        account: str(c.account),
+        baseUrl: str(c.baseUrl),
+        defaultTarget: str(c.defaultTarget),
+        status: c.lastError ? ('error' as const) : ('ok' as const),
+        lastError: str(c.lastError),
+        createdBy: by as Person | null,
+        createdAt: i.createdAt.toISOString(),
+      };
+    });
+}
+
+export async function extBootstrap(db: Db, me: Person, opts: { workspaceId?: string; serverVersion: string }): Promise<ExtBootstrap> {
+  const workspaces = await listWorkspaces(db, me.id);
+  const stored = await activeWorkspaceId(db, me.id, workspaces);
+  const active = opts.workspaceId && workspaces.some((w) => w.id === opts.workspaceId) ? opts.workspaceId : stored;
+  const maxMin = Number(process.env.MAX_RECORDING_MIN || 0);
+  const ai = process.env.AI_PROVIDER ?? 'none';
+  return {
+    user: me,
+    workspaces,
+    activeWorkspaceId: active,
+    folders: active ? await foldersOf(db, active) : [],
+    integrations: active ? await integrationsOf(db, active) : [],
+    // Per-user settings storage belongs to the dashboard area (GET /api/v1/me/settings); defaults until then.
+    settings: DEFAULT_USER_SETTINGS,
+    limits: { chunkBytes: LIMITS.chunkBytes, maxRecordingMs: maxMin > 0 ? maxMin * 60_000 : null, aiAvailable: ai !== 'none' && ai !== '' },
+    serverVersion: opts.serverVersion,
+  };
+}

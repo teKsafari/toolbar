@@ -1,7 +1,14 @@
-import { json } from '@sveltejs/kit';
-import { requireUser } from '#lib/server/api.ts';
+import { ROUTES } from '@toolbar/shared/api';
+import { db } from '#lib/server/db/index.ts';
+import { endpoint } from '#lib/server/auth/http.ts';
+import { activeWorkspaceId } from '#lib/server/auth/workspaces.ts';
 
-export const GET = (event) => {
-  const u = requireUser(event);
-  return json({ id: u.id, name: u.name, email: u.email, image: u.image ?? null, via: event.locals.apiToken?.kind ?? 'session' });
-};
+// GET only; PATCH and DELETE belong to the dashboard area.
+export const GET = endpoint(ROUTES['account.me'], async ({ user, event }) => ({
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  image: user.image ?? null,
+  via: event.locals.apiToken?.kind ?? ('session' as const),
+  activeWorkspaceId: await activeWorkspaceId(db, user.id),
+}));

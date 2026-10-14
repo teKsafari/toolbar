@@ -5,6 +5,7 @@ import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import { execFileSync } from 'node:child_process';
 import * as schema from '../src/lib/server/db/schema/index.ts';
 import { claim, complete, enqueue, fail } from '../src/lib/server/jobs/queue.ts';
 import type { Db } from '../src/lib/server/db/index.ts';
@@ -35,7 +36,13 @@ describe.skipIf(!reachable)('database (integration)', () => {
     client = postgres(url.toString(), { max: 4, onnotice: () => {} });
     db = drizzle(client, { schema, casing: 'snake_case' }) as unknown as Db;
     await migrate(db, { migrationsFolder: new URL('../drizzle', import.meta.url).pathname });
-  });
+    // Area branches add columns without migrations (docs/parallel.md rule 1): push the rest.
+    execFileSync('pnpm', ['exec', 'drizzle-kit', 'push', '--force'], {
+      cwd: new URL('..', import.meta.url).pathname,
+      env: { ...process.env, DATABASE_URL: url.toString() },
+      stdio: 'ignore',
+    });
+  }, 60_000);
 
   afterAll(async () => {
     await client?.end();
