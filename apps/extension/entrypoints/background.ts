@@ -5,8 +5,10 @@ import type { CaptureEvent, CommandName } from '@toolbar/shared';
 import { registerCaptureScripts } from '../lib/registration';
 import { CAPTURE_PORT, type BgRequest, type PortMessage } from '../lib/messages';
 import { TEST_HOOKS } from '../lib/flags';
+import { registerAuth } from '../lib/bg/auth';
 
 export default defineBackground(() => {
+  registerAuth();
   const stats = { ports: 0, events: 0, byKind: {} as Record<string, number>, commands: [] as string[], pages: [] as string[] };
   const recent: CaptureEvent[] = [];
 
