@@ -154,7 +154,7 @@ importers:
         specifier: 24.19.2
         version: 24.19.2
       tsdown:
-        specifier: ^0.23.1
+        specifier: 0.23.1
         version: 0.23.1(tsx@4.23.15)(typescript@6.0.3)
       typescript:
         specifier: 6.0.3

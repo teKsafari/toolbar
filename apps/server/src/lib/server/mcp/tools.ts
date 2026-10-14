@@ -532,7 +532,7 @@ const listFolders = define({
         id: folder.id,
         name: folder.name,
         createdAt: folder.createdAt,
-        captures: sql<number>`(select count(*)::int from recording r where r.folder_id = ${folder.id} and r.deleted_at is null and r.status <> 'uploading')`,
+        captures: sql<number>`(select count(*)::int from recording r where r.folder_id = "folder"."id" and r.deleted_at is null and r.status <> 'uploading')`,
       })
       .from(folder)
       .where(and(eq(folder.organizationId, ws.id), visibleFoldersWhere(principal.userId, ws.seat)))
@@ -578,7 +578,7 @@ const listLinks = define({
         domain: recordingLink.recorderDomain,
         createdAt: recordingLink.createdAt,
         revokedAt: recordingLink.revokedAt,
-        captures: sql<number>`(select count(*)::int from recording r where r.recording_link_id = ${recordingLink.id} and r.deleted_at is null and r.status <> 'uploading')`,
+        captures: sql<number>`(select count(*)::int from recording r where r.recording_link_id = "recording_link"."id" and r.deleted_at is null and r.status <> 'uploading')`,
       })
       .from(recordingLink)
       .where(eq(recordingLink.organizationId, ws.id))
