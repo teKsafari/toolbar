@@ -51,7 +51,7 @@
         href: `/?by=${m.userId}`,
         image: m.person.image,
       })),
-      ...result.folders.map<Row>((f) => ({ type: 'folder', key: `f:${f.id}`, label: f.name, sub: `${f.captureCount} captures`, href: `/f/${f.shortId}`, url: `${location.origin}/f/${f.shortId}` })),
+      ...result.folders.map<Row>((f) => ({ type: 'folder', key: `f:${f.id}`, label: f.name, sub: f.captureCount === 1 ? '1 capture' : `${f.captureCount} captures`, href: `/f/${f.shortId}`, url: `${location.origin}/f/${f.shortId}` })),
       ...result.captures.map(capRow),
     ];
   });

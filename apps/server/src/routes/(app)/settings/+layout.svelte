@@ -22,9 +22,10 @@
       label: 'Apps and tools',
       items: [
         ['integrations', 'Integrations'],
-        ...(isAdmin ? [['webhooks', 'Webhooks']] : []),
+        ['sdk', 'SDK'],
         ['mcp', 'MCP'],
         ['cli', 'CLI'],
+        ...(isAdmin ? [['webhooks', 'Webhooks']] : []),
         ['api', 'API'],
       ],
     },

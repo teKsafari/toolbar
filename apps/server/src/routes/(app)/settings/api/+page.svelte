@@ -1,5 +1,5 @@
 <script lang="ts">
-  // "SDK" item of the settings nav (J-171): the REST API this server offers, for scripts and
+  // "API" item of the settings nav: the REST API this server offers, for scripts and
   // tools. Tokens come from the API tokens page; the full route table is at /api/v1.
   import { ROUTE_LIST } from '@toolbar/shared/api';
   import Section from '#lib/components/dashboard/Section.svelte';

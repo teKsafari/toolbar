@@ -33,7 +33,14 @@ test('J-171, J-168: settings has its own layout with a back link and grouped nav
   await expect(page).toHaveURL(`${SERVER}/settings/workspace`);
   const nav = page.getByRole('navigation', { name: 'Settings' });
   for (const g of ['Workspace', 'Apps and tools', 'Account']) await expect(nav.getByText(g, { exact: true })).toBeVisible();
-  for (const l of ['General', 'Members', 'Integrations', 'Webhooks', 'MCP', 'CLI', 'Profile', 'Notifications']) await expect(nav.getByRole('link', { name: l, exact: true })).toBeVisible();
+  for (const l of ['General', 'Members', 'Integrations', 'SDK', 'Webhooks', 'MCP', 'CLI', 'Profile', 'Notifications']) await expect(nav.getByRole('link', { name: l, exact: true })).toBeVisible();
+  // apps and tools in Jam's order: integrations, SDK, MCP, CLI, webhooks (then our API page)
+  const tools = await nav.locator('a[data-testid^="settings-nav-"]').evaluateAll((as) => as.map((a) => a.getAttribute('data-testid')!.slice(13)));
+  expect(tools.slice(tools.indexOf('integrations'), tools.indexOf('api') + 1)).toEqual(['integrations', 'sdk', 'mcp', 'cli', 'webhooks', 'api']);
+  await nav.getByRole('link', { name: 'SDK', exact: true }).click();
+  await expect(page.getByTestId('sdk-snippet')).toContainText('window.toolbar?.setMetadata');
+  await page.getByTestId('sdk-copy').click();
+  await toast(page, 'Snippet copied');
   await expect(page.getByTestId('nav-all')).toHaveCount(0); // the dashboard sidebar is gone
   await page.getByTestId('settings-back').click();
   await expect(page).toHaveURL(`${SERVER}/`);
