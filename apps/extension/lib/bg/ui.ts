@@ -719,6 +719,9 @@ const handlers: Handlers = {
   },
 
   'ext.reset': async () => {
+    const s = session;
+    if (s.state === 'countdown' || s.state === 'starting' || s.state === 'recording')
+      await driver.cancelRecording?.(s.recordingId).catch(() => undefined);
     clearCountdown();
     await writeStore('settings', defaultSettings());
     await dispatch({ type: 'RESET' });
