@@ -218,6 +218,7 @@ async function runFinalize(rec: typeof recording.$inferSelect, attempts: number)
     }
   });
 
+  if ((await loadRec(id))?.deletedAt) return;
   if (durationMs === null && index.lastT !== null && rec.kind !== 'screenshot') durationMs = Math.max(0, Math.round(index.lastT - startedAt));
   await db
     .update(recording)
@@ -325,6 +326,7 @@ async function renditions(payload: unknown) {
       const out = join(dir, `r${h}.webm`);
       await renderRendition(src, out, h, p.hasAudio);
       const key = keys.final(id, `video-${h}.webm`);
+      if ((await loadRec(id))?.deletedAt) return; // deleted meanwhile: the purge job owns the prefix
       await putFile(key, out, 'video/webm');
       list.push({ label: `${h}p`, height: h, key });
       await db.update(recording).set({ renditions: list }).where(eq(recording.id, id));
@@ -393,6 +395,9 @@ async function purgeRecording(payload: unknown) {
   await purgeMedia(db, id);
   await db.update(recordingStream).set({ finalKey: null }).where(eq(recordingStream.recordingId, id));
   await db.update(recording).set({ thumbKey: null, renditions: null }).where(eq(recording.id, id));
+  // A media job that was mid-write when the capture was deleted may still put one object; sweep again.
+  const pass = Number((payload as { pass?: number }).pass ?? 1);
+  if (pass < 2) await enqueue(db, 'purge-recording', { recordingId: id, pass: pass + 1 }, { runAt: new Date(Date.now() + 10 * 60_000) });
 }
 
 const HOUR = 3_600_000;
