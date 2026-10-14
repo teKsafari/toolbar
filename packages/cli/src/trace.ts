@@ -162,7 +162,7 @@ export function parseTrace(zip: Buffer): TraceResult {
     if (n.type !== 'resource-snapshot') continue;
     const s = n.snapshot as Json;
     const req = s.request as { method: string; url: string; headers: unknown; postData?: { text?: string; mimeType?: string } };
-    const res = s.response as { status: number; statusText: string; headers: unknown; content?: { mimeType?: string; size?: number; _sha1?: string; text?: string } } | undefined;
+    const res = s.response as { status: number; statusText: string; headers: unknown; content?: { mimeType?: string; size?: number; _sha1?: string; _file?: string; text?: string } } | undefined;
     if (!req?.url || /^data:/.test(req.url)) continue;
     stats.requests++;
     const id = `pw-${rid++}`;
@@ -185,7 +185,8 @@ export function parseTrace(zip: Buffer): TraceResult {
     const ct = res.content?.mimeType ?? '';
     let body: string | undefined;
     if (TEXT_TYPES.test(ct)) {
-      const file = res.content?._sha1 ? (files.get(`resources/${res.content._sha1}`) ?? null) : null;
+      const ref = res.content?._file ?? (res.content?._sha1 ? `resources/${res.content._sha1}` : null);
+      const file = ref ? (files.get(ref) ?? files.get(`resources/${ref}`) ?? null) : null;
       const text = file?.toString('utf8') ?? res.content?.text;
       if (text) body = text.slice(0, BODY_CAP);
     }
