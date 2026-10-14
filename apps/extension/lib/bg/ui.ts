@@ -366,9 +366,27 @@ function armCapTimer(s: CaptureSession) {
   capTimer = setTimeout(() => void stopRecording('cap'), Math.max(0, left));
 }
 
+const BOOTSTRAP_STALE_MS = 10 * 60_000;
+
 async function loadCap(): Promise<number | null> {
   const b = await readStore('bootstrap');
+  // a recording started by its shortcut may come before any popup fetched the bootstrap:
+  // refresh it in the background and pick the cap up before the countdown ends
+  if (!b || Date.now() - b.at > BOOTSTRAP_STALE_MS) void refreshBootstrap();
   return b?.data.limits.maxRecordingMs ?? null;
+}
+
+async function refreshBootstrap() {
+  const data = await apiCall<ExtBootstrap>(ROUTES['ext.bootstrap'].path).catch(() => null);
+  if (!data) return;
+  await writeStore('bootstrap', { at: Date.now(), data });
+  const cap = data.limits.maxRecordingMs ?? null;
+  const s = session;
+  if (cap !== extras.capMs && (s.state === 'countdown' || s.state === 'starting' || s.state === 'recording')) {
+    extras.capMs = cap;
+    armCapTimer(s);
+    if ('tabId' in s) void sendToTab(s.tabId, sessionCommand(s));
+  }
 }
 
 // ---------------------------------------------------------------- flows

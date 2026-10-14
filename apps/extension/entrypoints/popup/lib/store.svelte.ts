@@ -84,8 +84,13 @@ class PopupStore {
     void browser.storage.session.remove('nib:popup-screen').catch(() => undefined);
     this.loading = false;
     (globalThis as { __nibPopupPaintMs?: number }).__nibPopupPaintMs = performance.now() - t0;
-    // account settings follow the user across browsers (J-215)
-    if (this.signedIn) void send('settings.sync', {});
+    if (this.signedIn) {
+      // account settings follow the user across browsers (J-215)
+      void send('settings.sync', {});
+      // limits (J-013), folders (J-015) and the support link (J-177) come with the bootstrap;
+      // the auth area answers from its cache when it is fresh, and storage.onChanged updates us
+      void send('bootstrap.get', {});
+    }
   }
 
   listen() {

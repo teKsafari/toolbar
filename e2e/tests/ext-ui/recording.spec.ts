@@ -3,7 +3,7 @@
 // session flow are real.
 import type { Page, Worker } from '@playwright/test';
 import { expect, test } from '../../fixtures/extension.ts';
-import { calls, freshState, labPage, openPopup, session, stats } from './helpers.ts';
+import { calls, freshState, labPage, mockServer, openPopup, session, stats } from './helpers.ts';
 
 const UI = 'toolbar-root';
 const bar = (page: Page) => page.locator(`${UI} [data-nb-bar]`);
@@ -296,4 +296,23 @@ test('closing the tab mid-recording ends the recording into the Drafts list and 
   await expect.poll(async () => (await calls(sw)).map((c) => c.fn)).toContain('stop');
   await expect.poll(async () => (await session(sw)).state).toBe('idle');
   expect((await stats(sw)).transitions.slice(-3)).toEqual(['recording>stopping', 'stopping>draft', 'draft>idle']);
+});
+
+test('J-013: a recording started by its chord, with no bootstrap cached, gets the cap from a bootstrap the worker fetches', async ({ context, sw }) => {
+  const server = await mockServer({
+    'GET /api/v1/ext/bootstrap': () => ({
+      user: null, workspaces: [], activeWorkspaceId: null, folders: [], integrations: [], settings: null, serverVersion: 'mock',
+      limits: { chunkBytes: 1, maxRecordingMs: 12_000, aiAvailable: false },
+    }),
+  });
+  await freshState(sw, { auth: { serverUrl: server.url } });
+  const { page, tabId } = await labPage(context);
+  await startLive(sw, page, tabId);
+  expect(server.hits.some((h) => h.path === '/api/v1/ext/bootstrap')).toBe(true);
+  await expect(bar(page)).toHaveAttribute('data-stage', 'warn');
+  await expect(bar(page).locator('[data-nb-cap]')).toHaveText(' / 0:12');
+  await expect.poll(async () => (await stats(sw)).stops, { timeout: 15000 }).toContain('cap');
+  await sw.evaluate(() => chrome.storage.local.remove('nib:bootstrap'));
+  await page.close();
+  await server.close();
 });
