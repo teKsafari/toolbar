@@ -1,0 +1,351 @@
+# Jam feature catalogue
+
+Written 2026-10-13 from the raw notes of eight research passes (popup and capture, annotation, lab capture, viewer and sharing, dashboard, MCP and agents, flows and speed, public docs). The notes and screenshots live in `research/jam-private/`, outside git.
+
+All descriptions are our own words. Jam's UI labels are described, not quoted.
+
+How to read the table:
+
+- **Clicks** counts pointer clicks and drags in Jam's own UI, starting from a normal web page with the extension pinned. Typing is not counted. "Key" means a keyboard chord replaces the clicks. A dash means the feature is passive.
+- **Shortcut** lists default Chromium keys on Linux and Windows. On macOS Ctrl becomes Cmd.
+- **Priority**: P0 core, P1 important, P2 nice to have.
+- **Source**: "observed" means a research agent used it in the shared browser on 2026-10-13 (extension 5.90.0, free plan). "public doc" means it appears only in Jam's public docs, pricing page or blog; those rows are untested and listed again in `untested.md`.
+- Times were measured on a slow VM and are upper bounds. `flows.md` has the full timings.
+- Rows for Jam's Mac and iOS apps are on the skip list (owner decision D-016) and kept only for completeness.
+
+## Capture modes
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-001 | Toolbar popup with the capture menu | Click the pinned extension icon. A card opens under it with one row per mode: screenshot, record, share-the-past (only when enabled) and recording link. A home icon and a three-dot menu sit in its header. | 1 | Ctrl+Shift+Y | P0 | observed |
+| J-002 | Visible-area screenshot | Open the popup, click the screenshot row, click anywhere on the page. The whole viewport is captured and the draft editor opens. | 3 (or key + 1) | Ctrl+Shift+S, then click | P0 | observed |
+| J-003 | Area screenshot by drag | In screenshot mode, press and drag a box. A translucent green rectangle and a live width-by-height readout follow the pointer. Release opens the editor with the crop. | 2 drag (key + drag) | Ctrl+Shift+S, then drag | P0 | observed |
+| J-004 | Full viewport kept with an area crop | An area draft shows a small thumbnail of the whole viewport above the tool bar with a checkbox, ticked by default. Untick it to send the crop alone. When kept, the viewer shows both images behind a two-thumbnail switcher, crop first (J-209). | 0 to keep, 1 to drop | - | P1 | observed |
+| J-005 | Screenshot delay timer | Open the screenshot row's chevron, pick 3 s or 6 s on a three-way switch, click the row, then click or drag on the page. A countdown badge runs bottom-left with a cancel pill bottom-right; the shot fires at zero. The choice resets to off next time. | 4 | - | P2 | observed (6 s untested) |
+| J-006 | Tab video recording | Open the popup, click the record row. A 3-2-1 countdown runs, then the tab is recorded with no browser share picker. Only the page viewport is in the video. | 2 | Ctrl+Shift+Space (start and stop) | P0 | observed |
+| J-007 | Desktop or window recording | Open the record row's chevron, switch the area from tab to desktop (the choice sticks), click the row, pick a source in Chrome's share picker, confirm. Recording starts at once with no countdown. | 5 first time, 4 after | none | P0 | observed |
+| J-008 | Desktop recording follows tab switches | During a desktop recording, switch tabs. The recording bar appears in the new tab, the timer keeps running, and logs come from each tab the extension runs in. The draft opens in whichever tab is active at stop. | - | - | P1 | observed |
+| J-009 | Instant replay (share the past) | Enable it once in popup settings. Later, open the popup and click the new rewind row, or press the key. The draft opens with a DOM replay of the recent past, trimmed by default to the last 30 s. No reproduction needed. | 2 (or key) | Ctrl+Shift+X | P0 | observed |
+| J-010 | Instant replay is a DOM replay | The replay is rebuilt from page snapshots, not pixels. It re-lays out at the preview width and draws a pointer glyph. The buffer stays on the machine and is wiped every 2 minutes; it starts at the last page load. | - | - | P0 | observed |
+| J-011 | Heavy-page guard for instant replay | On pages Jam judges heavy, the replay row shows a disabled badge. Clicking it opens a warning dialog inside the popup; continuing enables replay for this page load only. | 2 | - | P2 | observed |
+| J-012 | Replay site lists | In popup settings, with replay on, open the blocked-sites list (about 76 banks, brokers, crypto and payment sites by default; add by domain, remove with a trash icon) or the always-on list for heavy sites. | 3 to open, 1 per add | - | P2 | observed |
+| J-215 | Replay setting follows the account | The instant replay on or off choice is stored with the Jam account, so it stays the same across browsers and profiles signed in to that account. | - | - | P2 | public doc |
+| J-013 | Recording length cap and upsell | Free plan videos stop near 5:00. From about 4:26 the timer shows the cap and turns orange, then red. Seconds before the cap a card above the bar offers an upgrade or dismiss. Paid plans get 15 minutes. | - | - | P1 | observed (cap behavior unclear, see untested) |
+| J-014 | Microphone narration toggle | A mic pill sits inside the record row. Clicking it opens an extension page in a new tab to ask for mic permission. With no device the tab closed itself and the mic stayed off, with no message. | 1 | - | P1 | observed (no mic in VM) |
+| J-210 | No camera in the extension | The browser extension has no camera option anywhere: not in the popup, the record chevron (tab or desktop only), the recording bar or the draft. Only the Mac app offers a camera bubble (J-023, skip list). Decision row for the camera half of the voice-and-camera area. | - | - | P1 | observed |
+| J-015 | Recording link created from the popup | Click the recording-link row, give an optional name, pick the recorder domain (with a status dot, J-232) and a folder, click create. The short link is copied at once and shown with a copy button. | 2 to 4 | unbound command exists | P1 | observed |
+| J-232 | Recorder domain status | In the recording-link form, the recorder-domain picker shows a small dot beside the domain: red for Jam's default recorder domain (no console or network capture), green per the docs for a connected domain whose scripts were found. Its menu lists the default domain with a tick and a connect-your-domain item that leads to J-143. | 2 to open the menu | - | P2 | observed (red), public doc (green) |
+| J-016 | Recording link explainer | The help icon on the recording-link row opens a three-card carousel inside the popup: you send a link, they record, it lands in your workspace with an email. | 1 + 3 | - | P2 | observed |
+| J-017 | Recorder page for a link recipient | The recipient opens the link with no extension and no account, picks screen only or screen plus voice, starts, picks a source in Chrome's picker, records with a small always-on-top control window, stops, reviews, adds an optional note, then submits or redoes. No console or network data unless the site owner installed Jam's page scripts. | about 5 | - | P1 | observed |
+| J-018 | New capture from the dashboard | The green new-capture button in the dashboard header opens the extension popup from the page. | 1 | - | P2 | observed |
+| J-019 | Popup adapts to context | On Jam's own pages the record row offers desktop recording instead of tab recording. On browser-internal pages the popup shows an error state (J-199). | - | - | P2 | observed |
+| J-020 | Upload an existing video | Drag an MP4 or WebM (up to 200 MB) onto the dashboard or a folder to make a capture with no logs. | 1 drag | - | P2 | public doc |
+| J-021 | Incognito and local files | With the matching browser switches on, every mode works in private windows (flagged on the capture) and on local file URLs. | - | - | P2 | public doc |
+| J-022 | Emulated mobile viewport | Captures taken while DevTools device emulation is on record the emulated viewport and device data. | - | - | P2 | public doc |
+| J-235 | Supported browsers | The extension runs in Chrome, Edge, Arc, Brave and Opera. Brave loses WebSocket capture and the network-speed row. There is no Firefox or Safari extension, but recording links work there, with the network-speed row hidden. | - | - | P2 | public doc |
+| J-023 | Mac app recorder | Menu-bar recorder with area, window and screen modes, camera bubble, local drafts and 4K. Skip list (D-016). | - | - | P2 | public doc |
+| J-024 | iOS app recorder | Phone screen recording with trim, annotate and AI titles. Skip list (D-016). | - | - | P2 | public doc |
+
+## In-page recording UI
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-025 | Screenshot-mode cursor hint | When screenshot mode is armed, a small grey translucent pill trails the pointer (about 5 px right, 20 px below) telling you to click or drag. The page is not dimmed and no toolbar appears. With a delay set, the pill mentions the timer. | - | - | P0 | observed |
+| J-026 | Leave screenshot mode | Press Escape, or reopen the popup where the screenshot row has turned into an exit row with a red icon and the other rows are greyed. | 0 or 2 | Escape | P1 | observed |
+| J-027 | Pre-roll countdown | After a tab-recording start the page dims under a grey veil and the bar counts 3, 2, 1 at bottom centre, then shows a starting spinner. One run also showed a centred card about mic state with a hint that a click pauses the countdown. Key to live: about 6.4 s. | - | - | P0 | observed |
+| J-028 | Recording control bar | A dark rounded pill (about 295x40) at bottom centre of the viewport: red stop square, pause, elapsed timer, mic state, divider, pen, blur. It is part of the captured tab video. | - | - | P0 | observed |
+| J-029 | Pause and resume | Click pause on the bar. The icon turns to play and the timer freezes; resume continues, and paused time is left out of the video. | 1 each | - | P1 | observed |
+| J-211 | Mute and switch mic while recording | With narration on, the mic control on the bar mutes and unmutes the mic mid-recording, and a different microphone can be picked without stopping. | 1 each | - | P1 | public doc |
+| J-030 | Live drawing during recording | Click the pen on the bar. The bar swaps to 12 colour dots (red preselected) and a done button. Drag on the page to draw; each stroke fades out after 2 to 3 s like a laser pointer. A pen marker appears on the timeline. | 1 + drags + 1 | - | P1 | observed |
+| J-031 | Live element blur during recording | Click the blur icon on the bar. Hovering an element outlines it in green with a tooltip; click blurs that DOM element in the live page, click again to unblur. The bar offers undo and done. Docs say recording pauses while blurring and that iframes and canvas cannot be blurred. | 1 + 1 per element | Escape leaves | P1 | observed |
+| J-032 | Recording survives navigation | SPA route changes keep the bar and timer. A full page load removes the bar while the document loads, then re-injects it with the timer still counting. | - | - | P0 | observed |
+| J-033 | Browser-level recording cues | The extension icon turns into a red camera while recording. Chrome adds its own capture indicator on the tab, and for desktop mode its own sharing strip with stop and hide. | - | - | P1 | observed |
+| J-034 | Post-stop processing state | After stop the bar shows a spinner while console logs are gathered (5 to 9 s typical), then the draft editor opens in the active tab. The wait can hang: it took about 100 s once (broken draft), and in a later session at a load average near 2 the spinner sat for over 3 minutes and the editor never opened. Recovery: popup three-dot menu, restart extension, then open the draft from the Drafts list (J-218); that draft was intact. No timeout or error message appears while it hangs. | - (recovery 5 clicks) | - | P1 | observed (two hangs) |
+| J-035 | Unfinished draft guard | The popup header shows a pill counting unfinished drafts. While a draft is open in a tab or still processing after stop, the screenshot, record and replay rows are disabled and only the recording-link row stays active. Once the draft is saved for later (J-219), or after an extension restart, the capture rows are enabled again and the pill becomes a button that opens the Drafts list (J-218). | 1 to open drafts | - | P1 | observed |
+| J-218 | Local drafts list | Click the unfinished-draft pill in the popup header. The popup body swaps to a Drafts screen with a back arrow: one row per draft with a small thumbnail, the page host, its age, a green view button and a trash icon. View reopens the draft editor in the current tab with trim and AI text intact. The trash icon turns in place into a red confirm button; a second click deletes, with no dialog. Drafts stay on the machine until created or deleted. The way back from a hung or saved draft. | 2 to reopen, 3 to delete | - | P1 | observed |
+| J-036 | Blur before recording | In tab mode the blur tool can be used during the countdown. | - | - | P2 | public doc (blur icon seen on the countdown bar) |
+
+## Annotation
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-037 | In-page screenshot editor | After capture, a large white modal (about 1380x730, rounded) opens over the dimmed page in the same tab, inside an injected frame. Left 70%: close button, preview, floating tool pill. Right 30%: the submit form. | - | - | P0 | observed |
+| J-216 | Editor leaves page scroll unlocked | The modal does not lock the host page. The mouse wheel over the draft preview scrolls the page behind the modal (about 120 px after five wheel steps) while the preview stays still. | - | - | P2 | observed |
+| J-038 | Pen | Default tool when the editor opens. Freehand, smoothed stroke with a slight taper. Stays active for further strokes. | 0 (1 to reselect) | D | P0 | observed |
+| J-039 | Rectangle | Pick the tool, drag. Rounded-corner outline, fixed stroke. The tool returns to select and the new shape stays selected. | 2 | none | P0 | observed |
+| J-040 | Ellipse | Pick the tool, drag a bounding box. Not constrained to a circle. Returns to select. | 2 | none | P0 | observed |
+| J-041 | Arrow with bend handle | Pick the tool, drag tail to head. Open V head. When selected it has end handles plus a middle handle that bends it into a curve. | 2 (+1 drag to bend) | none | P0 | observed |
+| J-042 | Line | Pick the tool, drag a straight thick stroke with no head. | 2 | none | P1 | observed |
+| J-043 | Text callout | Pick the tool, click on the image, type. Renders as white bold text in a filled rounded box of the current colour with a soft shadow; the box fits the text. Click elsewhere to commit. Double-click a label to edit it with all text selected. | 2 + typing | T | P0 | observed |
+| J-044 | Blur area | Pick the tool, drag a box. Everything under it gets a strong live blur; moving the box re-blurs the new spot and un-blurs the old. No pixelate or solid redact. | 2 | none | P0 | observed |
+| J-045 | Colour palette | Click the colour dot: a small card with 6 swatches (purple default, red, orange, green, blue, black). Picking one recolours the selected shape and sets the colour for new shapes. Resets to purple per draft. No width, fill, dash or opacity controls. | 2 | none | P0 | observed |
+| J-046 | Select, move, resize, rotate | Select tool, click a shape's outline (not its inside). Drag to move, drag corners or edges to resize, drag just outside a corner to rotate. Resizing a text callout scales its font. | 1 + drag | V | P1 | observed |
+| J-047 | Marquee multi-select | With the select tool, drag on empty image space. Every shape the grey box touches joins one group selection. | 1 drag | - | P1 | observed |
+| J-048 | Delete selection | Select one or many shapes, press Delete or Backspace. One undo step brings the whole group back. | 0 | Delete, Backspace | P1 | observed |
+| J-049 | Undo and redo | Buttons at the right end of the tool pill, greyed when empty. Each create, move, resize, recolour and delete is one step. Ctrl+Z works; the redo keys did nothing in the screenshot editor, so redo is button-only there. | 1 | Ctrl+Z | P0 | observed |
+| J-050 | Tool tooltips with key badges | Hovering a tool for 1 to 2 s shows a dark tooltip naming it, with a key badge for the three tools that have keys. | 0 | - | P2 | observed |
+| J-051 | Annotations flattened into the image | The created capture carries one flat image with the marks burned in. Marks cannot be edited or hidden after create. | - | - | P0 | observed |
+| J-052 | Copy and paste of shapes | Docs mention shape copy and paste in the annotator. Ctrl+C and Ctrl+V did nothing in our test. | - | Ctrl+C, Ctrl+V | P2 | public doc (not working in test) |
+| J-053 | No crop, zoom or eraser | The screenshot editor has no crop tool (area capture is the crop), no zoom or scroll on the image, no eraser, highlighter, step badges or stickers. Recorded so the replica does not overbuild. | - | - | P2 | observed |
+
+## Recording contents
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-054 | Tab video file | The tab video is the viewport only, without browser chrome, stored as WebM and served as an adaptive stream with several qualities. Desktop video includes browser chrome. | - | - | P0 | observed |
+| J-055 | Console capture by level | log, info, warn, error and debug are kept with a time offset. log, info and debug share one icon; warnings are yellow rows, errors pink rows. Objects are flattened to one-line JSON. console.table, group labels, trace, assert, count and time are not captured. | - | - | P0 | observed |
+| J-056 | Call-site stack on every console row | Each console row expands to the stack where the call happened (function, file, line, column as links), for all levels. Minified positions only; no source maps. | 1 to expand | - | P1 | observed |
+| J-057 | Uncaught exceptions | Uncaught errors become error rows with class, message and stack, plus an error marker on the video timeline. Unhandled promise rejections were not captured at all. | - | - | P0 | observed |
+| J-058 | Network list | Every fetch, XHR, document, script, style, font and image loaded during the capture, with method, status, domain, type, frame, size, time and waterfall. Requests from before the capture began are absent. Jam's own injected fonts and locale file leak into the list. | - | - | P0 | observed |
+| J-059 | Request and response headers | Full request and response headers per request, grouped under general, response and request. | - | - | P0 | observed |
+| J-060 | Request and response bodies | Bodies of fetch and XHR requests are kept and shown in a code viewer with line numbers, JSON folding, pretty-print and copy. Documents, static assets and streamed responses have no body. | - | - | P0 | observed |
+| J-061 | Pending requests | A request that never returns is listed with blank status and 0 ms, no headers, no body. It is not marked as pending. | - | - | P1 | observed |
+| J-062 | WebSocket frames | A socket opened during capture appears as a 101 row whose detail lists every frame with direction, data, length and video-relative time, a regex filter, a direction filter and a pretty-printed detail pane. Sockets opened before capture are invisible. | 2 to open | - | P1 | observed |
+| J-063 | Server-sent events | An SSE stream is listed with headers and duration only. The events themselves are not kept. | - | - | P2 | observed |
+| J-064 | GraphQL awareness | GraphQL responses with an errors array count as failures even at HTTP 200, and rows show the operation name. | - | - | P1 | public doc |
+| J-065 | CORS error call-out and timing breakdown | CORS failures are highlighted, and each request has a DNS, connect and response timing breakdown. | - | - | P2 | public doc |
+| J-066 | Binary payload placeholder | Protobuf, MessagePack, gRPC and binary socket payloads show as a size-only placeholder. | - | - | P2 | public doc |
+| J-067 | Click events | Each click is logged as a pseudo HTML tag with a few attributes and a chip that expands the rest (for example a test id). Buttons with no type attribute are reported as submit buttons. Clicks inside iframes are missed. | - | - | P0 | observed |
+| J-068 | Typing events | One row per field with the typed text in a bordered chip. Plain text and textarea values appear in clear; email and password values become a run of asterisks whose length does not match the input. Chord keys such as the stop shortcut also appear as typed rows. | - | - | P0 | observed |
+| J-069 | Navigation events | SPA route changes are logged as history navigations; full loads name the cause (reload, typed address, link click) and are preceded by a tab-hidden row. Scrolling is not recorded. | - | - | P0 | observed |
+| J-070 | Page and device metadata | Start URL, creation timestamp, country, OS, browser and version, viewport size and a network speed bucket with latency. The API also exposes battery, connection details, incognito flag and extension version. No device pixel ratio, language or time zone. The URL is the one at capture start, even after route changes. | - | - | P0 | observed |
+| J-071 | Logs from before the capture | A screenshot or recording also carries console, network and user events from shortly before it was taken (the buffer seems to restart after each capture and does not reach back to page load). | - | - | P0 | observed |
+| J-072 | Timeline markers in the video | Console errors, failed requests (labelled with the status code), live drawings and comments appear as markers above the seek bar and the trim bar at their moment. | - | - | P0 | observed |
+| J-073 | Custom metadata SDK | A page installs an npm package and registers a callback; its JSON object (under 10 KB) is attached to each capture and shown in a custom logs row. Opened as a two-step setup modal from the info tab. | 1 to open setup | - | P1 | observed (setup UI), public doc (behavior) |
+| J-074 | Voice transcript | Video captures recorded with the mic get a timestamped transcript. Without a mic the transcript job is skipped. Captions are a separate row (J-236). | - | - | P1 | public doc |
+| J-236 | Captions | Pricing lists captions alongside transcription on every plan, presumably drawn from the voice transcript over the video. Not seen. | - | - | P2 | public doc |
+| J-075 | AI chapters | Some videos get two to four AI-written chapters with start times; others never do. | - | - | P2 | observed |
+| J-076 | Third-party session links | If the page runs Sentry, FullStory or LogRocket, the capture links to that tool's session or shows Sentry events near the capture time. | - | - | P2 | public doc |
+
+## Editor and submit
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-077 | Title and description in one field | The draft has one rich-text box: the first line is a large title, later lines are the description. It has focus when the editor opens, so you can type a title at once. Nothing is prefilled from the page. Empty title is allowed. | 0 | - | P0 | observed |
+| J-078 | Markdown-style input rules | In the description, a dash and space starts a bullet list, a number and dot starts a numbered list, Ctrl+B bolds. No visible format toolbar. Formatting survives into the viewer. | 0 | Ctrl+B | P2 | observed |
+| J-079 | Destination picker | A dropdown at the top of the form defaults to making a share link; it also lists nine trackers and chat tools to connect or post to (Slack, Linear, Jira, GitHub, ClickUp, Notion, Azure DevOps, GitLab, Asana). | 2 | - | P0 | observed |
+| J-080 | Workspace picker | A second dropdown beside the destination picks which workspace receives the capture. | 2 | - | P1 | observed |
+| J-081 | Folder picker | Once the workspace has a folder, a folder button appears in the form's bottom row; its menu lists no folder plus each folder, and the pick shows as a chip. The last folder used is remembered for later fresh drafts. A video draft reopened from the Drafts list came back with an empty folder chip although a screenshot draft in the same session showed the last folder, so the folder seems to be stored per draft when it is made, not applied on reopen. | 2 | - | P1 | observed |
+| J-082 | Attach files to the draft | A paperclip opens the OS file chooser. In our test the chosen files did not show up on the capture. | 1 | - | P2 | observed (did not work) |
+| J-083 | AI title and repro steps | On video and replay drafts an AI switch sits next to create. When on, a few seconds after open, grey ghost text proposes a title, a one-line summary, numbered steps with clickable time links and an observed result. Tab or an accept button turns it into real text, and so does clicking inside the ghost title (J-230). In one test the ghost description was also kept as real text on create although only the title had been clicked. The switch is disabled on screenshots with a tooltip saying why. Jam's public docs say the on or off choice is saved for future captures; a reopened video draft had it on, which fits. | 1 key | Tab | P1 | observed, public doc (remembered choice) |
+| J-230 | Click into the ghost title | Clicking inside the grey AI title accepts it and drops the caret where you clicked; typing then splices into the AI title (a typed phrase landed mid-word). On create the ghost description was kept as real text too. A replica must decide whether a click accepts; Jam's way makes stray clicks edit the AI text. | 1 | - | P1 | observed |
+| J-084 | Video preview in the draft | A preview with a round play button. Play starts at the left trim handle; clicking the video toggles play; clicking the bar seeks. The length is spelled out in words under the bar. | 1 | - | P0 | observed |
+| J-085 | Trim | Drag either grip handle of the green trim bar inward. The cut part greys, the preview scrubs with the handle and the length updates live. Each drag is an undo step. No split, speed, frame crop or cover picker. Trim cuts more than the video: logs and events outside the kept range are dropped too (J-227). | 1 drag per end | Ctrl+Z, Ctrl+Shift+Z | P0 | observed |
+| J-086 | Create and copy link | Click the green create button. It shows a spinner, a toast bottom-right says the link is being made, then switches to a green tick saying the capture opened in a new tab and the link is on the clipboard. The capture opens in a new background tab placed directly right of the source tab (not at the end of the strip). Screenshot about 4 s, video about 1.6 to 4 s. | 1 (or key) | Ctrl+Enter | P0 | observed |
+| J-220 | Create by key | With focus in the draft's title or description, press Ctrl+Enter. The capture is created exactly as with the create button: the link is copied and the capture page opens in a background tab. Makes a fully keyboard path possible: chord, click, type, Ctrl+Enter. | 0 | Ctrl+Enter | P1 | observed |
+| J-087 | Upload during the draft | Video data uploads while you edit, so create returns almost at once. Trimming then runs on the server; the viewer shows a blurred frame with a trimming notice until it finishes (about 3 minutes once). The stored length can differ from the draft's label (12 s in the draft, 9 s in the viewer once), and AI text written before the trim is not rewritten (J-227). | - | - | P1 | observed |
+| J-227 | Trim also cuts logs and events | Trim the draft and create. On the capture, console, network and user-event rows that fell in the cut part are gone: a trim that removed the 500 and the thrown error left only video started and stopped in the console and the empty states of J-231 in network and actions. The viewer's length can be shorter than the draft's label (12 s against 9 s). AI title and summary written before the trim stay as they were and can describe a cut event. | - | - | P1 | observed |
+| J-088 | Discard the draft | On a screenshot draft the close button discards at once with no confirmation. Escape once shows a toast telling you to press again; a second Escape within about a second discards. A video draft reopened from the Drafts list behaves differently: its close button saves instead (J-219). A fresh video draft that came back broken at 0 seconds discarded at once on close, with no confirm and no toast, and left no draft pill in the popup. A healthy fresh video draft was not checked. | 1 | Escape twice | P1 | observed |
+| J-219 | Save a video draft for later | On a video draft reopened from the Drafts list, the top-left close button is labelled as save-for-later. Clicking it closes the editor and a toast bottom-right says the draft went to your drafts, with a view button to reopen it. The popup then shows the draft pill with the capture rows enabled. | 1 | - | P1 | observed |
+| J-089 | Open in new tab setting | A popup setting (on by default) chooses whether new captures open in a new tab after create. | 3 to change | - | P2 | observed |
+
+## Viewer
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-090 | Two-column capture page | Left column: header, media, title, description, creator line, comments. Right column (about 38%): a dev tools panel with info, console, network, actions and MCP tabs (the fifth tab is labelled MCP; earlier notes called it the agent tab). A draggable splitter between them. | - | - | P0 | observed |
+| J-091 | Hide or show the dev tools panel | A toggle at the top right of the panel hides it; the left column centres and widens. One click each way. | 1 | - | P1 | observed |
+| J-092 | Video player | Dark rounded card with creator chip, big play button with a duration badge, auto-hiding controls: play, back 5 s, forward 5 s, mute, time, chapter pill, speed (0.5x to 2x), quality (original, auto, 720p to 240p), fullscreen. Playback speed is remembered per viewer. A replay prompt shows at the end. | 1 per control | - | P0 | observed |
+| J-093 | Player keyboard | k or Space play and pause, m mute, f fullscreen, i picture-in-picture, left and right arrows jump 5 s, number keys seek to that tenth of the video. No help sheet. | 0 | k, Space, m, f, i, arrows, 0-9 | P1 | observed |
+| J-094 | Seek bar hover preview | Hovering the seek bar shows a frame thumbnail and the time with the chapter name. | 0 | - | P2 | observed |
+| J-095 | Marker hover and jump | Hovering an error or status marker above the seek bar shows a dark pill with the count and, for failed requests, the error text from the body. Clicking the pill opens the console tab at that error. | 0 to 1 | - | P1 | observed |
+| J-096 | Chapters menu | The chapter pill in the controls opens a list of chapters with times; picking one seeks. The seek bar is split at chapter edges. | 2 | - | P2 | observed |
+| J-097 | Share at the current time | Video captures only. A pill at the top right of the player copies a link that opens the capture at the current second (to two decimals), with a toast. | 1 | - | P1 | observed |
+| J-098 | Download media | Video and screenshot captures only. A download button on the player saves the video as WebM, or the image for a screenshot. A toast confirms and pitches the agent setup. | 1 | - | P1 | observed |
+| J-099 | Screenshot view and lightbox | A screenshot capture shows the image in the media card (scrollable if tall) with creator chip and download. Clicking it opens a large lightbox; Escape or an outside click closes it. An area capture that kept the full viewport adds a crop/full switcher under the image (J-209). | 1 | Escape | P1 | observed |
+| J-209 | Cropped and full image switcher | An area capture that kept the full viewport (J-004) shows two small thumbnails centred at the bottom of the media card, crop first and selected, full viewport second. One click on a thumbnail swaps the main image; the selected one has a blue outline. | 1 | - | P1 | observed |
+| J-100 | Instant replay playback | Replay captures rebuild the DOM replay in the media card under the creator chip. A white loading card with a short line and a thin progress bar shows first. The control bar is smaller than the video player's (J-229): no download, share-at-time, mute, quality or chapters. | 1 | - | P1 | observed |
+| J-229 | Replay player controls | The replay player has its own small bar: play, back 5 s, forward 5 s, current and total time, speed and fullscreen. Error markers float above the seek bar as on video. Before the first frame a loading-your-session card with a progress bar fills the media card. | 1 per control | - | P1 | observed |
+| J-101 | Info tab | Shows the metadata of J-070 as label and value rows, a custom logs row with a setup button, and a timestamp whose menu switches between the capture's zone, your zone and UTC. | 1 per menu | - | P0 | observed |
+| J-102 | Console tab with filters | Merged timeline of console rows, failed requests, navigations, clicks, typing, video start, pause and stop, and screenshot markers (J-233). Free-text filter, multi-select level menu, and toggle chips for navigations, network errors and user activity (chips appear only for kinds present). | 1 per filter | - | P0 | observed |
+| J-233 | Video paused row | A pause during recording leaves its own row in the merged console timeline at the pause moment, between video started and video stopped. | - | - | P2 | observed |
+| J-103 | Click a row to seek | Hovering a console, network or actions row shows a play triangle in the gutter; clicking it seeks the video to that moment and arms a timestamped comment. Clicking the row itself expands it. Hovering the time shows the wall-clock time with milliseconds. | 1 | - | P0 | observed |
+| J-104 | Panels follow playback | During playback the console and network lists scroll so the row at the current time is in view, marked with a triangle and a dark left bar. | - | - | P1 | observed |
+| J-105 | Network tab | A canvas-drawn table like browser DevTools: row number, name with a type icon, method, status, domain, type, frame, size, time, waterfall. Text filter, type chips (all, fetch/XHR, WS, JS, CSS, media, font, doc, other), an errors-only checkbox and sortable columns. Failed rows are pink with red text. | 1 per filter | - | P0 | observed |
+| J-224 | Tab column on desktop recordings | A desktop recording gathers requests from several tabs, so its network table gains a Tab column, between type and frame, holding the source tab's numeric id. Tab recordings and screenshots have no such column. | - | - | P2 | observed |
+| J-106 | Request detail pane | Clicking a row opens a pane that collapses the list to two columns, with headers, request and response sub-tabs (websocket sub-tab for sockets) and a close button. Status has a coloured dot. | 1 | - | P0 | observed |
+| J-107 | Copy as cURL | A button in the request detail copies a multi-line curl command with method, every header and the body, cookies replaced by a placeholder. The button confirms and a toast pitches agent setup. | 2 (row, button) | - | P1 | observed |
+| J-108 | Actions tab | User events and navigations only, same row format as the console, with no filter bar. The attribute chip expands a tag into a multi-line list. | 1 | - | P1 | observed |
+| J-109 | Tab error dots | Tab labels carry a red dot when that tab holds errors and a green dot when it has data and no errors. The last used tab is remembered across captures. | - | - | P2 | observed |
+| J-110 | Inline title and description editing | Click the title and type; Enter commits. The description below is a rich-text editor that saves on blur. No save button; the browser tab title updates. Logged-out viewers cannot edit. | 1 | Enter | P0 | observed |
+| J-111 | Time links in the description | AI-written steps carry blue time links; one click seeks the player. | 1 | - | P2 | observed |
+| J-112 | Header actions | Home icon back to the dashboard, a folder chip showing where the capture lives, a three-dot menu (move to folder, delete), a send-to-app split button and a green copy-link split button. | 1 each | - | P0 | observed |
+| J-113 | Move to folder from the capture page | Three-dot menu, move submenu, pick a folder or the root, or create a new folder there. | 3 | - | P1 | observed |
+| J-114 | Delete a capture | Three-dot menu, delete, confirm in a modal that warns it is permanent. Toast, then redirect to the dashboard. About 3 s. | 3 | - | P0 | observed |
+| J-115 | Narrow-screen layout | At phone width the page becomes one column, the dev tools panel hides behind a toggle that swaps the whole view, and the network table scrolls sideways. | 1 to toggle | - | P2 | observed |
+| J-116 | Figma embed | With a Figma link in the description, the capture page shows a Figma icon at the bottom; clicking it reveals the embedded frame. The embed stays hidden until that click. | 1 | - | P2 | public doc |
+
+## Sharing and permissions
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-117 | Copy share link | The green copy button in the capture header copies the capture URL; the label turns to a tick for about 2 s and a toast confirms. Also on dashboard card hover (J-159) and auto-copied on create (J-086). | 1 | - | P0 | observed |
+| J-118 | Link with or without dev tools | The caret beside copy opens a share popover with two large cards: one copies the full link, the other copies a content-only link whose page has video, title, description and comments but no dev tools. | 2 | - | P1 | observed |
+| J-119 | Per-capture general access | The share popover sets who can open the link: anyone with it (default) or workspace members only (paid). Folder-level privacy is J-237. A manage-access item goes to workspace settings. No password, expiry or embed code. | 3 | - | P1 | observed |
+| J-237 | Private folders and private captures | Paid plans list private folders and private captures, so a whole folder could be hidden from the rest of the workspace. Not seen on the free plan, where only J-119's per-capture access exists. | - | - | P2 | public doc |
+| J-120 | Workspace default link access | Admins set the default access level for all new links. Paid plans only; shown disabled on free. | 2 | - | P2 | observed (disabled) |
+| J-121 | Logged-out viewer | Anyone with the link sees the full page with every dev tools tab, copy cURL, share-at-time and download. The header shows only log-in and sign-up buttons. Title and description are read-only. | - | - | P0 | observed |
+| J-122 | Folder sharing | A share button on a folder page opens a popover: copy folder link, invite by email with an invite button, a who-has-access list with roles, and the general access level. | 1 + typing + 1 | - | P1 | observed (invite not sent) |
+| J-123 | Invite members | The invite button in the dashboard header opens a modal with a copyable team invite link and an email field with a role choice (creator, or free viewer). The invite button stays disabled until the email is valid. | 1 + typing + 1 | - | P1 | observed (not sent) |
+| J-124 | Seat roles | Admin (settings and billing), creator (create, comment, move, delete), viewer (view and comment, free seat). A viewer who creates may be auto-upgraded to creator. | - | - | P1 | observed (labels), public doc (rules) |
+| J-125 | Join by email domain | A workspace setting lets anyone who signs up with the workspace's email domain join; they enter as viewers and admins are told. | 1 | - | P2 | observed (toggle), public doc (behavior) |
+| J-126 | Recording link sharing | Each recording link row has a share button, and link usage sends you an email. Query parameters can preset title, folder, reference and mic. | 1 | - | P2 | observed (row), public doc (parameters) |
+
+## Comments and notifications
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-127 | Timestamped comments | The composer is pinned at the bottom of the left column. Once the player time is not zero, the send button grows into a pill naming the current time and the comment is pinned there. Enter adds a line; Ctrl+Enter sends. Clears in under 0.2 s. | 1 + typing | Ctrl+Enter | P0 | observed |
+| J-128 | Comment markers on the timeline | A timestamped comment appears as a small dark bubble with a count above the seek bar; hover shows author and text. Clicking a comment's time chip seeks, scrolls up to the player and highlights the comment. | 1 | - | P1 | observed |
+| J-129 | Comment permalink | Hover a comment, click the link icon: copies the capture URL with the comment id; opening it highlights the comment. | 1 | - | P2 | observed |
+| J-130 | Reactions | Hover a comment, click the smiley, pick one of 8 fixed emoji. A pill with a count appears; clicking your own pill removes it. | 2 | - | P2 | observed |
+| J-131 | Edit and delete own comment | Hover, three-dot menu, edit (inline field with cancel and save, then an edited label) or delete (permanent-warning modal). | 2 to 3 | - | P1 | observed |
+| J-132 | Comment attachments | The composer paperclip opens the file chooser; an image shows as a removable thumbnail, posts as a thumbnail, and opens full size in a new tab. An image-only comment is allowed. | 2 | - | P2 | observed |
+| J-133 | Live comment updates | New comments from other viewers appear without reload. When they land below the fold, a dark pill with avatars and a reply count appears; clicking it scrolls down. Comments are a flat list, oldest first, with no threads or resolve. | 1 | - | P2 | observed |
+| J-134 | Anonymous comments | A logged-out viewer can post; the comment shows as anonymous with a letter avatar. Nobody, owner included, can delete it afterwards. | 1 + typing | Ctrl+Enter | P1 | observed |
+| J-135 | Mentions | Typing @ in a comment, the viewer description or the draft description (whose empty placeholder suggests an @ mention before create) is meant to notify a teammate by email. In the one-member workspace typing @ in the draft opened no menu, so the picker and the email were not seen. | - | - | P1 | observed (placeholder only), public doc |
+| J-136 | Email notification settings | Account settings list email toggles: first view of my capture, capture shared with me, my recording link used, same-domain signup, plan limit reached, plus a turn-off-all row. Toggles save at once with no toast. No in-app inbox or bell anywhere. | 1 per toggle | - | P1 | observed |
+
+## Integrations
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-137 | Send to tracker at create | Pick a tracker in the draft's destination menu (J-079); first use runs the provider's OAuth; tracker fields appear; create files the issue and opens it in a new tab. | 2 + fields | - | P1 | observed (menu), public doc (fields) |
+| J-138 | Send an existing capture to an app | The send-to-app split button on the capture page lists connected tools (or connect items when none). Hidden for logged-out viewers. | 2 | - | P1 | observed |
+| J-139 | Integrations settings page | A searchable two-column grid of 13 apps (Claude, ChatGPT, Linear, Jira, Slack, GitHub, ClickUp, Notion, Azure DevOps, GitLab, Asana, Fin, Sentry). Each connect button opens the provider's OAuth or listing in a new tab. | 1 | - | P1 | observed (OAuth not completed) |
+| J-140 | Tracker field forms | Per tracker: project, issue type, assignee, labels, priority, milestone and similar fields, with remembered values, a recents list, field customisation and a saved-anyway notice when the tracker is down. | - | - | P1 | public doc |
+| J-141 | Slack and embeds | Links unfurl in Slack with a timeline and playable media; Linear and Notion render embeds; Slack can also receive a post at create. | - | - | P2 | public doc |
+| J-142 | Webhooks | Settings opens a hosted third-party webhook portal (endpoints, event catalog, logs). Three event types, one of them capture-created with author, media URLs, page URL, origin and system info. Signed payloads and retries per docs. | 2 | - | P1 | observed (portal), public doc (delivery) |
+| J-143 | Connect your domain for recording links | Settings page with snippets for HTML, Next.js, Angular, GTM and other, a copy-as-agent-prompt button per snippet, and a domain verify step that opens the site in a popup and reports whether the scripts were found. Gives recording links console, network and auto-blur. | 3+ | - | P2 | observed (verify failed as expected) |
+| J-144 | Help-desk flows | Intercom Fin app, Zendesk, Freshdesk, HubSpot and others request recordings through recording links; the dashboard has a Fin page. | - | - | P2 | observed (Fin page), public doc |
+
+## MCP and AI
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-145 | Agent setup page | Workspace menu, settings, MCP page: cards for Claude Code, Cursor, Codex and VS Code plus an add-other button. Each opens a modal with a copy-snippet button and numbered manual steps (Cursor offers one-click install). The server is one HTTP URL; no token appears in the snippet. | 3 to the page, 2 to copy | - | P0 | observed |
+| J-146 | OAuth consent for agents | The first agent call opens a consent page in the browser: workspace picker, the client's name, two bullet scopes (read; comment and organise), one approve button. Dynamic client registration and PKCE. | 1 | - | P0 | observed |
+| J-147 | Connected agents list | After an agent connects, the MCP page lists it with a row menu to remove it. Removal revokes its token. The list needed a reload to drop the row. | 2 + confirm | - | P1 | observed |
+| J-148 | Personal access tokens | Create-key modal: name, expiry (7, 30, 90 days or 1 year), and read-only or read-write per surface (CLI, MCP). Tokens have a fixed prefix. | 2 + typing | - | P1 | observed (not created) |
+| J-149 | MCP read tools | Details with a markdown investigation guide, console logs, network requests, user events, custom metadata, screenshots, frames, transcript, chapters and AI video analysis. Paged envelopes with filters. Full list in `agent-output.md`. | - | - | P0 | observed |
+| J-150 | MCP search and list tools | Search by pasted URL, structured search across titles, descriptions, comments and transcripts, and lists of captures, folders and members. | - | - | P1 | observed |
+| J-151 | MCP write tools | Create, edit and delete comments (markdown, optional video time), reactions, update title, description and folder, delete captures, create, rename and delete folders, and recording-link management. Writes act as the user. | - | - | P1 | observed (comment round trip) |
+| J-152 | MCP tab on the capture page | The dev tools panel's fifth tab, labelled MCP, shows a copyable setup prompt until an agent is connected, then three preset prompts (fix it, summarise, write an E2E test) that embed the capture URL, each with a copy button. | 1 to 2 | - | P1 | observed |
+| J-153 | Markdown summary for plain fetches | The share URL returns an empty app shell to curl, but advertises a markdown alternate (same URL plus .md, or an Accept header) with front matter, error counts, comments and pointers to the MCP server. | - | - | P0 | observed |
+| J-154 | Agent nudges | Toasts after copy cURL and download pitch the agent setup with a button. | 1 | - | P2 | observed |
+| J-155 | Jam CLI and agent skills | Settings page with install (macOS/Linux or Windows), login (OAuth or token) and a command that installs skills for coding agents. The CLI reads captures, records browsers and builds captures from files. | - | - | P2 | observed (page), public doc (CLI) |
+| J-156 | Workspace AI switch and quotas | A workspace setting turns AI summaries and steps off for everyone. Free plan gets a small trial, paid plans a monthly quota. | 1 | - | P2 | observed (toggle), public doc (quota) |
+| J-157 | Chat assistant connectors | Jam is listed as a connector in Claude and an app in ChatGPT; the integrations page links to both listings. | 1 | - | P2 | observed (links) |
+
+## Sign-in and account
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-217 | Web app sign-in and sign-up | One page serves both. Centred column: logo, a short heading, three full-width provider buttons (Apple, GitHub, Google), an or-divider, a work email field with a green continue button, and a terms line. A cookie banner covers the bottom on first visit. The extension, clicked while signed out, asks for an email to set up the account (public doc; not seen, the browser was signed in). | 1 per provider, or typing + 1 | Enter | P0 | observed (page, in an isolated signed-out context), public doc (extension) |
+
+## Dashboard
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-158 | Capture grid | Three-column grid of cards, newest first: thumbnail with creator overlay, duration pill for videos, a chip for recording-link captures, title (or a creator-based fallback) and relative time. No sort control and no list view. Captures inside folders are left out of the main grid. | - | - | P0 | observed |
+| J-159 | Card hover quick actions | Hovering a card raises it, swaps the creator overlay for a selection checkbox and shows a round copy-link button (1 click, toast). Cards are real links. | 1 | - | P1 | observed |
+| J-160 | Filters | Type (screenshot, video, replay), source (extension, Fin, iOS, Mac, recording link) and creator filters, each a searchable multi-select popover. A chosen filter becomes a chip with a clear button; state lives in the URL. Results take 1 to 3 s with no spinner. | 2 to set, 1 to clear | - | P1 | observed |
+| J-161 | Search palette | Clicking the search box, or Ctrl+K on the dashboard or a capture page, opens a centred palette: recently viewed when empty, live grouped results while typing (members, folders and captures; see J-228), a split view with highlighted description hits and a preview, arrow-key navigation, Enter to open and Ctrl+C to copy a link. | 1 or key | Ctrl+K, arrows, Enter, Ctrl+C, Escape | P0 | observed |
+| J-228 | Palette finds members | Typing a name returns a members group (avatar, name, email) above the capture results. The footer shows the result count on the left and an Enter hint naming the action for the highlighted row on the right. Enter on a member opens All Jams filtered by that author, with the creator filter chip set and the author id in the URL. Ctrl+K opens the palette on capture pages too. The placeholder says it searches captures, people and folders. | key + typing + key | Ctrl+K, Enter | P1 | observed |
+| J-162 | Folders in the sidebar | A folders section in the left sidebar lists folders alphabetically with an icon; the active one shows its count. Folder URLs use a 4-character id. | 1 | - | P0 | observed |
+| J-213 | Collapse the folder list | Clicking the folders heading in the sidebar hides the folder rows; a second click shows them again. | 1 | - | P2 | observed |
+| J-163 | Create a folder | Hover the folders heading, click the small plus, type a name, Enter. A toast confirms; you stay where you are. | 1 + typing | Enter | P0 | observed |
+| J-164 | Rename and delete a folder | Folder page three-dot menu: rename (prefilled, selected input) or delete (permanent-warning confirm; docs say its captures are deleted too). Toasts confirm. | 2 to 3 | Enter | P1 | observed |
+| J-165 | Selection mode and bulk actions | Tick a card's checkbox: the header becomes a blue selection bar with a count, move and delete. Clicking other cards toggles them. Move opens a folder list (current location greyed) and moves at once; delete asks for confirmation. | 3 to move one | - | P1 | observed |
+| J-166 | Drag a card onto a folder | Drag a card; a chip follows the pointer, sidebar folders get dashed outlines and the hovered one a solid outline. Drop moves it. | 1 drag | - | P2 | observed |
+| J-167 | Recording links page | List of links with a thumbnail mosaic, name, creator, use count and target folder chip, share, open-captures and delete actions. Status, sort and creator filters. A new-link popover and a domain banner. | 1 | - | P1 | observed |
+| J-223 | Rename and retarget a recording link | A pencil icon beside each link's name edits it in place. A folder chip on the row opens a menu listing the workspace's folders plus a new-folder item; the pick sets where captures from that link land. | 1 + typing, or 2 | Enter | P2 | observed |
+| J-168 | Workspace switcher | The workspace button at the top of the sidebar opens a menu: current workspace with plan chip, settings, switch or create workspace, log out. | 2 to settings | - | P1 | observed |
+| J-221 | Create a workspace | Workspace menu, switch workspace, join or create workspace. The main area shows a form with a heading, one help line, a letter avatar that follows the name, a workspace-name field and a checkbox, ticked by default, letting people with your email domain join. The next button stays disabled until a name is typed. Later steps were not seen (not submitted). | 3 + typing + 1 | - | P1 | observed (first step only) |
+| J-169 | Onboarding checklist | A progress card at the sidebar bottom with four setup steps, each a link, and a dismiss action. | 1 | - | P2 | observed |
+| J-170 | Help menu | A round help button bottom-left of the sidebar opens a menu of support, docs, status, pricing and install links; a chat launcher sits bottom-right on every page. | 1 | - | P2 | observed |
+
+## Settings and team admin
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-171 | Settings layout | A separate layout with a back link and a left nav in three groups: workspace (general, members, billing), apps and tools (integrations, SDK, MCP, CLI, webhooks), account (profile, notifications). Content sits in a centred column of sections, each with a docs link. | 2 from the dashboard | - | P1 | observed |
+| J-172 | Workspace general settings | Workspace logo (hover to upload) and name, access settings (SSO, default link access, domain join), data settings (AI switch, auto-delete, audit logs). Enterprise items are disabled with a plan badge and an upgrade tooltip. | - | - | P1 | observed |
+| J-173 | Members page | Invite-link toggle with a copyable link that expires in about 29 days and can be reset (people who join through it come in as creators, a paid seat; J-234), a restrict-invites toggle, an add-members button and a table of name, role, last active and a row menu (leave team for yourself). | 1 per action | - | P1 | observed (one member only) |
+| J-234 | Role for invite-link joins | The line under the members page's invite link says that people joining through it are added as creators, a paid seat. The email invite modal (J-123) lets you pick creator or viewer; the link does not. | - | - | P2 | observed |
+| J-222 | Change a member's seat | On the members table an admin clicks a member's role and picks viewer, creator or admin. On paid plans billing has an auto-approve switch; turned off, viewers who try to create stay free viewers until an admin upgrades them. | 2 | - | P1 | public doc |
+| J-174 | Billing and usage | Current plan card with an upgrade button, a monthly capture counter (deleted captures still count) with a progress bar and days left, and an in-app plan comparison page. | 1 | - | P2 | observed |
+| J-175 | Profile | Avatar upload or delete on hover, first and last name, a role picker that changes a hint line, a locked email field and a delete-account button. No password, theme, language or zone settings. | - | - | P2 | observed (not changed) |
+| J-176 | Extension settings in the popup | Popup three-dot menu, settings: replaces the popup body with a scrollable screen. Open-in-new-tab, capture-user-events, shortcut editor link, instant replay with its site lists, send error logs, and reset extension. Toggles take effect at once. | 2 | - | P1 | observed |
+| J-226 | Limit the sites the extension runs on | Jam runs on every site by default. In Chrome's extension details you switch site access to specific sites; the docs say to add Jam's own domain to that list alongside the sites you want. Switching back to all sites restores it. Nothing in Jam's own UI does this. | about 5 in Chrome | - | P2 | public doc |
+| J-177 | Extension utility menu | The popup three-dot menu also opens docs and support in new tabs, restarts the extension (the popup reopens itself after about 4 s) and starts a bug report to Jam through its own recording link. | 2 | - | P2 | observed |
+| J-178 | Enterprise admin | SSO with directory sync, audit logs, data retention schedule and forced extension install through Google Admin. | - | - | P2 | public doc |
+
+## Shortcuts
+
+Editor, player, comment and palette keys are listed in their own rows (J-038, J-043, J-046, J-048, J-049, J-083, J-085, J-088, J-093, J-127, J-161).
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-179 | Open the popup by key | Press the chord on any normal page. Same result as clicking the icon. | 0 | Ctrl+Shift+Y | P1 | observed |
+| J-180 | Screenshot mode by key | Press the chord; screenshot mode arms in under 0.5 s with no popup. Fastest capture path. Silent if a browser bubble holds focus or the page is restricted. | 0 | Ctrl+Shift+S | P0 | observed |
+| J-181 | Start and stop tab recording by key | Same chord starts (with countdown) and stops. | 0 | Ctrl+Shift+Space | P0 | observed |
+| J-182 | Instant replay by key | Opens the replay draft straight away with no popup. | 0 | Ctrl+Shift+X | P0 | observed |
+| J-183 | Unbound recording-link command | A fifth command exists with no default key. Desktop recording has no command. | - | none | P2 | observed |
+| J-184 | Rebind and scope | All commands are rebound on the browser's extension shortcuts page, which the popup settings open in a new tab. Screenshot, replay and record commands can be set to work globally. | 3 | - | P1 | observed (global scope untested) |
+| J-212 | Shortcut tooltips in the popup | Hovering a popup row for about 2 s shows a small dark pill above it with that command's current chord (Ctrl+Shift+S on the screenshot row). Docs say the pill reflects a rebinding at once. | 0 | - | P2 | observed (rebinding per public doc) |
+
+## Privacy
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-185 | Header secret filtering | Cookie and similar secret headers are replaced by masked text with a shield badge in the viewer, and by a placeholder in copied curl commands. | - | - | P0 | observed |
+| J-186 | Body secret replacement | In request bodies, values of email and password fields are swapped for a fixed placeholder before upload. Matching is by field name and type, not content: an API-key-like string and a test card number in a textarea stayed in clear. | - | - | P0 | observed |
+| J-187 | Typed text masking | Typing in email and password fields is logged as asterisks of unrelated length; the value attribute in click rows is masked. Other fields are in clear. | - | - | P0 | observed |
+| J-188 | Pixels are not masked | Screenshots and videos show whatever was on screen; the typed email was readable in the video. Manual blur (J-031, J-044) is the only pixel protection. | - | - | P0 | observed |
+| J-189 | Nothing leaves before create | Drafts and the replay buffer stay local until create; the replay buffer is wiped every 2 minutes. | - | - | P0 | observed (stated in UI), public doc |
+| J-190 | Turn off user-event capture | A popup setting stops click and typing capture entirely. | 3 | - | P1 | observed |
+| J-191 | Deletion | Single and bulk delete are permanent with no trash. The image file stayed reachable on the CDN for at least 30 s after deletion. Account deletion sits in profile settings. Retention auto-delete is Enterprise. No data export. | 3 | - | P0 | observed |
+| J-225 | Delete the account | Profile settings, delete. The confirm dialog lists the workspaces that will go and needs the word DELETE typed in capitals. Solo workspaces are erased with their folders, captures, links and comments. In shared workspaces only your membership goes: your captures stay and your comments show as from a deleted account. Blocked while you are the only admin of a shared workspace, and for SSO or directory-managed accounts. Permanent. | 3 + typing | - | P2 | public doc |
+| J-192 | Auto-blur and sanitizers on connected domains | On a site with Jam's page scripts, sensitive fields are blurred before upload, data attributes force or prevent blur, and page-side functions can edit or drop requests, logs and socket messages. | - | - | P2 | public doc |
+
+## Speed
+
+Machine load was not recorded with these timings. An independent review later in the day, at a load average near 14, saw a 5 to 13 s popup starting card, 10 to 20 s from key to editor and 30 to 60 s capture page loads; that does not contradict the rows below, but the next speed pass should log load next to each timing.
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-193 | Popup open time | A loading card appears about 0.9 s after the click; full content at 1.7 s warm, about 3 s cold. | - | - | P1 | observed |
+| J-194 | Capture to editor | Visible screenshot: 1.3 s on the lab app, 3.4 s on Nuru. Area: up to 5.6 s. Replay: 3.2 s shell, 4.6 s loaded. | - | - | P0 | observed |
+| J-195 | Key to live recording | About 6.4 s, of which 3 s is the countdown. | - | - | P0 | observed |
+| J-196 | Stop to editor | 1.9 s at best, 12 to 29 s typical, about 100 s once (that draft was broken), and once never within 3 minutes until an extension restart (J-034). | - | - | P0 | observed |
+| J-197 | Create to link on clipboard | Screenshot about 4 s (worst 12 s), 43 s video 4 s, replay 2.5 s. Background tab at about 6 s. | - | - | P0 | observed |
+| J-198 | Viewer load | Logged-out viewer: first contentful paint 6.5 to 7 s, load about 8.5 s; a mascot loading screen covers the first seconds. Video playable about 40 s after create. | - | - | P1 | observed |
+
+## Errors and empty states
+
+| ID | Feature | Steps | Clicks | Shortcut | Pri | Source |
+|---|---|---|---|---|---|---|
+| J-199 | Restricted page popup | On browser-internal pages and the extension store the popup shows only an illustration and a line telling you to open a normal site. The shortcuts do nothing there, with no message. | 1 | - | P1 | observed |
+| J-200 | Missing mic permission | The mic button on the recording bar is greyed with a tooltip that permission is missing. The link recorder shows a modal with instructions and a record-without-voice option. | 0 | - | P1 | observed |
+| J-201 | Cancelled share picker | Cancelling or failing Chrome's share picker aborts the desktop recording silently; the bar disappears. | - | - | P2 | observed |
+| J-202 | Clipboard permission prompt | After create, Chrome asks whether the host page may use the clipboard, anchored to the address bar. Dismissing it twice leaves a blocked-clipboard icon. The link was still copied. | 1 to dismiss | - | P1 | observed |
+| J-203 | Empty folder | Centred heading, one help line and a green button to make a capture. No filter bar. | 1 | - | P1 | observed |
+| J-204 | No filter results and no search results | Grid: two centred lines suggesting you change the filters, no reset button. Palette: an icon, a heading and a hint. Network filter: an empty striped table with no text. A capture with no requests or no user events at all gets its own playful empty state instead (J-231). | - | - | P2 | observed |
+| J-231 | Empty dev tools tabs | A capture with no requests shows a short, light-hearted heading in the network tab; one with no user events shows a single light-hearted line in the actions tab. These replace the striped table, which shows only when a filter empties a non-empty list. | - | - | P2 | observed |
+| J-205 | Deleted or unknown capture | The capture URL shows one plain centred line saying it could not be found, with no header or link home. | - | - | P1 | observed |
+| J-214 | Unknown app route | A path that matches no page (for example /dashboard) shows a playful not-found page: a heading saying there is no capture here, large tilted 404 digits with fruit drawings, and a green button back home. Unlike J-205, it links home. | 1 | - | P2 | observed |
+| J-206 | Recording-link capture without logs | Console and network show an icon, a heading about enabling logs on your domain and a setup button; actions shows a banner that this is coming. | 1 | - | P2 | observed |
+| J-207 | Loading states | Dashboard: shell with skeleton avatars for 1 to 3 s. Palette: skeleton rows and a small spinner. Capture page: centred mascot for 2 to 6 s. Recording links: a spinner for about 3 s. | - | - | P2 | observed |
+| J-208 | Plan limit states | Upgrade prompts at the recording cap (J-013), plan badges and disabled toggles on paid settings, and a usage counter in billing. | - | - | P2 | observed |
+
+## Counts by priority
+
+| Priority | Rows |
+|---|---|
+| P0 | 73 |
+| P1 | 91 |
+| P2 | 73 |
+| Total | 237 |
+
+Of these, 23 rows are public doc only and untested, and 2 (J-023, J-024) are on the skip list. Rows J-209 to J-216 were added after the first independent review J-217 to J-226 after the second, and J-227 to J-237 after the third; they sit in their topic sections, so IDs are not in order within a section.
