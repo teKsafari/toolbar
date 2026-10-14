@@ -1,0 +1,7 @@
+html, body { margin: 0; }
+body {
+  width: 400px;
+  background: var(--nb-surface);
+  color: var(--nb-text);
+  font: var(--nb-text-base) / var(--nb-leading-normal) var(--nb-font-sans);
+}

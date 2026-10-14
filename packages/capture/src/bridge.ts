@@ -1,7 +1,7 @@
 // MAIN <-> ISOLATED bridge (docs/spikes.md section 3).
 // Script order between worlds is not guaranteed, so both sides can start the handshake:
 // MAIN offers a port at boot and again whenever ISOLATED posts "ready".
-import { BRIDGE_TAG } from '@toolbar/shared';
+import { BRIDGE_TAG } from '@toolbar/shared/constants';
 
 type Msg = { [BRIDGE_TAG]: 'hello' | 'ready' };
 

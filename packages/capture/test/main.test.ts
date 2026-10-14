@@ -50,3 +50,13 @@ describe('MemoryTransport', () => {
     expect(seen).toEqual(['snapshot']);
   });
 });
+
+describe('boot event', () => {
+  it('emits nav load first when the window has a location', () => {
+    const w = { document: { readyState: 'loading', title: '' }, location: { href: 'http://localhost:5173/' } } as unknown as Window & typeof globalThis;
+    (w as unknown as { top: unknown }).top = w;
+    const out: CaptureEvent[] = [];
+    startMainWorld({ win: w, post: (e) => out.push(e), hooks: {} });
+    expect(out[0]).toMatchObject({ kind: 'nav', data: { type: 'load', url: 'http://localhost:5173/' } });
+  });
+});

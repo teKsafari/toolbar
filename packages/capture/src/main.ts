@@ -1,6 +1,6 @@
 // MAIN world entry, run at document_start. Installs the page hooks and relays events
 // to the isolated world over the private MessageChannel.
-import { createEmitter, type CaptureEvent } from '@toolbar/shared';
+import { createEmitter, type CaptureEvent } from '@toolbar/shared/events';
 import { createMainBridge } from './bridge.ts';
 import { DEFAULT_HOOKS } from './hooks/index.ts';
 import type { Emit, HookInstaller, Uninstall } from './transport.ts';
@@ -51,6 +51,9 @@ export function startMainWorld(opts: StartMainOptions = {}) {
       failed.push(name);
     }
   }
+
+  // First event of every document: where we are. Also proves the bridge end to end.
+  if (win.location) emit('nav', { type: 'load', url: win.location.href, title: win.document.title || undefined });
 
   const boot: MainBoot = { ctx, t: Date.now(), readyState: win.document.readyState, hooks: installed, failed };
   Object.defineProperty(win, BOOT_MARKER, { value: boot, enumerable: false, configurable: true });
