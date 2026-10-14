@@ -2,7 +2,7 @@
 // transcripts and share links. Owner: server-core area (capture and editor read and write them).
 // Areas append new tables to their own file; edit other files only additively (docs/parallel.md).
 import { sql } from 'drizzle-orm';
-import { bigint, index, integer, jsonb, pgTable, primaryKey, text, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, index, integer, jsonb, pgTable, primaryKey, real, text, uuid } from 'drizzle-orm/pg-core';
 import { bytea, id, ts, created, updated } from './columns.ts';
 import { user, organization } from './auth.ts';
 import { folder } from './dashboard.ts';
@@ -35,6 +35,27 @@ export const recording = pgTable(
     authorName: text('author_name'),
     recordingLinkId: uuid('recording_link_id'),
     thumbKey: text('thumb_key'),
+    // ---- server-core additions (finalize, access, processing) ----
+    /** General access of the capture (J-119); share links follow it. */
+    access: text('access', { enum: ['anyone', 'workspace'] }).notNull().default('anyone'),
+    /** Private capture (J-237): only its author and workspace admins see it. */
+    private: boolean('private').notNull().default(false),
+    source: text('source', { enum: ['extension', 'recording-link', 'upload', 'cli'] }).notNull().default('extension'),
+    /** Kept range in video time, applied by finalize-recording (J-227). */
+    trim: jsonb('trim'),
+    /** recording start to first video frame (architecture s4 "Clock") */
+    videoOffsetMs: integer('video_offset_ms').notNull().default(0),
+    videoWidth: integer('video_width'),
+    videoHeight: integer('video_height'),
+    /** Counts and markers computed at finalize (captureDetailSchema.index). */
+    eventIndex: jsonb('event_index'),
+    /** [{ label, height, key }] original first (J-054) */
+    renditions: jsonb('renditions'),
+    chapters: jsonb('chapters'),
+    metadata: jsonb('metadata'),
+    processingProgress: real('processing_progress'),
+    processingError: text('processing_error'),
+    finalizedAt: ts('finalized_at'),
     createdAt: created(),
     updatedAt: updated(),
     deletedAt: ts('deleted_at'),
@@ -85,12 +106,18 @@ export const asset = pgTable(
   {
     id: id(),
     recordingId: uuid('recording_id').references(() => recording.id, { onDelete: 'cascade' }),
-    kind: text('kind', { enum: ['screenshot', 'crop', 'annotation', 'keyframe', 'thumb'] }).notNull(),
+    kind: text('kind', {
+      enum: ['screenshot', 'crop', 'annotation', 'keyframe', 'thumb', 'attachment', 'comment', 'avatar', 'logo'],
+    }).notNull(),
     s3Key: text('s3_key').notNull(),
     contentType: text('content_type').notNull(),
     width: integer('width'),
     height: integer('height'),
     bytes: integer('bytes').notNull(),
+    /** original file name for attachments */
+    name: text('name'),
+    /** uploader, so an unattached asset can only be claimed by the person who uploaded it */
+    createdBy: uuid('created_by').references(() => user.id, { onDelete: 'set null' }),
     createdAt: created(),
   },
   (t) => [index('asset_recording_idx').on(t.recordingId)],
@@ -146,6 +173,8 @@ export const shareLink = pgTable(
     access: text('access', { enum: ['anyone', 'workspace'] })
       .notNull()
       .default('anyone'),
+    /** false: content-only link without dev tools (J-118) */
+    devtools: boolean('devtools').notNull().default(true),
     createdBy: uuid('created_by').references(() => user.id, { onDelete: 'set null' }),
     createdAt: created(),
     expiresAt: ts('expires_at'),
