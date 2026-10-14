@@ -4,6 +4,10 @@ import type { Page, Worker } from '@playwright/test';
 import { test as extTest, LAB_URL } from '../../fixtures/extension.ts';
 import { MOCK_TOKEN, startMockServer, type MockServer } from '../../fixtures/mock-upload-server.ts';
 
+/** The extension API inside sw.evaluate() callbacks (they run in the service worker). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare const chrome: any;
+
 export { LAB_URL };
 export const LAB_ORIGIN_2 = LAB_URL.replace(':5173', ':5174');
 export const MOCK_PORT = Number(new URL(process.env.SERVER_URL ?? 'http://localhost:3102').port || 3102);
@@ -59,7 +63,7 @@ export async function tabIdOf(sw: Worker, page: Page): Promise<number> {
   const url = page.url();
   return sw.evaluate(async (url) => {
     for (let i = 0; i < 40; i++) {
-      const tabs = (await chrome.tabs.query({})).filter((t) => t.url === url || t.pendingUrl === url);
+      const tabs = ((await chrome.tabs.query({})) as { id?: number; url?: string; pendingUrl?: string }[]).filter((t) => t.url === url || t.pendingUrl === url);
       if (tabs.length) return Math.max(...tabs.map((t) => t.id ?? -1));
       await new Promise((r) => setTimeout(r, 100));
     }

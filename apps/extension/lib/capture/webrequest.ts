@@ -72,7 +72,7 @@ export interface WebRequestSink {
 /** Installs the listeners and returns a function that removes them. */
 export function installWebRequest(wr: typeof Browser.webRequest, sink: WebRequestSink): () => void {
   const filter = { urls: ['<all_urls>'] };
-  const open = new Map<string, { start: number; ttfb?: number; tabId: number }>();
+  const open = new Map<string, { start: number; ttfb?: number; tabId: number; headers?: { name: string; value?: string }[]; status?: number; statusLine?: string }>();
   const own = (d: Details) => {
     if (d.tabId < 0) return true;
     if (d.initiator?.startsWith('chrome-extension://')) return true;
@@ -126,10 +126,28 @@ export function installWebRequest(wr: typeof Browser.webRequest, sink: WebReques
     } as Omit<CaptureEvent, 'v' | 'id' | 'ctx' | 'seq'>);
     if (isCorsBlocked(d)) sink.emit(o.tabId, { t: d.timeStamp, kind: 'net.fail', data: { rid: rid(d), error: 'cors', cors: true, source: 'webRequest' } } as Omit<CaptureEvent, 'v' | 'id' | 'ctx' | 'seq'>);
   };
+  const onHeaders = (d: Details) => {
+    const o = open.get(d.requestId);
+    if (!o) return;
+    o.headers = d.responseHeaders;
+    o.status = d.statusCode;
+    o.statusLine = d.statusLine;
+  };
   const onError = (d: Details) => {
     const o = open.get(d.requestId);
     if (!o) return;
     open.delete(d.requestId);
+    // A CORS block surfaces as net::ERR_FAILED after the response headers arrived (J-065).
+    if (o.headers && isCorsBlocked({ type: d.type, url: d.url, initiator: d.initiator, responseHeaders: o.headers })) {
+      const headers = toRecord(o.headers);
+      sink.emit(o.tabId, {
+        t: d.timeStamp,
+        kind: 'net.res',
+        data: { rid: rid(d), status: o.status ?? 0, headers, ...(headers?.['content-type'] ? { contentType: headers['content-type'] } : {}), timing: { start: o.start, ...(o.ttfb !== undefined ? { ttfb: o.ttfb } : {}), end: d.timeStamp }, source: 'webRequest' },
+      } as Omit<CaptureEvent, 'v' | 'id' | 'ctx' | 'seq'>);
+      sink.emit(o.tabId, { t: d.timeStamp, kind: 'net.fail', data: { rid: rid(d), error: 'cors', cors: true, source: 'webRequest' } } as Omit<CaptureEvent, 'v' | 'id' | 'ctx' | 'seq'>);
+      return;
+    }
     const error = d.error === 'net::ERR_ABORTED' ? 'abort' : (d.error ?? 'net::ERR_FAILED');
     sink.emit(o.tabId, { t: d.timeStamp, kind: 'net.fail', data: { rid: rid(d), error, source: 'webRequest' } } as Omit<CaptureEvent, 'v' | 'id' | 'ctx' | 'seq'>);
   };
@@ -145,6 +163,7 @@ export function installWebRequest(wr: typeof Browser.webRequest, sink: WebReques
   };
   const undo = [
     add(wr.onSendHeaders as never, onSend, ['requestHeaders', 'extraHeaders']),
+    add(wr.onHeadersReceived as never, onHeaders, ['responseHeaders', 'extraHeaders']),
     add(wr.onResponseStarted as never, onStarted, []),
     add(wr.onCompleted as never, onCompleted, ['responseHeaders', 'extraHeaders']),
     add(wr.onErrorOccurred as never, onError, ['extraHeaders']),
