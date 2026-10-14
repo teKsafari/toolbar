@@ -1,3 +1,4 @@
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { ListObjectsV2Command, DeleteObjectsCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
@@ -103,4 +104,22 @@ export async function deletePrefix(prefix: string): Promise<number> {
   const list = await listKeys(prefix);
   await deleteKeys(list);
   return list.length;
+}
+
+// Presigned GETs against S3_PUBLIC_URL (large installs: the browser fetches media from S3 directly).
+
+let publicClient: S3Client | null = null;
+export async function presignGet(key: string, opts: { contentType?: string; disposition?: string; expiresIn?: number } = {}) {
+  if (!env.s3.publicUrl) return null;
+  publicClient ??= new S3Client({
+    endpoint: env.s3.publicUrl,
+    region: env.s3.region,
+    forcePathStyle: true,
+    credentials: { accessKeyId: env.s3.accessKeyId, secretAccessKey: env.s3.secretAccessKey },
+  });
+  return getSignedUrl(
+    publicClient,
+    new GetObjectCommand({ Bucket: bucket, Key: key, ResponseContentType: opts.contentType, ResponseContentDisposition: opts.disposition }),
+    { expiresIn: opts.expiresIn ?? 3600 },
+  );
 }

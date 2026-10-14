@@ -7,13 +7,14 @@ import type { z } from 'zod';
 import { ERROR_STATUS, type ErrorCode, type RouteDef } from '@toolbar/shared/api';
 
 export class ApiError extends Error {
-  constructor(
-    readonly code: ErrorCode,
-    message?: string,
-    readonly issues?: unknown,
-    readonly extra?: Record<string, unknown>,
-  ) {
+  readonly code: ErrorCode;
+  readonly issues?: unknown;
+  readonly extra?: Record<string, unknown>;
+  constructor(code: ErrorCode, message?: string, issues?: unknown, extra?: Record<string, unknown>) {
     super(message ?? code);
+    this.code = code;
+    this.issues = issues;
+    this.extra = extra;
   }
   get status(): number {
     return ERROR_STATUS[this.code];

@@ -10,4 +10,10 @@ const { server } = await import('./build/index.js');
 server.prependListener('request', (req) => {
   req.headers['x-nib-origin-proto'] = pub.protocol.slice(0, -1);
   req.headers['x-nib-origin-host'] = pub.host;
+  // Kit 3's CSRF check refuses POST/PUT/PATCH/DELETE with a form-like or missing Content-Type
+  // unless Origin is this server: that blocks the extension's multipart asset uploads
+  // (Origin chrome-extension://...) and every curl or CLI DELETE (no Origin). A request that
+  // authenticates with a bearer token cannot be forged by another site (browsers never attach one
+  // on their own), so it counts as same-origin. Cookie requests keep the check.
+  if (/^Bearer\s/i.test(req.headers.authorization ?? '')) req.headers.origin = pub.origin;
 });

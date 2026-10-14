@@ -4,7 +4,8 @@
 //
 //   set -a; . ../../.env; set +a; node scripts/check-server-core.ts [section ...]
 //
-// Sections: upload share access trim draft delete private renditions transcript (default: all).
+// Sections: upload share access trim draft delete private renditions transcript chapters (default:
+// all but chapters, which needs AI_PROVIDER set on the server).
 // fixtures/voice.webm is espeak-ng reading a short bug report, encoded with ffmpeg (libopus 32k).
 import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
@@ -19,6 +20,8 @@ import * as t from '../src/lib/server/db/schema/index.ts';
 import { env } from '../src/lib/server/env.ts';
 import { keys, listKeys } from '../src/lib/server/s3.ts';
 import { hashToken } from '../src/lib/server/tokens.ts';
+import { visibleCapturesWhere, visibleFoldersWhere } from '../src/lib/server/share/access.ts';
+import { and } from 'drizzle-orm';
 import { tabVideoEvents } from '../fixtures/events.ts';
 
 const S = process.env.SERVER_URL || env.publicUrl;
@@ -43,7 +46,10 @@ async function call(method: string, path: string, opts: { token?: string | null;
   const token = opts.token === undefined ? PAT : opts.token;
   if (token) headers.authorization = `Bearer ${token}`;
   let body: BodyInit | undefined;
-  if (opts.raw) body = opts.raw as Uint8Array<ArrayBuffer>;
+  if (opts.raw) {
+    body = opts.raw as Uint8Array<ArrayBuffer>;
+    headers['content-type'] ??= 'application/octet-stream';
+  }
   else if (opts.body !== undefined) {
     headers['content-type'] = 'application/json';
     body = JSON.stringify(opts.body);
@@ -334,6 +340,12 @@ const sections: Record<string, () => Promise<void>> = {
     await db.insert(t.folderAccess).values({ folderId: FOLDER, private: true }).onConflictDoUpdate({ target: t.folderAccess.folderId, set: { private: true } });
     ok((await call('GET', `/api/v1/recordings/${id}/media/thumb`, { token: sam })).status === 404, 'private folder: Sam (not invited) gets 404 by URL');
     ok((await call('GET', `/api/v1/recordings/${id}/media/thumb`)).status === 200, 'private folder: Dana (admin, folder creator) still sees it');
+    const listed = async (uid: string, seat: 'creator' | 'admin') =>
+      (await db.select({ id: t.recording.id }).from(t.recording).where(and(eq(t.recording.id, id), visibleCapturesWhere(uid, seat)))).length === 1;
+    const folderListed = async (uid: string) =>
+      (await db.select({ id: t.folder.id }).from(t.folder).where(and(eq(t.folder.id, FOLDER), visibleFoldersWhere(uid, 'creator')))).length === 1;
+    ok(!(await listed(SAM, 'creator')) && !(await folderListed(SAM)), 'list and search filter (visibleCapturesWhere, visibleFoldersWhere) hide it from Sam');
+    ok(await listed(SAM, 'admin'), 'the same filter shows it to an admin');
     await db.insert(t.folderMember).values({ folderId: FOLDER, userId: SAM, role: 'viewer' });
     ok((await call('GET', `/api/v1/recordings/${id}/media/thumb`, { token: sam })).status === 200, 'invited to the folder: Sam sees it');
     await db.delete(t.folderMember).where(eq(t.folderMember.folderId, FOLDER));
@@ -391,6 +403,33 @@ const sections: Record<string, () => Promise<void>> = {
     const jobs = await db.select().from(t.job).where(eq(t.job.type, 'transcribe'));
     ok(!jobs.some((j) => (j.payload as { recordingId?: string }).recordingId === none), 'no transcribe job for the capture without voice');
   },
+
+  async chapters() {
+    console.log('J-075 AI chapters (needs AI_PROVIDER=openai-compatible on the server; espeak-ng and ffmpeg here)');
+    const dir = mkdtempSync(join(tmpdir(), 'nib-chap-'));
+    const vid = join(dir, 'v.webm');
+    const voice = join(dir, 'n.webm');
+    execFileSync('ffmpeg', ['-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=15', '-t', '60', '-c:v', 'libvpx-vp9', '-deadline', 'realtime', '-cpu-used', '8', vid]);
+    const text =
+      'First I open the checkout page and look at the cart. Now I press the submit order button. The spinner stops and no message appears. ' +
+      'Next I try the sync button at the top. It never finishes. Finally I open the details form, type my name and email, and press send. Nothing happens.';
+    execFileSync('espeak-ng', ['-s', '120', '-w', join(dir, 'n.wav'), text]);
+    execFileSync('ffmpeg', ['-loglevel', 'error', '-i', join(dir, 'n.wav'), '-c:a', 'libopus', '-b:a', '32k', voice]);
+    const c = await create('video');
+    const id = c.data.id;
+    await uploadStream(id, 'video', readFileSync(vid), 2);
+    await uploadStream(id, 'voice', readFileSync(voice), 1);
+    await call('POST', `/api/v1/recordings/${id}/finalize`, { body: { title: 'Chapters check' } });
+    await waitReady(id);
+    let chapters: { title: string; startMs: number }[] = [];
+    for (let i = 0; i < 180; i++) {
+      const [row] = await db.select().from(t.recording).where(eq(t.recording.id, id));
+      chapters = (row?.chapters as typeof chapters | null) ?? [];
+      if (chapters.length) break;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    ok(chapters.length >= 2 && chapters.length <= 4 && chapters[0]!.startMs === 0, `2 to 4 chapters with start times: ${chapters.map((c) => `${c.startMs / 1000}s ${c.title}`).join(' | ')}`);
+  },
 };
 
 async function uploadStream2(id: string, token: string) {
@@ -410,7 +449,7 @@ async function quickVideo() {
 const want = process.argv.slice(2);
 try {
   for (const [name, fn] of Object.entries(sections)) {
-    if (want.length && !want.includes(name)) continue;
+    if (want.length ? !want.includes(name) : name === 'chapters') continue;
     try {
       await fn();
     } catch (e) {

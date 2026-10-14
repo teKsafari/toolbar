@@ -183,6 +183,8 @@ export async function putChunk(
     return headers.get(h) !== null && Number.isFinite(v) ? Math.round(v) : null;
   };
   const key = keys.chunk(rec.id, stream, seq);
+  const sentType = headers.get('content-type')?.split(';')[0]?.trim();
+  const contentType = !sentType || sentType === 'application/octet-stream' ? STREAM_CONTENT_TYPES[stream] : sentType;
   // Claim the seq first, so two different bodies for one seq cannot both land in S3.
   const [row] = await db
     .insert(recordingChunk)
@@ -198,7 +200,6 @@ export async function putChunk(
     fail('hash_mismatch', `Chunk ${seq} is already stored with a different hash`);
   }
   try {
-    const contentType = headers.get('content-type')?.split(';')[0]?.trim() || STREAM_CONTENT_TYPES[stream];
     await putObjectWith(key, body, { contentType, contentEncoding: headers.get('content-encoding') ?? undefined });
   } catch (e) {
     await db
@@ -211,7 +212,7 @@ export async function putChunk(
     .values({
       recordingId: rec.id,
       name: stream,
-      contentType: headers.get('content-type')?.split(';')[0]?.trim() || STREAM_CONTENT_TYPES[stream],
+      contentType,
       lastSeq: seq,
       totalBytes: body.byteLength,
     })

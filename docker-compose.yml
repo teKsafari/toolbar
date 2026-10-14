@@ -10,7 +10,8 @@ services:
     environment:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
       ORIGIN: ${PUBLIC_URL:-http://localhost:3000}
-      BODY_SIZE_LIMIT: 16M
+      # chunks are capped at 8 MiB per route; assets (attachments) at 200 MiB
+      BODY_SIZE_LIMIT: ${BODY_SIZE_LIMIT:-210M}
       DATABASE_URL: postgres://toolbar:${POSTGRES_PASSWORD:-toolbar}@postgres:5432/toolbar
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-only-change-me-0000000000000000}
       S3_ENDPOINT: http://garage:3900
@@ -38,6 +39,11 @@ services:
       OIDC_1_CLIENT_SECRET: ${OIDC_1_CLIENT_SECRET:-}
       OIDC_1_SCOPES: ${OIDC_1_SCOPES:-}
       WORKER: ${WORKER:-1}
+      MIGRATE_ON_START: ${MIGRATE_ON_START:-1}
+      AI_PROVIDER: ${AI_PROVIDER:-none}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
     depends_on:
       postgres: { condition: service_healthy }
       garage: { condition: service_healthy }

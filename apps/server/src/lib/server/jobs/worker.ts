@@ -114,10 +114,9 @@ export function startWorker(db: Db, { pollMs = 1000, log = console, registerDefa
 
 /** Throw from a handler to retry after a set delay instead of the backoff. */
 export class RetryLater extends Error {
-  constructor(
-    message: string,
-    readonly retryInMs: number,
-  ) {
+  readonly retryInMs: number;
+  constructor(message: string, retryInMs: number) {
     super(message);
+    this.retryInMs = retryInMs;
   }
 }

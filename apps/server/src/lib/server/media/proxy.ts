@@ -6,7 +6,7 @@ import { and, asc, eq } from 'drizzle-orm';
 import type { CaptureMedia } from '@toolbar/shared/api';
 import type { Db } from '../db/index.ts';
 import { asset, recordingChunk, recordingStream, transcript } from '../db/schema/index.ts';
-import { getObject, keys } from '../s3.ts';
+import { getObject, keys, presignGet } from '../s3.ts';
 import { env } from '../env.ts';
 import type { RecordingRow } from '../share/access.ts';
 import { errorJson } from '../share/http.ts';
@@ -121,6 +121,9 @@ export async function serveMedia(db: Db, rec: RecordingRow, name: string, reques
 }
 
 export async function proxyObject(key: string, request: Request, opts: { contentType: string; cacheControl: string; disposition?: string }): Promise<Response> {
+  // With S3_PUBLIC_URL set, hand out a short-lived presigned URL instead of streaming (architecture s7).
+  const signed = await presignGet(key, { contentType: opts.contentType, disposition: opts.disposition, expiresIn: 600 });
+  if (signed) return new Response(null, { status: 302, headers: { location: signed, 'cache-control': 'private, no-store' } });
   const range = request.headers.get('range') ?? undefined;
   if (range && !/^bytes=\d*-\d*$/.test(range.trim())) return rangeNotSatisfiable();
   const inm = request.headers.get('if-none-match');
