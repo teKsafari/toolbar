@@ -18,6 +18,8 @@ async function run() {
     status.textContent = 'Microphone ready. You can close this tab.';
   } catch (e) {
     const name = e instanceof Error ? e.name : '';
+    // without a grant Chrome still lists one entry per kind when a device exists
+    deviceCount = name === 'NotFoundError' ? 0 : (await navigator.mediaDevices.enumerateDevices().catch(() => [])).filter((d) => d.kind === 'audioinput').length;
     status.textContent = name === 'NotFoundError' ? 'No microphone found.' : 'Microphone blocked. You can allow it later in the site settings of this page.';
   }
   await browser.runtime.sendMessage({ type: 'mic.result', granted, deviceCount }).catch(() => {});

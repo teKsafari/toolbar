@@ -129,6 +129,48 @@ test('ten short recordings in a row give ten playable drafts (J-034)', async ({ 
   await page.close();
 });
 
+test('stop timeout: error state, bar and spinner leave, the draft still lands in Drafts, the next capture is not blocked (J-034, J-196)', async ({ tab: { context, sw } }) => {
+  await setSettings(sw, { recordMode: 'tab', mic: false });
+  const page = await context.newPage();
+  await page.goto(LAB_URL);
+  await page.bringToFront();
+  const tabId = await tabIdOf(sw, page);
+  const before = await sw.evaluate(() => (globalThis as unknown as { __tb: { capture: { stats: { drafts: string[] } } } }).__tb.capture.stats.drafts.length);
+  await svc(sw, 'startRecording', { tabId, delaySec: 0 });
+  await waitState(sw, 'recording', 10_000);
+  await sleep(1200);
+  // a 1 ms budget stands in for a stuck stop (60 s in the product)
+  await sw.evaluate(() => ((globalThis as unknown as { __tb: { capture: { stopTimeoutMs: number } } }).__tb.capture.stopTimeoutMs = 1));
+  try {
+    await svc(sw, 'stopRecording');
+    await expect.poll(async () => (await session(sw)) as { state: string; error?: string }, { timeout: 5000 }).toMatchObject({ state: 'error', error: 'stop_timeout' });
+    // processing ends anyway: the draft is kept for the Drafts list
+    await expect
+      .poll(() => sw.evaluate(() => (globalThis as unknown as { __tb: { capture: { stats: { drafts: string[] } } } }).__tb.capture.stats.drafts.length), { timeout: 10_000 })
+      .toBe(before + 1);
+    const draftId = await sw.evaluate(() => (globalThis as unknown as { __tb: { capture: { stats: { drafts: string[] } } } }).__tb.capture.stats.drafts.at(-1)!);
+    const { draft, blobSizes } = await draftWithBlobs(sw, draftId);
+    expect(draft).toMatchObject({ kind: 'video' });
+    expect(blobSizes.videoBlobId).toBeGreaterThan(1000);
+    expect((await session(sw)).state).toBe('error'); // stays an error until dismissed or a new capture starts
+    await sw.evaluate(() => ((globalThis as unknown as { __tb: { capture: { stopTimeoutMs: number } } }).__tb.capture.stopTimeoutMs = 60_000));
+    // dismiss returns to idle
+    expect(((await svc<{ state: string }>(sw, 'dismissError')) as { state: string }).state).toBe('idle');
+    // and a fresh error never blocks the next capture
+    await svc(sw, 'apply', { type: 'FAIL', error: 'media', message: 'test' });
+    const next = await svc<{ state: string }>(sw, 'startRecording', { tabId, delaySec: 0 });
+    expect(['countdown', 'starting', 'recording']).toContain(next.state);
+    await waitState(sw, 'recording', 10_000);
+    await svc(sw, 'stopRecording');
+    const d = (await waitState(sw, 'draft', 5000)) as { draftId: string };
+    await svc(sw, 'discardDraft', d.draftId);
+    await svc(sw, 'discardDraft', draftId);
+  } finally {
+    await sw.evaluate(() => ((globalThis as unknown as { __tb: { capture: { stopTimeoutMs: number } } }).__tb.capture.stopTimeoutMs = 60_000));
+  }
+  await page.close();
+});
+
 test('desktop recording: no countdown, follows tab switches, logs from both tabs (J-007, J-008, J-224 data)', async ({ context, sw, mock: _ }) => {
   await setSettings(sw, { recordMode: 'desktop', mic: false });
   try {
@@ -161,6 +203,24 @@ test('desktop recording: no countdown, follows tab switches, logs from both tabs
     await b.close();
   } finally {
     await setSettings(sw, { recordMode: 'tab' });
+  }
+});
+
+test('microphone with no input device: the grant page closes itself and the mic turns off (J-014)', async ({ tab: { context, sw } }) => {
+  // the second browser has no fake media devices, and this VM has no sound card
+  await sw.evaluate(() => chrome.storage.local.set({ 'nib:mic-granted': false }));
+  await setSettings(sw, { mic: true });
+  try {
+    const opened = context.waitForEvent('page', (p) => p.url().includes('/permissions.html'));
+    const granted = svc<boolean>(sw, 'requestMic');
+    const perm = await opened;
+    expect(await granted).toBe(false);
+    await perm.waitForEvent('close', { timeout: 5000 });
+    const st = await sw.evaluate(async () => (await chrome.storage.local.get(['nib:mic-granted', 'nib:settings'])) as Record<string, { mic?: boolean } | boolean>);
+    expect(st['nib:mic-granted']).toBe(false);
+    expect((st['nib:settings'] as { mic?: boolean }).mic).toBe(false); // the pill shows off
+  } finally {
+    await setSettings(sw, { mic: false });
   }
 });
 

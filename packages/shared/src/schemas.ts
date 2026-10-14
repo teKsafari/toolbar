@@ -54,6 +54,9 @@ export const envInfoSchema = z.object({
   memory: z.number().optional(),
   touch: z.boolean().optional(),
   source: z.enum(['page', 'sw']).optional(),
+  /** ISO 3166-1 alpha-2 country; the client derives it from the time zone, the server may replace it from the request IP. */
+  country: z.string().length(2).optional(),
+  countrySource: z.enum(['tz', 'ip']).optional(),
 });
 
 export const eventDataSchemas = {

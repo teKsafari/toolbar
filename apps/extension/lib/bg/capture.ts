@@ -79,6 +79,7 @@ export function setupCapture(): CaptureService {
       await svc.onMicResult(msg.granted, msg.deviceCount);
       return {};
     },
+    'session.dismiss': async () => ({ session: await svc.dismissError() }),
     'capture.ring': async (m, sender) => {
       const msg = m as Extract<BgRequest, { type: 'capture.ring' }>;
       const tabId = tabOf(sender, msg.tabId);

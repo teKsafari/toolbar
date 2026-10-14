@@ -162,7 +162,7 @@ test('CORS failures are called out; rows carry a timing breakdown (J-065)', asyn
   await page.close();
 });
 
-test('env info: browser, OS, viewport, DPR, locale, zone, connection; emulated mobile viewport (J-070, J-022)', async ({ context, sw, mock: _ }) => {
+test('env info: browser, OS, viewport, DPR, locale, zone, country, connection; emulated mobile viewport (J-070, J-022)', async ({ context, sw, mock: _ }) => {
   const page = await context.newPage();
   await page.goto(LAB_URL);
   const tabId = await tabIdOf(sw, page);
@@ -178,6 +178,7 @@ test('env info: browser, OS, viewport, DPR, locale, zone, connection; emulated m
   const cdp = await context.newCDPSession(page);
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 3, mobile: true });
   await cdp.send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1' });
+  await cdp.send('Emulation.setTimezoneOverride', { timezoneId: 'Africa/Dar_es_Salaam' });
   await page.reload();
   await sleep(500);
   s = await ring(sw, tabId, 5000);
@@ -185,6 +186,8 @@ test('env info: browser, OS, viewport, DPR, locale, zone, connection; emulated m
   // The page has no viewport meta tag, so the layout viewport is 980 px wide; the screen is the device.
   expect(m).toMatchObject({ screen: { w: 390, h: 844 }, dpr: 3, os: { name: 'iOS', version: '17.4' } });
   expect(String(m.ua)).toContain('iPhone');
+  // J-070 country: from the zone (the VM runs in UTC, which has none, so the zone is emulated)
+  expect(m).toMatchObject({ tz: 'Africa/Dar_es_Salaam', country: 'TZ', countrySource: 'tz' });
   await page.close();
 });
 

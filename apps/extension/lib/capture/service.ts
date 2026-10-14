@@ -98,6 +98,8 @@ export class CaptureService {
   /** recording id -> media start time and offscreen facts */
   private media = new Map<string, { t: number; mime: string; width: number; height: number; mic: MicState }>();
   private undoWebRequest: (() => void) | null = null;
+  /** Stop to editor budget; e2e lowers it to exercise the timeout path (J-034). */
+  stopTimeoutMs = STOP_TIMEOUT_MS;
 
   constructor() {
     this.loaded = this.load();
@@ -150,6 +152,23 @@ export class CaptureService {
     const minutes = this.settings.replayMinutes;
     if (enabled !== this.replay.enabled || minutes !== this.replay.minutes) await this.setReplay({ enabled, minutes });
     for (const p of this.ports) this.postPort(p, { type: 'config', captureUserEvents: this.settings.captureUserEvents, maskingPreset: 'staging' });
+  }
+
+  /**
+   * A new capture dismisses a finished error (stop timeout, media failure, failed upload):
+   * the error is shown once and must not block the next capture.
+   */
+  private async clearError() {
+    if (this.session.state === 'error') await this.apply({ type: 'CANCEL' });
+  }
+
+  /** The bar's or popup's dismiss on an error state. */
+  async dismissError() {
+    await this.loaded;
+    const s = this.session;
+    if (s.state !== 'error') return s;
+    if (s.tabId !== null) await this.sendContent(s.tabId, { type: 'ui.processing', visible: false });
+    return this.apply({ type: 'CANCEL' });
   }
 
   private async settingsNow() {
@@ -384,6 +403,8 @@ export class CaptureService {
   // ---------- screenshot (J-002, J-003, J-004, J-071) ----------
 
   async armScreenshot(tabId?: number, delaySec?: number) {
+    await this.loaded;
+    await this.clearError();
     const tab = await this.tabOrThrow(tabId);
     const s = await this.settingsNow();
     const delay = delaySec ?? s.screenshotDelaySec;
@@ -479,6 +500,7 @@ export class CaptureService {
     if (this.session.state === 'recording' || this.session.state === 'countdown' || this.session.state === 'starting') {
       return this.stopRecording(); // J-181: the record chord again stops
     }
+    await this.clearError();
     if (this.session.state !== 'idle') throw new CaptureError('busy', `Busy: ${this.session.state}`);
     const s = await this.settingsNow();
     const mode = opts.mode ?? s.recordMode;
@@ -670,12 +692,17 @@ export class CaptureService {
     const stoppedAt = Date.now();
     const next = await this.apply({ type: 'STOP', now: stoppedAt });
     await this.sendContent(s.tabId, { type: 'ui.processing', visible: true });
-    this.stopTimer = setTimeout(() => {
-      if (this.session.state === 'stopping')
-        void this.apply({ type: 'FAIL', error: 'stop_timeout', message: 'The recording took too long to process. It is kept in Drafts.' });
-    }, STOP_TIMEOUT_MS);
+    this.stopTimer = setTimeout(() => void this.stopTimedOut(s.tabId), this.stopTimeoutMs);
     void this.finishRecording(s, stoppedAt);
     return next;
+  }
+
+  /** J-034: no editor within the budget. The bar leaves, the error offers Drafts, and the draft lands there when processing ends. */
+  private async stopTimedOut(tabId: number) {
+    if (this.session.state !== 'stopping') return;
+    await this.apply({ type: 'FAIL', error: 'stop_timeout', message: 'Processing took too long. The recording will be in Drafts.' });
+    await this.sendContent(tabId, { type: 'ui.processing', visible: false });
+    await this.sendContent(tabId, { type: 'ui.bar', bar: null });
   }
 
   private async finishRecording(s: Extract<CaptureSession, { state: 'recording' }>, stoppedAt: number) {
@@ -795,6 +822,7 @@ export class CaptureService {
   async triggerReplay(tabId?: number, opts: { openEditor?: boolean } = {}): Promise<Draft> {
     await this.loaded;
     if (!this.replay.enabled) throw new CaptureError('invalid', 'Instant replay is off');
+    await this.clearError();
     if (this.session.state !== 'idle') throw new CaptureError('busy', `Busy: ${this.session.state}`);
     const tab = await this.tabOrThrow(tabId);
     const id = tab.id!;

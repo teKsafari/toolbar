@@ -110,6 +110,9 @@ export interface EnvInfo {
   touch?: boolean;
   /** Who produced the env record: the page (isolated world) or the service worker. */
   source?: 'page' | 'sw';
+  /** ISO 3166-1 alpha-2 country (J-070). The extension derives it from `tz`; the server may replace it from the request IP. */
+  country?: string;
+  countrySource?: 'tz' | 'ip';
 }
 
 export type NavType = 'load' | 'pushState' | 'replaceState' | 'popstate' | 'hashchange' | 'bfcache';

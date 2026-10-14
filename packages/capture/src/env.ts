@@ -1,7 +1,9 @@
 // Page and device metadata (J-070, J-022): browser and version, OS, viewport (the emulated one
 // under DevTools device mode), screen, DPR, locale, time zone, connection speed and latency,
-// battery, cores, memory. Country comes from the server (IP) at create.
+// battery, cores, memory, and the country of the time zone (the server may replace it from the
+// request IP at create).
 import type { EnvInfo, MaskingPreset } from '@toolbar/shared';
+import { countryForTimeZone } from './tz-country.ts';
 
 interface UAData {
   brands?: { brand: string; version: string }[];
@@ -59,6 +61,11 @@ export async function collectEnv(win: Window & typeof globalThis = window, opts:
     touch: (nav.maxTouchPoints ?? 0) > 0,
     source: 'page',
   };
+  const country = countryForTimeZone(env.tz);
+  if (country) {
+    env.country = country;
+    env.countrySource = 'tz';
+  }
   if (opts.maskingPreset) env.maskingPreset = opts.maskingPreset;
   if (nav.brave) env.browser = { name: 'Brave', version: browser.version };
   if (nav.connection) {
