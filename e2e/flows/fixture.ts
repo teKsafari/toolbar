@@ -13,9 +13,15 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { privateDisplay } from '../fixtures/xvfb.ts';
 
 export const EXT_ID = 'fmongfmimgdafigcahdpofnmmhljpnei';
 export const DISPLAY = process.env.E2E_DISPLAY ?? ':120';
+/**
+ * The display the X helpers below act on: DISPLAY, or a private one while a flow runs a browser
+ * there (withPrivateDisplay). One worker runs the flows one at a time, so one setting is enough.
+ */
+let xDisplay = DISPLAY;
 export const LAB_URL = process.env.LAB_URL ?? 'http://localhost:5173';
 export const SERVER = process.env.SERVER_URL ?? 'http://localhost:3000';
 export const MAILPIT = process.env.MAILPIT_URL ?? 'http://localhost:8025';
@@ -47,7 +53,7 @@ export interface Nib {
 // ---------------------------------------------------------------- X input
 
 function xdo(...args: string[]) {
-  return execFileSync('xdotool', args, { env: { ...process.env, DISPLAY }, encoding: 'utf8' }).trim();
+  return execFileSync('xdotool', args, { env: { ...process.env, DISPLAY: xDisplay }, encoding: 'utf8' }).trim();
 }
 
 /**
@@ -88,7 +94,7 @@ async function windowOf(page: Page): Promise<string> {
 /** The X clipboard, which is what the user pastes from. */
 export function clipboard(): string {
   try {
-    return execFileSync('xclip', ['-selection', 'clipboard', '-o'], { env: { ...process.env, DISPLAY }, encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'] });
+    return execFileSync('xclip', ['-selection', 'clipboard', '-o'], { env: { ...process.env, DISPLAY: xDisplay }, encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'] });
   } catch {
     return '';
   }
@@ -148,7 +154,7 @@ export async function pickEntireScreen(opts: { tab?: boolean; timeout?: number }
 
 /** One screen pixel as [r, g, b]. */
 function pixel(x: number, y: number): [number, number, number] {
-  const out = execFileSync('import', ['-window', 'root', '-crop', `1x1+${Math.round(x)}+${Math.round(y)}`, '-depth', '8', 'txt:-'], { env: { ...process.env, DISPLAY }, encoding: 'utf8' });
+  const out = execFileSync('import', ['-window', 'root', '-crop', `1x1+${Math.round(x)}+${Math.round(y)}`, '-depth', '8', 'txt:-'], { env: { ...process.env, DISPLAY: xDisplay }, encoding: 'utf8' });
   const m = out.match(/#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})/);
   return m ? [parseInt(m[1]!, 16), parseInt(m[2]!, 16), parseInt(m[3]!, 16)] : [0, 0, 0];
 }
@@ -184,6 +190,23 @@ export async function pickEntireScreenInPage(win = { x: 0, y: 0, w: 1440 }, time
   throw new Error('the share picker stayed open after Share');
 }
 
+/**
+ * Run `fn` with a private X display (Xvfb plus openbox) that the X helpers act on meanwhile.
+ * Chrome's share picker reads every window on its display and dies with X BadWindow far more
+ * often when other browsers draw there (docs/spikes.md S2).
+ */
+export async function withPrivateDisplay<T>(fn: (display: string) => Promise<T>): Promise<T> {
+  const x = await privateDisplay(Number(DISPLAY.slice(1)) + 40);
+  const before = xDisplay;
+  xDisplay = x.display;
+  try {
+    return await fn(x.display);
+  } finally {
+    xDisplay = before;
+    x.stop();
+  }
+}
+
 /** Chromium went away under a flow (the picker crash), as opposed to a failed check. */
 export class BrowserCrash extends Error {}
 
@@ -192,13 +215,13 @@ export const FAKE_MEDIA = ['--use-fake-ui-for-media-stream', '--use-fake-device-
 
 /**
  * Run a flow that goes through Chrome's share picker. `run` launches its own browser and throws
- * BrowserCrash when that browser died. A crash gets one more try; after two, the flow runs with
+ * BrowserCrash when that browser died. A crash gets another try; after three, the flow runs with
  * FAKE_MEDIA (no picker) and the test carries a "limitation" annotation. Any other failure
  * fails at once. FLOWS_PICKER=fake skips straight to the fallback.
  */
 export async function throughPicker(label: string, run: (mode: 'picker' | 'fake') => Promise<void>) {
   // FLOWS_PICKER=fake runs the fallback straight away, to check it still works
-  for (let attempt = 1; attempt <= 2 && process.env.FLOWS_PICKER !== 'fake'; attempt++) {
+  for (let attempt = 1; attempt <= 3 && process.env.FLOWS_PICKER !== 'fake'; attempt++) {
     try {
       await run('picker');
       return;
@@ -207,7 +230,7 @@ export async function throughPicker(label: string, run: (mode: 'picker' | 'fake'
       console.log(`${label}: attempt ${attempt}: ${e.message}`);
     }
   }
-  const why = process.env.FLOWS_PICKER === 'fake' ? 'FLOWS_PICKER=fake' : "Chrome's share picker crashed Chromium on Xvfb twice";
+  const why = process.env.FLOWS_PICKER === 'fake' ? 'FLOWS_PICKER=fake' : "Chrome's share picker crashed Chromium on Xvfb three times";
   base.info().annotations.push({ type: 'limitation', description: `${label}: ${why}; covered with fake media, no picker (docs/spikes.md S2)` });
   console.log(`${label}: LIMITATION: ${why}; running with fake media instead`);
   await run('fake');
@@ -341,7 +364,7 @@ export function linkIn(text: string, prefix: string): string {
 /** A picture of the whole X screen: shows the in-page UI in the closed shadow root and popups. */
 export function xshot(name: string) {
   try {
-    execFileSync('import', ['-window', 'root', saveShot(name)], { env: { ...process.env, DISPLAY } });
+    execFileSync('import', ['-window', 'root', saveShot(name)], { env: { ...process.env, DISPLAY: xDisplay } });
   } catch {
     /* imagemagick missing */
   }
@@ -396,7 +419,7 @@ export interface Launched {
  * browser of its own, so a crash cannot take the shared one down. `cdpPort` must differ from
  * every other open browser's; `args` adds Chromium flags.
  */
-export async function launchNib(opts: { cdpPort?: number; args?: string[] } = {}): Promise<Launched> {
+export async function launchNib(opts: { cdpPort?: number; args?: string[]; display?: string } = {}): Promise<Launched> {
   if (!fs.existsSync(path.join(EXT_DIR, 'manifest.json'))) throw new Error(`No extension build at ${EXT_DIR}. Run: pnpm --filter @toolbar/extension build`);
   if (DISPLAY === ':99') throw new Error('Display :99 belongs to the shared browser');
   const cdpPort = opts.cdpPort ?? CDP_PORT;
@@ -405,7 +428,7 @@ export async function launchNib(opts: { cdpPort?: number; args?: string[] } = {}
   fs.writeFileSync(path.join(userDataDir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID] } }));
   const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
-    env: { ...process.env, DISPLAY },
+    env: { ...process.env, DISPLAY: opts.display ?? DISPLAY },
     viewport: null,
     args: [
       `--disable-extensions-except=${EXT_DIR}`,

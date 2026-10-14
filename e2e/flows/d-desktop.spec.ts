@@ -2,11 +2,12 @@
 // Chrome's share picker (Entire Screen, the thumbnail, Share), work in two tabs, stop, create.
 //
 // Chrome's picker crashes Chromium on Xvfb now and then (X BadWindow, docs/spikes.md S2), so
-// this flow runs in a browser of its own with its own account: a crash cannot take down the
-// browser the other flows share. throughPicker gives a crash one more try in a fresh browser,
-// then falls back to fake media with a "limitation" annotation. Any failure that is not a
-// browser crash fails the test at once.
-import { BrowserCrash, FAKE_MEDIA, LAB_URL, api, captureOf, chord, connectExtension, createFromEditor, editorFrame, expect, labPage, launchNib, newEmail, openPopup, pickEntireScreen, saveShot, test, throughPicker, waitReady, xshot } from './fixture.ts';
+// this flow runs in a browser of its own with its own account, on a display of its own: a crash
+// cannot take down the browser the other flows share. throughPicker gives a crash two more tries
+// in a fresh browser, then falls back to fake media with a "limitation" annotation. Any failure
+// that is not a browser crash fails the test at once. In practice about half the tries crash,
+// right as the picker opens and the popup closes.
+import { BrowserCrash, FAKE_MEDIA, LAB_URL, api, captureOf, chord, connectExtension, createFromEditor, editorFrame, expect, labPage, launchNib, newEmail, openPopup, pickEntireScreen, saveShot, test, throughPicker, waitReady, withPrivateDisplay, xshot } from './fixture.ts';
 
 type Mode = 'picker' | 'fake';
 
@@ -15,8 +16,10 @@ interface Session {
   recordingId?: string;
 }
 
-async function desktopRecording(mode: Mode) {
-  const b = await launchNib({ cdpPort: 9351, args: mode === 'fake' ? FAKE_MEDIA : [] });
+const desktopRecording = (mode: Mode) => withPrivateDisplay((display) => desktopRecordingOn(display, mode));
+
+async function desktopRecordingOn(display: string, mode: Mode) {
+  const b = await launchNib({ cdpPort: 9351, display, args: mode === 'fake' ? FAKE_MEDIA : [] });
   let crashed = false;
   let closing = false;
   b.context.on('close', () => {

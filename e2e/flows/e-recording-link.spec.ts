@@ -5,10 +5,10 @@
 // capture, which holds video only.
 //
 // The recipient's browser goes through Chrome's picker, which crashes Chromium on Xvfb now and
-// then (docs/spikes.md S2): throughPicker retries a crash once in a fresh browser, then falls
-// back to fake media and annotates the test.
+// then (docs/spikes.md S2). It runs on a display of its own; throughPicker retries a crash twice
+// in a fresh browser, then falls back to fake media and annotates the test.
 import { chromium } from '@playwright/test';
-import { BrowserCrash, DISPLAY, FAKE_MEDIA, SERVER, api, clipboard, expect, labPage, linkIn, mailTo, openPopup, pickEntireScreenInPage, saveShot, test, throughPicker, waitReady, xshot } from './fixture.ts';
+import { BrowserCrash, FAKE_MEDIA, SERVER, api, clipboard, expect, labPage, linkIn, mailTo, openPopup, pickEntireScreenInPage, saveShot, test, throughPicker, waitReady, withPrivateDisplay, xshot } from './fixture.ts';
 
 test('E: recording link from the popup; a recipient with no extension records and sends; the sender gets mail', async ({ nib, context }) => {
   // Sender: popup, recording-link row, a name, create (3 clicks and typing)
@@ -29,10 +29,10 @@ test('E: recording link from the popup; a recipient with no extension records an
   await lab.close();
 
   const note = 'The total stays at zero after I add the second item.';
-  await throughPicker('E', async (mode) => {
+  await throughPicker('E', (mode) => withPrivateDisplay(async (display) => {
     const browser = await chromium.launch({
       headless: false,
-      env: { ...process.env, DISPLAY },
+      env: { ...process.env, DISPLAY: display },
       args: ['--window-position=0,0', '--window-size=1440,900', '--force-device-scale-factor=1', ...(mode === 'fake' ? FAKE_MEDIA : [])],
     });
     let crashed = false;
@@ -68,7 +68,7 @@ test('E: recording link from the popup; a recipient with no extension records an
       closing = true;
       await browser.close().catch(() => undefined);
     }
-  });
+  }));
 
   // Sender: the mail names the link and carries the note and the capture
   const mail = await mailTo(context, nib.email, new RegExp(`New recording from "${name}"`), 60_000);

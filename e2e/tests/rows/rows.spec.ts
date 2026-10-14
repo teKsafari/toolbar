@@ -372,6 +372,10 @@ test('J-177: report a problem opens a recording link to the server admin', async
 });
 
 test('J-219: a video draft reopened from Drafts saves for later; the popup shows the drafts pill with the capture rows live', async ({ context, sw }) => {
+  // pages earlier suites left open in this worker's browser keep their capture scripts and
+  // replay rings busy, which slowed the worker's draft saves past the waits below
+  // (the first page stays: the browser quits with its last window)
+  for (const p of context.pages().slice(1)) await p.close().catch(() => undefined);
   await signInExtension(sw, acct);
   const { page, tabId } = await labTab(context, sw);
   const id = await seedDraft(sw, { kind: 'video', videoBase64: VIDEO, durationMs: 8000, tabId, workspaceId: acct.workspaceId, status: 'saved' });
@@ -397,7 +401,7 @@ test('J-219: a video draft reopened from Drafts saves for later; the popup shows
   await expect.poll(state, { message: `session after View: ${seen.join(' > ')}` }).toBe('draft');
   await popup.close().catch(() => undefined);
   await f.getByTestId('close').click();
-  await expect(page.locator('iframe[data-nb-editor]')).toHaveCount(0);
+  await expect(page.locator('iframe[data-nb-editor]')).toHaveCount(0, { timeout: 20_000 });
   await expect(page.locator('toolbar-root').getByText('Saved to your drafts')).toBeVisible();
   await expect(page.locator('toolbar-root').getByRole('button', { name: 'View' })).toBeVisible();
   await expect.poll(() => sw.evaluate(async () => ((await chrome.storage.session.get('nib:session'))['nib:session'] as { state: string }).state)).toBe('idle');
