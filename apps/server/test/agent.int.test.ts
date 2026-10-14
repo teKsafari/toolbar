@@ -212,4 +212,34 @@ describe.skipIf(!reachable)('agent (integration)', () => {
     expect(d).toMatchObject({ title: 'Checkout breaks (fixed)', folder: 'Fixed', canEdit: true });
     expect(details.content[1]!.text).toContain('not ready');
   });
+  it('adds and removes reactions as the user, and says so while the viewer table is missing (J-151)', async () => {
+    const rw = await createApiToken(db, { userId: ids.dana, kind: 'personal', name: 'react', scopes: ['mcp:write'] });
+    const vic = await createApiToken(db, { userId: ids.vic, kind: 'personal', name: 'vic-react', scopes: ['mcp:write'] });
+    const made = JSON.parse((await tool(rw.secret, 'create_comment', { capture: ids.rec, body: 'Fixed in checkout.ts' })).content[0]!.text) as { id: string };
+    const exists = await client!`select to_regclass('comment_reaction') as t`;
+    if (!exists[0]!.t) {
+      const early = await tool(rw.secret, 'add_reaction', { commentId: made.id, reaction: 'check' });
+      expect(early.isError).toBe(true);
+      expect(early.content[0]!.text).toMatch(/^unavailable/);
+      // the viewer area's table (db/schema/comments.ts on area/viewer), created here as it will be after the merge
+      await client!.unsafe(
+        'create table comment_reaction (comment_id uuid not null references comment(id) on delete cascade, actor text not null, key text not null, created_at timestamptz not null default now(), primary key (comment_id, actor, key))',
+      );
+    }
+    const bad = await tool(rw.secret, 'add_reaction', { commentId: made.id, reaction: 'rocket' });
+    expect(bad.isError).toBe(true);
+    const one = JSON.parse((await tool(rw.secret, 'add_reaction', { commentId: made.id, reaction: 'check' })).content[0]!.text) as { reactions: unknown };
+    expect(one.reactions).toEqual([{ key: 'check', count: 1, mine: true }]);
+    await tool(rw.secret, 'add_reaction', { commentId: made.id, reaction: 'check' });
+    const two = JSON.parse((await tool(vic.secret, 'add_reaction', { commentId: made.id, reaction: 'check' })).content[0]!.text) as { reactions: unknown };
+    expect(two.reactions).toEqual([{ key: 'check', count: 2, mine: true }]);
+    const rows = await client!`select actor from comment_reaction where comment_id = ${made.id} order by actor`;
+    expect(rows.map((r) => r.actor)).toEqual([`u:${ids.dana}`, `u:${ids.vic}`].sort());
+    const off = JSON.parse((await tool(rw.secret, 'remove_reaction', { commentId: made.id, reaction: 'check' })).content[0]!.text) as { reactions: unknown };
+    expect(off.reactions).toEqual([{ key: 'check', count: 1, mine: false }]);
+    const ro = await createApiToken(db, { userId: ids.dana, kind: 'personal', name: 'ro-react', scopes: ['mcp:read'] });
+    expect((await tool(ro.secret, 'add_reaction', { commentId: made.id, reaction: 'heart' })).isError).toBe(true);
+    await tool(rw.secret, 'delete_comment', { commentId: made.id });
+    expect((await tool(rw.secret, 'add_reaction', { commentId: made.id, reaction: 'heart' })).content[0]!.text).toMatch(/^not_found/);
+  });
 });

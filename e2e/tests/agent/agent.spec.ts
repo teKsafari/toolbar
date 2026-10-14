@@ -143,6 +143,35 @@ test('J-155 nib login through the browser, then nib ls lists captures', async ()
   expect(ls.items.map((i) => i.title)).toContain('Submit order does nothing');
 });
 
+test('J-148 read-only CLI key: 30 days, shown once with its prefix, reads work and a write is refused', async () => {
+  test.skip(!existsSync(CLI), 'build the CLI first: pnpm --filter @toolbar/cli build');
+  await page.goto(`${SERVER}/settings/tokens`);
+  await hydrated(page);
+  await page.getByRole('button', { name: 'Create token' }).click();
+  const name = `E2E read key ${Date.now().toString(36)}`;
+  await page.getByLabel('Name').fill(name);
+  await expect(page.getByLabel('Expires')).toHaveValue('30');
+  await expect(page.locator('input[name="cli"][value="read"]')).toBeChecked();
+  await page.getByRole('button', { name: 'Create', exact: true }).click();
+  const secret = (await page.getByTestId('token-secret').locator('code').textContent())?.trim() ?? '';
+  expect(secret).toMatch(/^tb_pat_/);
+  await page.reload();
+  await hydrated(page);
+  await expect(page.getByTestId('token-secret')).toHaveCount(0);
+  await expect(page.getByText(name)).toBeVisible();
+
+  const env = { ...process.env, NIB_CONFIG: join(mkdtempSync(join(tmpdir(), 'nib-e2e-')), 'config.json'), NIB_TOKEN: secret, NIB_SERVER: SERVER };
+  const ls = JSON.parse(execFileSync(process.execPath, [CLI, 'ls'], { env, encoding: 'utf8' })) as { total: number };
+  expect(ls.total).toBeGreaterThanOrEqual(3);
+  let refused = '';
+  try {
+    execFileSync(process.execPath, [CLI, 'comment', '019a0000-0000-7000-8000-0000000000c3', 'should not land'], { env, encoding: 'utf8', stdio: 'pipe' });
+  } catch (e) {
+    refused = String((e as { stderr?: string }).stderr ?? e);
+  }
+  expect(refused).toMatch(/read|scope|not allowed|refused|forbidden/i);
+});
+
 test('J-153 markdown summary for plain fetches, and the Link header on the HTML', async () => {
   const md = await page.request.get(`${SERVER}/s/${SHARE_C3}.md`, { headers: { cookie: '' } });
   expect(md.headers()['content-type']).toContain('text/markdown');

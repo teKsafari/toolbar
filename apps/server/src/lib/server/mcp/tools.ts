@@ -33,6 +33,7 @@ import { randomBytes } from 'node:crypto';
 import { resolveCapture, workspaceFor, requireSeatAtLeast, type ResolvedCapture } from './access.ts';
 import { briefOf, commentRows, memberUrlOf, preparedOf, screenshotAssets, threadsOf, transcriptOf } from './data.ts';
 import { frameAt, overview, spread, type FrameSize } from './frames.ts';
+import { REACTION_KEYS, setReaction } from './reactions.ts';
 import type { McpPrincipal } from './oauth.ts';
 
 export type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
@@ -696,6 +697,45 @@ const deleteComment = define({
   },
 });
 
+async function visibleComment(db: Db, principal: McpPrincipal, id: string) {
+  const [row] = await db.select().from(comment).where(and(eq(comment.id, id), isNull(comment.deletedAt))).limit(1);
+  if (!row) fail('not_found', 'No such comment.');
+  await resolveCapture(db, principal, row!.recordingId, 'comment');
+  return row!;
+}
+
+const reactionInput = z.object({
+  commentId: z.string().uuid().describe('Comment id, from list_comments.'),
+  reaction: z.enum(REACTION_KEYS).describe(`One of: ${REACTION_KEYS.join(', ')}.`),
+  intent,
+});
+
+const addReaction = define({
+  name: 'add_reaction',
+  title: 'React to a comment',
+  description: 'Add your reaction to a comment on a capture, for example check once a reported bug is fixed. Adding the same reaction twice changes nothing. Returns the comment\'s reaction counts.',
+  input: reactionInput,
+  write: true,
+  annotations: { ...WRITE, idempotentHint: true },
+  async run({ db, principal }, a) {
+    const row = await visibleComment(db, principal, a.commentId);
+    return json({ commentId: row.id, reactions: await setReaction(db, row.id, principal.userId, a.reaction, true) });
+  },
+});
+
+const removeReaction = define({
+  name: 'remove_reaction',
+  title: 'Remove a reaction',
+  description: 'Take back one of your own reactions on a comment. Returns the comment\'s reaction counts.',
+  input: reactionInput,
+  write: true,
+  annotations: { ...WRITE, idempotentHint: true },
+  async run({ db, principal }, a) {
+    const row = await visibleComment(db, principal, a.commentId);
+    return json({ commentId: row.id, reactions: await setReaction(db, row.id, principal.userId, a.reaction, false) });
+  },
+});
+
 async function folderInWorkspace(db: Db, folderId: string, organizationId: string) {
   const [f] = await db.select().from(folder).where(and(eq(folder.id, folderId), eq(folder.organizationId, organizationId))).limit(1);
   if (!f) fail('not_found', 'No such folder in the capture\'s workspace.');
@@ -909,6 +949,8 @@ export const TOOLS: ToolDef[] = [
   createComment,
   editComment,
   deleteComment,
+  addReaction,
+  removeReaction,
   updateCapture,
   deleteCaptureTool,
   createFolder,
