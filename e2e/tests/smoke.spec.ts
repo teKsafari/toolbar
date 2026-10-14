@@ -37,7 +37,8 @@ test('content script hooks run on the lab app', async ({ context, sw }) => {
     .poll(async () => sw.evaluate(() => __tb.stats()), { timeout: 10_000 })
     .toMatchObject({ byKind: { nav: expect.any(Number) }, pages: expect.arrayContaining([expect.stringContaining(LAB_URL)]) });
   const navs = (await sw.evaluate(() => __tb.events())) as { kind: string; data: { url: string } }[];
-  expect(navs.find((e) => e.kind === 'nav')?.data.url).toContain(LAB_URL);
+  // other specs in the same worker may have loaded pages before: look for the lab's own nav
+  expect(navs.some((e) => e.kind === 'nav' && e.data.url.includes(LAB_URL))).toBe(true);
   await page.close();
 });
 
