@@ -300,9 +300,19 @@ test('close discards a screenshot draft at once; Escape asks for a second press 
   await page.keyboard.press('Escape');
   await expect(f.getByText('Press Escape again to discard this draft')).toBeVisible();
   await page.waitForTimeout(1300);
-  await page.keyboard.press('Escape'); // too late: asks again
-  await expect(page.locator('iframe[data-nb-editor]')).toHaveCount(1);
-  await page.keyboard.press('Escape');
+  // Too late: the next press asks again, and one right after it discards. Both presses go in
+  // one step inside the editor, 100 ms apart; two round trips from here took over a second on a
+  // busy machine, which is the window itself.
+  const editor = page.frames().find((fr) => fr.url().includes('/editor.html'))!;
+  const askedAgain = await editor.evaluate(async () => {
+    const esc = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    esc();
+    await new Promise((r) => setTimeout(r, 100));
+    const asked = document.body.textContent?.includes('Press Escape again to discard this draft') ?? false;
+    esc();
+    return asked;
+  });
+  expect(askedAgain).toBe(true);
   await expect(page.locator('iframe[data-nb-editor]')).toHaveCount(0);
   expect(await getDraft(sw, id2)).toBeUndefined();
   expect(await draftCount(sw)).toBe(before);
