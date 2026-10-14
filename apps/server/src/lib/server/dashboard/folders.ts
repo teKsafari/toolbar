@@ -9,7 +9,7 @@ import { visibleCapturesWhere, visibleFoldersWhere, seatOf } from '../share/acce
 import { fail } from '../share/http.ts';
 import { sendMail } from '../mail.ts';
 import { env } from '../env.ts';
-import { audit, ensureShortIds, findFolder, newShortId, peopleById, type FolderRow } from './core.ts';
+import { audit, emailAllowed, ensureShortIds, findFolder, newShortId, peopleById, type FolderRow } from './core.ts';
 import { bulkDelete } from './captures.ts';
 import { folderInviteMail } from '../mail-templates/index.ts';
 
@@ -163,6 +163,8 @@ export async function updateFolderShare(
       .from(folderMember)
       .where(and(eq(folderMember.folderId, f.id), u ? eq(folderMember.userId, u.id) : eq(folderMember.email, email)));
     if (!existing.length) await db.insert(folderMember).values({ folderId: f.id, userId: u?.id ?? null, email, role: inv.role, invitedBy: actor.id });
+    // J-136: an existing account that turned off "shared with me" gets no email; new addresses always do.
+    if (u && !(await emailAllowed(db, u.id, 'sharedWithMe'))) continue;
     const mail = folderInviteMail({ inviter: actor.name, folder: f.name, url: folderUrl(f), product: PRODUCT_NAME });
     await sendMail(email, mail.subject, mail.text, mail.html).catch((e) => console.warn('[dashboard] folder invite mail failed', e));
   }

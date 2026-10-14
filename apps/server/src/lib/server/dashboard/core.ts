@@ -6,7 +6,7 @@ import { DEFAULT_USER_SETTINGS, roleAtLeast, type AUDIT_ACTIONS, type CaptureSum
 import { SHORT_ID_ALPHABET } from '@toolbar/shared/areas/dashboard';
 import { randomBytes } from 'node:crypto';
 import type { Db } from '../db/index.ts';
-import { auditLog, comment, folder, linkedIssue, recording, recordingLink, user, userSettings } from '../db/schema/index.ts';
+import { auditLog, comment, folder, linkedIssue, organization, recording, recordingLink, user, userSettings } from '../db/schema/index.ts';
 import { activeWorkspaceId } from '../auth/workspaces.ts';
 import { seatOf } from '../share/access.ts';
 import { fail } from '../share/http.ts';
@@ -205,4 +205,14 @@ export async function patchRawSettings(db: Db, userId: string, patch: Record<str
 export async function emailAllowed(db: Db, userId: string, kind: 'firstView' | 'sharedWithMe' | 'recordingLinkUsed' | 'domainSignup' | 'mentions'): Promise<boolean> {
   const s = (await getUserSettings(db, userId)).notifications;
   return !s.allOff && s[kind];
+}
+
+/**
+ * J-156: may AI features run for this workspace? The editor's ai-draft route and server-core's
+ * chapters job call this; with the switch off nobody in the workspace gets AI text.
+ */
+export async function aiAllowed(db: Db, workspaceId: string): Promise<boolean> {
+  const [o] = await db.select({ settings: organization.settings }).from(organization).where(eq(organization.id, workspaceId));
+  const s = (o?.settings ?? {}) as { aiEnabled?: unknown };
+  return s.aiEnabled !== false;
 }

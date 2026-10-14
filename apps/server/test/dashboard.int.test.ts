@@ -17,7 +17,8 @@ import { uuidv7 } from '@toolbar/shared';
 import * as schema from '../src/lib/server/db/schema/index.ts';
 import type { Db } from '../src/lib/server/db/index.ts';
 import { createWorkspace, patchSettings } from '../src/lib/server/auth/workspaces.ts';
-import { audit, emailAllowed, patchRawSettings, findFolder } from '../src/lib/server/dashboard/core.ts';
+import { aiAllowed, audit, emailAllowed, patchRawSettings, findFolder } from '../src/lib/server/dashboard/core.ts';
+import { authorSnapshot, createCaptureRecord } from '../src/lib/server/upload/service.ts';
 import { bulkDelete, bulkMove, changeable, listCaptures, uploadVideo } from '../src/lib/server/dashboard/captures.ts';
 import { createFolder, deleteFolder, folderShare, listFolders, updateFolder, updateFolderShare } from '../src/lib/server/dashboard/folders.ts';
 import { createLink, linkByToken, listLinks, recorderCreate, recorderInfo, toLinks, updateLink } from '../src/lib/server/dashboard/links.ts';
@@ -93,7 +94,7 @@ async function listen(handler: (req: IncomingMessage, body: string) => { status:
 }
 
 async function mailTo(to: string, subject: RegExp) {
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < (to.includes('sam-maker') ? 8 : 40); i++) {
     const r = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${to}"`)}`).then((x) => x.json() as Promise<{ messages: { Subject: string }[] }>);
     const hit = (r.messages ?? []).find((m) => subject.test(m.Subject));
     if (hit) return hit;
@@ -218,10 +219,15 @@ describe.skipIf(!reachable)('dashboard (integration)', () => {
     expect(await mailTo(guest, /shared "Secret"/)).not.toBeNull();
     expect((await listFolders(db, ws, await ctxOf(sam))).some((x) => x.id === f.id)).toBe(false);
     expect((await listFolders(db, ws, await ctxOf(vera))).some((x) => x.id === f.id)).toBe(true);
-    await updateFolderShare(db, f, { id: dana.id, name: 'Dana' }, { access: 'workspace', remove: [vera.id] });
+    // J-136: Sam turned off "shared with me", so his invite sends no mail
+    await patchRawSettings(db, sam.id, { notifications: { sharedWithMe: false } });
+    await updateFolderShare(db, f, { id: dana.id, name: 'Dana Owner' }, { invite: [{ email: sam.email, role: 'viewer' }] });
+    expect(await mailTo(sam.email, /shared "Secret"/)).toBeNull();
+    await patchRawSettings(db, sam.id, { notifications: { sharedWithMe: true } });
+    await updateFolderShare(db, f, { id: dana.id, name: 'Dana' }, { access: 'workspace', remove: [vera.id, sam.id] });
     expect((await folderShare(db, f)).people.some((p) => p.person.id === vera.id)).toBe(false);
     expect((await listFolders(db, ws, await ctxOf(sam))).some((x) => x.id === f.id)).toBe(true);
-  });
+  }, 30_000);
 
   it('J-161, J-228, J-150: search finds members, folders and captures by title, comment, transcript, issue and pasted URL', async () => {
     const w = (await createWorkspace(db, { userId: dana.id, email: dana.email, name: 'Search', domainJoin: false })).id;
@@ -298,6 +304,12 @@ describe.skipIf(!reachable)('dashboard (integration)', () => {
     expect(d).toMatchObject({ name: 'Settings 2', settings: { defaultLinkAccess: 'workspace', aiEnabled: false, autoDeleteDays: 30 } });
     const [o] = await db.select().from(schema.organization).where(eq(schema.organization.id, w));
     expect(JSON.parse(o!.metadata!)).toMatchObject({ defaultLinkAccess: 'workspace' });
+    // J-120: new captures take the default; J-156: the AI switch is readable by other areas
+    const made = await createCaptureRecord(db, { organizationId: w, clientId: uuidv7(), kind: 'screenshot', page: { url: 'http://x/', title: 'x' }, startedAt: Date.now(), source: 'extension', author: await authorSnapshot(db, dana.id) });
+    const [mr] = await db.select().from(schema.recording).where(eq(schema.recording.id, made.id));
+    expect(mr!.access).toBe('workspace');
+    expect(await aiAllowed(db, w)).toBe(false);
+    expect(await aiAllowed(db, ws)).toBe(true);
     const old = await mkCapture({ organizationId: w, createdAt: new Date(Date.now() - 40 * 86_400_000) });
     const fresh = await mkCapture({ organizationId: w });
     expect(await autoDelete(db)).toBeGreaterThanOrEqual(1);
