@@ -2,6 +2,7 @@
   // Consent card (J-146): one approve click when signed in; the workspace picker defaults to the
   // active workspace. A quiet cancel link sits under the button.
   import { Button, Icon } from '@toolbar/ui';
+  import { page } from '$app/state';
   import { PRODUCT_NAME } from '@toolbar/shared';
 
   let { data, form } = $props();
@@ -10,6 +11,8 @@
     if (!workspaceId) workspaceId = data.activeId ?? data.workspaces[0]?.id ?? '';
   });
   let busy = $state(false);
+  // named actions must keep the OAuth query string: ?<oauth params>&/approve
+  const act = (name: string) => `${page.url.search || '?'}${page.url.search ? '&' : ''}/${name}`;
 </script>
 
 <svelte:head><title>Connect {data.client.name} · {PRODUCT_NAME}</title></svelte:head>
@@ -20,7 +23,7 @@
     <h1><span class="client" data-testid="mcp-client-name">{data.client.name}</span> wants to use your {PRODUCT_NAME} account</h1>
     <p class="muted">Signed in as {data.user.email}. The agent will act as you in the workspace you pick.</p>
 
-    <form method="POST" action="?/approve" onsubmit={() => (busy = true)}>
+    <form method="POST" action={act('approve')} onsubmit={() => (busy = true)}>
       <label class="field">
         <span>Workspace</span>
         <select name="workspaceId" bind:value={workspaceId} data-testid="mcp-workspace">
@@ -43,7 +46,7 @@
 
       <Button type="submit" variant="primary" size="lg" loading={busy} disabled={!workspaceId} data-testid="mcp-approve">Allow access</Button>
     </form>
-    <form method="POST" action="?/deny" class="deny">
+    <form method="POST" action={act('deny')} class="deny">
       <button type="submit" class="link">Cancel</button>
     </form>
     <p class="fine">You will return to {data.client.redirectHost}. Remove the agent at any time under Settings, MCP.</p>

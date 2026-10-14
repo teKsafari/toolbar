@@ -18,7 +18,7 @@ async function check(url: URL) {
   try {
     return await checkAuthorize(db, query(url));
   } catch (e) {
-    if (e instanceof OAuthError) error(400, { message: e.description, code: e.code });
+    if (e instanceof OAuthError) error(400, e.description);
     throw e;
   }
 }
@@ -26,7 +26,7 @@ async function check(url: URL) {
 export const load: PageServerLoad = async ({ locals, url }) => {
   const u = requireSession(locals, url);
   const c = await check(url);
-  if (c.error) redirect(303, redirectWith(c.redirectUri, { error: c.error.code, error_description: c.error.description, state: url.searchParams.get('state') ?? undefined }));
+  if (c.error) redirect(303, redirectWith(c.redirectUri, { error: c.error.code, error_description: c.error.description, state: url.searchParams.get('state') ?? undefined }), { external: true });
   const workspaces = await listWorkspaces(db, u.id);
   return {
     client: { name: c.client.name, uri: c.client.clientUri, redirectHost: new URL(c.redirectUri).host || c.redirectUri.split(':')[0] },
@@ -54,11 +54,11 @@ export const actions: Actions = {
       redirectUri: c.redirectUri,
       codeChallenge: c.query.code_challenge,
     });
-    redirect(303, redirectWith(c.redirectUri, { code, state: c.query.state, iss: issuer() }));
+    redirect(303, redirectWith(c.redirectUri, { code, state: c.query.state, iss: issuer() }), { external: true });
   },
   deny: async ({ locals, url }) => {
     requireSession(locals, url);
     const c = await check(url);
-    redirect(303, redirectWith(c.redirectUri, { error: 'access_denied', error_description: 'The user did not allow access.', state: url.searchParams.get('state') ?? undefined }));
+    redirect(303, redirectWith(c.redirectUri, { error: 'access_denied', error_description: 'The user did not allow access.', state: url.searchParams.get('state') ?? undefined }), { external: true });
   },
 };
