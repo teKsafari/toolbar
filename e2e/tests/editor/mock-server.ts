@@ -128,6 +128,10 @@ export async function startMock(port: number): Promise<MockState> {
     json(404, { error: 'not_found', message: `${req.method} ${u.pathname}` });
   });
   await new Promise<void>((r) => server.listen(port, '127.0.0.1', () => r()));
-  state.close = () => new Promise<void>((r) => server.close(() => r()));
+  state.close = () =>
+    new Promise<void>((r) => {
+      server.close(() => r());
+      server.closeAllConnections();
+    });
   return state;
 }
