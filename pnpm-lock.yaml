@@ -12,6 +12,19 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  packages/capture:
+    dependencies:
+      '@toolbar/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.0.4
+        version: 5.0.4(@types/node@24.19.2)(vite@8.3.4(@types/node@24.19.2))
+
   packages/shared:
     dependencies:
       zod:
