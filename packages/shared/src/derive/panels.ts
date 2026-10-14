@@ -161,9 +161,14 @@ function graphqlOf(reqBody: string | undefined, resBody: string | undefined): Ne
 
 /**
  * One row per request: net.req paired with net.res or net.fail by rid; a webRequest sighting of
- * a request the page hooks also saw (same method and URL within 50 ms) merges into it; WebSocket
+ * a request the page hooks also saw (same method and URL, from 50 ms before to 3 s after the
+ * hook, the nearest one) merges into it; WebSocket
  * and EventSource streams become one row each with their frames.
  */
+/** How far a webRequest sighting may lead or trail the page hook's record of the same request. */
+const WEB_MATCH_EARLY_MS = 50;
+const WEB_MATCH_LATE_MS = 3000;
+
 export function deriveNetwork(events: readonly CaptureEvent[], map: TimeMap): NetworkViewRow[] {
   type Acc = { req: EventOf<'net.req'>; res?: EventOf<'net.res'>; fail?: EventOf<'net.fail'>; webReq?: EventOf<'net.req'>; webRes?: EventOf<'net.res'> };
   const byRid = new Map<string, Acc>();
@@ -209,7 +214,15 @@ export function deriveNetwork(events: readonly CaptureEvent[], map: TimeMap): Ne
   }
   // merge webRequest sightings into page rows
   for (const w of webOnly) {
-    const twin = order.find((a) => !a.webReq && a.req.data.method === w.data.method && a.req.data.url === w.data.url && Math.abs(a.req.t - w.t) < 50);
+    // The browser sees a request after the page's hook did, by a few ms on an idle machine and
+    // by hundreds under load, so take the nearest unmatched page row from just before it.
+    let twin: Acc | undefined;
+    for (const a of order) {
+      if (a.webReq || a.req.data.method !== w.data.method || a.req.data.url !== w.data.url) continue;
+      const lag = w.t - a.req.t;
+      if (lag < -WEB_MATCH_EARLY_MS || lag > WEB_MATCH_LATE_MS) continue;
+      if (!twin || Math.abs(lag) < Math.abs(w.t - twin.req.t)) twin = a;
+    }
     const key = `${w.ctx}|${w.data.rid}`;
     if (twin) {
       twin.webReq = w;

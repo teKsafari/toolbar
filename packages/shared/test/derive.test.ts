@@ -94,6 +94,29 @@ describe('derive: network, console, actions', () => {
     expect(page.items.find((r) => r.type === 'websocket')!.wsFrames).toBe(2);
   });
 
+  it('merges a webRequest sighting that trails the page hook under load, nearest first', () => {
+    let now = T0;
+    const top = createEmitter('top', () => now);
+    const sw = createEmitter('sw', () => now);
+    const at = (ms: number) => (now = T0 + ms);
+    const evs: CaptureEvent[] = [];
+    at(1000);
+    evs.push(top('net.req', { rid: 'p1', method: 'POST', url: 'http://lab.test/api/fail', initiator: 'fetch', source: 'page' }));
+    at(1100);
+    evs.push(top('net.res', { rid: 'p1', status: 500, body: '{"error":"x"}', contentType: 'application/json' }));
+    at(1400); // the browser saw it 400 ms later (a busy machine)
+    evs.push(sw('net.req', { rid: 'w1', method: 'POST', url: 'http://lab.test/api/fail', source: 'webRequest' }));
+    at(2000);
+    evs.push(top('net.req', { rid: 'p2', method: 'POST', url: 'http://lab.test/api/fail', initiator: 'fetch', source: 'page' }));
+    at(2010);
+    evs.push(sw('net.req', { rid: 'w2', method: 'POST', url: 'http://lab.test/api/fail', source: 'webRequest' }));
+    const rows = queryNetwork(prepare(evs, T0, true), {}).items as { rid: string; source: string }[];
+    expect(rows.map((r) => [r.rid, r.source])).toEqual([
+      ['p1', 'both'],
+      ['p2', 'both'],
+    ]);
+  });
+
   it('takes the tab from the envelope the worker stamps on desktop recordings (J-224)', () => {
     const evs = events().map((e) => (e.kind === 'net.req' && (e.data as { rid: string }).rid === 'r2' ? { ...e, tab: 7 } : e));
     const rows = queryNetwork(prepare(evs, T0, true), {}).items as { rid: string; tabId: number | null }[];
