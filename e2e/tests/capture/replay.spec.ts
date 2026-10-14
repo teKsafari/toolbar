@@ -6,7 +6,8 @@ import type { Worker } from '@playwright/test';
 import { DISPLAY } from '../../fixtures/extension.ts';
 import { LAB_URL, byKind, draftWithBlobs, expect, ring, session, setSettings, sleep, svc, tabIdOf, test } from './helpers.ts';
 
-async function waitState(sw: Worker, state: string, timeout = 15_000) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function waitState(sw: Worker, state: string, timeout = 15_000): Promise<any> {
   await expect
     .poll(async () => {
       const s = await session(sw);
@@ -152,7 +153,7 @@ test('the recording bar comes back after a reload with the same start time; spin
   const tail = types.slice(types.indexOf('processing:true'));
   expect(tail).toEqual(expect.arrayContaining(['processing:true', 'bar:off', 'processing:false', 'ui.editor-open']));
   expect(tail.indexOf('ui.editor-open')).toBeGreaterThan(tail.indexOf('processing:false'));
-  const s = (await session(sw)) as { draftId: string };
+  const s = (await session(sw)) as unknown as { draftId: string };
   await svc(sw, 'discardDraft', s.draftId);
   await page.close();
 });
@@ -191,7 +192,7 @@ test('cancelling Chrome\'s share picker leaves no draft and no bar (J-201)', asy
   }
 });
 
-test('the record shortcut starts and stops a tab recording (J-006 key path, real X input)', async ({ tab: { context, sw } }) => {
+test('the record shortcut starts and stops a tab recording, live in under 6.4 s (J-006 key path, J-195, real X input)', async ({ tab: { context, sw } }) => {
   await setSettings(sw, { recordMode: 'tab', mic: false });
   const page = await context.newPage();
   await page.goto(LAB_URL);
@@ -199,8 +200,10 @@ test('the record shortcut starts and stops a tab recording (J-006 key path, real
   await page.getByTestId('status').click(); // focus the page, not the omnibox
   const env = { ...process.env, DISPLAY };
   const win = execFileSync('xdotool', ['getactivewindow'], { env }).toString().trim();
+  const keyAt = Date.now();
   execFileSync('xdotool', ['windowfocus', '--sync', win, 'key', '--clearmodifiers', 'ctrl+shift+space'], { env });
   await waitState(sw, 'recording', 12_000);
+  expect(Date.now() - keyAt).toBeLessThan(6400); // J-195: key to live, countdown included
   await sleep(1000);
   execFileSync('xdotool', ['windowfocus', '--sync', win, 'key', '--clearmodifiers', 'ctrl+shift+space'], { env });
   const s = (await waitState(sw, 'draft', 8000)) as { draftId: string };

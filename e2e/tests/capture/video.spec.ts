@@ -24,7 +24,8 @@ function probe(file: string): { width: number; height: number; duration: number;
   return { width: v.width!, height: v.height!, duration: Number(out.format.duration), codecs: out.streams.map((s) => s.codec_name) };
 }
 
-async function waitState(sw: Worker, state: string, timeout = 15_000) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function waitState(sw: Worker, state: string, timeout = 15_000): Promise<any> {
   await expect
     .poll(async () => {
       const s = await session(sw);

@@ -143,7 +143,8 @@ export async function svc<T = unknown>(sw: Worker, method: string, ...args: unkn
   )) as T;
 }
 
-export async function session(sw: Worker): Promise<{ state: string; [k: string]: unknown }> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function session(sw: Worker): Promise<{ state: string; [k: string]: any }> {
   return sw.evaluate(() => (globalThis as unknown as { __tb: { capture: { getSession(): { state: string } } } }).__tb.capture.getSession()) as never;
 }
 
