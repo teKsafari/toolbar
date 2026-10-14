@@ -3,3 +3,4 @@
 export * from './messages.ts';
 export * from './state.ts';
 export * from './storage.ts';
+export type * from './areas/ext-ui.ts';

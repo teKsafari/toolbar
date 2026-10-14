@@ -7,9 +7,11 @@ import { CAPTURE_PORT, type BgRequest, type PortMessage } from '../lib/messages'
 import { TEST_HOOKS } from '../lib/flags';
 import { registerAuth } from '../lib/bg/auth';
 import { setupCapture } from '../lib/bg/capture';
+import { registerUi } from '../lib/bg/ui';
 
 export default defineBackground(() => {
   registerAuth();
+  registerUi();
   const stats = { ports: 0, events: 0, byKind: {} as Record<string, number>, commands: [] as string[], pages: [] as string[] };
   const recent: CaptureEvent[] = [];
 
@@ -38,6 +40,7 @@ export default defineBackground(() => {
 
   browser.commands.onCommand.addListener((command, tab) => {
     stats.commands.push(command);
+    // routed by lib/bg/ui.ts (ext-ui)
     console.debug('[nib] command', command as CommandName, tab?.id);
   });
 

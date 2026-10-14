@@ -102,8 +102,8 @@ export const extensionSettingsSchema = z.object({
   openInNewTab: z.boolean(),
   captureUserEvents: z.boolean(),
   sendErrorLogs: z.boolean(),
-  /** 0, 3, 5 or 10 seconds (J-005); resets after each shot */
-  screenshotDelaySec: z.union([z.literal(0), z.literal(3), z.literal(5), z.literal(10)]),
+  /** 0, 3 or 6 seconds in the popup (5 and 10 kept valid) (J-005); resets after each shot */
+  screenshotDelaySec: z.union([z.literal(0), z.literal(3), z.literal(5), z.literal(6), z.literal(10)]),
   recordMode: z.enum(['tab', 'screen', 'desktop']),
   mic: z.boolean(),
   micDeviceId: z.string().nullable(),
@@ -328,6 +328,8 @@ export const extBootstrapSchema = z.object({
     aiAvailable: z.boolean(),
   }),
   serverVersion: z.string(),
+  /** recording link to the server admin for the popup menu's report-a-problem item (J-177); env SUPPORT_RECORDING_LINK */
+  supportRecordingLink: z.string().nullable().optional(),
 });
 export type ExtBootstrap = z.infer<typeof extBootstrapSchema>;
 
