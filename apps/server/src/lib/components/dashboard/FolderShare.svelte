@@ -1,6 +1,7 @@
 <script lang="ts">
   // J-122: folder share popover: copy the folder link, invite by email with a role, who has
   // access with roles, and general access (workspace members or only the people listed).
+  import { invalidateAll } from '$app/navigation';
   import { Button, Popover, toasts } from '@toolbar/ui';
   import type { z } from 'zod';
   import type { folderShareSchema } from '@toolbar/shared/api';
@@ -46,6 +47,7 @@
   async function setAccess(access: 'workspace' | 'private') {
     try {
       share = await api<Share>('folders.updateShare', { params: { id: folderId }, body: { access } });
+      await invalidateAll(); // the lock icon in the sidebar and the title
     } catch (err) {
       toasts.error(errMsg(err));
     }

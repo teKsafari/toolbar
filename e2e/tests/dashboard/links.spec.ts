@@ -132,3 +132,14 @@ test('J-167: status and sort filters, turn off, and delete after confirm', async
   await toast(page, 'Recording link deleted');
   await expect(page.getByTestId('links-empty')).toBeVisible();
 });
+
+test('J-207: the recording links page shows a spinner while it loads', async () => {
+  await page.route('**/recording-links?*', async (r) => {
+    await new Promise((x) => setTimeout(x, 1500));
+    await r.continue();
+  });
+  await go(page, '/links');
+  await expect(page.getByTestId('links-loading')).toBeVisible();
+  await expect(page.getByTestId('links-loading')).toBeHidden({ timeout: 10_000 });
+  await page.unroute('**/recording-links?*');
+});
