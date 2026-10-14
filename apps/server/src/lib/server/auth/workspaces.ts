@@ -13,10 +13,16 @@ export type StoredSettings = Omit<WorkspaceSettings, 'name' | 'logoUrl'>;
 
 /** Stored settings with defaults filled in; unknown or invalid keys fall back to the default. */
 export function readSettings(raw: unknown): StoredSettings {
-  const shape = workspaceSettingsSchema.omit({ name: true, logoUrl: true }).partial();
-  const r = shape.safeParse(raw ?? {});
-  const got = r.success ? r.data : {};
-  return { ...DEFAULT_WORKSPACE_SETTINGS, ...Object.fromEntries(Object.entries(got).filter(([, v]) => v !== undefined)) };
+  const shape = workspaceSettingsSchema.omit({ name: true, logoUrl: true }).shape;
+  const src = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const out: Record<string, unknown> = { ...DEFAULT_WORKSPACE_SETTINGS };
+  // Key by key, so one bad value falls back alone instead of resetting everything.
+  for (const [k, schema] of Object.entries(shape)) {
+    if (!(k in src)) continue;
+    const r = schema.safeParse(src[k]);
+    if (r.success) out[k] = r.data;
+  }
+  return out as StoredSettings;
 }
 
 export async function getSettings(db: Db, workspaceId: string): Promise<StoredSettings | null> {
