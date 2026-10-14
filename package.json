@@ -4,7 +4,9 @@
   "type": "module",
   "license": "MIT",
   "packageManager": "pnpm@11.27.0",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
@@ -13,8 +15,8 @@
     "dev": "pnpm --parallel --filter @toolbar/server --filter @toolbar/extension dev",
     "dev:server": "pnpm --filter @toolbar/server dev",
     "dev:extension": "pnpm --filter @toolbar/extension dev",
-    "stack": "docker compose up -d postgres garage mailpit",
-    "e2e": "pnpm --filter @toolbar/extension build:test && pnpm --filter @toolbar/e2e test"
+    "stack": "docker compose up -d postgres garage mailpit whisper",
+    "e2e": "pnpm --filter @toolbar/extension build:test && pnpm --filter @toolbar/e2e e2e"
   },
   "devDependencies": {
     "typescript": "6.0.3"

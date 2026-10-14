@@ -28,6 +28,8 @@ export default defineConfig({
   outDirTemplate: testHooks ? '{{browser}}-mv{{manifestVersion}}-test' : undefined,
   // The VM has no display for WXT's own browser runner, and the shared browser belongs to another agent.
   webExt: { disabled: true },
+  // Port 3000 belongs to the server; WXT's HMR server takes 3001.
+  dev: { server: { port: 3001, origin: 'http://localhost:3001' } },
   manifest: {
     name: testHooks ? `${PRODUCT_NAME} (test)` : PRODUCT_NAME,
     description: 'Capture bugs with console, network, user actions, screenshots, video and voice.',

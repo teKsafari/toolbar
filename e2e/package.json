@@ -5,8 +5,8 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "test": "playwright test",
-    "test:build": "pnpm --filter @toolbar/extension build:test && playwright test",
+    "e2e": "playwright test",
+    "e2e:build": "pnpm --filter @toolbar/extension build:test && playwright test",
     "check": "tsc -p tsconfig.json"
   },
   "devDependencies": {
