@@ -1,6 +1,6 @@
 // API DTO types, inferred from the zod schemas so the two never drift.
 import type { z } from 'zod';
-import type * as s from './schemas.ts';
+import type * as s from '../schemas.ts';
 
 export type CreateRecording = z.input<typeof s.createRecordingSchema>;
 export type RecordingCreated = z.infer<typeof s.recordingCreatedSchema>;

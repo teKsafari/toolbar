@@ -9,10 +9,15 @@ export const s3 = new S3Client({
 });
 export const bucket = env.s3.bucket;
 
+/** Every object key goes through here so S3_KEY_PREFIX applies (area worktrees share one bucket). */
+const k = (key: string) => env.s3.keyPrefix + key;
+
 export const keys = {
-  chunk: (rec: string, stream: string, seq: number) => `rec/${rec}/${stream}/${String(seq).padStart(6, '0')}`,
-  final: (rec: string, name: string) => `rec/${rec}/${name}`,
-  asset: (rec: string | null, id: string) => (rec ? `rec/${rec}/assets/${id}` : `assets/${id}`),
+  chunk: (rec: string, stream: string, seq: number) => k(`rec/${rec}/${stream}/${String(seq).padStart(6, '0')}`),
+  final: (rec: string, name: string) => k(`rec/${rec}/${name}`),
+  asset: (rec: string | null, id: string) => k(rec ? `rec/${rec}/assets/${id}` : `assets/${id}`),
+  /** prefix of everything a capture owns, for purge */
+  recording: (rec: string) => k(`rec/${rec}/`),
 };
 
 export async function s3Ping(): Promise<void> {

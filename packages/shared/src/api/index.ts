@@ -1,0 +1,19 @@
+// Endpoint contracts (zod) and the route table. See docs/parallel.md for who builds which route.
+export * from './common.ts';
+export * from './captures.ts';
+export * from './comments.ts';
+export * from './sharing.ts';
+export * from './folders.ts';
+export * from './workspaces.ts';
+export * from './integrations.ts';
+export * from './account.ts';
+export * from './routes.ts';
+export * from './areas/server-core.ts';
+export * from './areas/auth.ts';
+export * from './areas/capture.ts';
+export * from './areas/ext-ui.ts';
+export * from './areas/editor.ts';
+export * from './areas/viewer.ts';
+export * from './areas/dashboard.ts';
+export * from './areas/agent.ts';
+export type * from './dto.ts';

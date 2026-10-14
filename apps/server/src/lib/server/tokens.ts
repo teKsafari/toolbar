@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { and, eq, isNull } from 'drizzle-orm';
 import { TOKEN_PREFIX } from '@toolbar/shared';
 import type { Db } from './db/index.ts';
-import { apiToken, user } from './db/schema.ts';
+import { apiToken, user } from './db/schema/index.ts';
 
 export const hashToken = (token: string) => createHash('sha256').update(token).digest();
 

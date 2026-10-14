@@ -23,13 +23,16 @@ const commands = Object.fromEntries(
   ]),
 );
 
+const devPort = Number(process.env.WXT_DEV_PORT || 3001);
+
 export default defineConfig({
   modules: ['@wxt-dev/module-svelte'],
   outDirTemplate: testHooks ? '{{browser}}-mv{{manifestVersion}}-test' : undefined,
   // The VM has no display for WXT's own browser runner, and the shared browser belongs to another agent.
   webExt: { disabled: true },
-  // Port 3000 belongs to the server; WXT's HMR server takes 3001.
-  dev: { server: { port: 3001, origin: 'http://localhost:3001' } },
+  // Port 3000 belongs to the server; WXT's HMR server takes 3001. Area worktrees set
+  // WXT_DEV_PORT=320<i> (docs/parallel.md).
+  dev: { server: { port: devPort, origin: `http://localhost:${devPort}` } },
   manifest: {
     name: testHooks ? `${PRODUCT_NAME} (test)` : PRODUCT_NAME,
     description: 'Capture bugs with console, network, user actions, screenshots, video and voice.',

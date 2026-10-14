@@ -86,7 +86,7 @@ src/routes/s/[token]/+server.ts     Part 2: markdown summary and tar.gz for the 
 src/routes/s/[token]/media/[stream]/+server.ts   Range-capable media proxy
 src/routes/api/v1/...               JSON API (section 5)
 src/lib/server/{db,auth,s3,jobs,share,upload,transcribe,media}/
-src/lib/server/db/schema.ts         Drizzle schema (app tables + generated Better Auth tables)
+src/lib/server/db/schema/           Drizzle schema, one file per area (docs/parallel.md)
 drizzle/                            generated SQL migrations
 ```
 

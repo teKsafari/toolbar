@@ -1,0 +1,156 @@
+// Extension storage: chrome.storage keys with their value types, and the IndexedDB layout.
+// Only the service worker writes STORAGE.session and the IndexedDB stores; other contexts read
+// chrome.storage (and listen to storage.onChanged) or ask the worker with a message.
+import type { Rect } from '../events.ts';
+import type { RecordingKind } from '../constants.ts';
+import type { ExtBootstrap, ExtensionSettings } from '../api/account.ts';
+import type { Person } from '../api/common.ts';
+import type { AnnotationInput } from '../api/dto.ts';
+import type { CaptureSession, RecordMode, ReplayState } from './state.ts';
+
+export type StorageArea = 'local' | 'session';
+
+/** Signed-in state. `token` is the device token (tb_dev_); never log it. */
+export interface AuthState {
+  serverUrl: string;
+  token: string;
+  tokenId: string;
+  user: Person;
+  activeWorkspaceId: string | null;
+  signedInAt: number;
+}
+
+/** PKCE pair for an in-flight launchWebAuthFlow (architecture s9). */
+export interface PendingAuth {
+  verifier: string;
+  state: string;
+  startedAt: number;
+}
+
+export interface DraftSummary {
+  id: string;
+  kind: RecordingKind;
+  createdAt: number;
+  updatedAt: number;
+  host: string;
+  pageUrl: string;
+  pageTitle: string;
+  title: string;
+  durationMs: number | null;
+  thumbBlobId: string | null;
+  recordingId: string | null;
+  status: 'open' | 'saved' | 'uploading' | 'failed';
+}
+
+/** Full draft, kept in IndexedDB store `drafts`. */
+export interface Draft extends DraftSummary {
+  clientId: string;
+  tabId: number;
+  mode: RecordMode | null;
+  workspaceId: string | null;
+  folderId: string | null;
+  description: string;
+  /** blob ids in the `blobs` store */
+  screenshotBlobId: string | null;
+  fullBlobId: string | null;
+  /** area crop in CSS px of the viewport (J-003, J-004) */
+  crop: Rect | null;
+  keepFull: boolean;
+  annotations: AnnotationInput[];
+  trim: { startMs: number; endMs: number } | null;
+  destination: { type: 'link' } | { type: 'integration'; integrationId: string; fields: Record<string, unknown> };
+  attachmentBlobIds: string[];
+  aiAccepted: boolean;
+  error: string | null;
+}
+
+/** Upload progress per recording, for the bar and the editor's create button. */
+export interface UploadProgress {
+  recordingId: string;
+  streams: Record<string, { sent: number; pending: number; done: boolean }>;
+  updatedAt: number;
+}
+
+/** Keys and value types. Prefix "nib:" keeps them apart from anything WXT stores. */
+export const STORAGE = {
+  // chrome.storage.local: survives restarts
+  auth: { area: 'local', key: 'nib:auth' },
+  settings: { area: 'local', key: 'nib:settings' },
+  bootstrap: { area: 'local', key: 'nib:bootstrap' },
+  drafts: { area: 'local', key: 'nib:drafts' },
+  /** server URL override (options page); default from WXT_SERVER_URL */
+  serverUrl: { area: 'local', key: 'nib:server-url' },
+  installId: { area: 'local', key: 'nib:install-id' },
+  micGranted: { area: 'local', key: 'nib:mic-granted' },
+  // chrome.storage.session: survives worker restarts, not browser restarts
+  session: { area: 'session', key: 'nib:session' },
+  replay: { area: 'session', key: 'nib:replay' },
+  uploads: { area: 'session', key: 'nib:uploads' },
+  pendingAuth: { area: 'session', key: 'nib:pending-auth' },
+  /** heavy-page replay overrides for one page load (J-011): tab id -> page URL */
+  heavyOverride: { area: 'session', key: 'nib:heavy-override' },
+} as const satisfies Record<string, { area: StorageArea; key: string }>;
+
+export interface StorageValues {
+  auth: AuthState | null;
+  settings: ExtensionSettings;
+  bootstrap: { at: number; data: ExtBootstrap } | null;
+  drafts: DraftSummary[];
+  serverUrl: string | null;
+  installId: string;
+  micGranted: boolean;
+  session: CaptureSession;
+  replay: ReplayState;
+  uploads: Record<string, UploadProgress>;
+  pendingAuth: PendingAuth | null;
+  heavyOverride: Record<number, string>;
+}
+export type StorageName = keyof typeof STORAGE;
+
+/** IndexedDB database in the extension origin (service worker and extension pages). */
+export const IDB = {
+  name: 'nib',
+  version: 1,
+  stores: {
+    /** chunks written before upload, deleted after a 2xx: key [recordingId, stream, seq] */
+    uploads: { keyPath: ['recordingId', 'stream', 'seq'] },
+    /** instant-replay ring per tab: key [tabId, t, id]; pruned every 10 s (D-013) */
+    ring: { keyPath: ['tabId', 't', 'id'] },
+    /** full drafts by id */
+    drafts: { keyPath: 'id' },
+    /** screenshots, crops, thumbnails, attachments, video segments: key id, value { id, blob, type } */
+    blobs: { keyPath: 'id' },
+  },
+} as const;
+
+export interface UploadRow {
+  recordingId: string;
+  stream: string;
+  seq: number;
+  body: Blob;
+  sha256: string;
+  t0: number;
+  t1: number;
+  contentType: string;
+  contentEncoding: 'gzip' | null;
+  attempts: number;
+}
+
+export interface RingRow {
+  tabId: number;
+  t: number;
+  id: string;
+  /** 'event' rows hold a CaptureEvent; 'rrweb' rows hold one rrweb event */
+  type: 'event' | 'rrweb';
+  data: unknown;
+  /** rrweb full snapshot marker, for pruning to the last checkout */
+  full?: boolean;
+  bytes: number;
+}
+
+export interface BlobRow {
+  id: string;
+  blob: Blob;
+  type: string;
+  createdAt: number;
+}

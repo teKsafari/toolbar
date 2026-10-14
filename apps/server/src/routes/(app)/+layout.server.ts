@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
-import { member, organization } from '#lib/server/db/schema.ts';
+import { member, organization } from '#lib/server/db/schema/index.ts';
 
 export const load = async ({ locals, url }) => {
   if (!locals.user) redirect(303, `/login?next=${encodeURIComponent(url.pathname + url.search)}`);

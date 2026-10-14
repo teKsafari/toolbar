@@ -5,7 +5,7 @@ import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import * as schema from '../src/lib/server/db/schema.ts';
+import * as schema from '../src/lib/server/db/schema/index.ts';
 import { claim, complete, enqueue, fail } from '../src/lib/server/jobs/queue.ts';
 import type { Db } from '../src/lib/server/db/index.ts';
 

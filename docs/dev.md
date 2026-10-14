@@ -8,7 +8,7 @@ How to run each part of the repo on this machine or a fresh one. Nib is the work
 |---|---|---|
 | `apps/server` | `@toolbar/server` | SvelteKit 3 app (adapter-node): dashboard, share pages, `/api/v1`, Better Auth, job worker |
 | `apps/extension` | `@toolbar/extension` | WXT + Svelte 5 MV3 extension |
-| `packages/shared` | `@toolbar/shared` | Event envelope and kinds, zod schemas, API DTO types, constants, ids |
+| `packages/shared` | `@toolbar/shared` | Event envelope and kinds, zod schemas, constants, ids; `/api` endpoint contracts and route table; `/ext` extension messaging, session state machine, storage keys |
 | `packages/capture` | `@toolbar/capture` | Page-side capture: `Transport`, MAIN/ISOLATED bridge, hook installers |
 | `packages/ui` | `@toolbar/ui` | Design tokens, icons, Svelte primitives (Button, Icon, Popover, Toaster) |
 | `e2e` | `@toolbar/e2e` | Playwright 1.63.0 suite that loads the unpacked extension |
@@ -26,6 +26,7 @@ Node 24, pnpm 11.27 (`corepack enable` picks it up from `packageManager`), Docke
 |---|---|
 | 3000 | Server (compose `server`, or `pnpm dev:server`; not both) |
 | 3001 | WXT dev server (extension HMR) |
+| 3100 to 3107, 3200 to 3207 | Area worktree servers and WXT dev servers (`docs/parallel.md`) |
 | 5432 | Postgres 18 |
 | 3900 | Garage S3 API |
 | 8080 | whisper.cpp server |
@@ -60,12 +61,16 @@ pnpm dev:extension
 
 The server reads the repo root `.env` when present, and falls back to the same defaults as compose (`postgres://toolbar:toolbar@localhost:5432/toolbar`, Garage on `localhost:3900`). Migrations run at startup (`MIGRATE_ON_START=1`); the job worker runs in the same process (`WORKER=1`).
 
-Database schema changes:
+Database schema changes: tables live in `apps/server/src/lib/server/db/schema/<area>.ts`, re-exported by `schema/index.ts`.
 
 ```sh
-# edit apps/server/src/lib/server/db/schema.ts, then
-pnpm --filter @toolbar/server db:generate     # writes apps/server/drizzle/NNNN_*.sql; commit it
+pnpm --filter @toolbar/server db:migrate      # apply drizzle/ to DATABASE_URL
+pnpm --filter @toolbar/server db:push         # area worktrees: push schema changes to your own database
+pnpm --filter @toolbar/server db:generate     # main branch only (merge step): writes drizzle/NNNN_*.sql
+pnpm --filter @toolbar/server db:seed         # two users, a workspace, three captures with media
 ```
+
+Area worktrees run side by side on their own ports, databases and S3 prefixes: `scripts/area-setup.sh <area> --seed`, then see `docs/parallel.md`.
 
 Production-style server without Docker: `pnpm --filter @toolbar/server build && cd apps/server && node server.js`. Use `server.js`, not `node build` (D-023).
 
@@ -127,7 +132,7 @@ pnpm e2e
 |---|---|
 | Page capture hooks | `packages/capture/src/hooks/*.ts` (one installer per API), redaction in `packages/capture/src/isolated.ts` |
 | Extension flows | `apps/extension/entrypoints/background.ts` (commands, capture modes), `offscreen/main.ts` (MediaRecorder), `capture.content/Toolbar.svelte` (in-page UI), `popup/App.svelte` |
-| API | `apps/server/src/routes/api/v1/**`, helpers in `apps/server/src/lib/server/api.ts`, DTO schemas in `packages/shared/src/schemas.ts` |
+| API | `apps/server/src/routes/api/v1/**`, helpers in `apps/server/src/lib/server/api.ts`, contracts in `packages/shared/src/api/` (route table `routes.ts`) |
 | Jobs | register handlers with `registerJob()` in `apps/server/src/lib/server/jobs/worker.ts`, enqueue with `enqueue()` |
 | Viewer, dashboard, settings | `apps/server/src/routes/(app)/**`, share page `apps/server/src/routes/s/[token]` |
 | Transcription | `apps/server/src/lib/server/transcribe/index.ts` |

@@ -9,6 +9,8 @@ try {
   /* no .env: dev defaults in src/lib/server/env.ts apply */
 }
 
+const devPort = Number(process.env.DEV_PORT || 3000);
+
 export default defineConfig({
   plugins: [
     sveltekit({
@@ -18,7 +20,8 @@ export default defineConfig({
       adapter: adapter({ out: 'build' }),
     }),
   ],
-  server: { port: 3000, strictPort: true, host: true },
-  preview: { port: 3000, strictPort: true },
+  // DEV_PORT lets area worktrees run side by side (docs/parallel.md: 3100 + area index).
+  server: { port: devPort, strictPort: true, host: true },
+  preview: { port: devPort, strictPort: true },
   test: { include: ['src/**/*.test.ts', 'test/**/*.test.ts'], environment: 'node' },
 });

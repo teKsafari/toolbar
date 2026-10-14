@@ -5,16 +5,18 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "vite dev --port 3000 --strictPort",
+    "dev": "vite dev",
     "build": "vite build",
-    "preview": "vite preview --port 3000",
+    "preview": "vite preview",
     "start": "node server.js",
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node --experimental-strip-types scripts/migrate.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:migrate": "node scripts/migrate.ts",
+    "db:studio": "drizzle-kit studio",
+    "db:push": "drizzle-kit push --force",
+    "db:seed": "node scripts/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1151.0",

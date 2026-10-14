@@ -3,7 +3,7 @@
 import { sql } from 'drizzle-orm';
 import type { JobType } from '@toolbar/shared';
 import type { Db } from '../db/index.ts';
-import { job } from '../db/schema.ts';
+import { job } from '../db/schema/index.ts';
 
 export interface JobRow {
   id: string;

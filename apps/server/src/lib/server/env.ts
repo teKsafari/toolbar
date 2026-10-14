@@ -58,6 +58,8 @@ export function loadEnv() {
       accessKeyId: read('S3_ACCESS_KEY_ID', DEV_S3_KEY),
       secretAccessKey: read('S3_SECRET_ACCESS_KEY', DEV_S3_SECRET),
       publicUrl: read('S3_PUBLIC_URL'),
+      /** Key prefix inside the bucket, e.g. "capture/" for an area worktree (docs/parallel.md). */
+      keyPrefix: read('S3_KEY_PREFIX'),
     },
     smtpUrl: read('SMTP_URL', 'smtp://localhost:1025'),
     mailFrom: read('MAIL_FROM', 'Nib <nib@localhost>'),

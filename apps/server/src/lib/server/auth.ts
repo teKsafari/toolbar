@@ -10,7 +10,7 @@ import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { getRequestEvent } from '$app/server';
 import { uuidv7, PRODUCT_NAME } from '@toolbar/shared';
 import { db } from './db/index.ts';
-import * as schema from './db/schema.ts';
+import * as schema from './db/schema/index.ts';
 import { env } from './env.ts';
 import { sendMail } from './mail.ts';
 

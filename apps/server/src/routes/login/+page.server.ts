@@ -3,7 +3,7 @@ import { APIError } from 'better-auth/api';
 import { eq } from 'drizzle-orm';
 import { auth, signInOptions } from '#lib/server/auth.ts';
 import { db } from '#lib/server/db/index.ts';
-import { user } from '#lib/server/db/schema.ts';
+import { user } from '#lib/server/db/schema/index.ts';
 
 const safeNext = (n: string | null) => (n && n.startsWith('/') && !n.startsWith('//') ? n : '/');
 

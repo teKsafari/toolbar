@@ -52,6 +52,28 @@ export type Serialized =
   | Serialized[]
   | { [k: string]: Serialized };
 
+/**
+ * Values JSON cannot hold are tagged objects with key SERIALIZED_TAG ("$t"):
+ * { $t: 'error', name, message, stack? }, { $t: 'node', target: TargetRef },
+ * { $t: 'map' | 'set', size, entries }, { $t: 'typed', type, length }, { $t: 'fn', name },
+ * { $t: 'undefined' }, { $t: 'bigint', value }, { $t: 'symbol', desc }, { $t: 'cycle' },
+ * { $t: 'more', keys } (key cap hit), { $t: 'trunc', head, bytes } (string cap hit).
+ */
+export const SERIALIZED_TAG = '$t';
+export type SerializedTag =
+  | 'error'
+  | 'node'
+  | 'map'
+  | 'set'
+  | 'typed'
+  | 'fn'
+  | 'undefined'
+  | 'bigint'
+  | 'symbol'
+  | 'cycle'
+  | 'more'
+  | 'trunc';
+
 export type MaskingPreset = 'staging' | 'production' | 'none';
 
 export interface EnvInfo {

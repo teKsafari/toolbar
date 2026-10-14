@@ -8,9 +8,11 @@
     ".": "./src/index.ts",
     "./events": "./src/events.ts",
     "./schemas": "./src/schemas.ts",
-    "./api": "./src/api.ts",
+    "./api": "./src/api/index.ts",
     "./constants": "./src/constants.ts",
-    "./ids": "./src/ids.ts"
+    "./ids": "./src/ids.ts",
+    "./ext": "./src/ext/index.ts",
+    "./areas/*": "./src/areas/*.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
