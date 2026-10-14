@@ -2,6 +2,10 @@
 
 Branch `area/viewer`. Every row in `docs/tasks.md` under "viewer" is listed. E2E specs live in `e2e/tests/viewer/` and run headless against the area server (`SERVER_URL=http://localhost:3105`); `e2e/tests/viewer/fixtures/extra.ts` adds four captures to the seed (no requests, recording link, desktop with two tabs, instant replay). Unit tests: `packages/ui/test/viewer.test.ts` (models, clock, cURL, markdown) and `apps/server/test/viewer-routes.test.ts` (route table coverage, VTT).
 
+Second pass (completer, 2026-10-14): every row's check rerun against a fresh production build on :3105. The full suite passed 45 of 45 before and after the one change of this pass (menu rows tightened to 24 px, as in `docs/jam/ergonomics.md`). Also checked by hand: layout at 1584x865 (panel 37%, 24 px rows in 12 px mono, dark menus, auto-hiding controls, sticky composer whose send button grows into a time pill), 390 px, dark scheme, signed out; the share token cannot PATCH or DELETE a capture or read another capture; another member gets 403 editing or deleting a comment that is not theirs; player keys are ignored while typing in the composer; click counts match flows F, G, H (capture page path) and K. `pnpm -r build`, `pnpm -r test` and `pnpm -r check` pass.
+
+Totals: P0 14 built, P1 21 built, P2 16 built (including the two covered rows J-233 and J-198); none partial, none missing. Parts that only become complete after other areas merge are named in the rows: quality renditions (J-092, server-core), the Tab column data (J-224, capture), send and new folder (J-112, J-113, dashboard), delete and comment images (J-114, J-132, server-core stand-ins), a server-enforced content-only link (J-118, server-core), and remembering viewer prefs across devices (`/api/v1/me/settings` is dashboard's and 404s here; prefs stay in localStorage meanwhile).
+
 Run: `set -a; . ./.env; set +a`, start the server (`pnpm --filter @toolbar/server build && cd apps/server && PORT=3105 node server.js`, or `pnpm --filter @toolbar/server dev`), then `cd e2e && npx playwright test tests/viewer`. Last run: 45 passed in 3.0 min against the production build; against the dev server the same suite takes about 5 to 7 minutes and can time out while Vite recompiles.
 
 | ID | Status | How verified |
@@ -10,7 +14,7 @@ Run: `set -a; . ./.env; set +a`, start the server (`pnpm --filter @toolbar/serve
 | J-236 | built | e2e media.spec "J-236": CC button shows the transcript cue over the video |
 | J-090 | built | e2e media.spec "J-090": two columns, right panel 32 to 44%, five tabs, splitter drag widens it; "J-198" first paint |
 | J-091 | built | e2e media.spec "J-091": hide, left column centres, show again |
-| J-092 | built | e2e media.spec "J-092": controls, back and forward 5 s, mute, speed remembered after reload, quality menu, replay prompt at the end. Quality lists Original and Auto only until server-core makes renditions |
+| J-092 | built | e2e media.spec "J-092": controls, back and forward 5 s, mute, speed remembered after reload, quality menu, replay prompt at the end. Quality lists Original and Auto only until server-core makes renditions (the menu lists `video.renditions` as soon as they exist) |
 | J-093 | built | e2e media.spec "J-093": k, Space, m, f, arrows, digits; i requests picture-in-picture (headless may refuse, page keeps working) |
 | J-094 | built | e2e media.spec "J-094": frame canvas, time and chapter name follow the pointer |
 | J-095 | built | e2e media.spec "J-072 J-095": hover pill with count and body error text; click opens the console row |
@@ -41,7 +45,7 @@ Run: `set -a; . ./.env; set +a`, start the server (`pnpm --filter @toolbar/serve
 | J-115 | built | e2e media.spec "J-115": at 390 px one column, Capture / Dev tools toggle, network table scrolls sideways |
 | J-116 | built | e2e page.spec "J-116": Figma icon button reveals the embed iframe |
 | J-117 | built | e2e page.spec "J-117": clipboard holds `/s/<token>`, label shows Copied for about 2 s, toast |
-| J-118 | built | e2e page.spec "J-118": two cards; content-only page has media, title, description, comments, no dev tools (interim `?devtools=0`, D-V05) |
+| J-118 | built | e2e page.spec "J-118": two cards; content-only page has media, title, description, comments, no dev tools (interim `?devtools=0`, D-V05). The flag is not enforced on the server yet: a recipient who removes the parameter sees dev tools. Needs a per-link flag from server-core |
 | J-121 | built | e2e page.spec "J-121": signed-out share link: every tab, copy cURL, share-at-time, download; header shows sign in and sign up only; title read-only |
 | J-127 | built | e2e comments.spec "J-127": pill names 0:05, Enter adds a line, Ctrl+Enter sends, composer clears in under 200 ms |
 | J-128 | built | e2e comments.spec "J-128": bubbles above the seek bar, hover shows author and text, time chip seeks and highlights |

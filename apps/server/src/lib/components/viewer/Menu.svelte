@@ -57,7 +57,7 @@
   }
   .row {
     all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 8px; width: 100%;
-    min-height: 28px; padding: 0 8px; border-radius: var(--nb-radius-sm); cursor: pointer; white-space: nowrap;
+    min-height: 24px; padding: 2px 8px; border-radius: var(--nb-radius-sm); cursor: pointer; white-space: nowrap;
   }
   .row:hover, .row:focus-visible { background: var(--nb-chrome-2); }
   .row:disabled { opacity: 0.45; cursor: default; }
