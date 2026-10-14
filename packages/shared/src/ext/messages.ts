@@ -199,6 +199,9 @@ export interface UploadAuth {
 
 export type OffscreenRequest =
   | { to: 'offscreen'; type: 'record-tab'; streamId: string; recordingId: string; w: number; h: number; mic: boolean; micDeviceId?: string; upload: UploadAuth }
+  /** Take the tab stream at the gesture: a stream id expires seconds after it is issued. */
+  | { to: 'offscreen'; type: 'hold-tab'; streamId: string; w: number; h: number }
+  | { to: 'offscreen'; type: 'release-tab'; streamId: string }
   | { to: 'offscreen'; type: 'record-screen'; recordingId: string; surface: 'screen' | 'desktop'; mic: boolean; micDeviceId?: string; upload: UploadAuth }
   | { to: 'offscreen'; type: 'pause'; recordingId: string }
   | { to: 'offscreen'; type: 'resume'; recordingId: string }

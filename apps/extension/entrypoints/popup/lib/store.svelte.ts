@@ -53,7 +53,7 @@ class PopupStore {
   bootstrap: StorageValues['bootstrap'] = $state(null);
   serverUrl = $state(DEFAULT_SERVER_URL);
   error = $state('');
-  readonly tabId = tabIdParam();
+  tabId = tabIdParam();
 
   get signedIn() {
     return !!this.auth?.token;
@@ -73,6 +73,9 @@ class PopupStore {
     this.bootstrap = (local[STORAGE.bootstrap.key] as StorageValues['bootstrap'] | undefined) ?? null;
     this.serverUrl =
       (local[STORAGE.serverUrl.key] as string | undefined) ?? this.auth?.serverUrl ?? ((import.meta.env.WXT_SERVER_URL as string | undefined) || DEFAULT_SERVER_URL);
+    // the tab under this popup: the active tab of the popup's own window (the worker's
+    // lastFocusedWindow can name another window, such as a just-closed sign-in window)
+    this.tabId ??= (await browser.tabs.query({ active: true, currentWindow: true }).catch(() => []))[0]?.id;
     const [sess, ctx] = await Promise.all([send('session.get', {}), send('ui.context', { tabId: this.tabId })]);
     if (sess.ok) {
       this.session = sess.session;

@@ -20,5 +20,6 @@ dist/
 # Test output
 test-results/
 playwright-report/
+playwright-report-flows/
 e2e/.cache/
 coverage/

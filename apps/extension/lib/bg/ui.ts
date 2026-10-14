@@ -46,6 +46,7 @@ import {
 import { COUNTDOWN_FROM, DEFAULT_REPLAY_BLOCKED_SITES, isReplayBlocked, isRestrictedUrl } from '@toolbar/shared/areas/ext-ui';
 import type { Rect } from '@toolbar/shared/events';
 import { TEST_HOOKS } from '../flags';
+import { ensureContent } from '../registration';
 
 // ---------------------------------------------------------------- errors
 
@@ -590,6 +591,8 @@ const handlers: Handlers = {
       return { session };
     }
     await settingsFor(tabId);
+    // a tab opened before install or update has no in-page UI yet
+    await ensureContent(tabId);
     // a finished error (failed start, stop or upload) never blocks the next capture (J-196)
     if (session.state === 'error') await dispatch({ type: 'CANCEL' });
     const s = session;

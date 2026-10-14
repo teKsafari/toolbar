@@ -529,7 +529,30 @@ export class CaptureService {
     return (await browser.runtime.sendMessage(req)) as T;
   }
 
-  /** Starts a recording. Tab mode gets its stream id now (needs the gesture), then counts down. */
+  /**
+   * Takes the tab stream at the gesture. Chrome expires a stream id a few seconds after it is
+   * issued and refuses a second id while one is outstanding, so the id cannot wait for the
+   * three-second countdown: the offscreen document opens the stream now and keeps it.
+   */
+  private async holdTab(tabId: number): Promise<string> {
+    const streamId = await (browser.tabCapture as unknown as typeof Browser.tabCapture).getMediaStreamId({ targetTabId: tabId });
+    const tab = await browser.tabs.get(tabId);
+    const geo = await this.geometry(tabId);
+    const dpr = geo?.dpr ?? 1;
+    const w = Math.round((geo?.viewport.w ?? tab.width ?? 1280) * dpr);
+    const h = Math.round((geo?.viewport.h ?? tab.height ?? 720) * dpr);
+    const r = await this.offscreen({ to: 'offscreen', type: 'hold-tab', streamId, w, h });
+    if (!r?.ok) throw new CaptureError('permission_denied', r?.message ?? 'Could not capture this tab');
+    return streamId;
+  }
+
+  /** Lets go of a stream taken at the gesture when the countdown ends without recording. */
+  private releaseHeld() {
+    const id = this.pendingStream?.streamId;
+    if (id) void this.offscreen({ to: 'offscreen', type: 'release-tab', streamId: id }).catch(() => undefined);
+  }
+
+  /** Starts a recording. Tab mode takes its stream now (needs the gesture), then counts down. */
   async startRecording(opts: { tabId?: number; mode?: RecordMode; delaySec?: number }): Promise<CaptureSession> {
     await this.loaded;
     if (this.session.state === 'recording' || this.session.state === 'countdown' || this.session.state === 'starting') {
@@ -543,7 +566,7 @@ export class CaptureService {
     const tabId = tab.id!;
     const localId = uuidv7();
     let streamId: string | null = null;
-    if (mode === 'tab') streamId = await (browser.tabCapture as unknown as typeof Browser.tabCapture).getMediaStreamId({ targetTabId: tabId });
+    if (mode === 'tab') streamId = await this.holdTab(tabId);
     // The server capture is made now so video chunks upload while recording (J-087); it stays
     // unlisted until create (J-189). Without a session the chunks wait in IndexedDB.
     let serverId: string | null = null;
@@ -601,6 +624,7 @@ export class CaptureService {
     if (this.countdownTimer) clearTimeout(this.countdownTimer);
     await this.apply({ type: 'CANCEL' });
     await this.sendContent(s.tabId, { type: 'ui.countdown-hide' });
+    this.releaseHeld();
     if (this.pendingStream?.serverId) await this.discardServer(this.pendingStream.serverId);
     this.pendingStream = null;
   }
@@ -630,6 +654,7 @@ export class CaptureService {
         const dpr = geo?.dpr ?? 1;
         const w = Math.round((geo?.viewport.w ?? tab.width ?? 1280) * dpr);
         const h = Math.round((geo?.viewport.h ?? tab.height ?? 720) * dpr);
+        // the stream itself was taken at the gesture (holdTab); the offscreen document uses it
         const streamId: string = pend?.streamId ?? (await (browser.tabCapture as unknown as typeof Browser.tabCapture).getMediaStreamId({ targetTabId: s.tabId }));
         const r = await this.offscreen<{ ok: boolean; message?: string }>({ to: 'offscreen', type: 'record-tab', streamId, recordingId: s.recordingId, w, h, mic, ...(settings.micDeviceId ? { micDeviceId: settings.micDeviceId } : {}), upload });
         if (!r?.ok) throw new Error(r?.message ?? 'record-tab failed');
@@ -669,6 +694,7 @@ export class CaptureService {
           const tabId = this.session.tabId;
           await this.apply({ type: 'PICKER_CANCELLED' });
           await this.sendContent(tabId, { type: 'ui.bar', bar: null });
+          this.releaseHeld();
           if (this.pendingStream?.serverId) await this.discardServer(this.pendingStream.serverId);
           this.pendingStream = null;
         }
@@ -838,7 +864,7 @@ export class CaptureService {
     const tab = await this.tabOrThrow(o.tabId);
     const tabId = tab.id!;
     let streamId: string | null = null;
-    if (o.mode === 'tab') streamId = await (browser.tabCapture as unknown as typeof Browser.tabCapture).getMediaStreamId({ targetTabId: tabId });
+    if (o.mode === 'tab') streamId = await this.holdTab(tabId);
     let serverId: string | null = null;
     const auth = await this.uploadAuth();
     if (auth?.workspaceId) {
@@ -899,6 +925,7 @@ export class CaptureService {
     if (s.state === 'recording' && s.recordingId === mediaId) {
       await this.offscreen({ to: 'offscreen', type: 'stop', recordingId: mediaId }).catch(() => undefined);
       await this.apply({ type: 'RESET' });
+      this.releaseHeld();
       if (this.pendingStream?.serverId) await this.discardServer(this.pendingStream.serverId);
       this.pendingStream = null;
     }

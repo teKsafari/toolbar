@@ -83,6 +83,27 @@ function onChunk(rec: Recording, name: StreamName, blob: Blob, t0: number) {
   });
 }
 
+/** Tab streams taken at the gesture, by stream id, until the countdown ends (hold-tab). */
+const held = new Map<string, { media: MediaStream; audio: AudioContext; timer: ReturnType<typeof setTimeout> }>();
+
+async function releaseHeld(streamId: string) {
+  const h = held.get(streamId);
+  if (!h) return;
+  held.delete(streamId);
+  clearTimeout(h.timer);
+  for (const t of h.media.getTracks()) t.stop();
+  await h.audio.close().catch(() => undefined);
+}
+
+function openTab(streamId: string, w: number, h: number): Promise<MediaStream> {
+  return navigator.mediaDevices.getUserMedia({
+    audio: { mandatory: { chromeMediaSource: 'tab', chromeMediaSourceId: streamId } } as MediaTrackConstraints,
+    video: {
+      mandatory: { chromeMediaSource: 'tab', chromeMediaSourceId: streamId, maxFrameRate: 30, minWidth: w, maxWidth: w, minHeight: h, maxHeight: h },
+    } as MediaTrackConstraints,
+  });
+}
+
 async function openMic(deviceId?: string): Promise<MediaStream | null> {
   try {
     return await navigator.mediaDevices.getUserMedia({ audio: deviceId ? { deviceId: { exact: deviceId } } : true, video: false });
@@ -298,13 +319,28 @@ async function handle(msg: OffscreenRequest): Promise<unknown> {
   switch (msg.type) {
     case 'ping':
       return { ok: true, recorders: recordings.size, rings: rings.size };
+    case 'hold-tab': {
+      await releaseHeld(msg.streamId);
+      const media = await openTab(msg.streamId, msg.w, msg.h);
+      // tab capture mutes the tab: play it back while the countdown runs
+      const audio = new AudioContext();
+      if (media.getAudioTracks().length) audio.createMediaStreamSource(media).connect(audio.destination);
+      // a countdown that is never finished or cancelled must not keep the tab captured
+      const timer = setTimeout(() => void releaseHeld(msg.streamId), 600_000);
+      held.set(msg.streamId, { media, audio, timer });
+      return { ok: true };
+    }
+    case 'release-tab':
+      await releaseHeld(msg.streamId);
+      return { ok: true };
     case 'record-tab': {
-      const media = await navigator.mediaDevices.getUserMedia({
-        audio: { mandatory: { chromeMediaSource: 'tab', chromeMediaSourceId: msg.streamId } } as MediaTrackConstraints,
-        video: {
-          mandatory: { chromeMediaSource: 'tab', chromeMediaSourceId: msg.streamId, maxFrameRate: 30, minWidth: msg.w, maxWidth: msg.w, minHeight: msg.h, maxHeight: msg.h },
-        } as MediaTrackConstraints,
-      });
+      const h = held.get(msg.streamId);
+      if (h) {
+        held.delete(msg.streamId);
+        clearTimeout(h.timer);
+        await h.audio.close().catch(() => undefined);
+      }
+      const media = h?.media ?? (await openTab(msg.streamId, msg.w, msg.h));
       const rec = await startRecording(msg.recordingId, media, { mic: msg.mic, micDeviceId: msg.micDeviceId, upload: msg.upload, playBack: true });
       return { ok: true, t: rec.startedAt, mic: rec.micState };
     }

@@ -2,7 +2,7 @@
 // Recording, screenshots, uploads and the instant-replay ring are filled in by the area agents.
 import { browser } from 'wxt/browser';
 import type { CaptureEvent, CommandName } from '@toolbar/shared';
-import { registerCaptureScripts } from '../lib/registration';
+import { injectIntoOpenTabs, registerCaptureScripts } from '../lib/registration';
 import { CAPTURE_PORT, type BgRequest, type PortMessage } from '../lib/messages';
 import { TEST_HOOKS } from '../lib/flags';
 import { registerAuth } from '../lib/bg/auth';
@@ -23,7 +23,7 @@ export default defineBackground(() => {
     throw e;
   });
   registerDraftHandlers();
-  browser.runtime.onInstalled.addListener(() => void registerCaptureScripts());
+  browser.runtime.onInstalled.addListener(() => void registerCaptureScripts().then(injectIntoOpenTabs, () => undefined));
   setupCapture();
   browser.runtime.onStartup.addListener(() => void registerCaptureScripts());
 
