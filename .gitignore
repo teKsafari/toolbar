@@ -13,3 +13,12 @@ dist/
 *.log
 .DS_Store
 .claude/worktrees/
+
+# Private keys (extension signing key and similar) never go in git
+.secrets/
+*.pem
+# Test output
+test-results/
+playwright-report/
+e2e/.cache/
+coverage/

@@ -1,0 +1,10 @@
+# lab/ stays its own pnpm project (its own lockfile and workspace file), so the
+# running toolbar-lab service never depends on this workspace's installs.
+packages:
+  - apps/*
+  - packages/*
+  - e2e
+allowBuilds:
+  esbuild: true
+  "@tailwindcss/oxide": false
+  spawn-sync: false
