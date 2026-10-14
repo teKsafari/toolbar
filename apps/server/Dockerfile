@@ -25,7 +25,7 @@ COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /repo/apps/server/build ./build
 COPY --from=build /repo/apps/server/drizzle ./drizzle
 COPY --from=build /repo/apps/server/server.js ./server.js
-ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 BODY_SIZE_LIMIT=16M
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 BODY_SIZE_LIMIT=210M
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=5s --timeout=5s --start-period=20s --retries=10 \

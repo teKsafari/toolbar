@@ -43,6 +43,10 @@ export const JOB_TYPES = [
   'thumbnail',
   'purge-recording',
   'expire-shares',
+  // server-core additions
+  'renditions',
+  'chapters',
+  'sweep-drafts',
 ] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
