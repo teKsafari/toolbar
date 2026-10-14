@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { enhance } from '$app/forms';
   import { Button } from '@toolbar/ui';
   import Avatar from '#lib/components/auth/Avatar.svelte';
 
@@ -24,7 +25,16 @@
     </section>
   {/if}
 
-  <form method="POST" onsubmit={() => (busy = true)}>
+  <form
+    method="POST"
+    use:enhance={() => {
+      busy = true;
+      return async ({ update }) => {
+        await update();
+        busy = false;
+      };
+    }}
+  >
     <h1>Create a workspace</h1>
     <p class="muted">A workspace holds your team's captures, folders and integrations. You can invite people next.</p>
     <div class="avatar"><Avatar name={name || '?'} size={56} /></div>

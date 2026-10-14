@@ -79,3 +79,38 @@ test('X-05: signed out, the auth window shows the login page and returns to the 
   expect(await bg(ext, { type: 'auth.signOut' })).toMatchObject({ ok: true });
   await ext.close();
 });
+
+test('X-05: the popup shows sign in when signed out, then the account after the flow', async ({ context }) => {
+  await context.clearCookies();
+  const email = uniqueEmail(undefined, 'pop');
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${EXT_ID}/popup.html`);
+  const card = popup.getByTestId('signed-out');
+  await expect(card).toBeVisible();
+  const authWindow = context.waitForEvent('page', (p) => p.url().startsWith(SERVER));
+  await card.getByRole('button', { name: 'Sign in' }).click();
+  const win = await authWindow;
+  await win.waitForURL(/\/login\?next=%2Fext%2Fconnect/);
+  await hydrated(win);
+  await showPassword(win);
+  await win.getByLabel('Work email').fill(email);
+  await win.getByLabel('Password').fill('popup flow pass');
+  await win.getByRole('button', { name: 'Continue', exact: true }).click();
+
+  await expect(popup.getByTestId('signed-in')).toContainText(email);
+  await expect(popup.getByTestId('signed-out')).toHaveCount(0);
+
+  // The web session from the auth window lists this browser.
+  const web = await context.newPage();
+  await web.goto(`${SERVER}/settings/browsers`);
+  await hydrated(web);
+  await expect(web.getByTestId('device-list')).toContainText(/on (Linux|macOS|Windows)/);
+
+  // Sign out from the popup: back to the sign-in card.
+  await popup.getByTestId('signed-in').getByRole('button', { name: 'Sign out' }).click();
+  await expect(popup.getByTestId('signed-out')).toBeVisible();
+  await web.reload();
+  await expect(web.getByText('No browser is connected yet.')).toBeVisible();
+  await web.close();
+  await popup.close();
+});

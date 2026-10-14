@@ -5,6 +5,7 @@
   import { Button, Icon, type IconName } from '@toolbar/ui';
   import { COMMANDS, DEFAULT_SERVER_URL, PRODUCT_NAME } from '@toolbar/shared';
   import type { BgRequest } from '../../lib/messages';
+  import AccountCard from '../../lib/auth/AccountCard.svelte';
 
   type Mode = Extract<BgRequest, { type: 'capture' }>['mode'];
   const rows: { mode: Mode; label: string; icon: IconName; key: string | null }[] = [
@@ -30,6 +31,7 @@
       <Button variant="ghost" size="sm" icon="more" iconOnly aria-label="Menu" />
     </span>
   </header>
+  <AccountCard />
   <ul>
     {#each rows as r (r.mode)}
       <li>

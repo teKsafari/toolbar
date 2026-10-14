@@ -1,5 +1,6 @@
 // Auth area, web app (J-217, X-06, J-221, J-123, J-234, J-125, J-124, J-148). Runs against
 // SERVER_URL with Mailpit on :8025; needs no extension.
+import { execFileSync } from 'node:child_process';
 import { test, expect, chromium, type Browser, type Page } from '@playwright/test';
 import { SERVER, api, firstUrl, hydrated, mailTo, showPassword, signInByMail, signInWithPassword, uniqueEmail } from './helpers.ts';
 
@@ -12,6 +13,16 @@ test.afterAll(async () => browser.close());
 async function freshPage(): Promise<Page> {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   return ctx.newPage();
+}
+
+/**
+ * Workspace settings have no API in this area (the settings page is the dashboard's), so the
+ * J-124 test flips auto-approve in the area database directly. Needs DATABASE_URL and psql.
+ */
+function setAutoApprove(workspaceId: string, on: boolean) {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL is not set (load the worktree .env)');
+  execFileSync('psql', [url, '-qc', `update organization set settings = coalesce(settings, '{}'::jsonb) || '{"autoApproveCreators": ${on}}'::jsonb where id = '${workspaceId}'`]);
 }
 
 type Ws = { id: string; name: string; role: string; isOwner: boolean };
@@ -85,6 +96,7 @@ test('J-221: workspace menu, create a workspace, it becomes active', async () =>
   await expect(next).toBeEnabled();
   await next.click();
   await page.waitForURL(/\/\?created=1/);
+  await hydrated(page);
   await expect(page.getByTestId('workspace-menu')).toContainText('Zephyr support');
   const ws = await workspaces(page);
   const z = ws.items.find((w) => w.name === 'Zephyr support')!;
@@ -138,6 +150,16 @@ test('J-123 / J-234 / J-124: invite modal, email invite as viewer, invite link a
   expect((await api(viewer, 'POST', `/api/v1/workspaces/${wsId}/invites`, { emails: ['x@y.test'] })).status).toBe(403);
   expect((await api(viewer, 'POST', `/api/v1/workspaces/${wsId}/invite-link/reset`)).status).toBe(403);
   await expect(viewer.getByTestId('invite-button')).toHaveCount(0);
+
+  // J-124: creating a capture as a viewer. With auto-approve off the API refuses (403) before
+  // the handler runs; with it on (the default) the viewer becomes a creator and gets through.
+  const create = () => api(viewer, 'POST', '/api/v1/recordings', { workspaceId: wsId, clientId: 'e2e-j124', mode: 'screenshot' });
+  setAutoApprove(wsId, false);
+  expect((await create()).status).toBe(403);
+  expect((await workspaces(viewer)).items.find((w) => w.id === wsId)).toMatchObject({ role: 'viewer' });
+  setAutoApprove(wsId, true);
+  expect((await create()).status).not.toBe(403);
+  expect((await workspaces(viewer)).items.find((w) => w.id === wsId)).toMatchObject({ role: 'creator' });
 
   // J-234: someone joining through the link comes in as creator.
   const linker = await freshPage();

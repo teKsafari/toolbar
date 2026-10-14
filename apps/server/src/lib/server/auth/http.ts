@@ -3,7 +3,7 @@
 //
 // `apiGate` runs in hooks.server.ts after the session or bearer token is resolved. For every
 // request that matches a route in ROUTE_LIST it enforces the route's auth mode, the scope of a
-// personal token, and the minimum seat role when the path names a workspace. Handlers of every
+// personal token, and the minimum seat role when the path (or a JSON body's workspaceId) names a workspace. Handlers of every
 // area get this for free; routes whose workspace comes from a capture or folder check the seat
 // themselves with `requireSeat()`.
 import { json, type RequestEvent } from '@sveltejs/kit';
@@ -23,7 +23,7 @@ import {
 } from '@toolbar/shared/api';
 import { neededScope, tokenAllows } from '@toolbar/shared/areas/auth';
 import { db } from '../db/index.ts';
-import { seatRole } from './workspaces.ts';
+import { ensureCanCreate, seatRole } from './workspaces.ts';
 
 export class ApiFail extends Error {
   constructor(
@@ -106,10 +106,35 @@ export const apiGate: Handle = async ({ event, resolve }) => {
   if (!hit) return resolve(event);
   // /ext/connect redirects to the login page itself when signed out.
   if (hit.route.name === 'ext.connect' && !event.locals.user) return resolve(event);
-  const denied = await authorize(hit.route, hit.params, event.locals, event.request.headers);
+  let params = hit.params;
+  // The workspace of some writes (captures.create) is in the JSON body, not the path.
+  if (hit.route.role && !params.workspaceId && event.locals.user) {
+    const ws = await bodyWorkspaceId(event.request);
+    if (ws) params = { ...params, workspaceId: ws };
+  }
+  // J-124: a viewer creating a capture becomes a creator when the workspace auto-approves.
+  // authorize() looks the seat up only after the auth mode and token scope passed.
+  const lookup =
+    hit.route.name === 'captures.create'
+      ? (u: string, w: string) => ensureCanCreate(db, u, w)
+      : (u: string, w: string) => seatRole(db, u, w);
+  const denied = await authorize(hit.route, params, event.locals, event.request.headers, lookup);
   if (denied) return errorResponse(denied.code, denied.message);
   return resolve(event);
 };
+
+/** `workspaceId` from a JSON request body, read from a clone so the handler still gets the body. */
+export async function bodyWorkspaceId(request: Request): Promise<string | null> {
+  if (!['POST', 'PUT', 'PATCH'].includes(request.method)) return null;
+  if (!(request.headers.get('content-type') ?? '').includes('application/json')) return null;
+  try {
+    const body = (await request.clone().json()) as unknown;
+    const ws = body && typeof body === 'object' ? (body as { workspaceId?: unknown }).workspaceId : undefined;
+    return typeof ws === 'string' && ws ? ws : null;
+  } catch {
+    return null;
+  }
+}
 
 /** For handlers whose workspace is not in the path: the caller's seat, or a thrown 403/404. */
 export async function requireSeat(event: RequestEvent, workspaceId: string, need: SeatRole): Promise<SeatRole> {

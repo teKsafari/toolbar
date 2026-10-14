@@ -12,7 +12,7 @@ import {
   pkcePair,
   tokenAllows,
 } from '@toolbar/shared/areas/auth';
-import { authorize, findRoute } from '../src/lib/server/auth/http.ts';
+import { authorize, bodyWorkspaceId, findRoute } from '../src/lib/server/auth/http.ts';
 import { readSettings } from '../src/lib/server/auth/workspaces.ts';
 import { isAllowedRedirect, PINNED_EXTENSION_ID } from '../src/lib/server/auth/ext.ts';
 import { isInvitationId } from '../src/lib/server/auth/invites.ts';
@@ -126,5 +126,28 @@ describe('PKCE and extension redirect (X-05)', () => {
     expect(isAllowedRedirect(`https://${PINNED_EXTENSION_ID}.chromiumapp.org/other`)).toBe(false);
     expect(isAllowedRedirect(`https://${PINNED_EXTENSION_ID}.chromiumapp.org.evil.test/cb`)).toBe(false);
     expect(extensionIdOfRedirect('http://x.chromiumapp.org/cb')).toBeNull();
+  });
+});
+
+describe('bodyWorkspaceId (J-124: captures.create names its workspace in the body)', () => {
+  const req = (method: string, body: string, type = 'application/json') =>
+    new Request('http://x/api/v1/recordings', { method, body, headers: { 'content-type': type } });
+  it('reads workspaceId from a JSON body and leaves the body readable', async () => {
+    const r = req('POST', JSON.stringify({ workspaceId: 'w1', clientId: 'c' }));
+    expect(await bodyWorkspaceId(r)).toBe('w1');
+    expect(await r.json()).toMatchObject({ clientId: 'c' });
+  });
+  it('ignores other bodies and methods', async () => {
+    expect(await bodyWorkspaceId(req('POST', 'not json'))).toBeNull();
+    expect(await bodyWorkspaceId(req('POST', '{"workspaceId":1}'))).toBeNull();
+    expect(await bodyWorkspaceId(req('POST', '{"workspaceId":"w"}', 'text/plain'))).toBeNull();
+    expect(await bodyWorkspaceId(new Request('http://x/', { method: 'GET' }))).toBeNull();
+  });
+  it('a viewer seat is refused on create; a creator seat passes', async () => {
+    const user = { id: 'u' } as never;
+    const ws = '0190f0f0-0000-7000-8000-000000000001';
+    const route = ROUTES['captures.create'];
+    expect(await authorize(route, { workspaceId: ws }, { user, apiToken: null }, new Headers(), async () => 'viewer')).toMatchObject({ code: 'forbidden' });
+    expect(await authorize(route, { workspaceId: ws }, { user, apiToken: null }, new Headers(), async () => 'creator')).toBeNull();
   });
 });
