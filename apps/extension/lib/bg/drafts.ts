@@ -374,8 +374,8 @@ export const draftHandlers: Handlers = {
     await updateDraft(draftId, { status: 'saved' });
     return {};
   },
-  'draft.open': async ({ draftId, tabId }) => {
-    const tab = tabId ?? (await activeTabId());
+  'draft.open': async ({ draftId, tabId }, sender) => {
+    const tab = tabId ?? sender.tab?.id ?? (await activeTabId());
     if (tab == null) throw new BgFailure('not_found', 'No tab to open the draft in');
     await updateDraft(draftId, { status: 'open', reopenedAt: Date.now(), tabId: tab });
     await openDraftInTab(tab, draftId);
