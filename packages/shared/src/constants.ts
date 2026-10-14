@@ -47,6 +47,9 @@ export const JOB_TYPES = [
   'renditions',
   'chapters',
   'sweep-drafts',
+  // dashboard additions
+  'webhook-deliver',
+  'auto-delete',
 ] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
