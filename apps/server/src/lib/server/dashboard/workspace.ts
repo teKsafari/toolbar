@@ -313,3 +313,35 @@ export async function onboarding(db: Db, userId: string, workspaceId: string | n
 export async function dismissOnboarding(db: Db, userId: string) {
   await patchRawSettings(db, userId, { onboardingDismissed: true });
 }
+
+// ---------- guests (people given access to a folder who are not members) ----------
+
+export async function folderGuests(db: Db, workspaceId: string) {
+  const rows = (await db.execute(sql`
+    SELECT fm.id, fm.email, fm.role, fm.user_id, u.name, u.email AS user_email, u.image, f.name AS folder_name, f.short_id
+    FROM folder_member fm
+    JOIN folder f ON f.id = fm.folder_id
+    LEFT JOIN "user" u ON u.id = fm.user_id
+    WHERE f.organization_id = ${workspaceId}
+      AND (fm.user_id IS NULL OR NOT EXISTS (SELECT 1 FROM member m WHERE m.organization_id = ${workspaceId} AND m.user_id = fm.user_id))
+    ORDER BY fm.created_at DESC`)) as unknown as {
+    id: string;
+    email: string | null;
+    role: string;
+    user_id: string | null;
+    name: string | null;
+    user_email: string | null;
+    image: string | null;
+    folder_name: string;
+    short_id: string | null;
+  }[];
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name ?? r.email ?? 'Guest',
+    email: r.user_email ?? r.email,
+    image: r.image,
+    pending: !r.user_id,
+    role: r.role,
+    folder: { name: r.folder_name, shortId: r.short_id },
+  }));
+}
