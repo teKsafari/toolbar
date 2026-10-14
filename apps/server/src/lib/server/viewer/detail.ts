@@ -4,7 +4,7 @@
 import { and, count, eq, isNull } from 'drizzle-orm';
 import { buildPath, ROUTES, type CaptureDetail, type CaptureSummary } from '@toolbar/shared/api';
 import { db } from '#lib/server/db/index.ts';
-import { annotation, asset, comment, folder, recordingLink, recordingStream, transcript, user } from '#lib/server/db/schema/index.ts';
+import { annotation, asset, comment, folder, recordingChunk, recordingLink, recordingStream, transcript, user } from '#lib/server/db/schema/index.ts';
 import { env } from '#lib/server/env.ts';
 import type { RecordingRow, ViewerCtx } from './access.ts';
 import { indexOf, loadEvents } from './events.ts';
@@ -66,6 +66,11 @@ export async function captureDetail(ctx: ViewerCtx): Promise<CaptureDetail> {
   const assets = await db.select().from(asset).where(eq(asset.recordingId, rec.id));
   const anns = await db.select().from(annotation).where(eq(annotation.recordingId, rec.id));
   const [tr] = await db.select().from(transcript).where(eq(transcript.recordingId, rec.id)).limit(1);
+  const rrwebChunks = await db
+    .select({ seq: recordingChunk.seq })
+    .from(recordingChunk)
+    .where(and(eq(recordingChunk.recordingId, rec.id), eq(recordingChunk.stream, 'rrweb')))
+    .orderBy(recordingChunk.seq);
   const [f] = rec.folderId ? await db.select().from(folder).where(eq(folder.id, rec.folderId)).limit(1) : [];
   const hasVideo = streams.some((s) => s.name === 'video' && s.finalKey);
   const events = await loadEvents(rec);
@@ -120,7 +125,7 @@ export async function captureDetail(ctx: ViewerCtx): Promise<CaptureDetail> {
       fullScreenshot: crop && shot ? toAsset(shot, 'full') : null,
       thumbUrl: summary.thumbUrl,
       eventsUrl: streams.some((s) => s.name === 'events') ? `${base}/events` : null,
-      rrwebUrls: streams.some((s) => s.name === 'rrweb') ? [`${base}/rrweb-000`] : [],
+      rrwebUrls: rrwebChunks.map((c) => `${base}/rrweb-${String(c.seq).padStart(3, '0')}`),
       voiceUrl: streams.some((s) => s.name === 'voice' && s.finalKey) ? `${base}/voice` : null,
       transcriptVttUrl: null,
     },

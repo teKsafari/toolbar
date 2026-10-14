@@ -1,4 +1,4 @@
-// Member capture page. The page resets to the root layout (+page@.svelte), so it checks the
+// Member capture page. The page resets to the root layout (+layout@.svelte), so it checks the
 // session itself instead of relying on (app)/+layout.server.ts.
 import { error, redirect } from '@sveltejs/kit';
 import { ApiFail, viewerAccess } from '#lib/server/viewer/access.ts';

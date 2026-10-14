@@ -55,13 +55,12 @@
 
 <style>
   .card { position: relative; display: flex; flex-direction: column; border-radius: var(--nb-radius-xl); background: var(--nb-surface-sunken); border: 1px solid var(--nb-border); overflow: hidden; }
-  .top { position: absolute; inset: 0 0 auto; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 10px; pointer-events: none; }
-  .top > * { pointer-events: auto; }
+  .top { position: absolute; inset: 0 0 auto; z-index: 3; display: flex; align-items: center; gap: 8px; padding: 10px; pointer-events: none; }
   .grow { flex: 1; }
   .chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 4px; border-radius: 999px; background: rgb(0 0 0 / 0.6); color: #f7f6f2; font-size: var(--nb-text-md); }
-  .ib { all: unset; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: rgb(0 0 0 / 0.6); color: #fff; cursor: pointer; }
+  .ib { all: unset; pointer-events: auto; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: rgb(0 0 0 / 0.6); color: #fff; cursor: pointer; }
   .ib:hover { background: rgb(0 0 0 / 0.8); }
-  .scroll { max-height: 70vh; overflow: auto; display: grid; place-items: start center; padding: 48px 16px 16px; }
+  .scroll { position: relative; z-index: 1; max-height: 70vh; overflow: auto; display: grid; place-items: start center; padding: 48px 16px 16px; }
   .imgbtn { all: unset; cursor: zoom-in; display: block; max-width: 100%; }
   .imgbtn:focus-visible { outline: 2px solid var(--nb-focus); }
   .scroll img { display: block; max-width: 100%; height: auto; border-radius: 6px; box-shadow: var(--nb-shadow-md); }

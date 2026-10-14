@@ -99,8 +99,8 @@
       {@const open = expanded.has(r.id)}
       <div
         class="vp-row cr lvl-{r.level} kind-{r.kind}"
-        class:future={v.hasVideo && r.at > v.now + 1}
-        class:current={follow.current === i && v.hasVideo}
+        class:future={v.playable && r.at > v.now + 1}
+        class:current={follow.current === i && v.playable}
         class:flash={flash === r.id}
         data-id={r.id}
         data-row-index={i}

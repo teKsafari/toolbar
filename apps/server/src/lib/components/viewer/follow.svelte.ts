@@ -5,7 +5,7 @@ import type { Viewer } from './viewer.svelte.ts';
 
 export function followPlayback(getList: () => HTMLElement | undefined, getRows: () => readonly { at: number }[], v: Viewer) {
   let userScrolledAt = 0;
-  const current = $derived(v.hasVideo ? indexAt(getRows(), v.now) : -1);
+  const current = $derived(v.playable ? indexAt(getRows(), v.now) : -1);
 
   $effect(() => {
     const list = getList();

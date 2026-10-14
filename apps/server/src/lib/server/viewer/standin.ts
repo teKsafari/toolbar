@@ -3,11 +3,11 @@
 // server-core's handlers replace the route files that call this module, and this file goes.
 // Keep it small and contract-shaped (captures.media, sharing.get, captures.delete).
 import { and, eq, isNull } from 'drizzle-orm';
-import type { ShareLink, ShareSettings } from '@toolbar/shared/api';
+import type { Asset, ShareLink, ShareSettings } from '@toolbar/shared/api';
 import { db } from '#lib/server/db/index.ts';
-import { asset, recording, recordingStream, shareLink } from '#lib/server/db/schema/index.ts';
+import { asset, recording, recordingChunk, recordingStream, shareLink } from '#lib/server/db/schema/index.ts';
 import { env } from '#lib/server/env.ts';
-import { getObject, keys } from '#lib/server/s3.ts';
+import { getObject, keys, putObject } from '#lib/server/s3.ts';
 import { seal, unseal } from '#lib/server/crypto.ts';
 import { hashToken } from '#lib/server/tokens.ts';
 import type { RecordingRow } from './access.ts';
@@ -39,6 +39,15 @@ async function keyFor(rec: RecordingRow, name: string): Promise<{ key: string; t
       return a ? { key: a.s3Key, type: a.contentType } : null;
     }
     default: {
+      const rr = name.match(/^rrweb-(\d{1,6})$/);
+      if (rr) {
+        const [c] = await db
+          .select()
+          .from(recordingChunk)
+          .where(and(eq(recordingChunk.recordingId, rec.id), eq(recordingChunk.stream, 'rrweb'), eq(recordingChunk.seq, Number(rr[1]))))
+          .limit(1);
+        return c ? { key: c.s3Key, type: 'application/gzip' } : null;
+      }
       if (!/^[0-9a-f-]{36}$/.test(name)) return null;
       const [a] = await db.select().from(asset).where(eq(asset.id, name)).limit(1);
       if (!a || (a.recordingId && a.recordingId !== rec.id)) return null;
@@ -108,4 +117,14 @@ export async function archiveCapture(rec: RecordingRow) {
   await db.update(recording).set({ deletedAt: now }).where(eq(recording.id, rec.id));
   await db.update(shareLink).set({ revokedAt: now }).where(and(eq(shareLink.recordingId, rec.id), isNull(shareLink.revokedAt)));
   return { ok: true as const, purged: false };
+}
+
+/** Store an uploaded image for a capture (comment attachments). */
+export async function uploadAssetStandIn(rec: RecordingRow, kind: string, file: File): Promise<Asset> {
+  const id = crypto.randomUUID();
+  const key = keys.asset(rec.id, id);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  await putObject(key, bytes, file.type);
+  await db.insert(asset).values({ id, recordingId: rec.id, kind: kind as 'screenshot', s3Key: key, contentType: file.type, bytes: bytes.length });
+  return { id, kind: kind as Asset['kind'], url: `/api/v1/recordings/${rec.id}/media/${id}`, contentType: file.type, width: null, height: null, bytes: bytes.length, name: file.name || null };
 }

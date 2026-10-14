@@ -136,8 +136,8 @@
             class:failed={isFailed(r)}
             class:pending={r.state === 'pending'}
             class:sel={v.selectedRid === r.rid}
-            class:future={v.hasVideo && r.at > v.now + 1}
-            class:current={follow.current === i && v.hasVideo}
+            class:future={v.playable && r.at > v.now + 1}
+            class:current={follow.current === i && v.playable}
             class:flash={flash === r.rid}
             data-rid={r.rid}
             data-row-index={i}

@@ -23,7 +23,7 @@
   let el: HTMLTextAreaElement | undefined = $state();
   let files: { asset: Asset | null; preview: string; uploading: boolean }[] = $state([]);
   let fileInput: HTMLInputElement | undefined = $state();
-  const timed = $derived(!parentId && v.hasVideo && (v.now >= 500 || v.armed));
+  const timed = $derived(!parentId && v.playable && (v.now >= 500 || v.armed));
   const canAttach = $derived(!!v.data.me);
   const ready = $derived((draft.text.trim() !== '' || files.some((f) => f.asset)) && !files.some((f) => f.uploading));
 

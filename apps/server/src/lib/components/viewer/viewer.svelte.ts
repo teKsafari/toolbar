@@ -53,6 +53,8 @@ export class Viewer {
   playImpl: (() => void) | null = null;
 
   hasVideo = $derived(!!this.detail?.media.video);
+  /** a clock to follow: video or DOM replay */
+  playable = $derived(!!this.detail?.media.video || (this.detail?.media.rrwebUrls.length ?? 0) > 0);
   map: TimeMap = $derived(buildTimeMap(this.events, this.detail.startedAt ? Date.parse(this.detail.startedAt) : null, this.hasVideo));
   network = $derived(deriveNetwork(this.events, this.map));
   consoleRows = $derived(deriveConsole(this.events, this.map, this.network));

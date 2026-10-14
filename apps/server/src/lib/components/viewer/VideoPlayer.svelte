@@ -10,6 +10,7 @@
   import VIcon from './VIcon.svelte';
   import Dropdown from './Dropdown.svelte';
   import Avatar from './Avatar.svelte';
+  import Timeline from './Timeline.svelte';
   import { useViewer } from './viewer.svelte.ts';
   import { copyText } from './api.ts';
   import { agentNudge, shareBaseUrl } from './actions.ts';
@@ -19,9 +20,7 @@
 
   let el: HTMLVideoElement | undefined = $state();
   let card: HTMLDivElement | undefined = $state();
-  let bar: HTMLDivElement | undefined = $state();
   let preview: HTMLVideoElement | undefined = $state();
-  let canvas: HTMLCanvasElement | undefined = $state();
 
   let started = $state(false);
   let ended = $state(false);
@@ -32,25 +31,12 @@
   let captions = $state(false);
   let quality = $state('Original');
   let src = $state('');
-  let hover: { x: number; ms: number } | null = $state(null);
-  let hoverMarker: { x: number; title: string; lines: string[] } | null = $state(null);
+  let hovering = $state(false);
   let dragging = $state(false);
   let fullscreen = $state(false);
 
   const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
-  const pct = (ms: number) => (v.duration ? Math.min(100, Math.max(0, (ms / v.duration) * 100)) : 0);
   const cue = $derived(captions ? v.data.cues.find((c) => v.now >= c.startMs && v.now < c.endMs) : undefined);
-
-  // Comment bubbles grouped when they sit close together.
-  const bubbles = $derived.by(() => {
-    const out: { at: number; items: typeof v.timedComments }[] = [];
-    for (const c of [...v.timedComments].sort((a, b) => a.tMs! - b.tMs!)) {
-      const last = out[out.length - 1];
-      if (last && v.duration && ((c.tMs! - last.at) / v.duration) * 100 < 2) last.items.push(c);
-      else out.push({ at: c.tMs!, items: [c] });
-    }
-    return out;
-  });
 
   onMount(() => {
     src = video.url;
@@ -145,60 +131,9 @@
     showControls = true;
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
-      if (v.playing && !menu && !hover) showControls = false;
+      if (v.playing && !menu && !hovering) showControls = false;
     }, 2500);
   }
-
-  function msAt(clientX: number): { x: number; ms: number } {
-    const r = bar!.getBoundingClientRect();
-    const x = Math.min(Math.max(0, clientX - r.left), r.width);
-    return { x, ms: (x / r.width) * v.duration };
-  }
-  let lastPreview = 0;
-  function onBarMove(e: PointerEvent) {
-    hover = msAt(e.clientX);
-    if (dragging) v.seek(hover.ms);
-    const now = performance.now();
-    if (preview && now - lastPreview > 80) {
-      lastPreview = now;
-      preview.currentTime = hover.ms / 1000;
-    }
-  }
-  function drawPreview() {
-    if (!preview || !canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx?.drawImage(preview, 0, 0, canvas.width, canvas.height);
-  }
-  function onBarDown(e: PointerEvent) {
-    dragging = true;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    v.seek(msAt(e.clientX).ms);
-  }
-  function onBarUp() {
-    dragging = false;
-  }
-  function onBarKey(e: KeyboardEvent) {
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      e.preventDefault();
-      e.stopPropagation();
-      jump(e.key === 'ArrowLeft' ? -5000 : 5000);
-    }
-  }
-
-  function markerClick(m: (typeof v.markers)[number]) {
-    v.seek(m.at, { arm: true });
-    if (m.kind === 'error' || m.kind === 'net-fail') v.reveal('console', m.ref ?? '');
-  }
-  const markerTitle = (m: (typeof v.markers)[number]) =>
-    m.kind === 'net-fail'
-      ? `${m.count} failed request${m.count > 1 ? 's' : ''}`
-      : m.kind === 'error'
-        ? `${m.count} error${m.count > 1 ? 's' : ''}`
-        : m.kind === 'pen'
-          ? 'Drawing'
-          : m.kind === 'blur'
-            ? 'Blur'
-            : m.label;
 
   async function shareAtTime() {
     const ms = el ? el.currentTime * 1000 : v.now;
@@ -294,71 +229,7 @@
   {/if}
 
   <div class="controls">
-    <div class="markers" class:two={bubbles.length > 0} aria-label="Timeline markers">
-      {#each v.markers as m, i (i)}
-        <button
-          type="button"
-          class="mk mk-{m.kind}"
-          style:left="{pct(m.at)}%"
-          onclick={() => markerClick(m)}
-          onpointerenter={() => (hoverMarker = { x: pct(m.at), title: markerTitle(m), lines: m.items.slice(0, 3) })}
-          onpointerleave={() => (hoverMarker = null)}
-          aria-label="{markerTitle(m)} at {fmtClock(m.at)}"
-          data-testid="marker-{m.kind}">
-          {#if m.kind === 'net-fail'}<span class="badge">{m.status ?? 'xhr'}</span>
-          {:else if m.kind === 'error'}<VIcon name="warning" size={11} />{#if m.count > 1}<span class="n">{m.count}</span>{/if}
-          {:else if m.kind === 'pen'}<VIcon name="pen" size={11} />
-          {:else if m.kind === 'blur'}<VIcon name="blur" size={11} />
-          {:else}<span class="dot"></span>{/if}
-        </button>
-      {/each}
-      {#each bubbles as b (b.items[0]!.id)}
-        <button
-          type="button"
-          class="mk bubble"
-          style:left="{pct(b.at)}%"
-          onclick={() => { v.seek(b.at); v.highlightComment = b.items[0]!.id; document.getElementById(`comment-${b.items[0]!.id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }}
-          onpointerenter={() => (hoverMarker = { x: pct(b.at), title: b.items.map((c) => c.displayName).join(', '), lines: b.items.map((c) => c.body.replace(/@\[([^\]]+)\]\(user:[^)]+\)/g, '@$1').slice(0, 90)) })}
-          onpointerleave={() => (hoverMarker = null)}
-          aria-label="{b.items.length} comment{b.items.length > 1 ? 's' : ''} at {fmtClock(b.at)}"
-          data-testid="marker-comment">
-          <VIcon name="bubble" size={14} /><span class="n">{b.items.length}</span>
-        </button>
-      {/each}
-      {#if hoverMarker}
-        <div class="tip" style:left="{hoverMarker.x}%" data-testid="marker-tip">
-          <strong>{hoverMarker.title}</strong>
-          {#each hoverMarker.lines as l, i (i)}<span>{l}</span>{/each}
-        </div>
-      {/if}
-    </div>
-
-    <div
-      class="bar"
-      bind:this={bar}
-      role="slider"
-      tabindex="0"
-      aria-label="Seek"
-      aria-valuemin={0}
-      aria-valuemax={Math.round(v.duration / 1000)}
-      aria-valuenow={Math.round(v.now / 1000)}
-      aria-valuetext={fmtClock(v.now)}
-      onpointerdown={onBarDown}
-      onpointermove={onBarMove}
-      onpointerup={onBarUp}
-      onpointerleave={() => (hover = null)}
-      onkeydown={onBarKey}
-      data-testid="seekbar">
-      {#each v.chapters.slice(1) as c (c.startMs)}<span class="split" style:left="{pct(c.startMs)}%"></span>{/each}
-      <span class="fill" style:width="{pct(v.now)}%"></span>
-      <span class="knob" style:left="{pct(v.now)}%"></span>
-      {#if hover}
-        <div class="preview" style:left="{(hover.x / (bar?.clientWidth || 1)) * 100}%" data-testid="seek-preview">
-          <canvas bind:this={canvas} width="160" height="90"></canvas>
-          <span>{fmtClock(hover.ms)}{#if v.chapterAt(hover.ms)} · {v.chapterAt(hover.ms)!.title}{/if}</span>
-        </div>
-      {/if}
-    </div>
+    <Timeline frameSource={preview} bind:dragging onhover={(h) => (hovering = h)} />
 
     <div class="row">
       <button type="button" class="ib" onclick={toggle} aria-label={v.playing ? 'Pause' : 'Play'} title="Play or pause (k)" data-testid="play">
@@ -414,7 +285,7 @@
   </div>
   <!-- hidden twin used for the hover preview frames -->
   <!-- svelte-ignore a11y_media_has_caption -->
-  <video bind:this={preview} class="twin" src={video.url} preload="auto" muted playsinline onseeked={drawPreview}></video>
+  <video bind:this={preview} class="twin" src={video.url} preload="auto" muted playsinline></video>
 </div>
 
 <style>
@@ -452,38 +323,6 @@
     background: linear-gradient(transparent, rgb(0 0 0 / 0.7)); transition: opacity var(--nb-dur-med);
   }
   .hide .controls, .hide .top { opacity: 0; }
-  .markers { position: relative; height: 22px; margin: 0 6px; }
-  .mk {
-    position: absolute; bottom: 2px; translate: -50% 0; display: inline-flex; align-items: center; gap: 2px;
-    height: 18px; min-width: 18px; padding: 0 4px; border-radius: 999px; border: 0; cursor: pointer;
-    font: 600 10px var(--nb-font-mono); color: #fff; background: #c22e1f;
-  }
-  .mk-net-fail { background: #e04a6e; }
-  .mk-pen, .mk-blur, .mk-mark { background: #f2b100; color: #1a1918; }
-  .mk-pause, .mk-resume, .mk-nav, .mk-voice { background: #6d7deb; min-width: 10px; height: 10px; padding: 0; }
-  .mk .dot { width: 4px; height: 4px; border-radius: 50%; background: #fff; }
-  .bubble { background: #2c2a27; color: #f7f6f2; bottom: 22px; border: 1px solid #45423c; }
-  .markers.two { height: 42px; }
-  .markers.two .tip { bottom: 44px; }
-  .mk:hover { filter: brightness(1.15); z-index: 2; }
-  .tip {
-    position: absolute; bottom: 24px; translate: -50% 0; z-index: 3; display: flex; flex-direction: column; gap: 2px;
-    max-width: 280px; padding: 6px 10px; border-radius: 8px; background: #1a1918; color: #f7f6f2; font-size: var(--nb-text-sm);
-    box-shadow: var(--nb-shadow-lg); pointer-events: none; white-space: nowrap;
-  }
-  .tip span { overflow: hidden; text-overflow: ellipsis; color: #d6d2c8; }
-  .bar { position: relative; height: 14px; margin: 0 6px; cursor: pointer; touch-action: none; }
-  .bar::before { content: ''; position: absolute; inset: 5px 0; border-radius: 2px; background: rgb(255 255 255 / 0.28); }
-  .bar:focus-visible { outline: 2px solid var(--nb-focus); border-radius: 4px; }
-  .fill { position: absolute; left: 0; top: 5px; height: 4px; border-radius: 2px; background: #6d7deb; }
-  .split { position: absolute; top: 4px; width: 2px; height: 6px; background: #0d0d0c; translate: -1px 0; z-index: 1; }
-  .knob { position: absolute; top: 2px; width: 10px; height: 10px; border-radius: 50%; background: #fff; translate: -50% 0; }
-  .preview {
-    position: absolute; bottom: 20px; translate: -50% 0; display: flex; flex-direction: column; align-items: center; gap: 4px;
-    padding: 4px; border-radius: 8px; background: #1a1918; pointer-events: none; z-index: 4;
-  }
-  .preview canvas { width: 160px; height: 90px; border-radius: 4px; background: #000; }
-  .preview span { font: 500 var(--nb-text-sm) var(--nb-font-mono); white-space: nowrap; }
   .row { display: flex; align-items: center; gap: 2px; margin-top: 4px; }
   .ib, .txt {
     all: unset; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 4px;

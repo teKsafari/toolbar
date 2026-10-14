@@ -27,9 +27,11 @@
   let main: HTMLElement | undefined = $state();
   let rightPct = $state(38);
   let dragging = $state(false);
+  let hydrated = $state(false);
   const showDev = $derived(data.devtools && v.devtoolsOpen);
 
   onMount(() => {
+    hydrated = true;
     try {
       const w = Number(localStorage.getItem('nib.viewer.split'));
       if (w >= 22 && w <= 70) rightPct = w;
@@ -82,7 +84,7 @@
 
 <svelte:head><title>{v.detail.title || 'Untitled capture'} | {PRODUCT_NAME}</title></svelte:head>
 
-<div class="page" class:dragging>
+<div class="page" class:dragging data-hydrated={hydrated ? '' : undefined}>
   <Header />
   {#if data.devtools}
     <div class="narrowbar" role="tablist" aria-label="View">

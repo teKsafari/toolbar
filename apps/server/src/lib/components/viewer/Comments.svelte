@@ -51,7 +51,9 @@
       else if (ev.type === 'reactions') v.setReactions(ev.id, ev.reactions);
       else {
         const all = v.allComments();
-        const known = all.some((c) => c.id === ev.comment.id || (c.id.startsWith('tmp-') && c.body === ev.comment.body));
+        const temp = all.find((c) => c.id.startsWith('tmp-') && c.body === ev.comment.body);
+        const known = !!temp || all.some((c) => c.id === ev.comment.id);
+        if (temp) v.removeComment(temp.id);
         v.upsertComment(ev.comment);
         if (ev.type === 'created' && !known) {
           await tick();

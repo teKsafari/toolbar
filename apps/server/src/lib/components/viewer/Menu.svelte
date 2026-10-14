@@ -30,7 +30,7 @@
   {#each items as it (it.id)}
     {#if it.items}
       <div class="subwrap" role="none" onmouseenter={() => (sub = it.id)} onmouseleave={() => (sub = null)}>
-        <button type="button" role="menuitem" class="row" aria-haspopup="menu" aria-expanded={sub === it.id} onclick={() => (sub = sub === it.id ? null : it.id)}>
+        <button type="button" role="menuitem" class="row" aria-haspopup="menu" aria-expanded={sub === it.id} onclick={() => (sub = it.id)}>
           {#if it.icon}<VIcon name={it.icon as never} size={14} />{/if}
           <span class="lbl">{it.label}</span>
           <VIcon name="chevron-right" size={12} />

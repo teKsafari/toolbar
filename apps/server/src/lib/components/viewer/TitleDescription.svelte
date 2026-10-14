@@ -117,7 +117,7 @@
     </div>
   {:else}
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions, a11y_no_noninteractive_tabindex -->
-    <div class="desc" class:editable={v.canEdit} class:empty={!v.detail.description} role={v.canEdit ? 'button' : undefined} onclick={descClick} data-testid="description" tabindex={v.canEdit ? 0 : undefined} onkeydown={(e) => { if (e.key === 'Enter' && v.canEdit && e.target === e.currentTarget) { desc.load(v.detail.description); editingDesc = true; queueMicrotask(() => descEl?.focus()); } }}>
+    <div class="desc" class:editable={v.canEdit} class:nodesc={!v.detail.description} role={v.canEdit ? 'button' : undefined} onclick={descClick} data-testid="description" tabindex={v.canEdit ? 0 : undefined} onkeydown={(e) => { if (e.key === 'Enter' && v.canEdit && e.target === e.currentTarget) { desc.load(v.detail.description); editingDesc = true; queueMicrotask(() => descEl?.focus()); } }}>
       {#if v.detail.description}{@html renderMarkdown(v.detail.description)}{:else if v.canEdit}<span class="ph">Add a description. Type @ to mention someone.</span>{/if}
     </div>
   {/if}

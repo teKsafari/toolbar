@@ -44,13 +44,14 @@
 {#if v.detail.source === 'recording-link' && !v.actions.length}
   <div class="banner" data-testid="rl-banner"><VIcon name="info" size={14} />User events for recording-link captures are on the way. For now they come with the extension.</div>
 {/if}
-{#if v.eventsLoaded && !v.actions.length}
+{#if v.eventsLoaded && !v.actions.some((r) => r.type !== 'navigation')}
   <EmptyState icon="select" title="Nobody clicked a thing. A very calm session." testid="actions-empty" />
-{:else}
+{/if}
+{#if v.actions.length}
   <div class="vp-list" bind:this={list} role="list" data-testid="actions-list">
     {#each v.actions as r, i (r.id)}
       {@const attrs = targetAttributes(r.target)}
-      <div class="vp-row ar" class:kind-navigation={r.type === 'navigation'} class:future={v.hasVideo && r.at > v.now + 1} class:current={follow.current === i && v.hasVideo} data-row-index={i} role="listitem">
+      <div class="vp-row ar" class:kind-navigation={r.type === 'navigation'} class:future={v.playable && r.at > v.now + 1} class:current={follow.current === i && v.playable} data-row-index={i} role="listitem">
         <button type="button" class="vp-gutter" onclick={() => v.seek(r.at, { arm: true })} aria-label="Seek to {fmtClock(r.at)}" title="Play from here"><VIcon name="play" size={10} /></button>
         <div class="main">
           <span class="ic"><VIcon name={(r.type === 'navigation' ? 'external' : r.type === 'input' || r.type === 'key' ? 'text' : 'select') as never} size={13} /></span>
