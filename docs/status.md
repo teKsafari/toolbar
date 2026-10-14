@@ -13,6 +13,39 @@ One line per row of `docs/tasks.md`: the eight foundations (X-01 to X-08) and th
 
 "Built" includes rows covered by another row and rows built with a skipped part (see `docs/skip-list.md`).
 
+## User journeys on main (2026-10-14)
+
+`e2e/flows/` runs the journeys of `docs/jam/flows.md` the way a user does: `docker compose up --build -d` from empty volumes, the lab on :5173, the release build (`chrome-mv3`, closed shadow root) in a Playwright persistent context on Xvfb `:120` with openbox, the pinned action and `--allowlisted-extension-id`. Chords go through the X server with xdotool, so Chromium's command shortcuts fire; the popup opens with Ctrl+Shift+Y and is reached over a second CDP connection; the link is read from the X clipboard. No test hook drives the product. Run with `pnpm --filter @toolbar/extension build && pnpm --filter @toolbar/e2e flows`; screenshots land in `e2e/flows-shots/`. Three full runs passed 13 of 13 after the fixes below.
+
+| Flow | Spec | Result | Measured |
+|---|---|---|---|
+| O sign in | fixture + `o-sign-in` | pass: popup Sign in, auth window, new account with a password, popup shows the account, settings lists the browser | - |
+| A screenshot with a box to a link | `a-screenshot` | pass: chord, click (the page gets no click), rectangle, title, Ctrl+Enter, link on the clipboard, capture tab opens, logged-out page shows the box | editor 0.6 to 0.8 s after the click |
+| B tab video of the lab errors | `b-recording` | pass: chord, countdown 3-2-1, hidden 500, throw, rejection, console, dead button, chord, editor, Ctrl+Enter; capture ready with the 500 | live about 4.5 s after the chord; editor 0.6 to 1 s after stop |
+| C instant replay | `c-instant-replay` | pass: popup menu, Settings, switch (one-time), the bug, replay chord, create; replay holds the 500 | editor 0.9 s after the chord |
+| F logged out, find the failing request | `f-find-request` | pass: hover the 500 marker shows `database_unavailable`; network tab, row, Response shows the body; copy as cURL; arrows keep the sub-tab; console has the TypeError and the rejection | page interactive 0.9 s |
+| G timed comment | `g-comment` | pass: seek bar click, composer, Ctrl+Enter; comment carries the time, bubble on the timeline | composer clears in 0.2 s |
+| H folders | `h-folders` | pass: new folder from the sidebar, move by checkbox (3 clicks), drag onto the folder | - |
+| I Ctrl+K | `i-search` | pass: two words of the title, Enter opens the capture | results 0.4 s |
+| J agent over MCP | `j-agent` | pass: MCP page snippet, DCR, consent in one click, `get_capture`, `get_network_requests` (5xx with the body), `get_console_logs`; connected agent listed, removal revokes. With `FLOWS_CLAUDE=1` a real Claude Code run with a throwaway `--mcp-config` answered "`/api/fail` returned `database_unavailable`" | Claude Code run about 10 s |
+| CLI pull | `k-cli-pull` | pass: token from Settings, `nib login --token`, `nib pull <share link>` writes summary.md, details, console, network, actions, frames | - |
+| M draft after the tab closed | `m-recover-draft` | pass: close the tab with the editor open, drafts pill, View, create | - |
+| Visual | `z-visual` | pass: dashboard, capture pages (video, replay, screenshot), settings, MCP, browsers, login and the share page at 1440 and 390 px in light and dark have no sideways overflow and follow the theme; popup, menu, options and editor checked by eye | - |
+
+Fixed in this pass:
+- Tab recording never started outside the fake driver. The tabCapture stream id was taken at the gesture and used after the 3 s countdown; by then it had expired ("Requested device not found") and it blocked a fresh id ("Cannot capture a tab with an active stream"). The offscreen document now opens the stream at the gesture (`hold-tab`), plays the tab audio back during the countdown, and records from it; cancel releases it. Area suites missed it because they used the fake driver or Chromium's fake media flags, and with `--use-fake-ui-for-media-stream` or `--use-fake-device-for-media-stream` tab capture fails anyway; the flows fixture runs without them.
+- The popup picked its tab with the worker's `lastFocusedWindow`, which named a closed sign-in window, so it showed "This page can't be captured" over the lab. It now uses the active tab of its own window.
+- Tabs open before install, update or reload had no content scripts, so a chord armed screenshot mode with no in-page UI. The worker injects both worlds on demand before a capture, and into open web tabs on install.
+- Closing or reloading the editor's tab left the session in `draft`, so every later capture was refused as busy. The draft now goes to the Drafts list (flow M).
+- The countdown flashed 4 for up to 200 ms when a session update reset its start time.
+- The MCP server URL broke mid-word at 390 px.
+
+Gaps left:
+- Not scripted: D (desktop recording through Chrome's picker), E (recording link recipient), K (delete), L (invite), N (create workspace). The capture suite's J-201 picker-cancel test crashed Chromium on `:120` in three runs here (the Xvfb picker crash from `docs/spikes.md` S2); 113 of the other capture, ext-ui and editor tests passed against the new build.
+- The recording bar is in the tab video by design (as in Jam), so the first frame and the poster show its "Starting" state.
+- The editor frame does not follow an emulated dark scheme in Playwright (the extension frame runs in another process); a real dark OS setting reaches it, which the ext-ui suite checks.
+- The AI draft (flow B step 5) is not exercised: compose runs with `AI_PROVIDER=none`.
+
 ## Rows
 
 | ID | Area | Pri | Feature | Status |
@@ -26,7 +59,7 @@ One line per row of `docs/tasks.md`: the eight foundations (X-01 to X-08) and th
 | X-08 | server-core | - | compose.yaml stack | built |
 | X-07 | ext-ui | - | Brand and design tokens shared by extension and web app | built |
 | J-002 | capture | P0 | Visible-area screenshot | built |
-| J-006 | capture | P0 | Tab video recording | built |
+| J-006 | capture | P0 | Tab video recording | built (flows: the real tabCapture path was broken after the merge and is fixed, see "User journeys on main") |
 | J-007 | capture | P0 | Desktop or window recording | built |
 | J-008 | capture | P1 | Desktop recording follows tab switches | built |
 | J-009 | capture | P0 | Instant replay (share the past) | built |

@@ -2,7 +2,7 @@
 
 A new session reads this file first.
 
-## Current step: Part 1, step 1 (use Jam)
+## Current step: Part 1, step 2 (replicate Jam): built, merged, journeys pass end to end
 
 ### Plan for this step
 1. Repo scaffolding: `LICENSE`, `.gitignore` (with `research/jam-private/`), `docs/decisions.md`, this file.
@@ -29,8 +29,13 @@ A new session reads this file first.
   - The viewer's share page checks revoked and expired links itself; folder privacy (`memberCanSee`) is applied only by server-core's routes.
   - Capture e2e drives the product flows through `__tb.flow` (ext-ui's handlers over the capture driver); the bar and countdown UI checks live in the ext-ui suite.
 
+### End-to-end pass on main (2026-10-14)
+- `e2e/flows/` scripts the journeys of `docs/jam/flows.md` against the compose stack from empty volumes, the lab, and the release build of the extension: sign in through the popup (O), screenshot with a box (A), tab video of the lab errors (B), instant replay (C), the logged-out link and the failing request (F), a timed comment (G), folders (H), Ctrl+K (I), MCP consent and reads, plus an opt-in real Claude Code run (J), `nib pull` (CLI), draft recovery after the tab closes (M), and a visual pass at 1440 and 390 px, light and dark. Run: `pnpm --filter @toolbar/extension build && pnpm --filter @toolbar/e2e flows` (display `:120` by default). All 13 pass; results and gaps in `docs/status.md`, section "User journeys on main".
+- Fixed on the way: tab recording never started outside the fake driver (stream id expired during the countdown), the popup's tab came from the wrong window, tabs open before install had no in-page UI, a closed editor tab left the session busy, the countdown flashed 4, the MCP URL wrapped at 390 px.
+
 ### Next
-- Step 2: build the replica per `docs/architecture.md`, one agent per area in worktrees.
+- Step 2 gate: notify the owner; then step 3 (parity matrix against Jam).
+- Flows not scripted yet: D (desktop recording through Chrome's picker), E (recording link recipient), K (delete), L (invite), N (create workspace).
 
 ### Machine notes
 - Installed on this machine only via nix profile: xdotool, imagemagick, xvfb, openbox, ffmpeg-headless.

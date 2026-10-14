@@ -43,8 +43,10 @@
   });
   let bar: HTMLDivElement | undefined = $state();
 
+  // `now` ticks every 200 ms while each ui.session resets countdownAt, so now can trail
+  // countdownAt; clamp the elapsed time or the count briefly reads one more (4 of 3)
   const countdownN = $derived(
-    session.state === 'countdown' ? Math.max(1, Math.ceil((session.paused ? countdownLeftMs : countdownLeftMs - (now - countdownAt)) / 1000)) : 0,
+    session.state === 'countdown' ? Math.max(1, Math.ceil((session.paused ? countdownLeftMs : countdownLeftMs - Math.max(0, now - countdownAt)) / 1000)) : 0,
   );
   const elapsed = $derived(session.state === 'recording' ? elapsedMs(session, now) : 0);
   const stage = $derived(capStage(elapsed, capMs));

@@ -128,7 +128,8 @@
   .muted { color: var(--nb-text-muted); }
   .url { display: flex; align-items: center; gap: var(--nb-space-2); padding: 8px 12px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-md); background: var(--nb-surface-2); }
   .url .label { font-size: var(--nb-text-sm); color: var(--nb-text-muted); }
-  .url code { flex: 1; font: var(--nb-text-md) var(--nb-font-mono); overflow-wrap: anywhere; }
+  .url code { flex: 1; min-width: 0; font: var(--nb-text-md) var(--nb-font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @media (max-width: 480px) { .url .label { display: none; } }
   .cards { list-style: none; padding: 0; margin: var(--nb-space-4) 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--nb-space-2); }
   .card { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: var(--nb-space-3); padding: 12px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); background: var(--nb-surface); cursor: pointer; }
   .card:hover { border-color: var(--nb-border-strong); box-shadow: var(--nb-shadow-sm); }

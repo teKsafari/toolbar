@@ -819,6 +819,15 @@ async function onTabRemoved(tabId: number) {
   if (s.state === 'arming-screenshot' && s.tabId === tabId) await dispatch({ type: 'CANCEL' });
   if ((s.state === 'countdown' || s.state === 'starting') && s.tabId === tabId) await cancelLive();
   if (s.state === 'recording' && s.tabId === tabId && s.mode === 'tab') await stopRecording();
+  // the editor went with its tab: keep the draft in the Drafts list and free the session, or
+  // every later capture is refused as busy (J-035, J-218)
+  if (s.state === 'draft' && s.tabId === tabId) await dispatch({ type: 'SAVE_FOR_LATER' });
+}
+
+/** A full navigation or reload of the editor's tab destroys the editor; the draft is kept. */
+async function onTabLoading(tabId: number) {
+  const s = session;
+  if (s.state === 'draft' && s.tabId === tabId) await dispatch({ type: 'SAVE_FOR_LATER' });
 }
 
 // ---------------------------------------------------------------- stats and test hooks
@@ -916,6 +925,9 @@ export function registerUi() {
   });
   browser.tabs.onActivated.addListener((info) => void onTabActivated(info));
   browser.tabs.onRemoved.addListener((tabId) => void onTabRemoved(tabId));
+  browser.tabs.onUpdated.addListener((tabId, info) => {
+    if (info.status === 'loading') void onTabLoading(tabId);
+  });
 
   // A restart from the popup menu reopens the popup (J-177).
   void browser.storage.local.get(REOPEN_KEY).then(async (got) => {

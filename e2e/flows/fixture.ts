@@ -21,7 +21,8 @@ export const SERVER = process.env.SERVER_URL ?? 'http://localhost:3000';
 export const MAILPIT = process.env.MAILPIT_URL ?? 'http://localhost:8025';
 export const ROOT = path.resolve(import.meta.dirname, '../..');
 export const EXT_DIR = path.join(ROOT, 'apps/extension/.output', process.env.FLOWS_EXT_BUILD ?? 'chrome-mv3');
-export const SHOTS = path.join(ROOT, 'e2e/test-results/flows-shots');
+/** Screenshots for a person to review; outside test-results, which every run clears. */
+export const SHOTS = path.join(ROOT, 'e2e/flows-shots');
 
 const run = Date.now().toString(36);
 /** Second CDP client for the action popup; 9224 to 9226 belong to the shared browser. */
@@ -55,22 +56,33 @@ function xdo(...args: string[]) {
  * (chrome.commands) fire. Playwright's keyboard goes to the renderer and never reaches them.
  */
 export async function chord(page: Page, keys: string) {
-  await page.bringToFront();
-  const marker = `nib-${Math.random().toString(36).slice(2, 8)}`;
-  const title = await page.title();
-  await page.evaluate((m) => (document.title = m), marker);
-  let win = '';
-  for (let i = 0; i < 40 && !win; i++) {
-    try {
-      win = xdo('search', '--name', marker).split('\n')[0] ?? '';
-    } catch {
-      await new Promise((r) => setTimeout(r, 100));
-    }
-  }
-  await page.evaluate((t) => (document.title = t), title);
-  if (!win) throw new Error('no X window for the page');
+  const win = await windowOf(page);
   xdo('windowactivate', '--sync', win);
   xdo('key', '--clearmodifiers', keys);
+}
+
+/** The X window that shows `page`: mark the tab title, find the window by it, restore it. */
+async function windowOf(page: Page): Promise<string> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.bringToFront();
+    const marker = `nib-${Math.random().toString(36).slice(2, 8)}`;
+    const title = await page.title();
+    await page.evaluate((m) => (document.title = m), marker);
+    let win = '';
+    for (let i = 0; i < 30 && !win; i++) {
+      try {
+        win = xdo('search', '--name', marker).split('\n')[0] ?? '';
+      } catch {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    }
+    await page.evaluate((t) => (document.title = t), title);
+    if (win) return win;
+  }
+  // the title did not reach the window manager: with one visible browser window, use it
+  const all = xdo('search', '--onlyvisible', '--name', 'Chrom').split('\n').filter(Boolean);
+  if (all.length === 1) return all[0]!;
+  throw new Error(`no X window for ${page.url()} (${all.length} candidates)`);
 }
 
 /** The X clipboard, which is what the user pastes from. */
@@ -180,6 +192,15 @@ export async function waitReady(context: BrowserContext, id: string, timeout = 1
   await expect
     .poll(async () => (await api<{ status: string }>(context, 'GET', `/api/v1/recordings/${id}`)).body?.status, { timeout, intervals: [1000], message: `capture ${id} ready` })
     .toBe('ready');
+}
+
+/** A picture of the whole X screen: shows the in-page UI in the closed shadow root and popups. */
+export function xshot(name: string) {
+  try {
+    execFileSync('import', ['-window', 'root', saveShot(name)], { env: { ...process.env, DISPLAY } });
+  } catch {
+    /* imagemagick missing */
+  }
 }
 
 export function saveShot(name: string) {

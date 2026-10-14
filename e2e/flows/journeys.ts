@@ -1,6 +1,6 @@
 // The capture-making journeys, shared: a later flow that needs a video or a replay reuses the
 // one an earlier flow made in this worker, or makes its own.
-import { SERVER, api, captureOf, chord, createFromEditor, editorFrame, expect, labPage, openPopup, saveShot, waitReady, type Made, type Nib } from './fixture.ts';
+import { SERVER, api, captureOf, chord, createFromEditor, editorFrame, expect, labPage, openPopup, saveShot, waitReady, xshot, type Made, type Nib } from './fixture.ts';
 
 /** Click the lab's failing cases: hidden 500, uncaught throw, unhandled rejection, console levels. */
 export async function labErrors(page: import('@playwright/test').Page) {
@@ -21,7 +21,10 @@ export async function recordLabErrors(nib: Nib): Promise<Made> {
   const t0 = Date.now();
   await chord(page, 'ctrl+shift+space');
   // countdown 3, 2, 1 then live; the page keeps working underneath
-  await page.waitForTimeout(4500);
+  await page.waitForTimeout(1200);
+  xshot('b-countdown');
+  await page.waitForTimeout(3300);
+  xshot('b-recording-bar');
   console.log('B: recording since', Date.now() - t0, 'ms after the chord');
   await labErrors(page);
   await page.waitForTimeout(1500);
