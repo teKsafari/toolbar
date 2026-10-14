@@ -15,7 +15,7 @@ export interface DraftHooks {
       uploadStreams?(d: Record<string, unknown>, recordingId: string): Promise<void>;
       draftClosed?(draftId: string, how: string): Promise<void>;
     } | null,
-  ): void;
+  ): unknown;
 }
 declare const __tbDrafts: DraftHooks;
 

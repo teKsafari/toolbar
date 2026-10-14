@@ -44,7 +44,7 @@ How it was verified:
 
 ## User journeys on main (2026-10-14)
 
-`e2e/flows/` runs the journeys of `docs/jam/flows.md` the way a user does: `docker compose up --build -d` from empty volumes, the lab on :5173, the release build (`chrome-mv3`, closed shadow root) in a Playwright persistent context on Xvfb `:120` with openbox, the pinned action and `--allowlisted-extension-id`. Chords go through the X server with xdotool, so Chromium's command shortcuts fire; the popup opens with Ctrl+Shift+Y and is reached over a second CDP connection; the link is read from the X clipboard. No test hook drives the product. Run with `pnpm --filter @toolbar/extension build && pnpm --filter @toolbar/e2e flows`; screenshots land in `e2e/flows-shots/`. Three full runs passed 13 of 13 after the fixes below.
+`e2e/flows/` runs the journeys of `docs/jam/flows.md` the way a user does: `docker compose up --build -d` from empty volumes, the lab on :5173, the release build (`chrome-mv3`, closed shadow root) in a Playwright persistent context on Xvfb `:120` with openbox, the pinned action and `--allowlisted-extension-id`. Chords go through the X server with xdotool, so Chromium's command shortcuts fire; the popup opens with Ctrl+Shift+Y and is reached over a second CDP connection; the link is read from the X clipboard. No test hook drives the product. Run everything with `scripts/e2e-all.sh` (`docs/dev.md`, E2E); screenshots land in `e2e/flows-shots/`. Flows D and E go through Chrome's real share picker with pointer clicks; flow E's recipient uses a second browser with no extension and no account. All 15 journeys are scripted (A to O, plus the CLI pull and the visual pass).
 
 | Flow | Spec | Result | Measured |
 |---|---|---|---|
@@ -52,13 +52,18 @@ How it was verified:
 | A screenshot with a box to a link | `a-screenshot` | pass: chord, click (the page gets no click), rectangle, title, Ctrl+Enter, link on the clipboard, capture tab opens, logged-out page shows the box | editor 0.6 to 0.8 s after the click |
 | B tab video of the lab errors | `b-recording` | pass: chord, countdown 3-2-1, hidden 500, throw, rejection, console, dead button, chord, editor, Ctrl+Enter; capture ready with the 500 | live about 4.5 s after the chord; editor 0.6 to 1 s after stop |
 | C instant replay | `c-instant-replay` | pass: popup menu, Settings, switch (one-time), the bug, replay chord, create; replay holds the 500 | editor 0.9 s after the chord |
+| D desktop recording across tabs | `d-desktop` | pass: popup, record chevron, Screen, record row, Chrome's picker (Entire Screen is open already; thumbnail, Share), the hidden 500 in tab A, a save and the console in tab B, record chord in tab B, editor there, Ctrl+Enter; capture kind `screen` with requests from both tabs, each with its own tab id; the popup still says "Record full screen" (sticky). Runs in a browser of its own with its own account; see "Picker crash" below | live 1.3 to 3.1 s after Share; editor 0.8 to 1.3 s after stop |
+| E recording link | `e-recording-link` | pass: popup, recording-link row, a name, Create link; the link is on the clipboard. A second browser (no extension, signed out) opens it, keeps "Screen only", Start, Chrome's in-tab picker (Entire Screen, thumbnail, Share), Stop, a note, Send; "Sent". The sender gets the "New recording from" mail with the note and the capture link; the capture is kind `link`, ready, plays, and has no network rows | link copied 0.2 to 1 s after create |
 | F logged out, find the failing request | `f-find-request` | pass: hover the 500 marker shows `database_unavailable`; network tab, row, Response shows the body; copy as cURL; arrows keep the sub-tab; console has the TypeError and the rejection | page interactive 0.9 s |
 | G timed comment | `g-comment` | pass: seek bar click, composer, Ctrl+Enter; comment carries the time, bubble on the timeline | composer clears in 0.2 s |
 | H folders | `h-folders` | pass: new folder from the sidebar, move by checkbox (3 clicks), drag onto the folder | - |
 | I Ctrl+K | `i-search` | pass: two words of the title, Enter opens the capture | results 0.4 s |
 | J agent over MCP | `j-agent` | pass: MCP page snippet, DCR, consent in one click, `get_capture`, `get_network_requests` (5xx with the body), `get_console_logs`; connected agent listed, removal revokes. With `FLOWS_CLAUDE=1` a real Claude Code run with a throwaway `--mcp-config` answered "`/api/fail` returned `database_unavailable`" | Claude Code run about 10 s |
 | CLI pull | `k-cli-pull` | pass: token from Settings, `nib login --token`, `nib pull <share link>` writes summary.md, details, console, network, actions, frames | - |
+| K delete | `k-delete` | pass: its own screenshot, then three-dot, Delete, confirm (3 clicks); toast, dashboard, gone from the grid, the API (404), the share link (404) and Ctrl+K search | toast 0.4 s, dashboard 0.6 to 0.8 s after confirm |
+| L invite | `l-invite` | pass: header Invite, email, Invite (seat stays creator); the mail reaches Mailpit; the teammate opens the join link in a fresh browser, signs in with a new password, joins in one click as creator; the members page lists them | - |
 | M draft after the tab closed | `m-recover-draft` | pass: close the tab with the editor open, drafts pill, View, create | - |
+| N create a workspace | `n-workspace` | pass: workspace menu, "Create or join a workspace", name, Next (same-domain box ticked); the new workspace is active and owned; the menu switches back | - |
 | Visual | `z-visual` | pass: dashboard, capture pages (video, replay, screenshot), settings, MCP, browsers, login and the share page at 1440 and 390 px in light and dark have no sideways overflow and follow the theme; popup, menu, options and editor checked by eye | - |
 
 Fixed in this pass:
@@ -70,10 +75,35 @@ Fixed in this pass:
 - The MCP server URL broke mid-word at 390 px.
 
 Gaps left:
-- Not scripted: D (desktop recording through Chrome's picker), E (recording link recipient), K (delete), L (invite), N (create workspace). The capture suite's J-201 picker-cancel test crashed Chromium on `:120` in three runs here (the Xvfb picker crash from `docs/spikes.md` S2); 113 of the other capture, ext-ui and editor tests passed against the new build.
 - The recording bar is in the tab video by design (as in Jam), so the first frame and the poster show its "Starting" state.
 - The editor frame does not follow an emulated dark scheme in Playwright (the extension frame runs in another process); a real dark OS setting reaches it, which the ext-ui suite checks.
 - The AI draft (flow B step 5) is not exercised: compose runs with `AI_PROVIDER=none`.
+
+## Every e2e suite on main (2026-10-14, second pass)
+
+The area suites (`e2e/tests`, test build) and the flows (`e2e/flows`, release build) ran together against one compose stack from empty volumes (`docker compose down -v`, `AUTH_RATE_LIMIT=off docker compose up --build -d`, `db:seed`), with `scripts/e2e-all.sh`. This was the first run of the area suites against the production image instead of area dev servers; most of what failed came from that.
+
+RESULTS_TABLE
+
+Product fixes:
+- Every open capture page held a comments stream (SSE) for as long as it stayed open. Chromium allows six HTTP/1.1 connections per host, so with six capture tabs open, any further page of the app never finished loading (reproduced: the seventh capture page timed out). The stream now runs only while the page is visible; a tab that comes back reconnects and reloads the comment list. New test: `viewer/comments.spec.ts` "a hidden tab closes its comments stream".
+- Desktop recordings had no Tab column in the network panel (J-224): the worker stamps the tab on the event envelope (`tab`), and the viewer read only `data.tabId`, which nothing sets. The derived rows now take either. Unit test in `packages/shared/test/derive.test.ts`; flow D checks two tab ids.
+- The Slack connector refused `http://host.docker.internal` (it allows http only for this machine), so a Slack stand-in on the host was unreachable from the compose server. It now counts as this machine. Compose maps `host.docker.internal` to the host gateway for the server.
+- `AUTH_RATE_LIMIT` (new): Better Auth's sign-in limits (3 per 10 s per address) stay on in production; `off` turns them off for e2e runs, whose many accounts sign in from one address.
+
+Test fixes (each made deterministic, none retried):
+- Webhook, GitHub and Slack stand-ins listened on 127.0.0.1, which a server in Docker cannot reach. They bind 0.0.0.0 and give the server `host.docker.internal` when a container publishes its port (`e2e/fixtures/net.ts`); the browser keeps 127.0.0.1.
+- `auth/web.spec.ts` needed `DATABASE_URL`; it now defaults to the compose database.
+- `dashboard/extension.spec.ts` (J-018) ran in a worker context an earlier suite had signed in, so `/login` redirected away from the form. It clears cookies first.
+- `capture/screenshot.spec.ts` read the mock's log while the capture tab the extension opens after create (J-089) could still be arriving; it now checks the API calls only. The mock server closes its keep-alive sockets on teardown, which had overrun the fixture timeout.
+- `rows/rows.spec.ts` J-219 waits for an idle session before reopening a draft; a draft reopens into the session only from idle. The tracker tests wait for the editor's workspaces before opening the destination menu: a click while they arrived could leave the menu shut.
+- The viewer suite's `reseed()` now seeds media too: the J-114 delete test removes the screenshot's files, and a rows-only reseed left the next run's J-098 download without them.
+- Flow M closes the popup after View, as a person's next click in the page would; over CDP the popup kept the focus and the title and Ctrl+Enter went nowhere.
+- `scripts/e2e-all.sh` wipes the volumes and seeds before every run: the suites leave captures behind, and the grid test counts what the seed workspace holds.
+- The flows close the app pages each flow leaves open: Playwright reports every page as visible, so left-over capture tabs kept their comment streams (above) and stalled the visual pass.
+- The flows write to `test-results-flows/`: a flows run cleared the area suite's `test-results/` traces mid-run.
+
+Picker crash (the documented exception, `docs/spikes.md` S2): flows D and E and the capture suite's J-201 run in a browser of their own, so a crash cannot take the shared one down. A crash (and only a crash) gets another try in a fresh browser. D and E fall back to Chromium's fake media flags after two crashes and log `LIMITATION`; `FLOWS_PICKER=fake` runs that fallback on purpose, and it passed. J-201 has four tries and no fallback, since a fake picker cannot be cancelled. J-201 now clicks the picker's Cancel button: activating the picker window for an Escape key (xdotool `windowactivate`) crashed Chromium in about half the tries, the click in about one in five. `e2e/global-setup.ts` checks that openbox stays up, since without a window manager the picker crashes every time. In flow E the picker is a dialog inside the tab rather than a window of its own, so the spec finds it by its pixels.
 
 ## Rows
 

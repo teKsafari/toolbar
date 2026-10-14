@@ -230,7 +230,7 @@ test('a reopened video draft saves for later from its close button; toast with v
   await sw.evaluate(() => {
     const g = globalThis as unknown as { __closed: string[] };
     g.__closed = [];
-    __tbDrafts.setCaptureBridge({ draftClosed: async (draftId, how) => void g.__closed.push(`${draftId}:${how}`) });
+    (globalThis as unknown as { __realBridge: unknown }).__realBridge = __tbDrafts.setCaptureBridge({ draftClosed: async (draftId, how) => void g.__closed.push(`${draftId}:${how}`) });
   });
   let f = await openEditorInPage(sw, page, id);
   await expect(f.getByTestId('close')).toHaveText(/Save for later/);
@@ -257,7 +257,8 @@ test('a reopened video draft saves for later from its close button; toast with v
   const rows = await sw.evaluate(async () => (await chrome.storage.local.get('nib:drafts'))['nib:drafts'] as { id: string; status: string }[]);
   expect(rows.find((r) => r.id === id)?.status).toBe('saved');
   expect(await sw.evaluate(() => (globalThis as unknown as { __closed: string[] }).__closed)).toEqual([`${id}:saved`]);
-  await sw.evaluate(() => __tbDrafts.setCaptureBridge(null));
+  // put the worker's real bridge back: later suites in this worker reopen drafts through it
+  await sw.evaluate(() => __tbDrafts.setCaptureBridge((globalThis as unknown as { __realBridge: never }).__realBridge));
   // view reopens it with the trim and the AI text
   await page.locator('toolbar-root').getByRole('button', { name: 'View' }).click();
   f = page.frameLocator('iframe[data-nb-editor]');

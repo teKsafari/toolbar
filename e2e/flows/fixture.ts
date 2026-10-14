@@ -194,10 +194,11 @@ export const FAKE_MEDIA = ['--use-fake-ui-for-media-stream', '--use-fake-device-
  * Run a flow that goes through Chrome's share picker. `run` launches its own browser and throws
  * BrowserCrash when that browser died. A crash gets one more try; after two, the flow runs with
  * FAKE_MEDIA (no picker) and the test carries a "limitation" annotation. Any other failure
- * fails at once.
+ * fails at once. FLOWS_PICKER=fake skips straight to the fallback.
  */
 export async function throughPicker(label: string, run: (mode: 'picker' | 'fake') => Promise<void>) {
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  // FLOWS_PICKER=fake runs the fallback straight away, to check it still works
+  for (let attempt = 1; attempt <= 2 && process.env.FLOWS_PICKER !== 'fake'; attempt++) {
     try {
       await run('picker');
       return;
@@ -206,8 +207,9 @@ export async function throughPicker(label: string, run: (mode: 'picker' | 'fake'
       console.log(`${label}: attempt ${attempt}: ${e.message}`);
     }
   }
-  base.info().annotations.push({ type: 'limitation', description: `${label}: Chrome's share picker crashed Chromium on Xvfb twice; covered with fake media (docs/spikes.md S2)` });
-  console.log(`${label}: LIMITATION: the picker crashed twice on Xvfb; running with fake media instead`);
+  const why = process.env.FLOWS_PICKER === 'fake' ? 'FLOWS_PICKER=fake' : "Chrome's share picker crashed Chromium on Xvfb twice";
+  base.info().annotations.push({ type: 'limitation', description: `${label}: ${why}; covered with fake media, no picker (docs/spikes.md S2)` });
+  console.log(`${label}: LIMITATION: ${why}; running with fake media instead`);
   await run('fake');
 }
 
@@ -457,12 +459,20 @@ export const test = base.extend<{ context: BrowserContext }, { nib: Nib }>({
 
 export { expect };
 
-/** On failure, keep a picture of the whole X screen: popups and the closed shadow root show there. */
-test.afterEach(async ({}, info) => {
-  if (info.status === info.expectedStatus) return;
-  try {
-    execFileSync('import', ['-window', 'root', info.outputPath('screen.png')], { env: { ...process.env, DISPLAY } });
-  } catch {
-    /* imagemagick missing */
+/**
+ * After each flow, close the app's pages it left open (the capture tab the extension opens after
+ * create, for one). A person's background tabs are hidden and drop their comment streams, but
+ * Playwright reports every page as visible, so left-over capture tabs would each keep a stream
+ * and use up the browser's six connections to the server. On failure, keep a picture of the
+ * whole X screen first: popups and the closed shadow root show there.
+ */
+test.afterEach(async ({ nib }, info) => {
+  if (info.status !== info.expectedStatus) {
+    try {
+      execFileSync('import', ['-window', 'root', info.outputPath('screen.png')], { env: { ...process.env, DISPLAY } });
+    } catch {
+      /* imagemagick missing */
+    }
   }
+  for (const p of nib.context.pages()) if (p.url().startsWith(SERVER)) await p.close().catch(() => undefined);
 });

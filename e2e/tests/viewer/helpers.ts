@@ -30,10 +30,13 @@ export function shareToken(id: string): string {
 export const shareUrl = (id: string) => `${SERVER}/s/${shareToken(id)}`;
 export const captureUrl = (id: string) => `${SERVER}/c/${id}`;
 
-/** Reset the seed rows (media stays in S3) and the extra captures. */
+/**
+ * Reset the seed rows, their media and the extra captures. Media too: a delete test (J-114)
+ * removes the screenshot's files, and a rows-only reseed would then leave it without them.
+ */
 export function reseed() {
   const env = { ...process.env };
-  execFileSync('node', ['apps/server/scripts/seed.ts', '--no-media'], { cwd: ROOT, env, stdio: 'pipe' });
+  execFileSync('node', ['apps/server/scripts/seed.ts'], { cwd: ROOT, env, stdio: 'pipe' });
   execFileSync('node', ['e2e/tests/viewer/fixtures/extra.ts'], { cwd: ROOT, env, stdio: 'pipe' });
 }
 

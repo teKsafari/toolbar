@@ -3,12 +3,12 @@
   // replies, live updates over SSE (J-133) with a jump pill when a new comment lands below the
   // fold, and the highlight from ?comment= (J-129).
   import { onMount, tick } from 'svelte';
-  import type { Comment } from '@toolbar/shared/api';
+  import type { Comment, CommentThread } from '@toolbar/shared/api';
   import CommentItem from './CommentItem.svelte';
   import Composer from './Composer.svelte';
   import Avatar from './Avatar.svelte';
   import VIcon from './VIcon.svelte';
-  import { urlOf } from './api.ts';
+  import { call, urlOf } from './api.ts';
   import { useViewer } from './viewer.svelte.ts';
 
   interface Props {
@@ -41,8 +41,7 @@
       void tick().then(() => document.getElementById(`comment-${v.highlightComment}`)?.scrollIntoView({ block: 'center' }));
     }
     const qs = v.data.shareToken ? { share: v.data.shareToken } : undefined;
-    const es = new EventSource(urlOf('comments.stream', { id: v.detail.id }, qs));
-    es.onmessage = async (msg) => {
+    const onMessage = async (msg: MessageEvent) => {
       const ev = JSON.parse(msg.data as string) as
         | { type: 'created' | 'updated'; comment: Comment }
         | { type: 'deleted'; id: string }
@@ -61,13 +60,45 @@
         }
       }
     };
+    // The stream is open only while the page is visible. Each open stream holds one of the
+    // browser's six HTTP/1.1 connections to the server, so six background capture tabs would
+    // stall every new page of the app. A tab coming back reconnects and reloads the list.
+    let es: EventSource | null = null;
+    const connect = () => {
+      if (es) return;
+      es = new EventSource(urlOf('comments.stream', { id: v.detail.id }, qs));
+      es.onmessage = (m) => void onMessage(m);
+    };
+    const disconnect = () => {
+      es?.close();
+      es = null;
+    };
+    const resync = async () => {
+      try {
+        const page = await call<{ items: CommentThread[]; nextCursor?: string | null }>('comments.list', { id: v.detail.id });
+        const pending = v.threads.filter((t) => t.id.startsWith('tmp-'));
+        if (!page.nextCursor) v.threads = [...page.items, ...pending];
+        else for (const t of page.items) for (const c of [t, ...t.replies]) v.upsertComment(c);
+      } catch {
+        /* keep what is shown */
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') return disconnect();
+      if (es) return;
+      connect();
+      void resync();
+    };
+    if (document.visibilityState !== 'hidden') connect();
+    document.addEventListener('visibilitychange', onVisibility);
     const onScroll = () => {
       if (fresh.length && fresh.every((c) => !belowFold(c.id))) fresh = [];
     };
     const sc = scroller();
     (sc ?? window).addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      es.close();
+      disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
       (sc ?? window).removeEventListener('scroll', onScroll);
     };
   });

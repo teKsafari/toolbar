@@ -219,8 +219,11 @@ export interface CaptureBridge {
 }
 let bridge: CaptureBridge = {};
 
-export function setCaptureBridge(b: CaptureBridge | null) {
+/** Returns the bridge it replaces, so a test that swaps in its own can put the real one back. */
+export function setCaptureBridge(b: CaptureBridge | null): CaptureBridge {
+  const prev = bridge;
   bridge = b ?? {};
+  return prev;
 }
 
 async function closed(draftId: string, how: 'created' | 'discarded' | 'saved') {

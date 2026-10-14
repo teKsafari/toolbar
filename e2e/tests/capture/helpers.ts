@@ -35,13 +35,13 @@ export interface TabBrowser {
  * A browser with the test build and no fake media flags (the tabBrowser fixture's). A test that
  * may crash it (Chrome's share picker on Xvfb, docs/spikes.md S2) launches its own.
  */
-export async function launchTabBrowser(): Promise<TabBrowser & { close(): Promise<void> }> {
+export async function launchTabBrowser(display = DISPLAY): Promise<TabBrowser & { close(): Promise<void> }> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-e2e-tab-'));
   fs.mkdirSync(path.join(dir, 'Default'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID] } }));
   const context = await chromium.launchPersistentContext(dir, {
     headless: false,
-    env: { ...process.env, DISPLAY },
+    env: { ...process.env, DISPLAY: display },
     viewport: null,
     args: [`--disable-extensions-except=${EXT_DIR}`, `--load-extension=${EXT_DIR}`, `--allowlisted-extension-id=${EXT_ID}`, '--window-position=0,0', '--window-size=1280,800', '--force-device-scale-factor=1'],
   });
@@ -51,7 +51,12 @@ export async function launchTabBrowser(): Promise<TabBrowser & { close(): Promis
     sw,
     close: async () => {
       await context.close().catch(() => undefined);
-      fs.rmSync(dir, { recursive: true, force: true });
+      // a crashed browser can still be writing its profile for a moment
+      try {
+        fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      } catch {
+        /* a temp dir left behind */
+      }
     },
   };
 }

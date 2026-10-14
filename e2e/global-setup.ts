@@ -23,10 +23,22 @@ export default async function globalSetup() {
   for (let i = 0; i < 50 && !alive(); i++) await new Promise((r) => setTimeout(r, 100));
   await new Promise((r) => setTimeout(r, 300)); // lock file appears just before the socket accepts
   if (!alive()) throw new Error(`Xvfb did not start on ${DISPLAY}`);
-  try {
-    started.push(spawn('openbox', [], { stdio: 'ignore', env: { ...process.env, DISPLAY } }));
-  } catch {
-    /* openbox is optional for the smoke test */
+  // Chrome's share picker crashes Chromium on a display with no window manager (docs/spikes.md
+  // S2), so make sure openbox is up and stays up: started too early it can lose the race with
+  // the X socket and exit.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    let wm: ChildProcess;
+    try {
+      wm = spawn('openbox', [], { stdio: 'ignore', env: { ...process.env, DISPLAY } });
+      wm.on('error', () => undefined);
+    } catch {
+      break; /* no openbox: the picker tests will say so */
+    }
+    await new Promise((r) => setTimeout(r, 700));
+    if (wm.exitCode === null && !wm.killed) {
+      started.push(wm);
+      break;
+    }
   }
   return async () => {
     for (const p of started.reverse()) p.kill();

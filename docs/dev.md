@@ -33,7 +33,8 @@ Node 24, pnpm 11.27 (`corepack enable` picks it up from `packageManager`), Docke
 | 8025 | Mailpit inbox UI (all dev mail lands here) |
 | 1025 | Mailpit SMTP |
 | 5173, 5174 | Lab app (user service `toolbar-lab`), second origin |
-| `:101` | Xvfb display for e2e (`E2E_DISPLAY`); `:99` is the shared browser, never use it |
+| `:101`, `:120` | Xvfb displays for the area suites and the flows (`E2E_DISPLAY`); `:99` is the shared browser, never use it |
+| 9341, 9351 | CDP ports of the flows' browsers (the popup is reached over CDP) |
 
 ## Full stack in Docker
 
@@ -44,7 +45,7 @@ curl -s localhost:3000/api/health  # {"ok":true,"checks":{"db":{"ok":true},"s3":
 
 Open http://localhost:3000, sign in with any email and a password of 8+ characters (the account is created on first sign-in, with a personal workspace). Mail goes to http://localhost:8025.
 
-Compose works with no `.env`: every variable has a dev default. For anything beyond localhost, run `scripts/gen-secrets.sh https://your.host` to write `.env` with random secrets (`.env.example` lists every variable). The server refuses to start on a non-localhost `PUBLIC_URL` with dev secrets.
+Compose works with no `.env`: every variable has a dev default. For anything beyond localhost, run `scripts/gen-secrets.sh https://your.host` to write `.env` with random secrets (`.env.example` lists every variable). The server refuses to start on a non-localhost `PUBLIC_URL` with dev secrets. Sign-in rate limits (3 tries per 10 s per address) are on in the image; `AUTH_RATE_LIMIT=off` turns them off for an e2e run.
 
 `docker compose down -v` wipes the database, the bucket and the whisper model.
 
@@ -80,7 +81,8 @@ Production-style server without Docker: `pnpm --filter @toolbar/server build && 
 pnpm -r build      # every package: type checks, the server build, the release extension build
 pnpm -r test       # unit tests (vitest); the server's DB test runs when Postgres on :5432 answers, else skips
 pnpm -r check      # svelte-check / tsc
-pnpm e2e           # test build of the extension, then the Playwright suite (needs compose server + lab)
+pnpm e2e           # test build of the extension, then the area suites (needs compose server + lab)
+scripts/e2e-all.sh # every e2e suite on a fresh, seeded compose stack (see E2E below)
 ```
 
 ## The extension
@@ -119,13 +121,46 @@ The signing key's private half is `.secrets/extension-key.pem` (git-ignored). Ke
 
 ## E2E
 
+Two Playwright suites in `e2e/`, both headed Chromium on a private Xvfb display with openbox (never `:99`):
+
+| Suite | Specs | Extension build | Config | Default display |
+|---|---|---|---|---|
+| Area suites | `e2e/tests/**` (one folder per area, about 230 tests) | test build `chrome-mv3-test` (open shadow root, `globalThis.__tb`) | `playwright.config.ts` | `:101` |
+| User journeys | `e2e/flows/*.spec.ts`, flows A to O of `docs/jam/flows.md` | release build `chrome-mv3` | `playwright.flows.config.ts` | `:120` |
+
+### Everything, from a clean database
+
 ```sh
-docker compose up -d               # server on :3000
-systemctl --user status toolbar-lab  # lab on :5173
-pnpm e2e
+scripts/e2e-all.sh                         # down -v, up --build, seed, build, area suites, flows
+AREA_DISPLAY=:121 RUNS=3 scripts/e2e-all.sh  # another display; three full runs, each from wiped volumes
+KEEP=1 scripts/e2e-all.sh                  # keep the running stack and its data
 ```
 
-`e2e/global-setup.ts` starts Xvfb `:101` (and openbox) when no X server owns it, and stops them at the end. Overrides: `E2E_DISPLAY`, `LAB_URL`, `SERVER_URL`, `E2E_EXT_BUILD` (output folder name under `apps/extension/.output`). Reports land in `e2e/playwright-report`.
+The script does, in order:
+
+1. `docker compose down -v`, then `AUTH_RATE_LIMIT=off docker compose up --build -d`, and waits for `/api/health`. Rate limits are off because the suites sign in many test accounts from one address, and Better Auth allows 3 sign-ins per 10 s per address in production.
+2. `pnpm --filter @toolbar/server db:seed` against the compose database (the server's defaults point at it). The seed prints a personal token; the script passes it as `NIB_E2E_TOKEN`, so `agent/cli-create.spec.ts` runs instead of skipping.
+3. Builds the release extension, the test extension and the CLI (`packages/cli/dist/nib.mjs`).
+4. Runs the area suites, then the flows. With `RUNS=n` it repeats steps 1, 2 and 4 n times. Logs go to `e2e/runs/area-N.log` and `e2e/runs/flows-N.log`; HTML reports to `e2e/playwright-report` and `e2e/playwright-report-flows`; flow screenshots to `e2e/flows-shots/`.
+
+It needs the lab (`systemctl --user status toolbar-lab`, on :5173 and :5174), Xvfb, openbox, xdotool, xclip, ImageMagick (`import`) and ffmpeg.
+
+### One suite or one spec
+
+```sh
+cd e2e
+E2E_DISPLAY=:121 npx playwright test tests/viewer             # an area folder (test build)
+E2E_DISPLAY=:120 npx playwright test -c playwright.flows.config.ts d-desktop   # one flow (release build)
+FLOWS_PICKER=fake npx playwright test -c playwright.flows.config.ts d-desktop e-recording  # the fallback path
+```
+
+`e2e/global-setup.ts` starts Xvfb (and openbox) on `E2E_DISPLAY` when no X server owns it, and stops them at the end. Overrides: `E2E_DISPLAY`, `LAB_URL`, `SERVER_URL`, `MAILPIT_URL`, `E2E_EXT_BUILD` (area suites), `FLOWS_EXT_BUILD` (flows), `DATABASE_URL` (defaults to the compose one), `E2E_CALLBACK_HOST`. The flows write to `test-results-flows/`, so both suites can run side by side on different displays.
+
+Points that keep the runs deterministic:
+
+- Listeners the server must call (webhooks, the GitHub and Slack stand-ins) bind `0.0.0.0`. `e2e/fixtures/net.ts` gives the server `host.docker.internal` when a container publishes the server's port (compose maps it to the host gateway), else `127.0.0.1`; the browser keeps using `127.0.0.1`.
+- Chrome's share picker crashes Chromium on Xvfb now and then (`docs/spikes.md` S2). Tests that go through it (flows D and E, the capture suite's J-201) run in a browser of their own. A crash, and only a crash, gets another try in a fresh browser: D and E fall back to Chromium's fake media flags after two crashes and say `LIMITATION` in the log and a `limitation` annotation in the report; J-201 has four tries and no fallback, since a fake picker cannot be cancelled.
+- The flows close the app's pages each flow leaves open. Playwright reports every page as visible, so left-over capture tabs would each hold a comments stream (a real browser drops it for background tabs) and use up Chromium's six connections to the server.
 
 ## Where area work goes
 

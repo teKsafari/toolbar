@@ -72,7 +72,7 @@ test('replay draft: DOM replay with play and trim (last 30 s), no tools; create 
     const g = globalThis as unknown as { __streams: { id: string; at: number }[]; __closed: string[] };
     g.__streams = [];
     g.__closed = [];
-    __tbDrafts.setCaptureBridge({
+    (globalThis as unknown as { __realBridge: unknown }).__realBridge = __tbDrafts.setCaptureBridge({
       uploadStreams: async (_d, recordingId) => void g.__streams.push({ id: recordingId, at: Date.now() }),
       draftClosed: async (draftId, how) => void g.__closed.push(`${draftId}:${how}`),
     });
@@ -127,6 +127,7 @@ test('replay draft: DOM replay with play and trim (last 30 s), no tools; create 
   expect(streams).toEqual([{ id: fin.id, at: expect.any(Number) }]);
   // and the capture session hears that the draft is done
   await expect.poll(() => sw.evaluate(() => (globalThis as unknown as { __closed: string[] }).__closed)).toEqual([`${id}:created`]);
-  await sw.evaluate(() => __tbDrafts.setCaptureBridge(null));
+  // put the worker's real bridge back: later suites in this worker reopen drafts through it
+  await sw.evaluate(() => __tbDrafts.setCaptureBridge((globalThis as unknown as { __realBridge: never }).__realBridge));
   await page.close();
 });

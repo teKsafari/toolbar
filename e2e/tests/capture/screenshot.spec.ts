@@ -37,7 +37,7 @@ test('viewport screenshot: 1x CSS pixels, draft in under 1.3 s, logs from before
   expect(draft.env).toMatchObject({ browser: { name: 'Chrome' }, incognito: false, extVersion: expect.any(String) });
   expect(await session(sw)).toMatchObject({ state: 'draft', draftId: draft.id });
   // J-189: nothing reached the server
-  expect(mock.log).toEqual([]);
+  expect(mock.log.filter((l) => l.method !== 'GET')).toEqual([]);
   await svc(sw, 'discardDraft', draft.id);
   expect(await session(sw)).toMatchObject({ state: 'idle' });
   // the pre-capture buffer restarts after each capture (J-071, as observed)
@@ -97,7 +97,7 @@ test('create uploads assets, gzip NDJSON events and finalizes; chunk PUTs retry 
   const r = await page.getByTestId('works').boundingBox();
   const draft = await svc<DraftLike>(sw, 'takeScreenshot', { x: r!.x, y: r!.y, w: r!.width, h: r!.height }, { tabId, openEditor: false });
   await page.evaluate(() => (window as unknown as { toolbar: { setMetadata(f: () => unknown): void } }).toolbar.setMetadata(() => ({ plan: 'pro' })));
-  expect(mock.log).toEqual([]); // J-189: nothing before create
+  expect(mock.log.filter((l) => l.method !== 'GET')).toEqual([]); // J-189: nothing written before create (the worker may refresh its bootstrap)
   mock.failNextPuts(2); // two 503s: the queue retries with backoff
   const res = await svc<{ recordingId: string; shareUrl: string; status: string }>(sw, 'createFromDraft', draft.id, { title: 'Hidden 500 on submit', description: 'Order looks saved but the API failed.' });
   expect(res.shareUrl).toContain(res.recordingId);
@@ -112,11 +112,15 @@ test('create uploads assets, gzip NDJSON events and finalizes; chunk PUTs retry 
   const raw = JSON.stringify(events);
   expect(raw).not.toContain('cookie-secret-value');
   expect(raw).not.toContain('header-secret-value');
-  const order = mock.log.map((l) => `${l.route}:${l.status}`);
+  // API calls only: after create the extension opens the capture page (GET /c/<id>, J-089) in a
+  // new tab, and that navigation can reach the mock before or after these checks; the order is
+  // that of the capture's own calls, since the worker's bootstrap refresh can land in between
+  const apiLog = mock.log.filter((l) => l.path.startsWith('/api/'));
+  const order = apiLog.filter((l) => l.route?.startsWith('captures.')).map((l) => `${l.route}:${l.status}`);
   expect(order[0]).toBe('captures.create:201');
   expect(order.filter((o) => o.startsWith('captures.putChunk:503'))).toHaveLength(2);
   expect(order.at(-1)).toBe('captures.finalize:200');
-  expect(mock.log.every((l) => l.auth === 'Bearer tb_dev_e2e_capture')).toBe(true);
+  expect(apiLog.every((l) => l.auth === 'Bearer tb_dev_e2e_capture')).toBe(true);
   // the upload queue is empty afterwards
   expect(await sw.evaluate(async () => {
     const db: IDBDatabase = await new Promise((res) => {

@@ -197,6 +197,11 @@ export async function startMockServer(port: number): Promise<MockServer> {
       log.length = 0;
       failPuts = 0;
     },
-    close: () => new Promise<void>((r) => server.close(() => r())),
+    close: () =>
+      new Promise<void>((r) => {
+        // keep-alive sockets would hold close() open past the fixture's teardown timeout
+        server.closeAllConnections();
+        server.close(() => r());
+      }),
   };
 }

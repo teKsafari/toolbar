@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import type { BrowserContext, Worker } from '@playwright/test';
 import type { MockServer } from '../../fixtures/mock-upload-server.ts';
 import { DISPLAY } from '../../fixtures/extension.ts';
+import { privateDisplay } from '../../fixtures/xvfb.ts';
 import { LAB_URL, byKind, draftWithBlobs, expect, launchTabBrowser, resetSession, ring, session, setSettings, signIn, sleep, svc, tabIdOf, test } from './helpers.ts';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,7 +68,7 @@ test('instant replay: DOM replay of the recent past, trimmed to the last 30 s, l
     expect(ev.some((e) => e.kind === 'error')).toBe(true);
     // the session owner (ext-ui) holds the draft and opens its editor
     expect(await session(sw)).toMatchObject({ state: 'draft', draftId: draft.id });
-    expect(mock.log).toEqual([]); // the replay buffer never uploads before create
+    expect(mock.log.filter((l) => l.method !== 'GET')).toEqual([]); // the replay buffer never uploads before create
     const res = await svc<{ recordingId: string }>(sw, 'createFromDraft', draft.id, { title: 'Replay' });
     const cap = mock.captures.get(res.recordingId)!;
     expect(cap.body).toMatchObject({ kind: 'replay' });
@@ -123,7 +124,7 @@ test('instant replay with video keeps 10 s segments and uploads them at create (
     await sleep(11_500);
     const draft = await svc<{ id: string; replaySegmentBlobIds: string[] }>(sw, 'triggerReplay', tabId);
     expect(draft.replaySegmentBlobIds.length).toBeGreaterThanOrEqual(1);
-    expect(mock.log).toEqual([]);
+    expect(mock.log.filter((l) => l.method !== 'GET')).toEqual([]);
     const res = await svc<{ recordingId: string }>(sw, 'createFromDraft', draft.id, { title: 'Replay with video' });
     const cap = mock.captures.get(res.recordingId)!;
     expect(cap.completed.video?.lastSeq).toBe(draft.replaySegmentBlobIds.length - 1);
@@ -160,30 +161,36 @@ test('the recording bar comes back after a reload with the same start time; spin
 });
 
 // Chrome's picker crashes Chromium on Xvfb now and then (X BadWindow, docs/spikes.md S2). This
-// test runs in a browser of its own, so a crash cannot take down the suite's shared one, and a
-// crash (only that) gets up to two more tries in a fresh browser.
+// test runs in a browser of its own on a display of its own: with the suite's other browsers on
+// the same display the picker died on nearly every try. A crash (only that) gets up to three
+// more tries in a fresh browser.
 test('cancelling Chrome\'s share picker leaves no draft and no bar (J-201)', async ({ mockServer: mock }) => {
-  for (let attempt = 1; ; attempt++) {
-    const b = await launchTabBrowser();
-    let crashed = false;
-    let closing = false;
-    b.context.on('close', () => {
-      if (!closing) crashed = true;
-    });
-    try {
-      await pickerCancel(b, mock);
-      return;
-    } catch (e) {
-      if (!crashed || attempt >= 3) throw e;
-      console.log(`J-201: attempt ${attempt}: Chromium went away under the picker (${(e as Error).message.split('\n')[0]}); trying again`);
-    } finally {
-      closing = true;
-      await b.close();
+  const x = await privateDisplay(Number(DISPLAY.slice(1)) + 40);
+  try {
+    for (let attempt = 1; ; attempt++) {
+      const b = await launchTabBrowser(x.display);
+      let crashed = false;
+      let closing = false;
+      b.context.on('close', () => {
+        if (!closing) crashed = true;
+      });
+      try {
+        await pickerCancel(b, mock, x.display);
+        return;
+      } catch (e) {
+        if (!crashed || attempt >= 4) throw e;
+        console.log(`J-201: attempt ${attempt}: Chromium went away under the picker (${(e as Error).message.split('\n')[0]}); trying again`);
+      } finally {
+        closing = true;
+        await b.close();
+      }
     }
+  } finally {
+    x.stop();
   }
 });
 
-async function pickerCancel({ context, sw }: { context: BrowserContext; sw: Worker }, mock: MockServer) {
+async function pickerCancel({ context, sw }: { context: BrowserContext; sw: Worker }, mock: MockServer, display: string) {
   await sw.evaluate(() => (globalThis as unknown as { __tb: { ready(): Promise<unknown> } }).__tb.ready());
   mock.reset();
   await signIn(sw, mock.url);
@@ -192,22 +199,35 @@ async function pickerCancel({ context, sw }: { context: BrowserContext; sw: Work
   const page = await context.newPage();
   await page.goto(LAB_URL);
   await page.bringToFront();
+  // Chromium's first windows come and go for a moment after launch; the picker enumerates
+  // every window, and one destroyed mid-way kills the browser with X BadWindow
+  for (const p of context.pages()) if (p !== page) await p.close();
+  await sleep(3000);
   const tabId = await tabIdOf(sw, page);
   await spyContent(sw);
   await svc(sw, 'startRecording', { tabId });
   expect((await session(sw)).state).toBe('starting');
-  // The picker is Chromium's own window; press Escape in it with real X input on our display.
-  let win = '';
-  for (let i = 0; i < 40 && !win; i++) {
+  // The picker is Chromium's own top-level window (600x492, docs/spikes.md S2). Click its
+  // Cancel button with real X pointer input; activating the window for a key press made
+  // Chromium die with X BadWindow far more often.
+  const env = { ...process.env, DISPLAY: display };
+  const x = (...a: string[]) => execFileSync('xdotool', a, { env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  let geo = '';
+  for (let i = 0; i < 60 && !geo; i++) {
     await sleep(250);
     try {
-      win = execFileSync('xdotool', ['search', '--name', 'Choose what to share'], { env: { ...process.env, DISPLAY } }).toString().trim().split('\n')[0] ?? '';
+      const win = x('search', '--onlyvisible', '--name', 'Choose what to share').split('\n')[0]!;
+      geo = x('getwindowgeometry', win);
     } catch {
-      /* not yet */
+      /* not mapped yet */
     }
   }
-  expect(win).not.toBe('');
-  execFileSync('xdotool', ['windowactivate', '--sync', win, 'key', '--clearmodifiers', 'Escape'], { env: { ...process.env, DISPLAY } });
+  expect(geo, 'the share picker opened').not.toBe('');
+  await sleep(700); // its buttons paint after the window maps
+  const [, px, py] = geo.match(/Position: (\d+),(\d+)/)!.map(Number);
+  const [, pw, ph] = geo.match(/Geometry: (\d+)x(\d+)/)!.map(Number);
+  x('mousemove', '--sync', String(px! + pw! - 137), String(py! + ph! - 39));
+  x('click', '1');
   await waitState(sw, 'idle', 10_000);
   expect((await sent(sw)).some((x) => x.c.type === 'ui.bar' && x.c.bar === null)).toBe(true);
   const drafts = await sw.evaluate(async () => ((await chrome.storage.local.get('nib:drafts'))['nib:drafts'] ?? []).filter((d: { kind: string; status: string }) => d.kind === 'screen' && d.status === 'open').length);

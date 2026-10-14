@@ -7,7 +7,7 @@
 //   from the Drafts list, J-200 link recorder with a refused microphone.
 import fs from 'node:fs';
 import path from 'node:path';
-import { chromium, type Browser, type Page, type Worker } from '@playwright/test';
+import { chromium, type Browser, type FrameLocator, type Page, type Worker } from '@playwright/test';
 import { test, DISPLAY, EXT_ID, LAB_URL } from '../../fixtures/extension.ts';
 import { ring, tabIdOf } from '../capture/helpers.ts';
 import { openPopup } from '../ext-ui/helpers.ts';
@@ -118,6 +118,11 @@ test('J-012: a blocked domain gets no ring buffer, and unblocking it starts the 
 });
 
 /** Tabs other than the extension's own pages, from the worker. */
+/**
+ * The editor has its workspaces, folders and integrations (the workspace button enables then).
+ * A click on the destination menu while they arrive could land on a re-render and leave it shut.
+ */
+const booted = (f: FrameLocator) => expect(f.getByTestId('workspace')).toBeEnabled({ timeout: 15_000 });
 const webTabs = (sw: Worker) => sw.evaluate(async () => ((await chrome.tabs.query({})) as { id: number; url?: string; pendingUrl?: string }[]).map((t) => ({ id: t.id, url: t.url || t.pendingUrl || '' })));
 
 test('J-089: with open-in-new-tab off, create copies the link and opens no tab; on, the capture opens beside the source tab', async ({ context, sw }) => {
@@ -174,6 +179,7 @@ test.describe('trackers', () => {
     let f = await openEditorInPage(sw, page, id);
     await f.getByTestId('field').click();
     await page.keyboard.type('Total is wrong at checkout');
+    await booted(f);
     await f.getByTestId('destination').click();
     await f.getByTestId(`dest-github`).click();
     await expect(f.getByTestId('dest-fields')).toBeVisible();
@@ -199,6 +205,7 @@ test.describe('trackers', () => {
     // recents: the next draft that picks GitHub starts from the values filed last
     const id2 = await seedDraft(sw, { tabId, workspaceId: acct.workspaceId });
     f = await openEditorInPage(sw, page, id2);
+    await booted(f);
     await f.getByTestId('destination').click();
     await f.getByTestId('dest-github').click();
     await expect(f.locator('[data-label="bug"]')).toHaveAttribute('aria-pressed', 'true');
@@ -223,6 +230,7 @@ test.describe('trackers', () => {
       const f = await openEditorInPage(sw, page, id);
       await f.getByTestId('field').click();
       await page.keyboard.type('Filed while GitHub is down');
+      await booted(f);
       await f.getByTestId('destination').click();
       await f.getByTestId('dest-github').click();
       await expect(f.getByTestId('dest-error')).toContainText('did not answer');
@@ -250,6 +258,7 @@ test.describe('trackers', () => {
       const f = await openEditorInPage(sw, page, id);
       await f.getByTestId('field').click();
       await page.keyboard.type('Slack this one');
+      await booted(f);
       await f.getByTestId('destination').click();
       await f.getByTestId('dest-slack').click();
       await f.getByTestId('dest-fields').getByRole('textbox').fill('please look today');
@@ -366,13 +375,26 @@ test('J-219: a video draft reopened from Drafts saves for later; the popup shows
   await signInExtension(sw, acct);
   const { page, tabId } = await labTab(context, sw);
   const id = await seedDraft(sw, { kind: 'video', videoBase64: VIDEO, durationMs: 8000, tabId, workspaceId: acct.workspaceId, status: 'saved' });
+  // a draft reopens into the session only from idle; earlier tests in this worker may still be
+  // winding theirs down
+  const state = () => sw.evaluate(async () => ((await chrome.storage.session.get('nib:session'))['nib:session'] as { state: string } | undefined)?.state ?? 'idle');
+  await expect.poll(state, { timeout: 20_000 }).toBe('idle');
   let popup = await openPopup(context, tabId);
   await popup.locator('[data-drafts-pill]').click();
+  await sw.evaluate(() => {
+    const g = globalThis as unknown as { __j219?: string[] };
+    g.__j219 = [];
+    chrome.storage.session.onChanged.addListener((c: Record<string, { newValue?: { state: string } }>) => {
+      if (c['nib:session']) g.__j219!.push(c['nib:session'].newValue?.state ?? 'none');
+    });
+  });
   await popup.locator(`[data-draft-view="${id}"]`).click();
   // the editor holds the session while it is open
   const f = page.frameLocator('iframe[data-nb-editor]');
   await expect(f.getByTestId('close')).toHaveText(/Save for later/, { timeout: 15_000 });
-  await expect.poll(() => sw.evaluate(async () => ((await chrome.storage.session.get('nib:session'))['nib:session'] as { state: string }).state)).toBe('draft');
+  // the session's changes since the click, for the failure message
+  const seen = await sw.evaluate(() => (globalThis as unknown as { __j219?: string[] }).__j219 ?? []);
+  await expect.poll(state, { message: `session after View: ${seen.join(' > ')}` }).toBe('draft');
   await popup.close().catch(() => undefined);
   await f.getByTestId('close').click();
   await expect(page.locator('iframe[data-nb-editor]')).toHaveCount(0);

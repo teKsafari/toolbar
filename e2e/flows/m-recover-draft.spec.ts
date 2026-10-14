@@ -23,6 +23,9 @@ test('M: close the tab with the editor open, then the drafts pill, view, create'
   await expect(row).toBeVisible();
   await row.locator('[data-draft-view]').click();
   const f = await editorFrame(page);
+  // a person's next click lands in the page, which closes Chrome's popup; over CDP it stays
+  // open and keeps the focus, and the link copy at create needs the page focused
+  await popup.close().catch(() => undefined);
   const title = `Flow M ${Date.now().toString(36)}`;
   const link = await createFromEditor(page, f, title);
   const rec = await captureOf(context, link);

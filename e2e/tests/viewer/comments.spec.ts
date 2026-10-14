@@ -1,6 +1,6 @@
 // Comments: J-127, J-128, J-129, J-130, J-131, J-132, J-133, J-134, J-135.
 import { expect, test } from '@playwright/test';
-import { allowClipboard, captureUrl, clipboard, IDS, mailsTo, open, reseed, shareUrl, signIn, videoTime } from './helpers.ts';
+import { SERVER, allowClipboard, captureUrl, clipboard, IDS, mailsTo, open, open as openPage, reseed, shareUrl, signIn, videoTime } from './helpers.ts';
 
 test.beforeAll(() => reseed());
 test.beforeEach(async ({ context }) => {
@@ -178,4 +178,50 @@ test('J-135 mentions in a comment and the description email the member', async (
   await page.locator('body').click({ position: { x: 5, y: 600 } });
   await expect(page.getByTestId('description').locator('.nb-mention')).toHaveText('@Sam Developer');
   await expect.poll(async () => (await mailsTo('sam@nib.test')).some((m) => /the description/.test(m.Snippet)), { timeout: 10000 }).toBe(true);
+});
+
+test('J-133 a hidden tab closes its comments stream and catches up when shown again', async ({ page, context }) => {
+  // Each open stream holds one of the browser's six HTTP/1.1 connections to the server, so six
+  // background capture tabs stalled every new page of the app. Playwright reports every page as
+  // visible, so the test flips document.visibilityState itself.
+  await page.addInitScript(() => {
+    const w = window as unknown as { __open: number; __hidden: boolean };
+    w.__open = 0;
+    w.__hidden = false;
+    Object.defineProperty(document, 'visibilityState', { get: () => (w.__hidden ? 'hidden' : 'visible') });
+    const Orig = window.EventSource;
+    window.EventSource = class extends Orig {
+      constructor(url: string | URL, init?: EventSourceInit) {
+        super(url, init);
+        w.__open++;
+      }
+      close() {
+        if (this.readyState !== 2) w.__open--;
+        super.close();
+      }
+    } as typeof EventSource;
+  });
+  const setHidden = (hidden: boolean) =>
+    page.evaluate((h) => {
+      (window as unknown as { __hidden: boolean }).__hidden = h;
+      document.dispatchEvent(new Event('visibilitychange'));
+    }, hidden);
+  const open = () => page.evaluate(() => (window as unknown as { __open: number }).__open);
+  await signIn(context);
+  await openPage(page, captureUrl(IDS.video));
+  await expect.poll(open).toBe(1);
+  await setHidden(true);
+  expect(await open()).toBe(0);
+  const text = `Made while hidden ${Date.now().toString(36)}`;
+  const r = await context.request.post(`${SERVER}/api/v1/recordings/${IDS.video}/comments`, { data: { body: text }, headers: { origin: SERVER } });
+  expect(r.status()).toBeLessThan(300);
+  await page.waitForTimeout(1000);
+  await expect(page.getByTestId('comment').filter({ hasText: text })).toHaveCount(0);
+  await setHidden(false);
+  await expect.poll(open).toBe(1);
+  await expect(page.getByTestId('comment').filter({ hasText: text })).toHaveCount(1);
+  // live again
+  const live = `Live after coming back ${Date.now().toString(36)}`;
+  await context.request.post(`${SERVER}/api/v1/recordings/${IDS.video}/comments`, { data: { body: live }, headers: { origin: SERVER } });
+  await expect(page.getByTestId('comment').filter({ hasText: live })).toHaveCount(1);
 });
