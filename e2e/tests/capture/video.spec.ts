@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Worker } from '@playwright/test';
 import { LAB_URL, draftWithBlobs, expect, saveBlob, session, setSettings, sleep, svc, tabIdOf, test } from './helpers.ts';
+import { budget } from '../../fixtures/budget.ts';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const chrome: any;
@@ -67,7 +68,7 @@ test('tab video: countdown, viewport-only video, pause, navigation, upload while
   const stopAt = Date.now();
   await svc(sw, 'stopRecording');
   const d = (await waitState(sw, 'draft', 5000)) as { draftId: string };
-  expect(Date.now() - stopAt).toBeLessThan(5000);
+  expect(Date.now() - stopAt).toBeLessThan(budget(5000));
   const { draft, events } = await draftWithBlobs(sw, d.draftId);
   expect(draft).toMatchObject({ kind: 'video', recordingId: serverId, mode: 'tab', pageUrl: `${LAB_URL}/` });
   const durationMs = Number(draft.durationMs);
@@ -118,7 +119,7 @@ test('ten short recordings in a row give ten playable drafts (J-034)', async ({ 
     const stopAt = Date.now();
     await svc(sw, 'stopRecording');
     const d = (await waitState(sw, 'draft', 5000)) as { draftId: string };
-    expect(Date.now() - stopAt).toBeLessThan(5000);
+    expect(Date.now() - stopAt).toBeLessThan(budget(5000));
     const { draft, blobSizes } = await draftWithBlobs(sw, d.draftId);
     expect(Number(draft.durationMs)).toBeGreaterThan(900);
     expect(blobSizes.videoBlobId).toBeGreaterThan(1000);

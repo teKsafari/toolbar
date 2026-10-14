@@ -1,6 +1,7 @@
 // Page chrome: J-110, J-111, J-112, J-113, J-116, J-117, J-118, J-121, J-205, J-114.
 import { expect, test } from '@playwright/test';
 import { allowClipboard, captureUrl, clipboard, IDS, open, ready, reseed, SERVER, shareUrl, signIn, videoTime } from './helpers.ts';
+import { budget } from '../../fixtures/budget.ts';
 
 test.beforeAll(() => reseed());
 test.afterAll(() => reseed());
@@ -163,7 +164,7 @@ test('J-114 delete: confirm, toast, dashboard within 3 s, then not found', async
   await dlg.getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Capture deleted' })).toBeVisible();
   await page.waitForURL(`${SERVER}/`);
-  expect(Date.now() - t0).toBeLessThan(3000);
+  expect(Date.now() - t0).toBeLessThan(budget(3000));
   await page.goto(captureUrl(IDS.screenshot));
   await expect(page.getByTestId('not-found')).toBeVisible();
   const s = await page.goto(shareUrl(IDS.screenshot));

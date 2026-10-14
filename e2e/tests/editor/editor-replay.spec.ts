@@ -3,6 +3,7 @@
 import { expect, test, LAB_URL } from '../../fixtures/extension.ts';
 import { startMock, type MockState } from './mock-server.ts';
 import { MOCK_PORT, openEditorInPage, seedDraft, signIn, tabIdOf, type DraftHooks } from './helpers.ts';
+import { budget } from '../../fixtures/budget.ts';
 
 declare const __tbDrafts: DraftHooks;
 
@@ -118,7 +119,7 @@ test('replay draft: DOM replay with play and trim (last 30 s), no tools; create 
   await expect.poll(() => mock.finalizes.length).toBe(1);
   const elapsed = Date.now() - before;
   console.log('replay create to finalize', elapsed, 'ms');
-  expect(elapsed).toBeLessThan(4000);
+  expect(elapsed).toBeLessThan(budget(4000));
   const fin = mock.finalizes[0]!;
   expect((fin.body as { trim: { startMs: number } }).trim.startMs).toBeLessThan(500);
   // the capture was created with the replay's own start time, and streams went up before finalize

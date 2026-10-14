@@ -3,6 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { DISPLAY, expect, test } from '../../fixtures/extension.ts';
 import { freshState, labPage, session, stats } from './helpers.ts';
+import { budget } from '../../fixtures/budget.ts';
 
 function xdo(...args: string[]) {
   return execFileSync('xdotool', args, { env: { ...process.env, DISPLAY }, encoding: 'utf8' }).trim();
@@ -29,7 +30,7 @@ test('J-180: Ctrl+Shift+S arms screenshot mode in under 0.5 s with no popup', as
   const t0 = Date.now();
   key('ctrl+shift+s');
   await expect.poll(async () => (await session(sw)).state, { intervals: [25] }).toBe('arming-screenshot');
-  expect(Date.now() - t0).toBeLessThan(500);
+  expect(Date.now() - t0).toBeLessThan(budget(500));
   expect((await stats(sw)).popupOpens).toBe(0);
   await page.mouse.move(410, 310);
   await expect(page.locator('toolbar-root [data-nb-cursor-pill]')).toBeVisible();

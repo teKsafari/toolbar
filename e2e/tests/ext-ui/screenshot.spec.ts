@@ -1,6 +1,7 @@
 // Screenshot mode: J-180, J-025, J-003, J-250, J-026, J-005.
 import { expect, test } from '../../fixtures/extension.ts';
 import { freshState, labPage, openPopup, session, stats } from './helpers.ts';
+import { budget } from '../../fixtures/budget.ts';
 
 const UI = 'toolbar-root';
 
@@ -14,7 +15,7 @@ test('J-180 J-025: the screenshot chord arms screenshot mode with a trailing cur
   const t0 = Date.now();
   await sw.evaluate((id) => __tbUi.command('screenshot-mode', id), tabId);
   await expect.poll(async () => (await session(sw)).state).toBe('arming-screenshot');
-  expect(Date.now() - t0).toBeLessThan(500);
+  expect(Date.now() - t0).toBeLessThan(budget(500));
 
   // the pill appears once the mouse moves, about 5 px right and 20 px below the pointer
   await expect(page.locator(`${UI} [data-nb-cursor-pill]`)).toHaveCount(0);

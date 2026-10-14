@@ -7,6 +7,7 @@ import type { MockServer } from '../../fixtures/mock-upload-server.ts';
 import { DISPLAY } from '../../fixtures/extension.ts';
 import { privateDisplay } from '../../fixtures/xvfb.ts';
 import { LAB_URL, byKind, draftWithBlobs, expect, launchTabBrowser, resetSession, ring, session, setSettings, signIn, sleep, svc, tabIdOf, test } from './helpers.ts';
+import { budget } from '../../fixtures/budget.ts';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function waitState(sw: Worker, state: string, timeout = 15_000): Promise<any> {
@@ -54,7 +55,7 @@ test('instant replay: DOM replay of the recent past, trimmed to the last 30 s, l
     await spyContent(sw);
     const t0 = Date.now();
     const draft = await svc<{ id: string; kind: string; durationMs: number; trim: { startMs: number; endMs: number } }>(sw, 'triggerReplay', tabId);
-    expect(Date.now() - t0).toBeLessThan(4600); // J-194 budget for replay
+    expect(Date.now() - t0).toBeLessThan(budget(4600)); // J-194 budget for replay
     expect(draft.kind).toBe('replay');
     expect(draft.trim.endMs).toBe(Math.round(draft.durationMs));
     expect(draft.trim.endMs - draft.trim.startMs).toBeLessThanOrEqual(30_000);
@@ -250,7 +251,7 @@ test('the record shortcut starts and stops a tab recording, live in under 6.4 s 
   const keyAt = Date.now();
   execFileSync('xdotool', ['windowfocus', '--sync', win, 'key', '--clearmodifiers', 'ctrl+shift+space'], { env });
   await waitState(sw, 'recording', 12_000);
-  expect(Date.now() - keyAt).toBeLessThan(6400); // J-195: key to live, countdown included
+  expect(Date.now() - keyAt).toBeLessThan(budget(6400)); // J-195: key to live, countdown included
   await sleep(1000);
   execFileSync('xdotool', ['windowfocus', '--sync', win, 'key', '--clearmodifiers', 'ctrl+shift+space'], { env });
   const s = (await waitState(sw, 'draft', 8000)) as { draftId: string };

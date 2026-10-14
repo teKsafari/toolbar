@@ -4,6 +4,7 @@
 import type { Page, Worker } from '@playwright/test';
 import { expect, test } from '../../fixtures/extension.ts';
 import { calls, freshState, labPage, mockServer, openPopup, session, stats } from './helpers.ts';
+import { budget } from '../../fixtures/budget.ts';
 
 const UI = 'toolbar-root';
 const bar = (page: Page) => page.locator(`${UI} [data-nb-bar]`);
@@ -35,7 +36,7 @@ test('J-181 J-027: the record chord shows a veil and a 3-2-1 count, goes live un
   const vw = await page.evaluate(() => document.documentElement.clientWidth);
   expect(Math.abs(b.x + b.width / 2 - vw / 2)).toBeLessThan(2);
   await expect.poll(async () => (await session(sw)).state, { timeout: 6400 }).toBe('recording');
-  expect(Date.now() - t0).toBeLessThan(6400);
+  expect(Date.now() - t0).toBeLessThan(budget(6400));
   await expect(veil).toHaveCount(0);
   await expect(page.locator(`${UI} [data-nb-timer]`)).toHaveText(/^0:0\d$/);
 

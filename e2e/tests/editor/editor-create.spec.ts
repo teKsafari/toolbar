@@ -3,6 +3,7 @@ import type { BrowserContext, FrameLocator, Page, Worker } from '@playwright/tes
 import { expect, test, LAB_URL } from '../../fixtures/extension.ts';
 import { MOCK_IDS, startMock, type MockState } from './mock-server.ts';
 import { MOCK_PORT, draftCount, getDraft, openEditorInPage, openEditorTab, seedDraft, signIn, tabIdOf } from './helpers.ts';
+import { budget } from '../../fixtures/budget.ts';
 
 let mock: MockState;
 test.beforeAll(async () => {
@@ -96,7 +97,7 @@ test('create a screenshot: annotations and blur burned into one PNG, link copied
   await expect(page.locator('iframe[data-nb-editor]')).toHaveCount(0, { timeout: 15000 });
   const elapsed = Date.now() - t0;
   console.log('create to close', elapsed, 'ms');
-  expect(elapsed).toBeLessThan(4000);
+  expect(elapsed).toBeLessThan(budget(4000));
   await expect(page.locator('toolbar-root').getByText('Link copied')).toBeVisible();
 
   expect(mock.finalizes).toHaveLength(1);

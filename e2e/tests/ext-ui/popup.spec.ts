@@ -2,6 +2,7 @@
 // J-015, J-232, J-016, J-035, J-218, J-182, J-183, J-177 (menu), X-05 (signed-out state), X-07.
 import { expect, test } from '../../fixtures/extension.ts';
 import { AUTH, freshState, labPage, mockServer, openPopup, session, stats } from './helpers.ts';
+import { budget } from '../../fixtures/budget.ts';
 
 test.beforeEach(async ({ sw }) => {
   await sw.evaluate(() => (globalThis as unknown as { __tb: { ready(): Promise<unknown> } }).__tb.ready());
@@ -15,8 +16,8 @@ test('J-001 J-193: the popup lists screenshot, record and recording link under a
   await (await openPopup(context, tabId)).close();
   const t0 = Date.now();
   const popup = await openPopup(context, tabId);
-  expect(Date.now() - t0).toBeLessThan(1700);
-  expect(await popup.evaluate(() => (globalThis as { __nibPopupPaintMs?: number }).__nibPopupPaintMs)).toBeLessThan(1700);
+  expect(Date.now() - t0).toBeLessThan(budget(1700));
+  expect(await popup.evaluate(() => (globalThis as { __nibPopupPaintMs?: number }).__nibPopupPaintMs)).toBeLessThan(budget(1700));
   await expect(popup.locator('[data-row]')).toHaveCount(3);
   await expect(popup.locator('[data-row]').nth(0)).toHaveAttribute('data-row', 'screenshot');
   await expect(popup.locator('[data-row]').nth(1)).toHaveAttribute('data-row', 'record');

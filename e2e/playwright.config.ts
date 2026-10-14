@@ -7,7 +7,8 @@ import { defineConfig } from '@playwright/test';
 // Chromium runs headed on a private Xvfb display (:101 by default; never :99, the shared browser).
 export default defineConfig({
   testDir: './tests',
-  timeout: 60_000,
+  // generous: other agents and builds share this VM, and the slowest tests ran past 60 s under load
+  timeout: 120_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
   workers: 1,

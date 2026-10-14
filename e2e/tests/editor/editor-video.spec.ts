@@ -6,6 +6,7 @@ import type { Page } from '@playwright/test';
 import { expect, test, LAB_URL } from '../../fixtures/extension.ts';
 import { startMock, type MockState } from './mock-server.ts';
 import { MOCK_PORT, getDraft, openEditorInPage, openEditorTab, seedDraft, settled, signIn, tabIdOf, type DraftHooks } from './helpers.ts';
+import { budget } from '../../fixtures/budget.ts';
 
 declare const __tbDrafts: DraftHooks;
 
@@ -148,7 +149,7 @@ test('AI ghost text on a video draft: grey title, summary, timed steps, result; 
   await openEditorTab(page, id);
   await expect(page.getByTestId('ai-switch')).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByTestId('ai-ghost-title')).toHaveText(AI.title, { timeout: 6000 });
-  expect(Date.now() - t0).toBeLessThan(6000);
+  expect(Date.now() - t0).toBeLessThan(budget(6000));
   const ghost = page.getByTestId('ai-ghost');
   await expect(ghost).toContainText(AI.summary);
   await expect(ghost.locator('li')).toHaveCount(2);

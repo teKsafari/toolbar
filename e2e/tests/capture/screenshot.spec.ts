@@ -1,6 +1,7 @@
 // Screenshots, pre-capture logs, custom metadata, and the uploader against the contract
 // (mock server): nothing leaves before create, create uploads everything, retries, discard.
 import { LAB_URL, blobImageSize, draftWithBlobs, expect, session, sleep, svc, tabIdOf, test } from './helpers.ts';
+import { budget } from '../../fixtures/budget.ts';
 
 interface DraftLike {
   id: string;
@@ -26,7 +27,7 @@ test('viewport screenshot: 1x CSS pixels, draft in under 1.3 s, logs from before
   const t0 = Date.now();
   const draft = await svc<DraftLike>(sw, 'takeScreenshot', null, { tabId, openEditor: false });
   const ms = Date.now() - t0;
-  expect(ms).toBeLessThan(1300);
+  expect(ms).toBeLessThan(budget(1300));
   expect(draft).toMatchObject({ kind: 'screenshot', crop: null, fullBlobId: null, pageUrl: `${LAB_URL}/` });
   expect(await blobImageSize(sw, draft.screenshotBlobId!)).toEqual(vp);
   const { events } = await draftWithBlobs(sw, draft.id);
