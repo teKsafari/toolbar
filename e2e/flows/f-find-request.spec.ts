@@ -1,7 +1,7 @@
 // Flow F: open a received link logged out and find the failing request. Hover the red marker
 // (0 clicks), then the network tab, the failing row and the response sub-tab (3 clicks).
 import { chromium } from '@playwright/test';
-import { expect, saveShot, test } from './fixture.ts';
+import { api, captureOf, expect, saveShot, test } from './fixture.ts';
 import { recordLabErrors } from './journeys.ts';
 
 test('F: logged out, the marker names the failure and the network pane shows the 500 body', async ({ nib }) => {
@@ -28,7 +28,10 @@ test('F: logged out, the marker names the failure and the network pane shows the
   // 3 clicks: network tab, the failing row, the response sub-tab
   await page.getByTestId('tab-network').click();
   const row = page.getByTestId('network-list').locator('.nrow', { hasText: '/api/fail' });
-  await expect(row).toHaveCount(1);
+  const rec = await captureOf(nib.context, made.shareUrl);
+  const failRows = (await api<{ items: Record<string, unknown>[] }>(nib.context, 'GET', `/api/v1/recordings/${rec.id}/network?limit=200`)).body.items.filter((r) => String(r.url).endsWith('/api/fail'));
+  const brief = failRows.map((r) => ({ rid: r.rid, source: r.source, frame: r.frame, status: r.status, offsetMs: r.offsetMs, initiator: r.initiator }));
+  await expect(row, `the /api/fail rows: ${JSON.stringify(brief)}`).toHaveCount(1);
   await expect(row.locator('.c-s')).toHaveText('500');
   await row.click();
   await expect(page.getByTestId('detail-status')).toHaveText('500');

@@ -91,6 +91,7 @@ test('instant replay is a rolling window: never longer than the setting, never r
       await page.getByTestId('works').click();
       await sleep(8000);
     }
+    const prunedAt = Date.now();
     await svc(sw, 'prune');
     const draft = await svc<{ id: string; durationMs: number; startedAt: number }>(sw, 'triggerReplay', tabId);
     expect(draft.durationMs).toBeLessThanOrEqual(61_000);
@@ -103,7 +104,8 @@ test('instant replay is a rolling window: never longer than the setting, never r
     // pruning dropped what is older than the window, except rrweb back to that checkout
     const s = await ring(sw, tabId, 10 * 60_000);
     const oldest = Math.min(...s.events.map((e) => e.t));
-    expect(Date.now() - oldest).toBeLessThan(80_000);
+    // measured from the prune, not from now: on a busy machine the reads above take seconds
+    expect(prunedAt - oldest).toBeLessThan(80_000);
     await svc(sw, 'discardDraft', draft.id);
     await page.close();
   } finally {

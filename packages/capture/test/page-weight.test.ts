@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { UI_HOST_TAG } from '@toolbar/shared/constants';
 import { countNodes, watchPageWeight, type PageWeight } from '../src/page-weight.ts';
 import { startIsolatedWorld } from '../src/isolated.ts';
@@ -23,21 +23,27 @@ describe('page weight (J-011)', () => {
   });
 
   it('reports node count and mutation rate after the first delay, then on its interval', async () => {
-    document.body.innerHTML = '<div id="t"></div>';
-    const seen: PageWeight[] = [];
-    const w = watchPageWeight((x) => seen.push(x), window as Window & typeof globalThis, { firstMs: 60, everyMs: 60 });
-    const t = document.getElementById('t')!;
-    for (let i = 0; i < 50; i++) t.setAttribute('data-n', String(i));
-    await tick(90);
-    expect(seen.length).toBe(1);
-    expect(seen[0]!.nodes).toBeGreaterThan(0);
-    expect(seen[0]!.mutationsPerSec).toBeGreaterThan(0);
-    await tick(80);
-    expect(seen.length).toBe(2);
-    expect(seen[1]!.mutationsPerSec).toBe(0);
-    w.stop();
-    await tick(80);
-    expect(seen.length).toBe(2);
+    // fake timers: with real ones a busy machine let the interval fire late or twice
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'Date'] });
+    try {
+      document.body.innerHTML = '<div id="t"></div>';
+      const seen: PageWeight[] = [];
+      const w = watchPageWeight((x) => seen.push(x), window as Window & typeof globalThis, { firstMs: 60, everyMs: 60 });
+      const t = document.getElementById('t')!;
+      for (let i = 0; i < 50; i++) t.setAttribute('data-n', String(i));
+      await vi.advanceTimersByTimeAsync(90);
+      expect(seen.length).toBe(1);
+      expect(seen[0]!.nodes).toBeGreaterThan(0);
+      expect(seen[0]!.mutationsPerSec).toBeGreaterThan(0);
+      await vi.advanceTimersByTimeAsync(60);
+      expect(seen.length).toBe(2);
+      expect(seen[1]!.mutationsPerSec).toBe(0);
+      w.stop();
+      await vi.advanceTimersByTimeAsync(120);
+      expect(seen.length).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('the isolated world reports weight only while the replay ring is on', async () => {
