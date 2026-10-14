@@ -152,6 +152,8 @@ export interface NetRequest {
   bodyTruncated?: boolean;
   initiator?: NetInitiator;
   source: NetSource;
+  /** Browser tab id, set on desktop recordings that follow several tabs (J-224). */
+  tabId?: number;
 }
 
 export interface NetTiming {

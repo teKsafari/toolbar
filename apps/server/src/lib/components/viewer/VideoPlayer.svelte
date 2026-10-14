@@ -345,5 +345,6 @@
   @media (max-width: 720px) {
     .card { border-radius: 0; }
     .chap { display: none; }
+    .row :global([data-testid='quality']) { display: none; }
   }
 </style>

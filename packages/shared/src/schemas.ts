@@ -84,6 +84,7 @@ export const eventDataSchemas = {
     bodyTruncated: z.boolean().optional(),
     initiator: z.enum(['fetch', 'xhr', 'beacon', 'document', 'script', 'image', 'other']).optional(),
     source: z.enum(['page', 'webRequest']),
+    tabId: z.number().int().optional(),
   }),
   'net.res': z.object({
     rid: z.string(),
