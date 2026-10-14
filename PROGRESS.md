@@ -19,7 +19,7 @@ A new session reads this file first.
 - `docs/architecture.md` (step 2 design) and `docs/spikes.md` (capture spikes S1, S2 and extras: all work, with caveats).
 
 ### In flight (2026-10-14)
-- Step 2 starting.
+- Step 2: foundation done and checked (Nib, D-018..D-027). Workflow `step2-build` in flight: contract, eight area builds in worktrees under ~/toolbar-wt (branches area/*), merge, end-to-end integration.
 
 ### Next
 - Step 2: build the replica per `docs/architecture.md`, one agent per area in worktrees.
