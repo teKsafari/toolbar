@@ -9,7 +9,7 @@ Fastest path, keyboard first.
 | Step | Action | Input | Time |
 |---|---|---|---|
 | 1 | Press the screenshot chord on the page [J-180] | key | under 0.5 s to armed; the only cue is the pill trailing the pointer |
-| 2 | Click anywhere to grab the viewport (or drag for an area) [J-002, J-003] | 1 click | editor fully painted 1.3 s (lab), 3.4 s (Nuru, with a short fade-in); area up to 5.6 s |
+| 2 | Click anywhere to grab the viewport (or drag for an area) [J-002, J-003]; the page never receives this click, so landing on a live button is safe [J-250] | 1 click | editor fully painted 1.3 s (lab), 3.4 s (Nuru, with a short fade-in); area up to 5.6 s |
 | 3 | Pick the rectangle tool [J-039] | 1 click | instant |
 | 4 | Drag a box | 1 drag | instant; tool returns to select, box stays selected |
 | 5 | Optional: type a title (field already has focus) [J-077] | typing | - |
@@ -23,13 +23,13 @@ Total: 1 key and 4 pointer actions (3 plus a chord with Ctrl+Enter). A practised
 |---|---|---|---|
 | 1 | Press the record chord [J-181] | key | veil and countdown at 1.2 s; 3, 2, 1 to 4.0 s; starting spinner to 5.6 s; live at 6.4 s |
 | 2 | Reproduce the bug on the page | page clicks | recording length |
-| 3 | Optional: pen or blur from the bar [J-030, J-031] | 1 + drags | strokes fade after 2 to 3 s |
-| 4 | Press the chord again (or the red stop) | key | editor at 1.9 s best case; 12 to 17 s typical on lab pages; 25 s on Nuru; about 100 s once, with a broken draft; once never, see M |
+| 3 | Optional: drag the bar off the bug area [J-238]; pen or blur from the bar [J-030, J-031]. Marks must be made now, since the draft has no drawing tools [J-240] | 1 drag; 1 + drags | strokes fade after 2 to 3 s |
+| 4 | Press the chord again, click the red stop on the bar, or open the popup and click its stop row [J-239] | key, 1 click or 2 clicks | editor at 1.9 s best case; 12 to 17 s typical on lab pages; 25 s on Nuru; once never, see M. About one draft in three opens broken at 0 seconds with nothing playable (5 of 15 tab recordings, 4 of 6 in the later sessions), and the only way on is to close it and record again [J-034] |
 | 5 | Wait for the AI draft, press Tab to accept [J-083] | key | ghost text at about 5.8 s after the editor opens; a click inside the ghost title also accepts it and leaves the caret there [J-230] |
 | 6 | Optional: drag trim handles [J-085] | 1 drag per end | live |
 | 7 | Click create, or press Ctrl+Enter in the form [J-220] | 1 click or key | link on the clipboard 1.6 to 4 s (upload ran during the draft); background tab at about 6 s; video playable for a logged-out viewer about 40 s after create |
 
-Total Jam input: 2 chords, 1 Tab, 1 click. Through the popup: icon and record row replace the first chord (+2 clicks), the red stop replaces the second.
+Total Jam input: 2 chords, 1 Tab, 1 click. Through the popup: icon and record row replace the first chord (+2 clicks); the red stop on the bar, or icon and stop row in the popup, replace the second.
 
 If you trimmed, the viewer shows a trimming placeholder until the server finishes (about 3 minutes once). Logs and events in the cut part are dropped from the capture, and AI text written before the trim is not rewritten, so trim before accepting the AI draft [J-227].
 
@@ -39,7 +39,7 @@ One-time setup: icon, three-dot menu, settings, enable toggle. 4 clicks, no perm
 
 | Step | Action | Input | Time |
 |---|---|---|---|
-| 1 | Use the page; the bug happens | - | buffer holds up to 2 minutes, starting at the last page load |
+| 1 | Use the page; the bug happens | - | rolling buffer of at most the last 2 minutes, starting at the last page load; shorter on a fresh tab or a page with heavy DOM churn [J-010] |
 | 2 | Press the replay chord, or icon and replay row [J-182, J-009] | key or 2 clicks | editor shell 3.2 s; replay loaded 4.6 s; create enabled 5.9 s |
 | 3 | Optional: widen the trim (it defaults to the last 30 s) | 1 drag | live |
 | 4 | Type a title, click create | 1 click | link on the clipboard 2.5 s |
@@ -84,13 +84,14 @@ Sender total 3 to 5 clicks; recipient about 5. The resulting capture has video o
 
 | Step | Action | Input | Time |
 |---|---|---|---|
-| 1 | Open the link (logged out) | - | first contentful paint 6.5 s, load 8.2 s, mascot until then |
+| 1 | Open the link (logged out) | - | first contentful paint 6.5 s, load 8.2 s, branded loading screen until then |
 | 2a | Hover the red status marker above the seek bar | 0 clicks | the pill shows the error text from the response body |
 | 2b | Or click the network tab, then the pink failing row | 2 clicks | detail opens on headers with a red status dot |
 | 3 | Click the response sub-tab | 1 click | JSON body in the code viewer |
 | 4 | Optional: copy as cURL | 1 click | toast confirms |
+| 5 | Optional: press Up or Down to step to the neighbouring requests; the pane follows and stays on the response sub-tab [J-243] | keys | instant |
 
-Total: 0 clicks to see the cause, 3 to read the body.
+Total: 0 clicks to see the cause, 3 to read the body. Trap: a marker can also stand for Jam's own failed font loads, which look like real failures and read xhr instead of a status [J-072, J-248].
 
 ## G. Comment at a moment in the video
 
@@ -120,7 +121,7 @@ Total: 2 clicks and 1 chord. Without step 1 the comment has no time.
 | 2 | Type a few words | typing | results in 1 to 2 s, grouped as members, folders and captures, with a count in the footer [J-228] |
 | 3 | Arrow to the row, Enter to open (or Ctrl+C to copy its link) | keys | - |
 
-Filters instead: 1 click to open a filter, 1 per value, results in 1 to 3 s. Or type a teammate's name in the palette and press Enter on the member row: All Jams opens filtered by that author (key, typing, key).
+Filters instead: 1 click to open a filter, 1 per value, results in 1 to 3 s. Or type a teammate's name in the palette and press Enter on the member row: the all-captures list opens filtered by that author (key, typing, key).
 
 ## J. Hand a capture to a coding agent
 
@@ -132,6 +133,8 @@ Filters instead: 1 click to open a filter, 1 per value, results in 1 to 3 s. Or 
 | 4 | Click approve | 1 click | tokens and tool list about 5 s later |
 | 5 | On a capture page, open the MCP tab, pick a preset, copy the prompt, paste it to the agent | 2 to 3 clicks | the agent run in our test took 91 s and 13 turns |
 
+CLI route, per the public docs and not tried: install the CLI and log in from its settings page, install the skill, then the agent pulls details, failing requests, errors and frames at the failure time into local files, fixes the code and comments on the capture [J-155, J-247]. The agent can send proof back the other way: an annotated screenshot, a video with a Playwright trace, or a recording of the browser it drove, each landing as a normal capture with a link [J-244, J-245, J-246].
+
 ## K. Delete a capture
 
 | Step | Action | Input | Time |
@@ -139,7 +142,7 @@ Filters instead: 1 click to open a filter, 1 per value, results in 1 to 3 s. Or 
 | 1 | Three-dot menu in the capture header, delete | 2 clicks | modal |
 | 2 | Confirm | 1 click | toast at 1.3 s, redirect to the dashboard at 4.9 s |
 
-The image file stayed reachable on the CDN for at least 30 s afterwards.
+The image file stayed reachable on the CDN for at least 30 s afterwards. The modal calls the delete permanent, but per Jam's security doc the capture is archived: gone from lists and search, kept in storage, with no trash to restore from [J-191].
 
 ## L. Invite a teammate
 

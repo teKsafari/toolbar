@@ -16,14 +16,15 @@ Jam features or behaviors that the research passes on 2026-10-13 could not exerc
 
 | Item | Why |
 |---|---|
-| Connected integrations, ticket field forms, Slack posts and unfurls, Linear and Notion embeds [J-137, J-140, J-141] | Finishing a provider's OAuth would change the owner's account; connect pages were opened and left |
+| Connected integrations, ticket field forms, the body of a filed issue, the linked-issue record and tracker detection on a recording-link reference, Slack posts and unfurls, Linear and Notion embeds [J-137, J-140, J-141, J-241, J-242], one Jira site per workspace and the workspace picker choosing the connection [J-251] | Finishing a provider's OAuth would change the owner's account; connect pages were opened and left |
 | Sending invites, folder share invites, member role change and removal, auto-approve seats [J-122, J-123, J-173, J-222] | One-member workspace; inviting would contact real people |
+| Workspace archiving and the 90-day purge, captures kept after a member leaves, archived (deleted) captures staying in storage [J-191, J-249] | No close-workspace control in the UI; testing would need a second member or destroying the owner's workspace; storage is not visible to a user |
 | Mentions, the mention picker and the emails they send [J-135] | No second member to mention; typing @ in the draft opened no menu |
 | Personal access token creation, list and revoke [J-148] | Would add a credential to the owner's account |
 | Workspace rename, logo upload, profile name save, reset invite link, reset extension, delete account [J-225], submitting the create-workspace form [J-221] | Account-level changes the rules ask us to avoid |
 | Paid features: workspace-only link access, default link access, longer recordings, private folders and private captures, AI quotas [J-119, J-120, J-156, J-237] | Free plan |
 | Enterprise features: SSO, directory sync, audit logs, data retention, forced install [J-178] | Free plan |
-| Jam CLI, CLI recording, agent skills [J-155] | Installing them was out of scope for this step; only the settings page was read |
+| Jam CLI, its read path, agent-made captures, CLI recording, agent skills [J-155, J-244, J-245, J-246, J-247] | Installing them was out of scope for this step; only the settings page was read |
 | Webhook delivery [J-142] | Adding an endpoint would need a public receiver; the portal and event catalog were read only |
 | Connect your domain, auto-blur, sanitizers [J-143, J-192] | Needs Jam's scripts on a site we own on a public domain; the verify step failed as expected on the lab app |
 | Fin and help-desk flows [J-144] | No Intercom or help-desk account |
@@ -61,7 +62,7 @@ Jam features or behaviors that the research passes on 2026-10-13 could not exerc
 
 | Item | Note |
 |---|---|
-| Stop to editor hangs [J-034] | Twice on tab recordings: about 100 s once with a broken draft (discarded), and over 3 minutes once at a load average near 2 with no editor at all until an extension restart; that draft was intact in the Drafts list (flow M). Cause unknown |
+| Stop to editor hangs and broken drafts [J-034, J-196] | Over 3 minutes once at a load average near 2 with no editor at all until an extension restart; that draft was intact in the Drafts list (flow M). Separately, 5 of 15 tab recordings opened a broken 0-second draft that stayed broken (one watched for 100 s); 4 of those came in the 6 review-session recordings at load averages of 3 to 10. Whether load, the shared display or the extension causes it is unknown |
 | User events stopped after the third history navigation on Nuru | Not reproduced on the lab app |
 | Unhandled promise rejections never captured | Consistent across viewer and MCP |
 | The pre-capture log buffer seemed to restart after each capture | Inferred from timestamps on one screenshot |

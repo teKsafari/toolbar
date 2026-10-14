@@ -10,8 +10,10 @@ Tested 2026-10-13 by connecting a Claude Code session to Jam's MCP server throug
 | Share URL fetched with curl [J-153] | An empty app shell, plus a header pointing at a markdown summary | None when the link is public |
 | Markdown summary (URL plus `.md`, or an Accept header for markdown) | About 1 KB of front matter and signals | None when the link is public |
 | Copy cURL in the viewer [J-107] | A runnable curl for one request, secrets replaced | Manual copy |
+| Issue filed to a tracker [J-137, J-242] | Per the public docs: console logs, inspectable network requests, URL, timestamp, country, device, OS, browser, viewport and network speed, plus the draft's text. The capture keeps the linked issue, which search can filter on [J-241]. The issue lands in the one tracker site connected to the capture's workspace [J-251]. Not seen: no tracker was connected | The tracker's own access, on that site |
 | MCP tab prompts in the viewer [J-152] | A short prompt with the capture URL and a task | Manual copy |
-| CLI and agent skills [J-155] | Same data as MCP from a terminal | OAuth or token (not installed in testing) |
+| CLI and agent skills [J-155] | Same data and JSON shapes as MCP from a terminal, plus files on disk: paged event JSON, frames and screenshots written to a folder, and a cached structured summary [J-247]. A skill tells the agent which reads to make first. Public docs only | OAuth or token (not installed in testing) |
+| CLI captures made by an agent [J-244, J-245, J-246] | The reverse direction: the agent creates an annotated screenshot, a video with a Playwright trace, or a recording of the browser it drives, and hands the person a share link as proof of a fix. Public docs only | Same CLI login |
 
 There is no copy-for-AI button beyond the MCP tab prompts, and the send-to-app menu lists no agent target.
 
@@ -26,7 +28,7 @@ There is no copy-for-AI button beyond the MCP tab prompts, and the send-to-app m
 - Every tool takes an optional `intent` string asking the agent to say why it calls the tool.
 - Every capture tool accepts a UUID or a full capture URL.
 - Tools carry MCP annotations (read-only, destructive, idempotent) and a human title.
-- Descriptions are long and prescriptive: they say which tool to call first and next, warn that deletes are permanent and need user confirmation, and explain mention syntax.
+- Descriptions are long and prescriptive: they say which tool to call first and next, warn that deletes are permanent and need user confirmation (per the security doc a deleted capture is archived, not erased [J-191]), and explain mention syntax.
 - List-style tools return an envelope with total, returned, has-more, next cursor and events.
 
 ## Read tools and what they returned
@@ -88,4 +90,5 @@ Given only the MCP tools, a Claude Code run (91 s, 13 turns) diagnosed the hidde
 - WebSocket frames and SSE events are not exposed.
 - Event page URLs can lag a route; keystroke values can drop the last character.
 - Video frames are not redacted while the event log is.
+- Jam's own failed font loads reach the agent's data as network errors in the page's name [J-248].
 - Errors on transcript and metadata tools do not explain the cause.

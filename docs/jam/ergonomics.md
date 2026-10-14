@@ -6,7 +6,7 @@ Positions and sizes were read from screenshots of a 1584x952 browser window whos
 
 - Light theme everywhere. The dashboard and the capture page ignore a dark system preference, and no theme setting exists. The recording bar, menus, tooltips and some toasts are dark on purpose.
 - White cards, thin grey borders, radii around 8 px for controls and 16 px for large cards.
-- One accent: a dark green for primary buttons, switches that are on and selection highlights. A mint green marks capture areas, trim bars and hover outlines. Red is kept for errors, stop and destructive actions.
+- One brand accent for primary buttons, switches that are on and selection highlights, plus a lighter tint of it for capture areas, trim bars and hover outlines. Red is kept for errors, stop and destructive actions. The hues are Jam's brand; pick our own.
 - Text is 13 to 14 px in the app UI and 12 px monospace in the dev tools panels. Titles are about 18 to 20 px semibold.
 
 ## Extension popup
@@ -23,12 +23,14 @@ Positions and sizes were read from screenshots of a 1584x952 browser window whos
 ## Screenshot mode
 
 - No overlay, no dimming, no toolbar. The only cue is a grey translucent pill (about 200x36) trailing the pointer by about 5 px right and 20 px down. It appears once the mouse moves.
-- Dragging draws a translucent mint rectangle without a border and a size readout pill near the pointer.
-- The delay timer shows a mint starburst badge with the seconds left (about 60 px) at the bottom-left of the viewport and a grey cancel pill at the bottom-right.
+- The click or drag that takes the shot is consumed: the page under it gets no pointer or click event, so buttons, links and hover-to-click menus stay untouched [J-250].
+- Dragging draws a translucent accent-tint rectangle without a border and a size readout pill near the pointer.
+- The delay timer shows a round accent-tint badge with the seconds left (about 60 px) at the bottom-left of the viewport and a grey cancel pill at the bottom-right.
 
 ## Recording bar
 
-- Dark rounded pill about 295x40 at bottom centre, about 70 px above the viewport's bottom edge.
+- Dark rounded pill about 295x40 at bottom centre, about 70 px above the viewport's bottom edge. Pressing on the timer area drags the whole pill anywhere in the viewport while recording continues [J-238].
+- While recording, the toolbar popup swaps its record row for a stop row; the screenshot row greys out [J-239].
 - Left to right: red stop square, pause, elapsed time (mm:ss), mic state, thin divider, pen, blur.
 - Countdown: the page under a 50% grey veil, the bar reading a countdown with a red dot; one second per step.
 - Tools swap the bar's contents in place: the pen shows 12 colour dots and a done button; blur shows a short instruction, undo and done.
@@ -42,8 +44,8 @@ Positions and sizes were read from screenshots of a 1584x952 browser window whos
 - Left media pane about 1005 px wide: a 40x40 bordered close button at the top-left; preview about 960x520; a floating tool pill about 408x48 centred at the bottom with 34 px pitch: colour dot, select, pen, rectangle, ellipse, arrow, line, text, blur, divider, undo, redo. The active tool has a grey pill behind it.
 - The area-capture card (thumbnail plus checkbox) floats just above the tool pill.
 - The modal does not lock page scroll: the wheel over the preview scrolls the host page behind it and the preview stays put [J-216].
-- Video drafts replace the tool pill with a round play button and a full-width mint trim bar (about 900x28) with grip handles; markers float above the bar; the length is spelled out centred below; trim undo and redo sit at the right below.
-- Right form pane about 372 px: destination dropdown (about 178x40) and workspace dropdown (about 74x40) on top; the title and description field with generous whitespace; bottom row of paperclip, folder chip, AI switch and a green create button (about 70x34) in the bottom-right corner.
+- Video drafts have no drawing tools at all [J-240]: they replace the tool pill with a round play button and a full-width accent-tint trim bar (about 900x28) with grip handles; markers float above the bar; the length is spelled out centred below; trim undo and redo sit at the right below.
+- Right form pane about 372 px: destination dropdown (about 178x40) and workspace dropdown (about 74x40) on top, where the workspace also decides which tracker connections the destination menu offers [J-251]; the title and description field with generous whitespace; bottom row of paperclip, folder chip, AI switch and a green create button (about 70x34) in the bottom-right corner.
 - Selection: blue outline with square corner handles; arrows show round end and middle handles.
 - The palette is a small floating card above the colour dot with 6 swatches in a row.
 - Tooltips are dark pills above the button after a 1 to 2 s dwell, with a key badge where a key exists.
@@ -65,16 +67,17 @@ Positions and sizes were read from screenshots of a 1584x952 browser window whos
 | Stop | Bar vanishes or shows a gathering spinner; editor opens |
 | Draw a shape | Tool returns to select, shape selected |
 | Escape in the editor | A toast asks for a second press |
-| Save a reopened video draft for later [J-219] | Editor closes; white toast bottom-right says it went to drafts, with a mint view button and a small close cross on its corner |
+| Save a reopened video draft for later [J-219] | Editor closes; white toast bottom-right says it went to drafts, with a view button and a small close cross on its corner |
 | Delete a draft from the Drafts list [J-218] | The trash icon becomes a red confirm button in the same spot; no dialog |
 | Stop hangs [J-034] | The processing pill spins with no timeout, progress or error; only an extension restart clears it |
+| Broken video draft [J-034] | The editor opens on time but reads 0 seconds, shows the first frame and ignores play; AI ghost text still appears. No error, no retry; about one tab recording in three |
 | Create | Spinner on the button; white toast bottom-right with a spinner, then a green tick saying the link is copied and the capture opened; a background tab appears directly right of the source tab; Chrome's clipboard prompt may appear. Ctrl+Enter in the form does the same [J-220] |
 | Copy link anywhere | Button flips to a tick for about 2 s and a toast confirms |
 | Copy cURL or download | Toast with an agent-setup button |
 | Post a comment | Composer clears at once, a bubble marker appears on the timeline, a jump pill if it landed below the fold; no toast |
 | Toggle a setting | Switch moves; no toast, no save button |
 | Create, rename, move or delete in the dashboard | Toast naming the result (dark, green tick, a small close button, gone after about 4 s) |
-| Delete a capture | Confirm modal, toast, redirect |
+| Delete a capture | Confirm modal that calls it permanent, toast, redirect; the data is archived behind the scenes [J-191] |
 
 ## Capture page
 
@@ -87,7 +90,7 @@ Positions and sizes were read from screenshots of a 1584x952 browser window whos
 - The replay player uses two small dark pills: play, back and forward on the left with the time, speed and fullscreen on the right. Before it plays, a white card with one centred line and a thin dark progress bar fills the media area [J-229].
 - Empty network and actions tabs show one centred grey line near the top of the panel, in a light-hearted tone [J-231].
 - The composer is sticky at the bottom of the left column; its send button grows from an icon into a green pill naming the current time.
-- The request detail pane slides over most of the table and shrinks the list to two columns.
+- The request detail pane slides over most of the table and shrinks the list to two columns. Up and Down step through the requests with the pane open and keep the chosen sub-tab [J-243].
 - Menus are dark with 24 px rows and leading line icons.
 - At phone width the page is one column, the panel hides behind a 32 px toggle, and network filter chips overflow to the right.
 

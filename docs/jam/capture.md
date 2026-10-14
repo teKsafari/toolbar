@@ -41,9 +41,13 @@ Tested 2026-10-13 with extension 5.90.0 against the lab app (`lab/README.md`) an
 
 Clicked log-every-level, show profile, save and submit order, waited 20 s, then took a visible screenshot. The screenshot capture carried the same console, network and actions data as a video would, ending with a screenshot-taken row. Times start about 18 s before the first click, close to when the previous capture finished, so the background buffer seems to restart after each capture. Page-load requests were not included. The info URL is the page at capture time.
 
+## Screenshot click on a live control
+
+With screenshot mode armed, a click on Save (works) opened the draft and left the save counter unchanged. Capture-phase pointerdown and click listeners on the document counted zero events, so Jam stops the event before the page sees it [J-250]. The preview shows the page as it was before the click.
+
 ## Instant replay
 
-The replay draft rebuilt the page from DOM snapshots at the preview's width (the lab's button row wrapped differently) with a pointer glyph. The buffer covered about 29 s, from the last reload. The trim defaulted to the last 30 s. The 500 and the error showed as markers. MCP treats it as a replay type with no duration; frame and video tools refuse it. On the capture page the replay loads behind a progress card and plays with a reduced control bar (no download, share-at-time, mute, quality or chapters) [J-229].
+The replay draft rebuilt the page from DOM snapshots at the preview's width (the lab's button row wrapped differently) with a pointer glyph. The buffer covered about 29 s, from the last reload. Per Jam's docs it is a rolling window capped at 2 minutes and shorter on new tabs and data-heavy pages [J-010]; we did not hold a page open long enough to see the cap. The trim defaulted to the last 30 s. The 500 and the error showed as markers. MCP treats it as a replay type with no duration; frame and video tools refuse it. On the capture page the replay loads behind a progress card and plays with a reduced control bar (no download, share-at-time, mute, quality or chapters) [J-229].
 
 ## Desktop recording
 
@@ -65,7 +69,7 @@ Ergonomic notes from Nuru: Chrome's translate bubble held focus and swallowed th
 
 ## Applies to every capture
 
-- Jam's own UI fonts and a locale file, loaded from a public CDN by the injected bar and editor, appear in the page's network list as if the page had asked for them.
+- Jam's own UI fonts and a locale file, loaded from a public CDN by the injected bar and editor, appear in the page's network list as if the page had asked for them. When those loads fail (a cache miss on one 5:20 recording) they count as network errors: pink rows with status undefined, red console rows, a failed-request marker badged xhr and red tab dots [J-248].
 - The first frames of every tab video show Jam's own bar in its starting state, and the bar stays visible for the whole video.
 - Metadata: start URL, creation time, country, OS, browser and version, viewport size, network speed bucket and latency in the viewer; battery, connection and extension version via MCP. No device pixel ratio, language or zone.
 - Headers are complete in the viewer and absent over MCP.

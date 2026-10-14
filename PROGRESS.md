@@ -14,12 +14,12 @@ A new session reads this file first.
 ### Done
 - Scaffolding, lab app (`lab/`, user service `toolbar-lab` on :5173 and :5174).
 - Seven browser sessions with Jam plus public-doc research; raw notes in `research/jam-private/notes/` (gitignored).
-- `docs/jam/`: catalogue (237 rows after three review rounds: P0 73, P1 91, P2 73), flows, capture, ergonomics, agent-output, untested.
+- `docs/jam/`: catalogue (251 rows: P0 73, P1 106, P2 72) after seven review rounds; gate 1 passed (D-017). Clean-room audit done.
 - `docs/research/owner-taste.md` (Agentation and Vercel Toolbar ergonomics, for Part 2).
 - `docs/architecture.md` (step 2 design) and `docs/spikes.md` (capture spikes S1, S2 and extras: all work, with caveats).
 
 ### In flight (2026-10-14)
-- Workflow `jam-gate1`: fresh reviewers with three lenses until a round finds no P0/P1 gap, plus a clean-room text audit of `docs/jam/`.
+- Step 2 starting.
 
 ### Next
 - Step 2: build the replica per `docs/architecture.md`, one agent per area in worktrees.
