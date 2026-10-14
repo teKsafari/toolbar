@@ -88,6 +88,19 @@ export const icons = {
   external: ['<path d="M13.5 4.5H19.5V10.5M19.5 4.5 11 13"/>', '<path d="M17 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 4 18.5v-10A1.5 1.5 0 0 1 5.5 7H10"/>'],
   spinner: ['<path d="M12 3.5a8.5 8.5 0 1 1-8.5 8.5" />'],
   timer: ['<circle cx="12" cy="13" r="7.5"/>', '<path d="M12 9v4l2.5 1.5M9.5 2.75h5"/>'],
+  clock: ['<circle cx="12" cy="12" r="8.5"/>', '<path d="M12 7.5V12l3 2"/>'],
+  help: ['<circle cx="12" cy="12" r="8.5"/>', '<path d="M9.75 9.5a2.4 2.4 0 0 1 4.65.75c0 1.6-2.4 2-2.4 3.5"/>', '<circle cx="12" cy="16.75" r=".9" fill="currentColor" stroke="none"/>'],
+  /** Video camera: the action icon while recording (J-033). */
+  camera: ['<rect x="3" y="6.5" width="12.5" height="11" rx="2"/>', '<path d="m15.5 10.5 5-3v9l-5-3z"/>'],
+  globe: ['<circle cx="12" cy="12" r="8.5"/>', '<path d="M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5s-1.1 6.1-3.4 8.5c-2.3-2.4-3.4-5.2-3.4-8.5S9.7 5.9 12 3.5z"/>'],
+  eye: ['<path d="M2.75 12S6 5.75 12 5.75 21.25 12 21.25 12 18 18.25 12 18.25 2.75 12 2.75 12z"/>', '<circle cx="12" cy="12" r="2.75"/>'],
+  power: ['<path d="M12 3.5V11"/>', '<path d="M7.2 6.3a7.5 7.5 0 1 0 9.6 0"/>'],
+  logout: ['<path d="M14 4.5h3.5a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H14"/>', '<path d="M10 16.5 5.5 12 10 7.5M5.5 12h10"/>'],
+  keyboard: ['<rect x="2.75" y="6" width="18.5" height="12" rx="2"/>', '<path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M8 14h8"/>'],
+  book: ['<path d="M5 4.5h9.5a3 3 0 0 1 3 3v12h-10A2.5 2.5 0 0 1 5 17z"/>', '<path d="M5 17a2.5 2.5 0 0 1 2.5-2.5h10"/>'],
+  bug: ['<rect x="7.5" y="8" width="9" height="11.5" rx="4.5"/>', '<path d="M9.5 8a2.5 2.5 0 0 1 5 0M12 12v7.5M3.5 13h4M16.5 13h4M4.5 8.5l3 1.5M19.5 8.5l-3 1.5M4.5 18.5l3-1.5M19.5 18.5l-3-1.5"/>'],
+  grip: ['<circle cx="9" cy="7" r="1.2" fill="currentColor" stroke="none"/>', '<circle cx="15" cy="7" r="1.2" fill="currentColor" stroke="none"/>', '<circle cx="9" cy="12" r="1.2" fill="currentColor" stroke="none"/>', '<circle cx="15" cy="12" r="1.2" fill="currentColor" stroke="none"/>', '<circle cx="9" cy="17" r="1.2" fill="currentColor" stroke="none"/>', '<circle cx="15" cy="17" r="1.2" fill="currentColor" stroke="none"/>'],
+  'mic-denied': ['<rect x="9" y="3" width="6" height="11" rx="3"/>', '<path d="M5.5 11a6.5 6.5 0 0 0 9 6M12 17.5V21"/>', '<path d="M17 15.5l4 4M21 15.5l-4 4"/>'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconName = keyof typeof icons;

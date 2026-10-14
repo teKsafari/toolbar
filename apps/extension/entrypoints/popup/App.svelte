@@ -1,63 +1,147 @@
 <script lang="ts">
-  // Capture menu (J-001): one row per mode, header with home and menu buttons.
-  // Rows message the service worker; the capture area agent implements each mode.
+  // The extension popup (J-001 and the screens that replace its body in place: settings,
+  // blocked sites, drafts, recording link, link help, heavy-page warning). About 400 px wide,
+  // a 40 px header with the wordmark, the unfinished-draft pill, home and the three-dot menu.
+  import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
-  import { Button, Icon, type IconName } from '@toolbar/ui';
-  import { COMMANDS, DEFAULT_SERVER_URL, PRODUCT_NAME } from '@toolbar/shared';
-  import type { BgRequest } from '../../lib/messages';
+  import { Icon } from '@toolbar/ui';
+  import { PRODUCT_NAME } from '@toolbar/shared/constants';
+  import { store } from './lib/store.svelte';
+  import Menu from './lib/Menu.svelte';
+  import Main from './screens/Main.svelte';
+  import Settings from './screens/Settings.svelte';
+  import Sites from './screens/Sites.svelte';
+  import Drafts from './screens/Drafts.svelte';
+  import LinkForm from './screens/LinkForm.svelte';
+  import LinkHelp from './screens/LinkHelp.svelte';
+  import Heavy from './screens/Heavy.svelte';
+  import Restricted from './screens/Restricted.svelte';
+  import SignedOut from './screens/SignedOut.svelte';
 
-  type Mode = Extract<BgRequest, { type: 'capture' }>['mode'];
-  const rows: { mode: Mode; label: string; icon: IconName; key: string | null }[] = [
-    { mode: 'screenshot', label: 'Screenshot', icon: 'screenshot', key: COMMANDS['screenshot-mode'].key },
-    { mode: 'video', label: 'Record tab', icon: 'record', key: COMMANDS['record-tab'].key },
-    { mode: 'replay', label: 'Instant replay', icon: 'replay', key: COMMANDS['instant-replay'].key },
-    { mode: 'link', label: 'Recording link', icon: 'link', key: null },
-  ];
-  let status = $state('');
+  onMount(() => {
+    store.listen();
+    void store.load();
+  });
 
-  async function start(mode: Mode) {
-    const r = (await browser.runtime.sendMessage({ type: 'capture', mode } satisfies BgRequest)) as { ok: boolean; error?: string };
-    status = r.ok ? '' : `${mode}: not built yet`;
-  }
-  const openHome = () => browser.tabs.create({ url: DEFAULT_SERVER_URL });
+  // J-035: the pill counts drafts and becomes a button once no draft is open or processing
+  const busy = $derived(['draft', 'stopping', 'uploading'].includes(store.session.state));
+  const draftCount = $derived(store.drafts.length);
+  const openHome = () => {
+    void browser.tabs.create({ url: store.serverUrl });
+    window.close();
+  };
+  const restricted = $derived(!!store.context?.restricted);
 </script>
 
-<main>
+<main data-popup data-loading={store.loading}>
   <header>
     <span class="brand"><Icon name="logo" size={18} /> {PRODUCT_NAME}</span>
     <span class="actions">
-      <Button variant="ghost" size="sm" icon="home" iconOnly aria-label="Open dashboard" onclick={openHome} />
-      <Button variant="ghost" size="sm" icon="more" iconOnly aria-label="Menu" />
+      {#if draftCount > 0 && !restricted}
+        <button
+          class="drafts-pill"
+          type="button"
+          disabled={busy}
+          aria-label="{draftCount} unfinished {draftCount === 1 ? 'draft' : 'drafts'}"
+          title={busy ? 'Finish the open draft first' : 'Open drafts'}
+          data-drafts-pill={draftCount}
+          onclick={() => (store.screen = 'drafts')}
+        >
+          <Icon name="clock" size={13} />
+          {draftCount}
+        </button>
+      {/if}
+      <button class="icon-btn" type="button" aria-label="Open dashboard" data-home onclick={openHome}><Icon name="home" size={16} /></button>
+      <Menu />
     </span>
   </header>
-  <ul>
-    {#each rows as r (r.mode)}
-      <li>
-        <button class="row" onclick={() => start(r.mode)} title={r.key ?? undefined} data-mode={r.mode}>
-          <Icon name={r.icon} size={16} />
-          <span>{r.label}</span>
-          {#if r.key}<kbd>{r.key}</kbd>{/if}
-        </button>
-      </li>
-    {/each}
-  </ul>
-  {#if status}<p class="status" role="status">{status}</p>{/if}
+
+  {#if store.loading}
+    <div class="loading" data-popup-loading><Icon name="spinner" size={18} /></div>
+  {:else if restricted && store.screen === 'main'}
+    <Restricted />
+  {:else if !store.signedIn && (store.screen === 'main' || store.screen === 'link' || store.screen === 'drafts')}
+    <SignedOut />
+  {:else if store.screen === 'settings'}
+    <Settings />
+  {:else if store.screen === 'sites'}
+    <Sites />
+  {:else if store.screen === 'drafts'}
+    <Drafts />
+  {:else if store.screen === 'link'}
+    <LinkForm />
+  {:else if store.screen === 'link-help'}
+    <LinkHelp />
+  {:else if store.screen === 'heavy'}
+    <Heavy />
+  {:else}
+    <Main />
+  {/if}
 </main>
 
 <style>
-  main { padding: 8px 15px 15px; }
-  header { display: flex; align-items: center; justify-content: space-between; height: 40px; }
-  .brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--nb-accent-text); }
-  .actions { display: inline-flex; gap: 2px; }
-  ul { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-  .row {
-    all: unset; box-sizing: border-box; width: 100%; height: 40px; padding: 0 12px;
-    display: flex; align-items: center; gap: 10px; cursor: pointer;
-    border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md);
+  main {
+    padding: 0 15px 15px;
   }
-  .row:hover { background: var(--nb-surface-sunken); }
-  .row:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
-  .row span { flex: 1; }
-  kbd { font: 11px var(--nb-font-mono); color: var(--nb-text-faint); }
-  .status { margin: 8px 0 0; color: var(--nb-text-muted); font-size: 12px; }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 44px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font: var(--nb-weight-semibold) var(--nb-text-lg) / 1 var(--nb-font-sans);
+    color: var(--nb-accent-text);
+  }
+  .actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .drafts-pill {
+    all: unset;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    padding: 0 8px;
+    margin-right: 4px;
+    border-radius: var(--nb-radius-pill);
+    background: var(--nb-info-tint);
+    color: var(--nb-info);
+    font: var(--nb-weight-semibold) var(--nb-text-sm) / 1 var(--nb-font-sans);
+    cursor: pointer;
+  }
+  .drafts-pill:disabled {
+    cursor: default;
+  }
+  .drafts-pill:focus-visible {
+    outline: 2px solid var(--nb-focus);
+  }
+  :global(.icon-btn) {
+    all: unset;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--nb-radius-sm);
+    color: var(--nb-text-muted);
+    cursor: pointer;
+  }
+  :global(.icon-btn:hover) {
+    background: var(--nb-surface-sunken);
+    color: var(--nb-text);
+  }
+  :global(.icon-btn:focus-visible) {
+    outline: 2px solid var(--nb-focus);
+  }
+  .loading {
+    height: 120px;
+    display: grid;
+    place-items: center;
+    color: var(--nb-text-faint);
+  }
 </style>

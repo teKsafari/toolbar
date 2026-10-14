@@ -5,8 +5,10 @@ import type { CaptureEvent, CommandName } from '@toolbar/shared';
 import { registerCaptureScripts } from '../lib/registration';
 import { CAPTURE_PORT, type BgRequest, type PortMessage } from '../lib/messages';
 import { TEST_HOOKS } from '../lib/flags';
+import { registerUi } from '../lib/bg/ui';
 
 export default defineBackground(() => {
+  registerUi();
   const stats = { ports: 0, events: 0, byKind: {} as Record<string, number>, commands: [] as string[], pages: [] as string[] };
   const recent: CaptureEvent[] = [];
 
@@ -35,18 +37,13 @@ export default defineBackground(() => {
 
   browser.commands.onCommand.addListener((command, tab) => {
     stats.commands.push(command);
-    // TODO(capture area): route each command (screenshot mode, tab recording, instant replay, recording link).
+    // routed by lib/bg/ui.ts (ext-ui)
     console.debug('[nib] command', command as CommandName, tab?.id);
   });
 
   browser.runtime.onMessage.addListener((msg: BgRequest, _sender, reply) => {
     if (msg?.type === 'status') {
       reply({ ok: true, stats });
-      return true;
-    }
-    if (msg?.type === 'capture') {
-      // TODO(capture area): start the chosen capture mode on the active tab.
-      reply({ ok: false, error: 'not_implemented' });
       return true;
     }
     return false;
