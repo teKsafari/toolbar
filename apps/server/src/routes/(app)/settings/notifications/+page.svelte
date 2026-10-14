@@ -20,7 +20,7 @@
   ];
 
   async function set(patch: Partial<UserSettings['notifications']>) {
-    const before = structuredClone(n);
+    const before = $state.snapshot(n);
     Object.assign(n, patch);
     try {
       const r = await api<UserSettings>('account.updateSettings', { body: { notifications: patch } });

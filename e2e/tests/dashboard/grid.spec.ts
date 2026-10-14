@@ -3,6 +3,9 @@
 import { test, expect, type Browser, type Page } from '@playwright/test';
 import { SERVER, go, launch, newContext, signIn, toast } from './helpers.ts';
 
+// One account and page for the whole file; a failure skips the rest instead of re-running setup.
+test.describe.configure({ mode: 'serial' });
+
 let browser: Browser;
 let page: Page;
 const SAM = '019a0000-0000-7000-8000-000000000002';

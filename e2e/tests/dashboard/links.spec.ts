@@ -3,6 +3,9 @@ import { test, expect, type Browser, type Page } from '@playwright/test';
 import { mailTo } from '../auth/helpers.ts';
 import { SERVER, go, json, launch, me, newContext, signIn, toast, uniqueEmail } from './helpers.ts';
 
+// One account and page for the whole file; a failure skips the rest instead of re-running setup.
+test.describe.configure({ mode: 'serial' });
+
 let browser: Browser;
 let page: Page;
 let email: string;

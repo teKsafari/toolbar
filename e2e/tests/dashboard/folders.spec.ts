@@ -7,6 +7,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SERVER, dropVideo, go, json, launch, me, newContext, signIn, toast, uniqueEmail } from './helpers.ts';
 
+// One account and page for the whole file; a failure skips the rest instead of re-running setup.
+test.describe.configure({ mode: 'serial' });
+
 let browser: Browser;
 let page: Page;
 let mp4: Buffer;
