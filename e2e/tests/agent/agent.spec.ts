@@ -182,7 +182,8 @@ test('J-153 markdown summary for plain fetches, and the Link header on the HTML'
   expect(text).toContain(`${SERVER}/mcp`);
   const neg = await page.request.get(`${SERVER}/s/${SHARE_C3}`, { headers: { accept: 'text/markdown' } });
   expect(await neg.text()).toBe(text);
-  const html = await page.request.get(`${SERVER}/s/${SHARE_C3}`, { headers: { accept: 'text/html' }, failOnStatusCode: false });
+  // signed out, as a plain fetch is (a member is sent on to /c/<id> instead)
+  const html = await page.request.get(`${SERVER}/s/${SHARE_C3}`, { headers: { accept: 'text/html', cookie: '' }, maxRedirects: 0, failOnStatusCode: false });
   expect(html.headers()['link']).toContain(`<${SERVER}/s/${SHARE_C3}.md>; rel="alternate"; type="text/markdown"`);
   const missing = await page.request.get(`${SERVER}/s/AAAAAAAAAAAAAAAAAAAAAA.md`, { failOnStatusCode: false });
   expect(missing.status()).toBe(404);

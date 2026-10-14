@@ -590,6 +590,8 @@ const handlers: Handlers = {
       return { session };
     }
     await settingsFor(tabId);
+    // a finished error (failed start, stop or upload) never blocks the next capture (J-196)
+    if (session.state === 'error') await dispatch({ type: 'CANCEL' });
     const s = session;
     if (req.mode === 'screenshot') {
       if (s.state === 'arming-screenshot') return { session: await dispatch({ type: 'CANCEL' }) };
@@ -881,6 +883,8 @@ export interface TbUiHooks {
   command(name: string, tabId: number): Promise<void>;
   /** replace settings with defaults plus a patch */
   setSettings(patch: Partial<ExtensionSettings>): Promise<ExtensionSettings>;
+  /** run one of this module's request handlers as if a page sent it (capture e2e drives the real flows) */
+  request(type: string, req: unknown, sender?: Sender): Promise<unknown>;
 }
 
 // ---------------------------------------------------------------- registration
@@ -957,6 +961,11 @@ export function registerUi() {
         const next = { ...defaultSettings(), ...patch };
         await writeStore('settings', next);
         return next;
+      },
+      request: (type, req, sender = {}) => {
+        const h = handlers[type as BgRequestType] as Handler<BgRequestType> | undefined;
+        if (!h) return Promise.reject(new BgFailure('not_found', `no handler for ${type}`));
+        return h(req as never, sender);
       },
     };
     (globalThis as unknown as { __tbUi: TbUiHooks }).__tbUi = hooks;

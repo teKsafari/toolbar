@@ -92,11 +92,12 @@ test('tab video: countdown, viewport-only video, pause, navigation, upload while
   const { rrweb } = await draftWithBlobs(sw, d.draftId);
   expect((rrweb as { type: number }[]).some((r) => r.type === 2)).toBe(true);
   // create: the remaining chunks, events and rrweb upload, every stream completes, finalize
+  const videoBytes = Number((await draftWithBlobs(sw, d.draftId)).blobSizes.videoBlobId);
   const res = await svc<{ recordingId: string }>(sw, 'createFromDraft', d.draftId, { title: 'Video' });
   expect(res.recordingId).toBe(serverId);
   const cap = mock.captures.get(serverId)!;
   expect(Object.keys(cap.completed).sort()).toEqual(['events', 'rrweb', 'video']);
-  expect(mock.bytes(serverId, 'video').length).toBe(Number((await draftWithBlobs(sw, d.draftId)).blobSizes.videoBlobId));
+  expect(mock.bytes(serverId, 'video').length).toBe(videoBytes);
   expect(cap.finalized).toMatchObject({ title: 'Video', durationMs: Math.round(durationMs) });
   await page.close();
 });
@@ -142,8 +143,10 @@ test('stop timeout: error state, bar and spinner leave, the draft still lands in
   // a 1 ms budget stands in for a stuck stop (60 s in the product)
   await sw.evaluate(() => ((globalThis as unknown as { __tb: { capture: { stopTimeoutMs: number } } }).__tb.capture.stopTimeoutMs = 1));
   try {
+    // past the budget the session owner (ext-ui) shows the error as a toast and frees the session
     await svc(sw, 'stopRecording');
-    await expect.poll(async () => (await session(sw)) as { state: string; error?: string }, { timeout: 5000 }).toMatchObject({ state: 'error', error: 'stop_timeout' });
+    await expect.poll(() => sw.evaluate(() => (globalThis as unknown as { __tbUi: { stats(): { errors: string[] } } }).__tbUi.stats().errors.at(-1) ?? ''), { timeout: 5000 }).toContain('Processing took too long');
+    expect((await session(sw)).state).toBe('idle');
     // processing ends anyway: the draft is kept for the Drafts list
     await expect
       .poll(() => sw.evaluate(() => (globalThis as unknown as { __tb: { capture: { stats: { drafts: string[] } } } }).__tb.capture.stats.drafts.length), { timeout: 10_000 })
@@ -152,12 +155,10 @@ test('stop timeout: error state, bar and spinner leave, the draft still lands in
     const { draft, blobSizes } = await draftWithBlobs(sw, draftId);
     expect(draft).toMatchObject({ kind: 'video' });
     expect(blobSizes.videoBlobId).toBeGreaterThan(1000);
-    expect((await session(sw)).state).toBe('error'); // stays an error until dismissed or a new capture starts
     await sw.evaluate(() => ((globalThis as unknown as { __tb: { capture: { stopTimeoutMs: number } } }).__tb.capture.stopTimeoutMs = 60_000));
-    // dismiss returns to idle
-    expect(((await svc<{ state: string }>(sw, 'dismissError')) as { state: string }).state).toBe('idle');
-    // and a fresh error never blocks the next capture
-    await svc(sw, 'apply', { type: 'FAIL', error: 'media', message: 'test' });
+    // an error left in the session never blocks the next capture
+    await sw.evaluate(() => (globalThis as unknown as { __tbUi: { dispatch(e: unknown): Promise<unknown> } }).__tbUi.dispatch({ type: 'FAIL', error: 'media', message: 'test' }));
+    expect((await session(sw)).state).toBe('error');
     const next = await svc<{ state: string }>(sw, 'startRecording', { tabId, delaySec: 0 });
     expect(['countdown', 'starting', 'recording']).toContain(next.state);
     await waitState(sw, 'recording', 10_000);

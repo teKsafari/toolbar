@@ -214,6 +214,8 @@ export interface CaptureBridge {
   draftClosed?(draftId: string, how: 'created' | 'discarded' | 'saved'): Promise<void>;
   /** A draft reopened from the Drafts list (draft.open): the session holds it again. Returns true when the session owner opens the editor itself. */
   draftOpened?(draft: Draft): Promise<boolean>;
+  /** Discard (J-189): delete the server copy made while recording and the queued upload rows. */
+  discardData?(draft: Draft): Promise<void>;
 }
 let bridge: CaptureBridge = {};
 
@@ -257,6 +259,9 @@ export async function createFromDraft(args: CreateArgs): Promise<{ recordingId: 
           folderId: args.finalize.folderId ?? undefined,
           page: { url: d.pageUrl, title: d.pageTitle },
           startedAt: (d as Draft & { startedAt?: number }).startedAt ?? d.createdAt,
+          // what the capture area recorded: browser and page facts, length
+          ...(d.env ? { env: d.env } : {}),
+          ...(d.durationMs != null ? { durationMs: Math.round(d.durationMs) } : {}),
         },
       });
       recordingId = created.id;
@@ -268,6 +273,9 @@ export async function createFromDraft(args: CreateArgs): Promise<{ recordingId: 
     if (bridge.uploadStreams) await bridge.uploadStreams(d, recordingId);
 
     const finalize: FinalizeCaptureBody = { ...args.finalize, workspaceId: workspaceId ?? undefined };
+    // custom metadata (J-073) and the length come with the draft unless the editor set them
+    if (d.metadata && !finalize.metadata) finalize.metadata = d.metadata;
+    if (finalize.durationMs === undefined && d.durationMs != null) finalize.durationMs = Math.round(d.durationMs);
     if (d.kind === 'screenshot') {
       const shotId = args.flatBlobId ?? d.screenshotBlobId;
       const shot = shotId ? await getBlob(shotId) : undefined;
@@ -398,6 +406,8 @@ export const draftHandlers: Handlers = {
   'draft.update': async ({ draftId, patch }) => ({ draft: await updateDraft(draftId, patch) }),
   'draft.create': async ({ draftId, finalize }) => createFromDraft({ draftId, finalize }),
   'draft.discard': async ({ draftId }, sender) => {
+    const before = await getDraft(draftId);
+    if (before) await bridge.discardData?.(before).catch((e: unknown) => console.warn('[nib] capture bridge discardData failed', e));
     const d = await deleteDraft(draftId);
     await closed(draftId, 'discarded');
     const tab = d?.tabId ?? sender.tab?.id;

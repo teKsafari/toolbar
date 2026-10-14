@@ -6,15 +6,17 @@
 // streams kept locally until create (lib/bg/drafts.ts). Other request types are left to the
 // other areas' listeners (this listener returns false for them).
 import { browser, type Browser } from 'wxt/browser';
-import { isOffscreenEvent, CAPTURE_PORT, type BgRequest, type BgRequestType, type BgError, type Draft } from '@toolbar/shared/ext';
+import { isOffscreenEvent, CAPTURE_PORT, type BgRequest, type BgRequestType, type BgError, type Draft, type RecordMode } from '@toolbar/shared/ext';
+import type { Rect } from '@toolbar/shared';
 import { STORAGE } from '@toolbar/shared/ext';
 import { TEST_HOOKS } from '../flags';
 import { CaptureError, CaptureService } from '../capture/service';
 import { HttpError } from '../upload/client';
-import { uploadDraftStreams } from '../upload/draft';
+import { discardDraftData, uploadDraftStreams } from '../upload/draft';
 import { getAuth, serverUrl } from '../capture/store';
 import { BgFailure, dispatch, getSession, requestStop, setCaptureDriver, type CaptureDriver, type DraftHandle } from './ui';
-import { setCaptureBridge } from './drafts';
+import { draftHandlers, getDraft, setCaptureBridge } from './drafts';
+import type { TbUiHooks } from './ui';
 
 /** CaptureError and HTTP failures as ext-ui's BgFailure (its handlers read `code`). */
 function asBgFailure(e: unknown): BgFailure {
@@ -75,6 +77,12 @@ export function setupCapture(): CaptureService {
         await dispatch({ type: 'CREATE', recordingId: ('recordingId' in s && s.recordingId) || draftId });
         await dispatch({ type: 'UPLOAD_DONE' });
       }
+    },
+    // J-189: discard deletes the unlisted server capture and the queued chunks
+    async discardData(draft) {
+      const a = await getAuth();
+      const auth = a?.token ? { serverUrl: a.serverUrl || (await serverUrl()), token: a.token } : null;
+      await discardDraftData(draft, auth);
     },
     // a draft reopened from the Drafts list holds the session again while its editor is open
     async draftOpened(d) {
@@ -155,8 +163,50 @@ export function setupCapture(): CaptureService {
   if (TEST_HOOKS) {
     // background.ts assigns globalThis.__tb after the area setups run; extend it afterwards.
     queueMicrotask(() => {
-      const g = globalThis as unknown as { __tb?: Record<string, unknown> };
-      g.__tb = { ...(g.__tb ?? {}), capture: svc, captureStats: () => structuredClone(svc.stats) };
+      const g = globalThis as unknown as { __tb?: Record<string, unknown>; __tbUi?: TbUiHooks };
+      const ui = g.__tbUi!;
+      const draftOf = async (id: string | undefined) => (id ? ((await getDraft(id)) ?? null) : null);
+      const drafts = draftHandlers as Record<string, (req: unknown, sender: object) => Promise<unknown>>;
+      // The capture flows as the product runs them: ext-ui's request handlers own the session,
+      // this service does the media work underneath (capture e2e).
+      const flow = {
+        // live states carry the id the media uploads under (the server id once created)
+        async session() {
+          const s = await ui.session();
+          return 'recordingId' in s && s.recordingId && s.state !== 'draft' && s.state !== 'uploading' ? { ...s, recordingId: svc.mediaIdOf(s.recordingId) } : s;
+        },
+        async startRecording(o: { tabId?: number; mode?: RecordMode } = {}) {
+          return ((await ui.request('capture', { mode: 'video', tabId: o.tabId, ...(o.mode ? { recordMode: o.mode } : {}) })) as { session: unknown }).session;
+        },
+        async stopRecording() {
+          return ((await ui.request('recording.stop', {})) as { session: unknown }).session;
+        },
+        pauseRecording: () => ui.request('recording.pause', {}),
+        resumeRecording: () => ui.request('recording.resume', {}),
+        async setMic(muted?: boolean, deviceId?: string) {
+          return ((await ui.request('recording.mic', { muted, deviceId })) as { mic: unknown }).mic;
+        },
+        async takeScreenshot(rect: Rect | null, o: { tabId?: number } = {}) {
+          const tabId = o.tabId ?? (await browser.tabs.query({ active: true, lastFocusedWindow: true }))[0]?.id;
+          if ((await ui.session()).state === 'error') await ui.dispatch({ type: 'CANCEL' });
+          await ui.dispatch({ type: 'ARM_SCREENSHOT', tabId: tabId!, delaySec: 0, now: Date.now() });
+          const r = (await ui.request('screenshot.take', { rect, dpr: 1 }, { tab: { id: tabId } })) as { draftId: string };
+          return draftOf(r.draftId);
+        },
+        async triggerReplay(tabId?: number) {
+          const s = ((await ui.request('capture', { mode: 'replay', tabId })) as { session: { draftId?: string } }).session;
+          return draftOf(s.draftId);
+        },
+        discardDraft: (draftId: string) => drafts['draft.discard']!({ draftId }, {}),
+        async createFromDraft(draftId: string, finalize: Record<string, unknown>) {
+          return drafts['draft.create']!({ draftId, finalize }, {});
+        },
+        async dismissError() {
+          const s = await ui.session();
+          return s.state === 'error' ? ui.dispatch({ type: 'CANCEL' }) : s;
+        },
+      };
+      g.__tb = { ...(g.__tb ?? {}), capture: svc, flow, captureStats: () => structuredClone(svc.stats) };
     });
   }
   return svc;

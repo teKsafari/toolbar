@@ -64,7 +64,8 @@ test('instant replay: DOM replay of the recent past, trimmed to the last 30 s, l
     const ev = events as { kind: string; data: Record<string, unknown> }[];
     expect(ev.some((e) => e.kind === 'net.res' && e.data.status === 500)).toBe(true);
     expect(ev.some((e) => e.kind === 'error')).toBe(true);
-    expect((await sent(sw)).map((x) => x.c.type)).toContain('ui.editor-open');
+    // the session owner (ext-ui) holds the draft and opens its editor
+    expect(await session(sw)).toMatchObject({ state: 'draft', draftId: draft.id });
     expect(mock.log).toEqual([]); // the replay buffer never uploads before create
     const res = await svc<{ recordingId: string }>(sw, 'createFromDraft', draft.id, { title: 'Replay' });
     const cap = mock.captures.get(res.recordingId)!;
@@ -144,16 +145,15 @@ test('the recording bar comes back after a reload with the same start time; spin
   const rec = (await waitState(sw, 'recording', 10_000)) as { startedAt: number };
   await page.reload();
   await sleep(1500);
-  const bars = (await sent(sw)).filter((x) => x.c.type === 'ui.bar' && x.c.bar);
-  expect(bars.length).toBeGreaterThanOrEqual(2); // at start, and again for the new document
-  expect(bars.every((b) => (b.c.bar as { startedAt: number }).startedAt === rec.startedAt)).toBe(true);
+  // The bar is ext-ui's (ui.session); its own e2e checks it on the new document. Here: the
+  // recording goes on across the reload with the same start time, and the media side re-attaches
+  // the new document's ports (attach), so its logs keep flowing into the recording.
+  const after = (await session(sw)) as { state: string; startedAt: number };
+  expect(after).toMatchObject({ state: 'recording', startedAt: rec.startedAt });
   await svc(sw, 'stopRecording');
-  await waitState(sw, 'draft', 5000);
-  const types = (await sent(sw)).map((x) => (x.c.type === 'ui.processing' ? `processing:${x.c.visible}` : x.c.type === 'ui.bar' ? `bar:${x.c.bar ? 'on' : 'off'}` : x.c.type));
-  const tail = types.slice(types.indexOf('processing:true'));
-  expect(tail).toEqual(expect.arrayContaining(['processing:true', 'bar:off', 'processing:false', 'ui.editor-open']));
-  expect(tail.indexOf('ui.editor-open')).toBeGreaterThan(tail.indexOf('processing:false'));
-  const s = (await session(sw)) as unknown as { draftId: string };
+  const s = (await waitState(sw, 'draft', 5000)) as unknown as { draftId: string };
+  const { events } = await draftWithBlobs(sw, s.draftId);
+  expect((events as { kind: string; data: { type?: string } }[]).filter((e) => e.kind === 'nav' && e.data.type === 'load').length).toBeGreaterThanOrEqual(1);
   await svc(sw, 'discardDraft', s.draftId);
   await page.close();
 });

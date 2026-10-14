@@ -2,7 +2,7 @@
 // through AgentSlot.svelte). Sam starts with no connected agent: the tab shows the setup prompt; after
 // Sam approves an agent the presets carry the capture URL. Then that agent comments at a video time
 // and reacts, and the capture page shows the time chip and the reaction. Link viewers get the setup
-// prompt with the share URL. Skips until the viewer's capture page is merged in.
+// prompt with the share URL.
 import { createHash, randomBytes } from 'node:crypto';
 import { expect, test, chromium, type Page } from '@playwright/test';
 import { SERVER, hydrated, signInWithPassword } from '../auth/helpers.ts';
@@ -56,10 +56,7 @@ test('J-152 agent tab: setup prompt until an agent connects, then presets with t
   await signInWithPassword(page, 'sam@nib.test', 'nib-dev-password');
   await page.goto(`${SERVER}/c/${C1}`);
   await hydrated(page);
-  if (!(await page.getByTestId('tab-agent').count())) {
-    await browser.close();
-    test.skip(true, 'the viewer area capture page is not merged yet');
-  }
+  await expect(page.getByTestId('tab-agent')).toBeVisible();
 
   // revoke any agent Sam connected in an earlier run, so the tab starts at the setup prompt
   await page.goto(`${SERVER}/settings/mcp`);

@@ -99,7 +99,10 @@ test.describe('member', () => {
     await expect(page.getByTestId('share-full')).toBeVisible();
     await page.getByTestId('share-content').click();
     const url = await clipboard(page);
-    expect(url.startsWith(shareUrl(IDS.commented))).toBe(true);
+    // since the merge the content-only link is server-core's own link (its own token, dev tools
+    // refused on the server), not the full link with ?devtools=0
+    expect(url).toMatch(/\/s\/[A-Za-z0-9_-]{16,64}$/);
+    expect(url.startsWith(shareUrl(IDS.commented))).toBe(false);
     const anon = await context.browser()!.newContext();
     const p2 = await anon.newPage();
     await open(p2, url);

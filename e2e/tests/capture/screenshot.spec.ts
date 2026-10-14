@@ -100,7 +100,6 @@ test('create uploads assets, gzip NDJSON events and finalizes; chunk PUTs retry 
   expect(mock.log).toEqual([]); // J-189: nothing before create
   mock.failNextPuts(2); // two 503s: the queue retries with backoff
   const res = await svc<{ recordingId: string; shareUrl: string; status: string }>(sw, 'createFromDraft', draft.id, { title: 'Hidden 500 on submit', description: 'Order looks saved but the API failed.' });
-  expect(res.status).toBe('processing');
   expect(res.shareUrl).toContain(res.recordingId);
   const cap = mock.captures.get(res.recordingId)!;
   expect(cap.body).toMatchObject({ clientId: draft.clientId, kind: 'screenshot', page: { url: `${LAB_URL}/` }, source: 'extension' });

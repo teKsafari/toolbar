@@ -132,10 +132,18 @@ export function byKind(slice: RingSlice, kind: string) {
 }
 
 /** Runs a method of the worker's CaptureService and returns its JSON-safe result. */
+/**
+ * Calls the capture service in the worker. Since the merge, the session belongs to ext-ui's
+ * store (lib/bg/ui.ts): the session-changing methods go through `__tb.flow`, which runs ext-ui's
+ * request handlers (and the editor's draft handlers) over the capture driver, as the product
+ * does. Media-only methods (setReplay, prune, requestMic, drainAll) call the service directly.
+ */
 export async function svc<T = unknown>(sw: Worker, method: string, ...args: unknown[]): Promise<T> {
   return (await sw.evaluate(
     async ({ method, args }) => {
-      const s = (globalThis as unknown as { __tb: { capture: Record<string, (...a: unknown[]) => Promise<unknown>> } }).__tb.capture;
+      type Fns = Record<string, (...a: unknown[]) => Promise<unknown>>;
+      const tb = (globalThis as unknown as { __tb: { capture: Fns; flow: Fns } }).__tb;
+      const s = method in tb.flow ? tb.flow : tb.capture;
       const r = await s[method]!.apply(s, args);
       return JSON.parse(JSON.stringify(r ?? null));
     },
@@ -143,9 +151,10 @@ export async function svc<T = unknown>(sw: Worker, method: string, ...args: unkn
   )) as T;
 }
 
+/** The capture session as the product sees it (ext-ui's store). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function session(sw: Worker): Promise<{ state: string; [k: string]: any }> {
-  return sw.evaluate(() => (globalThis as unknown as { __tb: { capture: { getSession(): { state: string } } } }).__tb.capture.getSession()) as never;
+  return sw.evaluate(() => (globalThis as unknown as { __tb: { flow: { session(): Promise<{ state: string }> } } }).__tb.flow.session()) as never;
 }
 
 /** Reads a draft and the text of one of its blobs from IndexedDB in the worker. */

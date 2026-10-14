@@ -60,10 +60,11 @@
 
   {#if store.loading}
     <div class="loading" data-popup-loading><Icon name="spinner" size={18} /></div>
+  {:else if !store.signedIn && (store.screen === 'main' || store.screen === 'link' || store.screen === 'drafts')}
+    <!-- signed out, sign-in comes first on any page (X-05); a restricted page says so once signed in -->
+    <SignedOut />
   {:else if restricted && store.screen === 'main'}
     <Restricted />
-  {:else if !store.signedIn && (store.screen === 'main' || store.screen === 'link' || store.screen === 'drafts')}
-    <SignedOut />
   {:else if store.screen === 'settings'}
     <Settings />
   {:else if store.screen === 'sites'}
