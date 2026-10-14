@@ -70,7 +70,7 @@ export async function search(db: Db, q: Q, ctx: { workspaceId: string; userId: s
     { field: 'title', cond: sql`${recording.title} ILIKE ${like}` },
     { field: 'description', cond: sql`${recording.description} ILIKE ${like}` },
     { field: 'url', cond: sql`${recording.pageUrl} ILIKE ${like}` },
-    { field: 'author', cond: sql`${recording.authorName} ILIKE ${like}` },
+    { field: 'author', cond: sql`(${recording.authorName} ILIKE ${like} OR EXISTS (SELECT 1 FROM "user" au WHERE au.id = ${recording.authorUserId} AND au.name ILIKE ${like}))` },
     { field: 'comment', cond: sql`EXISTS (SELECT 1 FROM comment c WHERE c.recording_id = ${recording.id} AND c.deleted_at IS NULL AND c.body ILIKE ${like})` },
     { field: 'transcript', cond: sql`EXISTS (SELECT 1 FROM transcript t WHERE t.recording_id = ${recording.id} AND t.vtt ILIKE ${like})` },
     { field: 'issue', cond: sql`EXISTS (SELECT 1 FROM linked_issue li WHERE li.recording_id = ${recording.id} AND (li.key ILIKE ${like} OR li.url ILIKE ${like}))` },
@@ -95,7 +95,7 @@ export async function search(db: Db, q: Q, ctx: { workspaceId: string; userId: s
     else if (r.title.toLowerCase().includes(lower)) match = { field: 'title', snippet: snippet(r.title, text) };
     else if (r.description.toLowerCase().includes(lower)) match = { field: 'description', snippet: snippet(r.description, text) };
     else if (r.pageUrl?.toLowerCase().includes(lower)) match = { field: 'url', snippet: r.pageUrl };
-    else if (r.authorName?.toLowerCase().includes(lower)) match = { field: 'author', snippet: r.authorName };
+    else if ((summaries[i]!.authorName ?? r.authorName)?.toLowerCase().includes(lower)) match = { field: 'author', snippet: summaries[i]!.authorName ?? r.authorName ?? '' };
     else {
       const [c] = (await db.execute(sql`SELECT body FROM comment WHERE recording_id = ${r.id} AND deleted_at IS NULL AND body ILIKE ${like} LIMIT 1`)) as unknown as { body: string }[];
       if (c) match = { field: 'comment', snippet: snippet(c.body, text) };
