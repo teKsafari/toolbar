@@ -12,15 +12,18 @@ A new session reads this file first.
 5. Second agent reviews the catalogue against Jam (gate 1).
 
 ### Done
-- Scaffolding.
-- Lab app in `lab/`, running as the `toolbar-lab` user service on :5173 (and :5174).
+- Scaffolding, lab app (`lab/`, user service `toolbar-lab` on :5173 and :5174).
+- Seven browser sessions with Jam plus public-doc research; raw notes in `research/jam-private/notes/` (gitignored).
+- `docs/jam/`: catalogue (237 rows after three review rounds: P0 73, P1 91, P2 73), flows, capture, ergonomics, agent-output, untested.
+- `docs/research/owner-taste.md` (Agentation and Vercel Toolbar ergonomics, for Part 2).
+- `docs/architecture.md` (step 2 design) and `docs/spikes.md` (capture spikes S1, S2 and extras: all work, with caveats).
 
-### Not done
-- Everything else above.
+### In flight (2026-10-14)
+- Workflow `jam-gate1`: fresh reviewers with three lenses until a round finds no P0/P1 gap, plus a clean-room text audit of `docs/jam/`.
 
-### In flight (2026-10-13)
-- Workflow `jam-step1-catalogue`: seven serial browser sessions with Jam (popup and capture, annotation, capture per lab case, viewer and sharing, dashboard, MCP and agent output, flows and speed), public-doc research, owner-taste research (Agentation, Vercel Toolbar), then catalogue writing and an independent review loop for gate 1. Raw notes: `research/jam-private/notes/` (gitignored).
-- Architecture design for step 2: `docs/architecture.md`.
+### Next
+- Step 2: build the replica per `docs/architecture.md`, one agent per area in worktrees.
 
-### Owner status
-- Logged in to Jam; extension installed and pinned. Owner asked for end-to-end execution without steering (D-005).
+### Machine notes
+- Installed on this machine only via nix profile: xdotool, imagemagick, xvfb, openbox, ffmpeg-headless.
+- Owner decisions: D-005 (no steering; Nuru as test target; Agentation and Vercel Toolbar taste), D-016 (no mobile or desktop apps).
