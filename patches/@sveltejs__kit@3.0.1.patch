@@ -1,0 +1,21 @@
+diff --git a/src/exports/vite/plugins/guard.js b/src/exports/vite/plugins/guard.js
+index d661f8a929ff168b8e9b3e66e5927c8a02a34e67..d0b47dc80ffb0b915d381e77effe45082f72b11c 100644
+--- a/src/exports/vite/plugins/guard.js
++++ b/src/exports/vite/plugins/guard.js
+@@ -113,11 +113,14 @@ export function plugin_guard(kit, get_config, get_manifest_data) {
+ 				// skip .server.js files outside the cwd or in node_modules, as the filename might not mean 'server-only module' in this context
+ 				if (id.startsWith(normalized_cwd + '/') && !id.startsWith(normalized_node_modules + '/')) {
+ 					// e.g. `server.ts` or `foo.server.ts`
+-					is_server_only ||= server_only_module_pattern.test(id);
++					// toolbar patch: test the path relative to the project, so a project that
++					// lives in a folder named `server` (apps/server) is not all server-only
++					const rel = id.slice(normalized_cwd.length);
++					is_server_only ||= server_only_module_pattern.test(rel);
+ 
+ 					// e.g. `server/foo.ts`, unless in `src/routes` or `static`
+ 					is_server_only ||=
+-						server_only_directory_pattern.test(id) &&
++						server_only_directory_pattern.test(rel) &&
+ 						!id.startsWith(normalized_routes + '/') &&
+ 						!id.startsWith(normalized_assets + '/');
+ 				}

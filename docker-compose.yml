@@ -1,0 +1,97 @@
+# Full stack: docker compose up --build
+# Dev defaults work on a clean machine. For a real deploy, copy .env.example to .env and
+# set every variable marked "!" there (scripts/gen-secrets.sh writes random values).
+name: toolbar
+
+services:
+  server:
+    build: { context: ., dockerfile: apps/server/Dockerfile }
+    ports: ["${PORT:-3000}:3000"]
+    environment:
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
+      ORIGIN: ${PUBLIC_URL:-http://localhost:3000}
+      BODY_SIZE_LIMIT: 16M
+      DATABASE_URL: postgres://toolbar:${POSTGRES_PASSWORD:-toolbar}@postgres:5432/toolbar
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-only-change-me-0000000000000000}
+      S3_ENDPOINT: http://garage:3900
+      S3_REGION: garage
+      S3_BUCKET: ${S3_BUCKET:-toolbar}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-GK000000000000000000000000}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
+      TRANSCRIBE_PROVIDER: ${TRANSCRIBE_PROVIDER:-whispercpp}
+      WHISPER_URL: http://whisper:8080
+      STT_URL: ${STT_URL:-}
+      STT_API_KEY: ${STT_API_KEY:-}
+      SMTP_URL: ${SMTP_URL:-smtp://mailpit:1025}
+      MAIL_FROM: ${MAIL_FROM:-Nib <nib@localhost>}
+      EXTENSION_IDS: ${EXTENSION_IDS:-fmongfmimgdafigcahdpofnmmhljpnei}
+      AUTH_EMAIL_PASSWORD: ${AUTH_EMAIL_PASSWORD:-true}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      OIDC_1_ID: ${OIDC_1_ID:-}
+      OIDC_1_NAME: ${OIDC_1_NAME:-}
+      OIDC_1_DISCOVERY_URL: ${OIDC_1_DISCOVERY_URL:-}
+      OIDC_1_CLIENT_ID: ${OIDC_1_CLIENT_ID:-}
+      OIDC_1_CLIENT_SECRET: ${OIDC_1_CLIENT_SECRET:-}
+      OIDC_1_SCOPES: ${OIDC_1_SCOPES:-}
+      WORKER: ${WORKER:-1}
+    depends_on:
+      postgres: { condition: service_healthy }
+      garage: { condition: service_healthy }
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: toolbar
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-toolbar}
+      POSTGRES_DB: toolbar
+    ports: ["${POSTGRES_PORT:-5432}:5432"]
+    volumes: [pg:/var/lib/postgresql]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U toolbar -d toolbar"], interval: 2s, timeout: 3s, retries: 30 }
+    restart: unless-stopped
+
+  garage:
+    image: dxflrs/garage:v2.4.1
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    environment:
+      GARAGE_CONFIG_FILE: /etc/garage.toml
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:-0000000000000000000000000000000000000000000000000000000000000000}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-dev-admin-token}
+      GARAGE_DEFAULT_ACCESS_KEY: ${S3_ACCESS_KEY_ID:-GK000000000000000000000000}
+      GARAGE_DEFAULT_SECRET_KEY: ${S3_SECRET_ACCESS_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      GARAGE_DEFAULT_BUCKET: ${S3_BUCKET:-toolbar}
+    ports: ["${S3_PORT:-3900}:3900"]
+    volumes:
+      - ./deploy/garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    healthcheck: { test: ["CMD", "/garage", "bucket", "info", "${S3_BUCKET:-toolbar}"], interval: 3s, timeout: 5s, retries: 40 }
+    restart: unless-stopped
+
+  whisper:
+    image: ghcr.io/ggml-org/whisper.cpp:main@sha256:9f6bf30782c0c4f431571a7e3da572a84769aec6381580df0249e252dfc0aa18
+    entrypoint: ["bash", "-c"]
+    command:
+      - >-
+        [ -f /models/ggml-$${WHISPER_MODEL}.bin ] || /app/models/download-ggml-model.sh $${WHISPER_MODEL} /models;
+        exec whisper-server --host 0.0.0.0 --port 8080 --convert -m /models/ggml-$${WHISPER_MODEL}.bin
+    environment:
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}
+    ports: ["${WHISPER_PORT:-8080}:8080"]
+    volumes: [whisper-models:/models]
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:v1.31.5
+    ports: ["${MAILPIT_UI_PORT:-8025}:8025", "${SMTP_PORT:-1025}:1025"]
+    restart: unless-stopped
+
+volumes:
+  pg: {}
+  garage-meta: {}
+  garage-data: {}
+  whisper-models: {}

@@ -8,3 +8,7 @@ allowBuilds:
   esbuild: true
   "@tailwindcss/oxide": false
   spawn-sync: false
+minimumReleaseAgeExclude:
+  - '@aws-sdk/client-s3@3.1151.0'
+patchedDependencies:
+  '@sveltejs/kit@3.0.1': patches/@sveltejs__kit@3.0.1.patch

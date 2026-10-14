@@ -1,0 +1,22 @@
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--nb-bg);
+  color: var(--nb-text);
+  font: var(--nb-text-base) / var(--nb-leading-normal) var(--nb-font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--nb-accent-text); }
+h1 { font-size: var(--nb-text-2xl); font-weight: var(--nb-weight-semibold); margin: 0 0 var(--nb-space-4); }
+h2 { font-size: var(--nb-text-lg); font-weight: var(--nb-weight-semibold); margin: 0 0 var(--nb-space-2); }
+.muted { color: var(--nb-text-muted); }
+.empty {
+  display: grid; place-items: center; gap: var(--nb-space-2); padding: 64px 16px;
+  color: var(--nb-text-muted); text-align: center;
+}
+input[type='text'], input[type='email'], input[type='password'] {
+  height: var(--nb-control-lg); padding: 0 var(--nb-space-3); width: 100%;
+  border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md);
+  background: var(--nb-surface); color: var(--nb-text); font: inherit;
+}
+input:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
