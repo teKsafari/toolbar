@@ -74,7 +74,7 @@ test('X-05: signed out, the auth window shows the login page and returns to the 
   await showPassword(win);
   await win.getByLabel('Work email').fill(email);
   await win.getByLabel('Password').fill('extension window pass');
-  await win.getByRole('button', { name: 'Continue' }).click();
+  await win.getByRole('button', { name: 'Continue', exact: true }).click();
   expect(await signIn).toMatchObject({ ok: true, user: { email } });
   expect(await bg(ext, { type: 'auth.signOut' })).toMatchObject({ ok: true });
   await ext.close();

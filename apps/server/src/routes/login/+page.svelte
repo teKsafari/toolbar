@@ -48,7 +48,7 @@
             <input type="hidden" name="provider" value={p.id} />
             <input type="hidden" name="next" value={data.next} />
             <Button type="submit" size="lg" class="full" data-provider={p.id}>
-              <span class="pmark" aria-hidden="true">{p.name.slice(0, 1)}</span>Continue with {p.name}
+              Continue with {p.name}
             </Button>
           </form>
         {/each}
@@ -100,10 +100,7 @@
   h1 { font-size: var(--nb-text-xl); margin: 0; }
   .sub { margin: -4px 0 var(--nb-space-2); color: var(--nb-text-muted); }
   .providers { display: flex; flex-direction: column; gap: var(--nb-space-2); }
-  .pmark {
-    display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
-    background: var(--nb-surface-sunken); color: var(--nb-text-muted); font-size: 11px; font-weight: var(--nb-weight-semibold);
-  }
+  .providers form { display: flex; flex-direction: column; }
   .stack { display: flex; flex-direction: column; gap: var(--nb-space-2); }
   label { font-size: var(--nb-text-md); color: var(--nb-text-muted); margin-top: var(--nb-space-1); }
   :global(.full) { width: 100%; margin-top: var(--nb-space-1); }

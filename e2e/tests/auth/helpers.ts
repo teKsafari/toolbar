@@ -43,7 +43,7 @@ export async function signInByMail(page: Page, email: string, next = '/') {
   await page.goto(`${SERVER}/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`);
   await hydrated(page);
   await page.getByLabel('Work email').fill(email);
-  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Check your inbox' })).toBeVisible();
   const mail = await mailTo(page.request, email, /Sign in/);
   await page.goto(firstUrl(mail.text, `${SERVER}/api/auth/magic-link/verify`));
@@ -56,7 +56,7 @@ export async function signInWithPassword(page: Page, email: string, password: st
   await showPassword(page);
   await page.getByLabel('Work email').fill(email);
   await page.getByLabel('Password').fill(password);
-  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await page.waitForURL((u) => !u.pathname.startsWith('/login'));
 }
 

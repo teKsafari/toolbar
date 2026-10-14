@@ -22,7 +22,7 @@ test('J-217 / X-06: login page, magic link sign-up, personal workspace as admin'
   await page.goto(`${SERVER}/login`);
   await hydrated(page);
   await expect(page.getByRole('heading', { name: /Sign in to/ })).toBeVisible();
-  const cont = page.getByRole('button', { name: 'Continue' });
+  const cont = page.getByRole('button', { name: 'Continue', exact: true });
   await expect(cont).toBeDisabled();
   await page.getByLabel('Work email').fill('not-an-email');
   await expect(cont).toBeDisabled();
@@ -57,7 +57,7 @@ test('J-217: password sign-up and sign-in on the same form', async () => {
   await showPassword(other);
   await other.getByLabel('Work email').fill(email);
   await other.getByLabel('Password').fill('wrong password here');
-  await other.getByRole('button', { name: 'Continue' }).click();
+  await other.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(other.getByRole('alert')).toBeVisible();
 });
 
