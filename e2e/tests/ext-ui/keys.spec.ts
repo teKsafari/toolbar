@@ -60,3 +60,14 @@ test('J-179: Ctrl+Shift+Y opens the popup', async ({ context, sw }) => {
   key('Escape');
   await page.close();
 });
+
+test('J-182: Ctrl+Shift+X opens the replay draft with no popup', async ({ context, sw }) => {
+  await freshState(sw, { settings: { instantReplay: true } });
+  const { page } = await labPage(context);
+  focusBrowser();
+  key('ctrl+shift+x');
+  await expect.poll(async () => (await session(sw)).state).toBe('draft');
+  expect((await session(sw)).kind).toBe('replay');
+  expect((await stats(sw)).popupOpens).toBe(0);
+  await page.close();
+});

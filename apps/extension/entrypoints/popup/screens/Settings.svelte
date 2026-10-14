@@ -137,7 +137,7 @@
     color: var(--nb-text-muted);
     font-size: var(--nb-text-sm);
     line-height: 1.35;
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   .count {
     color: var(--nb-text-muted);

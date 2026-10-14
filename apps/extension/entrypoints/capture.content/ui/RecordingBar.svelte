@@ -202,10 +202,10 @@
     height: 40px;
     min-width: 120px;
     box-sizing: border-box;
-    padding: 0 5px;
+    padding: 0 6px;
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
     border-radius: var(--nb-radius-pill);
     background: var(--nb-chrome);
     color: var(--nb-on-chrome);
@@ -228,8 +228,8 @@
     all: unset;
     position: relative;
     box-sizing: border-box;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     display: grid;
     place-items: center;
     border-radius: 50%;
@@ -264,9 +264,9 @@
     cursor: not-allowed;
   }
   .nb-timer {
-    min-width: 54px;
+    min-width: 58px;
     padding: 0 6px;
-    height: 30px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;

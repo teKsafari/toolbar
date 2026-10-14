@@ -389,3 +389,20 @@ test('X-07: the popup renders with the shared tokens in light and dark', async (
   await popup.close();
   await page.close();
 });
+
+test('empty and error states: no drafts, and a link create with the server down', async ({ context, sw }) => {
+  const { page, tabId } = await labPage(context);
+  await sw.evaluate(() => chrome.storage.local.set({ 'nib:drafts': [{ id: 'gone', kind: 'screenshot', createdAt: 0, updatedAt: 0, host: 'a.com', pageUrl: '', pageTitle: '', title: '', durationMs: null, thumbBlobId: null, recordingId: null, status: 'saved' }] }));
+  await sw.evaluate(() => __tbUi.stub('draft.discard', { ok: true }));
+  const popup = await openPopup(context, tabId);
+  await popup.locator('[data-drafts-pill]').click();
+  await popup.locator('[data-draft-trash="gone"]').click();
+  await popup.locator('[data-draft-trash="gone"]').click();
+  await expect(popup.locator('[data-drafts-empty]')).toBeVisible();
+  await popup.locator('[data-back]').click();
+  await popup.locator('[data-row-main="link"]').click();
+  await popup.locator('[data-link-create]').click();
+  await expect(popup.locator('[data-link-error]')).toHaveText('The server did not answer');
+  await popup.close();
+  await page.close();
+});

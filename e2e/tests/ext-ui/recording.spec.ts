@@ -271,3 +271,18 @@ test('J-008 groundwork: after a navigation mid-recording the bar comes back on t
   await bar(page).locator('[data-nb-stop]').click();
   await page.close();
 });
+
+test('error state: a capture that fails to start shows a toast in the page and leaves no bar', async ({ context, sw }) => {
+  const { page, tabId } = await labPage(context);
+  await sw.evaluate(() => __tbUi.useFakeDriver({ failStart: 'The tab could not be captured' }));
+  await sw.evaluate((id) => __tbUi.command('record-tab', id), tabId);
+  const toast = page.locator(`${UI} .nb-toast[data-kind="error"]`);
+  await expect(toast).toContainText('The tab could not be captured', { timeout: 8000 });
+  await expect.poll(async () => (await session(sw)).state).toBe('idle');
+  await expect(bar(page)).toHaveCount(0);
+  const tb = (await toast.boundingBox())!;
+  const vp = await page.evaluate(() => ({ w: document.documentElement.clientWidth, h: innerHeight }));
+  expect(tb.x + tb.width).toBeGreaterThan(vp.w - 40);
+  expect(tb.y + tb.height).toBeGreaterThan(vp.h - 40);
+  await page.close();
+});
