@@ -406,6 +406,11 @@ export class AnnotatorState {
       case 'marquee': {
         d.box = { x: d.start.x, y: d.start.y, w: p.x - d.start.x, h: p.y - d.start.y };
         this.marquee = normBox(d.box);
+        // a click on empty space is not a marquee (and must not pick the shape it sits inside)
+        if (Math.max(Math.abs(d.box.w), Math.abs(d.box.h)) < 3 * this.unitPerPx) {
+          this.selected = [...d.base];
+          return;
+        }
         const hit = shapesInBox(this.shapes, d.box, this.measure).map((s) => s.id);
         this.selected = [...new Set([...d.base, ...hit])];
         return;

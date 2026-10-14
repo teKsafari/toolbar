@@ -156,7 +156,7 @@
       style="cursor:{cursor}"
       role="application"
       aria-label="Annotation layer"
-      data-tool={st.tool}
+      data-active-tool={st.tool}
       onpointerdown={onDown}
       onpointermove={onMove}
       onpointerup={onUp}

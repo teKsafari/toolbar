@@ -337,3 +337,19 @@ describe('rich text', () => {
     expect(md.description).toContain('2. Pay');
   });
 });
+
+describe('AnnotatorState clicks', () => {
+  it('a click inside a rectangle (not on its outline) selects nothing', () => {
+    const st = new AnnotatorState({ width: 1000, height: 600 });
+    st.setTool('rect');
+    st.pointerDown({ x: 100, y: 100 });
+    st.pointerMove({ x: 300, y: 200 });
+    st.pointerUp({ x: 300, y: 200 });
+    st.pointerDown({ x: 600, y: 500 });
+    st.pointerUp({ x: 600, y: 500 });
+    expect(st.selected).toEqual([]);
+    st.pointerDown({ x: 200, y: 150 });
+    st.pointerUp({ x: 200, y: 150 });
+    expect(st.selected).toEqual([]);
+  });
+});
