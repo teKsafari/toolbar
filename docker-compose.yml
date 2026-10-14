@@ -7,6 +7,8 @@ services:
   server:
     build: { context: ., dockerfile: apps/server/Dockerfile }
     ports: ["${PORT:-3000}:3000"]
+    # webhooks and integrations may point at a service on the host (and the e2e suite's listeners do)
+    extra_hosts: ["host.docker.internal:host-gateway"]
     environment:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
       ORIGIN: ${PUBLIC_URL:-http://localhost:3000}
@@ -28,6 +30,7 @@ services:
       MAIL_FROM: ${MAIL_FROM:-Nib <nib@localhost>}
       EXTENSION_IDS: ${EXTENSION_IDS:-fmongfmimgdafigcahdpofnmmhljpnei}
       AUTH_EMAIL_PASSWORD: ${AUTH_EMAIL_PASSWORD:-true}
+      AUTH_RATE_LIMIT: ${AUTH_RATE_LIMIT:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}

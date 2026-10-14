@@ -17,11 +17,11 @@ async function freshPage(): Promise<Page> {
 
 /**
  * Workspace settings have no API in this area (the settings page is the dashboard's), so the
- * J-124 test flips auto-approve in the area database directly. Needs DATABASE_URL and psql.
+ * J-124 test flips auto-approve in the area database directly. Needs psql; DATABASE_URL names
+ * the database (an area worktree's .env), else the compose one, as the server falls back to.
  */
 function setAutoApprove(workspaceId: string, on: boolean) {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error('DATABASE_URL is not set (load the worktree .env)');
+  const url = process.env.DATABASE_URL ?? 'postgres://toolbar:toolbar@localhost:5432/toolbar';
   execFileSync('psql', [url, '-qc', `update organization set settings = coalesce(settings, '{}'::jsonb) || '{"autoApproveCreators": ${on}}'::jsonb where id = '${workspaceId}'`]);
 }
 

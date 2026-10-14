@@ -94,6 +94,13 @@ describe('derive: network, console, actions', () => {
     expect(page.items.find((r) => r.type === 'websocket')!.wsFrames).toBe(2);
   });
 
+  it('takes the tab from the envelope the worker stamps on desktop recordings (J-224)', () => {
+    const evs = events().map((e) => (e.kind === 'net.req' && (e.data as { rid: string }).rid === 'r2' ? { ...e, tab: 7 } : e));
+    const rows = queryNetwork(prepare(evs, T0, true), {}).items as { rid: string; tabId: number | null }[];
+    expect(rows.find((r) => r.rid === 'r2')?.tabId).toBe(7);
+    expect(rows.find((r) => r.rid === 'r1')?.tabId).toBeNull();
+  });
+
   it('filters network by status class, method and bodies, with headers on request', () => {
     expect(queryNetwork(p, { status: ['5xx'] }).items.map((r) => r.rid)).toEqual(['r1']);
     expect(queryNetwork(p, { status: ['pending'] }).items.map((r) => r.rid)).toEqual(['r3']);

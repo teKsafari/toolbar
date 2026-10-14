@@ -4,6 +4,7 @@
 import { chromium, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { createServer, type IncomingMessage } from 'node:http';
 import { DISPLAY } from '../../fixtures/extension.ts';
+import { callbackHost } from '../../fixtures/net.ts';
 import { SERVER, hydrated, showPassword, uniqueEmail } from '../auth/helpers.ts';
 
 export { SERVER, uniqueEmail };
@@ -64,6 +65,7 @@ export async function toast(page: Page, text: string | RegExp, timeout = 10_000)
 }
 
 /** A small HTTP listener for webhook and Slack deliveries. */
+/** A local HTTP listener that records what it receives (webhook and integration targets). */
 export async function listener() {
   const seen: { url: string; headers: IncomingMessage['headers']; body: string }[] = [];
   let status = 200;
@@ -76,10 +78,10 @@ export async function listener() {
       res.end('{}');
     });
   });
-  await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
+  await new Promise<void>((r) => srv.listen(0, '0.0.0.0', () => r()));
   const port = (srv.address() as { port: number }).port;
   return {
-    url: `http://127.0.0.1:${port}`,
+    url: `http://${callbackHost()}:${port}`,
     seen,
     setStatus: (s: number) => (status = s),
     close: () => new Promise<void>((r) => srv.close(() => r())),

@@ -4,6 +4,7 @@
 import { expect, type Browser, type Page, type Worker } from '@playwright/test';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { callbackHost } from '../../fixtures/net.ts';
 import { SERVER, json, me, newContext, signIn, uniqueEmail } from '../dashboard/helpers.ts';
 
 export { SERVER };
@@ -72,7 +73,10 @@ export async function setExtSettings(sw: Worker, patch: Record<string, unknown>,
 }
 
 export interface GitHubMock {
+  /** what the browser opens (issue pages) */
   url: string;
+  /** the API root the server calls (fixtures/net.ts) */
+  apiUrl: string;
   token: string;
   /** issues filed through POST /repos/:owner/:repo/issues */
   issues: { repo: string; title: string; body: string; labels?: string[]; assignees?: string[]; milestone?: number }[];
@@ -84,7 +88,7 @@ export interface GitHubMock {
 /** GitHub REST API stand-in: /user, /user/repos, labels, assignees, milestones, issues. */
 export async function githubMock(): Promise<GitHubMock> {
   const token = `ghp_rows_${Date.now().toString(36)}`;
-  const m: GitHubMock = { url: '', token, issues: [], down: false, close: async () => {} };
+  const m: GitHubMock = { url: '', apiUrl: '', token, issues: [], down: false, close: async () => {} };
   let n = 41;
   const srv = http.createServer((req, res) => {
     let raw = '';
@@ -114,8 +118,9 @@ export async function githubMock(): Promise<GitHubMock> {
       return send(404, { message: 'Not Found' });
     });
   });
-  await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
+  await new Promise<void>((r) => srv.listen(0, '0.0.0.0', () => r()));
   m.url = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+  m.apiUrl = `http://${callbackHost()}:${(srv.address() as AddressInfo).port}`;
   m.close = () => new Promise<void>((r) => {
     srv.closeAllConnections();
     srv.close(() => r());
@@ -123,7 +128,7 @@ export async function githubMock(): Promise<GitHubMock> {
   return m;
 }
 
-/** A Slack incoming webhook stand-in on localhost (the server accepts http only for localhost). */
+/** A Slack incoming webhook stand-in on this machine (the server accepts http only for this machine). */
 export async function slackMock() {
   const posts: { text: string }[] = [];
   const srv = http.createServer((req, res) => {
@@ -135,8 +140,9 @@ export async function slackMock() {
       res.end('ok');
     });
   });
-  await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
-  return { url: `http://localhost:${(srv.address() as AddressInfo).port}/services/T0/B0/x`, posts, close: () => new Promise<void>((r) => {
+  await new Promise<void>((r) => srv.listen(0, '0.0.0.0', () => r()));
+  const host = callbackHost() === '127.0.0.1' ? 'localhost' : callbackHost();
+  return { url: `http://${host}:${(srv.address() as AddressInfo).port}/services/T0/B0/x`, posts, close: () => new Promise<void>((r) => {
       srv.closeAllConnections();
       srv.close(() => r());
     }) };
@@ -144,7 +150,7 @@ export async function slackMock() {
 
 /** Connect GitHub (with the mock as its API root) and return the integration id. */
 export async function connectGithub(a: Account, gh: GitHubMock, defaultRepo?: string) {
-  const i = await json<{ id: string }>(a.page, 'POST', `/api/v1/workspaces/${a.workspaceId}/integrations`, { type: 'github', token: gh.token, baseUrl: gh.url, name: 'GitHub acme', ...(defaultRepo ? { defaultRepo } : {}) });
+  const i = await json<{ id: string }>(a.page, 'POST', `/api/v1/workspaces/${a.workspaceId}/integrations`, { type: 'github', token: gh.token, baseUrl: gh.apiUrl, name: 'GitHub acme', ...(defaultRepo ? { defaultRepo } : {}) });
   return i.id;
 }
 

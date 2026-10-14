@@ -160,6 +160,7 @@ export const slack = {
   /** Slack offers no read call for incoming webhooks; a URL check stands in for the connect test. */
   check(webhookUrl: string) {
     const u = new URL(webhookUrl);
-    if (u.protocol !== 'https:' && !/^(localhost|127\.0\.0\.1)$/.test(u.hostname)) throw new ProviderError('Webhook URLs must use https');
+    // http only for this machine: localhost, or the host as a container sees it
+    if (u.protocol !== 'https:' && !/^(localhost|127\.0\.0\.1|host\.docker\.internal)$/.test(u.hostname)) throw new ProviderError('Webhook URLs must use https');
   },
 };

@@ -2,9 +2,10 @@
 // commands around a recording (J-032 bar after reload, J-034 spinner, J-008 bar follows tabs),
 // the record shortcut through real X input, and extension-owned requests (J-248).
 import { execFileSync } from 'node:child_process';
-import type { Worker } from '@playwright/test';
+import type { BrowserContext, Worker } from '@playwright/test';
+import type { MockServer } from '../../fixtures/mock-upload-server.ts';
 import { DISPLAY } from '../../fixtures/extension.ts';
-import { LAB_URL, byKind, draftWithBlobs, expect, ring, session, setSettings, sleep, svc, tabIdOf, test } from './helpers.ts';
+import { LAB_URL, byKind, draftWithBlobs, expect, launchTabBrowser, resetSession, ring, session, setSettings, signIn, sleep, svc, tabIdOf, test } from './helpers.ts';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function waitState(sw: Worker, state: string, timeout = 15_000): Promise<any> {
@@ -158,39 +159,63 @@ test('the recording bar comes back after a reload with the same start time; spin
   await page.close();
 });
 
-test('cancelling Chrome\'s share picker leaves no draft and no bar (J-201)', async ({ tab: { context, sw }, mockServer: mock }) => {
-  await setSettings(sw, { recordMode: 'desktop', mic: false });
-  try {
-    const page = await context.newPage();
-    await page.goto(LAB_URL);
-    await page.bringToFront();
-    const tabId = await tabIdOf(sw, page);
-    await spyContent(sw);
-    await svc(sw, 'startRecording', { tabId });
-    expect((await session(sw)).state).toBe('starting');
-    // The picker is Chromium's own window; press Escape in it with real X input on our display.
-    let win = '';
-    for (let i = 0; i < 40 && !win; i++) {
-      await sleep(250);
-      try {
-        win = execFileSync('xdotool', ['search', '--name', 'Choose what to share'], { env: { ...process.env, DISPLAY } }).toString().trim().split('\n')[0] ?? '';
-      } catch {
-        /* not yet */
-      }
+// Chrome's picker crashes Chromium on Xvfb now and then (X BadWindow, docs/spikes.md S2). This
+// test runs in a browser of its own, so a crash cannot take down the suite's shared one, and a
+// crash (only that) gets up to two more tries in a fresh browser.
+test('cancelling Chrome\'s share picker leaves no draft and no bar (J-201)', async ({ mockServer: mock }) => {
+  for (let attempt = 1; ; attempt++) {
+    const b = await launchTabBrowser();
+    let crashed = false;
+    let closing = false;
+    b.context.on('close', () => {
+      if (!closing) crashed = true;
+    });
+    try {
+      await pickerCancel(b, mock);
+      return;
+    } catch (e) {
+      if (!crashed || attempt >= 3) throw e;
+      console.log(`J-201: attempt ${attempt}: Chromium went away under the picker (${(e as Error).message.split('\n')[0]}); trying again`);
+    } finally {
+      closing = true;
+      await b.close();
     }
-    expect(win).not.toBe('');
-    execFileSync('xdotool', ['windowactivate', '--sync', win, 'key', '--clearmodifiers', 'Escape'], { env: { ...process.env, DISPLAY } });
-    await waitState(sw, 'idle', 10_000);
-    expect((await sent(sw)).some((x) => x.c.type === 'ui.bar' && x.c.bar === null)).toBe(true);
-    const drafts = await sw.evaluate(async () => ((await chrome.storage.local.get('nib:drafts'))['nib:drafts'] ?? []).filter((d: { kind: string; status: string }) => d.kind === 'screen' && d.status === 'open').length);
-    expect(drafts).toBe(0);
-    const created = [...mock.captures.values()].filter((c) => c.body.kind === 'screen');
-    expect(created.every((c) => c.deleted)).toBe(true); // the unlisted server capture is removed
-    await page.close();
-  } finally {
-    await setSettings(sw, { recordMode: 'tab' });
   }
 });
+
+async function pickerCancel({ context, sw }: { context: BrowserContext; sw: Worker }, mock: MockServer) {
+  await sw.evaluate(() => (globalThis as unknown as { __tb: { ready(): Promise<unknown> } }).__tb.ready());
+  mock.reset();
+  await signIn(sw, mock.url);
+  await resetSession(sw);
+  await setSettings(sw, { recordMode: 'desktop', mic: false });
+  const page = await context.newPage();
+  await page.goto(LAB_URL);
+  await page.bringToFront();
+  const tabId = await tabIdOf(sw, page);
+  await spyContent(sw);
+  await svc(sw, 'startRecording', { tabId });
+  expect((await session(sw)).state).toBe('starting');
+  // The picker is Chromium's own window; press Escape in it with real X input on our display.
+  let win = '';
+  for (let i = 0; i < 40 && !win; i++) {
+    await sleep(250);
+    try {
+      win = execFileSync('xdotool', ['search', '--name', 'Choose what to share'], { env: { ...process.env, DISPLAY } }).toString().trim().split('\n')[0] ?? '';
+    } catch {
+      /* not yet */
+    }
+  }
+  expect(win).not.toBe('');
+  execFileSync('xdotool', ['windowactivate', '--sync', win, 'key', '--clearmodifiers', 'Escape'], { env: { ...process.env, DISPLAY } });
+  await waitState(sw, 'idle', 10_000);
+  expect((await sent(sw)).some((x) => x.c.type === 'ui.bar' && x.c.bar === null)).toBe(true);
+  const drafts = await sw.evaluate(async () => ((await chrome.storage.local.get('nib:drafts'))['nib:drafts'] ?? []).filter((d: { kind: string; status: string }) => d.kind === 'screen' && d.status === 'open').length);
+  expect(drafts).toBe(0);
+  const created = [...mock.captures.values()].filter((c) => c.body.kind === 'screen');
+  expect(created.every((c) => c.deleted)).toBe(true); // the unlisted server capture is removed
+  await page.close();
+}
 
 test('the record shortcut starts and stops a tab recording, live in under 6.4 s (J-006 key path, J-195, real X input)', async ({ tab: { context, sw } }) => {
   await setSettings(sw, { recordMode: 'tab', mic: false });

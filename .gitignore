@@ -19,8 +19,10 @@ dist/
 *.pem
 # Test output
 test-results/
+test-results-flows/
 playwright-report/
 playwright-report-flows/
 e2e/flows-shots/
 e2e/.cache/
 coverage/
+e2e/runs/

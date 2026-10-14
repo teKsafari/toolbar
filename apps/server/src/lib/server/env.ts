@@ -78,6 +78,11 @@ export function loadEnv() {
       google: { clientId: read('GOOGLE_CLIENT_ID'), clientSecret: read('GOOGLE_CLIENT_SECRET') },
       github: { clientId: read('GITHUB_CLIENT_ID'), clientSecret: read('GITHUB_CLIENT_SECRET') },
       oidc: oidcProvidersFromEnv(),
+      /**
+       * Better Auth's per-address limits (3 sign-ins per 10 s). On by default in production; an
+       * e2e run turns it off, because its many test accounts all sign in from one address.
+       */
+      rateLimit: flag('AUTH_RATE_LIMIT', read('NODE_ENV', 'development') === 'production'),
     },
     worker: flag('WORKER', true),
     migrateOnStart: flag('MIGRATE_ON_START', true),

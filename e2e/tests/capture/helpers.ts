@@ -31,22 +31,37 @@ export interface TabBrowser {
   sw: Worker;
 }
 
+/**
+ * A browser with the test build and no fake media flags (the tabBrowser fixture's). A test that
+ * may crash it (Chrome's share picker on Xvfb, docs/spikes.md S2) launches its own.
+ */
+export async function launchTabBrowser(): Promise<TabBrowser & { close(): Promise<void> }> {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-e2e-tab-'));
+  fs.mkdirSync(path.join(dir, 'Default'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID] } }));
+  const context = await chromium.launchPersistentContext(dir, {
+    headless: false,
+    env: { ...process.env, DISPLAY },
+    viewport: null,
+    args: [`--disable-extensions-except=${EXT_DIR}`, `--load-extension=${EXT_DIR}`, `--allowlisted-extension-id=${EXT_ID}`, '--window-position=0,0', '--window-size=1280,800', '--force-device-scale-factor=1'],
+  });
+  const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+  return {
+    context,
+    sw,
+    close: async () => {
+      await context.close().catch(() => undefined);
+      fs.rmSync(dir, { recursive: true, force: true });
+    },
+  };
+}
+
 export const test = extTest.extend<{ mock: MockServer; tab: TabBrowser }, { mockServer: MockServer; tabBrowser: TabBrowser }>({
   tabBrowser: [
     async ({}, use) => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-e2e-tab-'));
-      fs.mkdirSync(path.join(dir, 'Default'), { recursive: true });
-      fs.writeFileSync(path.join(dir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID] } }));
-      const context = await chromium.launchPersistentContext(dir, {
-        headless: false,
-        env: { ...process.env, DISPLAY },
-        viewport: null,
-        args: [`--disable-extensions-except=${EXT_DIR}`, `--load-extension=${EXT_DIR}`, `--allowlisted-extension-id=${EXT_ID}`, '--window-position=0,0', '--window-size=1280,800', '--force-device-scale-factor=1'],
-      });
-      const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
-      await use({ context, sw });
-      await context.close();
-      fs.rmSync(dir, { recursive: true, force: true });
+      const b = await launchTabBrowser();
+      await use(b);
+      await b.close();
     },
     { scope: 'worker' },
   ],

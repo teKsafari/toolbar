@@ -72,6 +72,7 @@ export const auth = betterAuth({
   secret: env.authSecret,
   database: drizzleAdapter(db, { provider: 'pg', schema }),
   advanced: { database: { generateId: () => uuidv7() } },
+  rateLimit: { enabled: env.auth.rateLimit },
   trustedOrigins: [env.publicUrl, ...env.extensionIds.map((id) => `chrome-extension://${id}`)],
   emailAndPassword: { enabled: env.auth.emailPassword, autoSignIn: true, minPasswordLength: 8 },
   user: { additionalFields: { activeWorkspaceId: { type: 'string', required: false, input: false } } },

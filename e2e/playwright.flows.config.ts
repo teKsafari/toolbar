@@ -8,6 +8,8 @@ import { defineConfig } from '@playwright/test';
 process.env.E2E_DISPLAY ??= ':120';
 export default defineConfig({
   testDir: './flows',
+  // its own folder: the area suite's run clears test-results, and the two may run side by side
+  outputDir: './test-results-flows',
   timeout: 180_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,

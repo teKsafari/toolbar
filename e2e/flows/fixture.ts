@@ -94,6 +94,123 @@ export function clipboard(): string {
   }
 }
 
+/** Chrome's share picker window, once it is up; '' when none appeared within `timeout`. */
+async function pickerWindow(timeout: number): Promise<string> {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeout) {
+    try {
+      const w = xdo('search', '--onlyvisible', '--name', 'Choose what to share').split('\n')[0];
+      if (w) return w;
+    } catch {
+      /* not yet */
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return '';
+}
+
+function clickAt(x: number, y: number) {
+  xdo('mousemove', '--sync', String(Math.round(x)), String(Math.round(y)));
+  xdo('click', '1');
+}
+
+/**
+ * Pick "Entire Screen" in Chrome's share picker with real pointer clicks: the tab (when
+ * `tab` is set; a request for a monitor surface opens on it already), the one screen
+ * thumbnail, then Share. The picker is a 600x492 top-level window centred over the browser;
+ * the targets are offsets in it (docs/spikes.md S2). Returns the clicks used, or 0 when no
+ * picker opened.
+ */
+export async function pickEntireScreen(opts: { tab?: boolean; timeout?: number } = {}): Promise<number> {
+  const win = await pickerWindow(opts.timeout ?? 15_000);
+  if (!win) return 0;
+  const geo = xdo('getwindowgeometry', win);
+  const [, x, y] = geo.match(/Position: (\d+),(\d+)/)!.map(Number);
+  const [, w, h] = geo.match(/Geometry: (\d+)x(\d+)/)!.map(Number);
+  await new Promise((r) => setTimeout(r, 700)); // thumbnails paint after the window maps
+  let clicks = 0;
+  if (opts.tab) {
+    clickAt(x! + w! * 0.81, y! + 52);
+    clicks++;
+    await new Promise((r) => setTimeout(r, 700));
+  }
+  clickAt(x! + 169, y! + 181);
+  await new Promise((r) => setTimeout(r, 300));
+  clickAt(x! + w! - 57, y! + h! - 39);
+  clicks += 2;
+  // the picker closes on Share
+  for (let i = 0; i < 50; i++) {
+    if (!(await pickerWindow(50))) return clicks;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error('the share picker stayed open after Share');
+}
+
+/** One screen pixel as [r, g, b]. */
+function pixel(x: number, y: number): [number, number, number] {
+  const out = execFileSync('import', ['-window', 'root', '-crop', `1x1+${Math.round(x)}+${Math.round(y)}`, '-depth', '8', 'txt:-'], { env: { ...process.env, DISPLAY }, encoding: 'utf8' });
+  const m = out.match(/#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})/);
+  return m ? [parseInt(m[1]!, 16), parseInt(m[2]!, 16), parseInt(m[3]!, 16)] : [0, 0, 0];
+}
+const white = ([r, g, b]: number[]) => r! > 245 && g! > 245 && b! > 245;
+const dimmed = ([r, g, b]: number[]) => r! < 130 && g! < 130 && b! < 130;
+
+/**
+ * For a web page, Chrome's share picker is a tab-modal dialog inside the browser window (no X
+ * window of its own): 610 px wide, centred, its top 83 px below the window's top, over a dimmed
+ * page. This finds it by its pixels, clicks the Entire Screen tab, the thumbnail and Share, and
+ * waits for the page to undim. `win` is the browser window's frame; returns the clicks, or 0
+ * when no picker showed within `timeout`.
+ */
+export async function pickEntireScreenInPage(win = { x: 0, y: 0, w: 1440 }, timeout = 15_000): Promise<number> {
+  const left = win.x + (win.w - 610) / 2;
+  const top = win.y + 83;
+  const up = () => white(pixel(left + 8, top + 300)) && dimmed(pixel(left - 30, top + 300));
+  const t0 = Date.now();
+  while (!up()) {
+    if (Date.now() - t0 > timeout) return 0;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  await new Promise((r) => setTimeout(r, 500));
+  clickAt(left + 491, top + 96); // Entire Screen
+  await new Promise((r) => setTimeout(r, 1000)); // the thumbnail paints
+  clickAt(left + 170, top + 225); // the screen
+  await new Promise((r) => setTimeout(r, 300));
+  clickAt(left + 610 - 57, top + 574); // Share
+  for (let i = 0; i < 50; i++) {
+    if (!dimmed(pixel(left - 30, top + 300))) return 3;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error('the share picker stayed open after Share');
+}
+
+/** Chromium went away under a flow (the picker crash), as opposed to a failed check. */
+export class BrowserCrash extends Error {}
+
+/** Chromium flags that answer the share picker by themselves with a synthetic screen. */
+export const FAKE_MEDIA = ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'];
+
+/**
+ * Run a flow that goes through Chrome's share picker. `run` launches its own browser and throws
+ * BrowserCrash when that browser died. A crash gets one more try; after two, the flow runs with
+ * FAKE_MEDIA (no picker) and the test carries a "limitation" annotation. Any other failure
+ * fails at once.
+ */
+export async function throughPicker(label: string, run: (mode: 'picker' | 'fake') => Promise<void>) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await run('picker');
+      return;
+    } catch (e) {
+      if (!(e instanceof BrowserCrash)) throw e;
+      console.log(`${label}: attempt ${attempt}: ${e.message}`);
+    }
+  }
+  base.info().annotations.push({ type: 'limitation', description: `${label}: Chrome's share picker crashed Chromium on Xvfb twice; covered with fake media (docs/spikes.md S2)` });
+  console.log(`${label}: LIMITATION: the picker crashed twice on Xvfb; running with fake media instead`);
+  await run('fake');
+}
+
 // ---------------------------------------------------------------- pages
 
 export async function hydrated(page: Page) {
@@ -111,7 +228,7 @@ export async function labPage(context: BrowserContext, p = '/'): Promise<Page> {
 export async function openPopup(context: BrowserContext, page: Page): Promise<Page> {
   // Playwright's persistent context does not surface the action popup as a page, and a CDP
   // client attached before the popup opened does not either; a fresh CDP connection does.
-  const holder = context as BrowserContext & { __cdp?: Browser };
+  const holder = context as BrowserContext & { __cdp?: Browser; __cdpPort?: number };
   const isPopup = (p: Page) => p.url().startsWith(`chrome-extension://${EXT_ID}/popup.html`);
   await holder.__cdp?.close().catch(() => undefined);
   await chord(page, 'ctrl+shift+y');
@@ -120,7 +237,7 @@ export async function openPopup(context: BrowserContext, page: Page): Promise<Pa
     .poll(
       async () => {
         await holder.__cdp?.close().catch(() => undefined);
-        holder.__cdp = await chromium.connectOverCDP(`http://127.0.0.1:${CDP_PORT}`);
+        holder.__cdp = await chromium.connectOverCDP(`http://127.0.0.1:${holder.__cdpPort ?? CDP_PORT}`);
         popup = holder.__cdp.contexts().flatMap((c) => c.pages()).find(isPopup);
         return !!popup;
       },
@@ -194,6 +311,31 @@ export async function waitReady(context: BrowserContext, id: string, timeout = 1
     .toBe('ready');
 }
 
+/** The newest mail to an address in Mailpit (all dev mail lands there), with its text. */
+export async function mailTo(context: BrowserContext, to: string, subject: RegExp, timeout = 30_000): Promise<{ subject: string; text: string }> {
+  let id = '';
+  await expect
+    .poll(
+      async () => {
+        const r = await context.request.get(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${to}"`)}`);
+        const list = ((await r.json()) as { messages?: { ID: string; Subject: string }[] }).messages ?? [];
+        id = list.find((m) => subject.test(m.Subject))?.ID ?? '';
+        return !!id;
+      },
+      { timeout, message: `mail to ${to} matching ${subject}` },
+    )
+    .toBe(true);
+  const m = (await (await context.request.get(`${MAILPIT}/api/v1/message/${id}`)).json()) as { Subject: string; Text: string };
+  return { subject: m.Subject, text: m.Text };
+}
+
+/** The first link in a mail's text that starts with `prefix`. */
+export function linkIn(text: string, prefix: string): string {
+  const m = text.match(new RegExp(`${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^\\s"<>)]+`));
+  if (!m) throw new Error(`no ${prefix} link in:\n${text}`);
+  return m[0].replace(/&amp;/g, '&');
+}
+
 /** A picture of the whole X screen: shows the in-page UI in the closed shadow root and popups. */
 export function xshot(name: string) {
   try {
@@ -240,43 +382,73 @@ export async function connectExtension(context: BrowserContext, email: string) {
 
 // ---------------------------------------------------------------- fixture
 
+export interface Launched {
+  context: BrowserContext;
+  sw: () => Promise<Worker>;
+  close: () => Promise<void>;
+}
+
+/**
+ * Start Chromium with the extension on a fresh profile, the way the worker fixture does. A flow
+ * that may crash the browser (Chrome's share picker on Xvfb, docs/spikes.md S2) runs in a
+ * browser of its own, so a crash cannot take the shared one down. `cdpPort` must differ from
+ * every other open browser's; `args` adds Chromium flags.
+ */
+export async function launchNib(opts: { cdpPort?: number; args?: string[] } = {}): Promise<Launched> {
+  if (!fs.existsSync(path.join(EXT_DIR, 'manifest.json'))) throw new Error(`No extension build at ${EXT_DIR}. Run: pnpm --filter @toolbar/extension build`);
+  if (DISPLAY === ':99') throw new Error('Display :99 belongs to the shared browser');
+  const cdpPort = opts.cdpPort ?? CDP_PORT;
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-flows-'));
+  fs.mkdirSync(path.join(userDataDir, 'Default'), { recursive: true });
+  fs.writeFileSync(path.join(userDataDir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID] } }));
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    headless: false,
+    env: { ...process.env, DISPLAY },
+    viewport: null,
+    args: [
+      `--disable-extensions-except=${EXT_DIR}`,
+      `--load-extension=${EXT_DIR}`,
+      `--allowlisted-extension-id=${EXT_ID}`,
+      // No --use-fake-ui-for-media-stream or --use-fake-device-for-media-stream by default: with
+      // either one, getUserMedia on a tabCapture stream id fails with "Requested device not found".
+      '--window-position=0,0',
+      '--window-size=1440,900',
+      '--force-device-scale-factor=1',
+      `--remote-debugging-port=${cdpPort}`,
+      ...(opts.args ?? []),
+    ],
+  });
+  (context as BrowserContext & { __cdpPort?: number }).__cdpPort = cdpPort;
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: LAB_URL });
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: SERVER });
+  const sw = async () => context.serviceWorkers().find((w) => w.url().startsWith(`chrome-extension://${EXT_ID}/`)) ?? (await context.waitForEvent('serviceworker'));
+  await sw();
+  return {
+    context,
+    sw,
+    close: async () => {
+      await (context as BrowserContext & { __cdp?: Browser }).__cdp?.close().catch(() => undefined);
+      await context.close().catch(() => undefined);
+      fs.rmSync(userDataDir, { recursive: true, force: true });
+    },
+  };
+}
+
+let accounts = 0;
+/** A fresh address for a new account in this run. */
+export const newEmail = (who = 'flows') => `${who}-${run}-${++accounts}@flows${run}.test`;
+
 export const test = base.extend<{ context: BrowserContext }, { nib: Nib }>({
   nib: [
     async ({}, use) => {
-      if (!fs.existsSync(path.join(EXT_DIR, 'manifest.json')))
-        throw new Error(`No extension build at ${EXT_DIR}. Run: pnpm --filter @toolbar/extension build`);
-      if (DISPLAY === ':99') throw new Error('Display :99 belongs to the shared browser');
-      const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-flows-'));
-      fs.mkdirSync(path.join(userDataDir, 'Default'), { recursive: true });
-      fs.writeFileSync(path.join(userDataDir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID] } }));
-      const context = await chromium.launchPersistentContext(userDataDir, {
-        headless: false,
-        env: { ...process.env, DISPLAY },
-        viewport: null,
-        args: [
-          `--disable-extensions-except=${EXT_DIR}`,
-          `--load-extension=${EXT_DIR}`,
-          `--allowlisted-extension-id=${EXT_ID}`,
-          // No --use-fake-ui-for-media-stream or --use-fake-device-for-media-stream: with either
-          // one, getUserMedia on a tabCapture stream id fails with "Requested device not found".
-          '--window-position=0,0',
-          '--window-size=1440,900',
-          '--force-device-scale-factor=1',
-          `--remote-debugging-port=${CDP_PORT}`,
-        ],
-      });
-      await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: LAB_URL });
-      await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: SERVER });
-      const sw = async () => context.serviceWorkers().find((w) => w.url().startsWith(`chrome-extension://${EXT_ID}/`)) ?? (await context.waitForEvent('serviceworker'));
-      await sw();
+      const { context, sw, close } = await launchNib();
       const email = `flows-${run}@flows${run}.test`;
       const nib: Nib = { context, sw, email, made: {} };
       const { lab, popup } = await connectExtension(context, email);
       await popup.close();
       await lab.close();
       await use(nib);
-      await context.close();
-      fs.rmSync(userDataDir, { recursive: true, force: true });
+      await close();
     },
     { scope: 'worker', timeout: 120_000 },
   ],
