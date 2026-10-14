@@ -19,7 +19,15 @@ A new session reads this file first.
 - `docs/architecture.md` (step 2 design) and `docs/spikes.md` (capture spikes S1, S2 and extras: all work, with caveats).
 
 ### In flight (2026-10-14)
-- Step 2: foundation done and checked (Nib, D-018..D-027). Workflow `step2-build` in flight: contract, eight area builds in worktrees under ~/toolbar-wt (branches area/*), merge, end-to-end integration.
+- Step 2: foundation done and checked (Nib, D-018..D-027). The eight area branches (`area/*`, kept) are merged into main (D-073); worktrees removed. One migration `0001_area_merge`. Status per row: `docs/status.md` (P0 73 built; P1 101 built, 5 partial; P2 61 built, 1 partial, 10 skipped).
+- Open after the merge (each a call or mount in another area's file, from the area reports):
+  - J-137, J-140: the editor's destination menu does not list integrations or mount dashboard's `TrackerFields`; finalize never sends `destination: {type:'integration'}`.
+  - J-138: the capture page header has the viewer's own send menu; dashboard's `SendToApp` (field form, J-140) is not mounted.
+  - J-136: no first-view email is sent at all yet (the mention and domain-join mails are gated).
+  - J-011: heavy-page detection and `replay.set {allowHeavy}` in the capture service.
+  - J-200: the recording-link recorder page has no denied-microphone instructions or record-without-voice choice.
+  - The viewer's share page checks revoked and expired links itself; folder privacy (`memberCanSee`) is applied only by server-core's routes.
+  - Capture e2e drives the product flows through `__tb.flow` (ext-ui's handlers over the capture driver); the bar and countdown UI checks live in the ext-ui suite.
 
 ### Next
 - Step 2: build the replica per `docs/architecture.md`, one agent per area in worktrees.

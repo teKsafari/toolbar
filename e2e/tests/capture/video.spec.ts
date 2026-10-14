@@ -98,7 +98,9 @@ test('tab video: countdown, viewport-only video, pause, navigation, upload while
   const cap = mock.captures.get(serverId)!;
   expect(Object.keys(cap.completed).sort()).toEqual(['events', 'rrweb', 'video']);
   expect(mock.bytes(serverId, 'video').length).toBe(videoBytes);
-  expect(cap.finalized).toMatchObject({ title: 'Video', durationMs: Math.round(durationMs) });
+  expect(cap.finalized).toMatchObject({ title: 'Video' });
+  // the editor opens on the draft and may refine the length from the video element
+  expect(Math.abs(Number(cap.finalized!.durationMs) - durationMs)).toBeLessThan(250);
   await page.close();
 });
 
