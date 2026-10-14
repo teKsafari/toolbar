@@ -121,5 +121,8 @@ export async function mockServer(routes: Record<string, (body: unknown) => unkno
   });
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
   const url = `http://localhost:${(server.address() as AddressInfo).port}`;
-  return { url, hits, close: () => new Promise<void>((r) => server.close(() => r())) };
+  return { url, hits, close: () => new Promise<void>((r) => {
+      server.closeAllConnections();
+      server.close(() => r());
+    }) };
 }
