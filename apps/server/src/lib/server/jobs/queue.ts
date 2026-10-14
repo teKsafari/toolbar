@@ -41,9 +41,9 @@ export async function complete(db: Db, id: string) {
   await db.execute(sql`UPDATE job SET done_at = now(), locked_until = NULL, last_error = NULL WHERE id = ${id}`);
 }
 
-/** Backoff: 2^attempts seconds, capped at 1 hour. */
-export async function fail(db: Db, id: string, attempts: number, error: string) {
-  const delayS = Math.min(3600, 2 ** attempts);
+/** Backoff: 2^attempts seconds, capped at 1 hour, unless the handler asked for a set delay. */
+export async function fail(db: Db, id: string, attempts: number, error: string, retryInMs?: number) {
+  const delayS = retryInMs !== undefined ? retryInMs / 1000 : Math.min(3600, 2 ** attempts);
   await db.execute(sql`
     UPDATE job SET locked_until = NULL, last_error = ${error.slice(0, 4000)},
       run_at = now() + (${delayS} * interval '1 second')
