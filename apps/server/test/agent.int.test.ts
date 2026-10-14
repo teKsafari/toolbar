@@ -197,6 +197,16 @@ describe.skipIf(!reachable)('agent (integration)', () => {
     const empty = JSON.parse((await tool(rw.secret, 'list_comments', { capture: ids.rec })).content[0]!.text) as { items: unknown[] };
     expect(empty.items).toHaveLength(0);
 
+    // recording links (J-151): create, list with its URL, revoke, delete
+    const link = JSON.parse((await tool(rw.secret, 'create_recording_link', { name: 'Support', folderId: folder.id })).content[0]!.text) as { id: string; url: string; active: boolean };
+    expect(link.url).toMatch(/\/rl\/[A-Za-z0-9_-]{22}$/);
+    const links = JSON.parse((await tool(rw.secret, 'list_recording_links', {})).content[0]!.text) as { items: { id: string; url: string }[] };
+    expect(links.items.find((l) => l.id === link.id)!.url).toBe(link.url);
+    const off = JSON.parse((await tool(rw.secret, 'update_recording_link', { linkId: link.id, revoked: true })).content[0]!.text) as { active: boolean };
+    expect(off.active).toBe(false);
+    expect((await tool(vic.secret, 'delete_recording_link', { linkId: link.id })).isError).toBe(true);
+    expect((await tool(rw.secret, 'delete_recording_link', { linkId: link.id })).isError).toBeFalsy();
+
     const details = await tool(rw.secret, 'get_capture', { capture: ids.rec });
     const d = JSON.parse(details.content[0]!.text) as { title: string; folder: string; canEdit: boolean };
     expect(d).toMatchObject({ title: 'Checkout breaks (fixed)', folder: 'Fixed', canEdit: true });

@@ -27,6 +27,9 @@ import { ApiError, fail } from '../share/http.ts';
 import { visibleCapturesWhere, visibleFoldersWhere } from '../share/access.ts';
 import { deleteCapture } from '../upload/service.ts';
 import { primaryShareUrl } from '../share/tokens.ts';
+import { seal, unseal } from '../crypto.ts';
+import { hashToken } from '../tokens.ts';
+import { randomBytes } from 'node:crypto';
 import { resolveCapture, workspaceFor, requireSeatAtLeast, type ResolvedCapture } from './access.ts';
 import { briefOf, commentRows, memberUrlOf, preparedOf, screenshotAssets, threadsOf, transcriptOf } from './data.ts';
 import { frameAt, overview, spread, type FrameSize } from './frames.ts';
@@ -576,6 +579,7 @@ const listLinks = define({
         name: recordingLink.name,
         folderId: recordingLink.folderId,
         domain: recordingLink.recorderDomain,
+        tokenEnc: recordingLink.tokenEnc,
         createdAt: recordingLink.createdAt,
         revokedAt: recordingLink.revokedAt,
         captures: sql<number>`(select count(*)::int from recording r where r.recording_link_id = "recording_link"."id" and r.deleted_at is null and r.status <> 'uploading')`,
@@ -583,7 +587,7 @@ const listLinks = define({
       .from(recordingLink)
       .where(eq(recordingLink.organizationId, ws.id))
       .orderBy(desc(recordingLink.createdAt));
-    const items = rows.map((r) => ({ ...r, captures: Number(r.captures), active: !r.revokedAt, createdAt: iso(r.createdAt), revokedAt: iso(r.revokedAt) }));
+    const items = rows.map(({ tokenEnc, ...r }) => ({ ...r, url: linkUrl(tokenEnc), captures: Number(r.captures), active: !r.revokedAt, createdAt: iso(r.createdAt), revokedAt: iso(r.revokedAt) }));
     return json({ items, total: items.length, returned: items.length, hasMore: false, nextCursor: null });
   },
 });
@@ -602,6 +606,14 @@ const listLinkCaptures = define({
     return json(await captureRows(db, where, { limit: a.limit, offset: decodeCursor(a.cursor) }));
   },
 });
+
+const linkUrl = (enc: Buffer) => {
+  try {
+    return `${env.publicUrl}/rl/${unseal(enc, 'recording-link-token')}`;
+  } catch {
+    return null;
+  }
+};
 
 // ---------- write tools ----------
 
@@ -800,6 +812,79 @@ const shareLinkTool = define({
   },
 });
 
+async function linkForEdit(db: Db, principal: McpPrincipal, linkId: string) {
+  const [l] = await db.select().from(recordingLink).where(eq(recordingLink.id, linkId)).limit(1);
+  if (!l) fail('not_found', 'No such recording link.');
+  const ws = await workspaceFor(db, principal, l!.organizationId);
+  if (ws.seat !== 'admin' && l!.createdBy !== principal.userId) fail('forbidden', 'Only the link\'s creator or a workspace admin can change it.');
+  return l!;
+}
+
+const linkOut = (l: typeof recordingLink.$inferSelect) => ({
+  id: l.id,
+  name: l.name,
+  url: linkUrl(l.tokenEnc),
+  folderId: l.folderId,
+  active: !l.revokedAt,
+  createdAt: iso(l.createdAt),
+});
+
+const createLink = define({
+  name: 'create_recording_link',
+  title: 'Create a recording link',
+  description: 'Create a recording link: anyone who opens it can record a capture into this workspace (optionally into a folder) without an account. Returns the link to hand out.',
+  input: z.object({ name: z.string().trim().max(200).default(''), folderId: z.string().uuid().optional(), workspaceId: z.string().uuid().optional(), intent }),
+  write: true,
+  annotations: WRITE,
+  async run({ db, principal }, a) {
+    const ws = await workspaceFor(db, principal, a.workspaceId);
+    requireSeatAtLeast(ws.seat, 'creator', 'Creating a recording link');
+    if (a.folderId) await folderInWorkspace(db, a.folderId, ws.id);
+    const token = randomBytes(16).toString('base64url');
+    const [l] = await db
+      .insert(recordingLink)
+      .values({ organizationId: ws.id, folderId: a.folderId ?? null, name: a.name, tokenHash: hashToken(token), tokenEnc: seal(token, 'recording-link-token'), createdBy: principal.userId })
+      .returning();
+    return json(linkOut(l!));
+  },
+});
+
+const updateLink = define({
+  name: 'update_recording_link',
+  title: 'Update a recording link',
+  description: 'Rename a recording link, point it at another folder (null for none), or turn it off (revoked: true) or on again.',
+  input: z.object({ linkId: z.string().uuid(), name: z.string().trim().max(200).optional(), folderId: z.string().uuid().nullable().optional(), revoked: z.boolean().optional(), intent }),
+  write: true,
+  annotations: { ...WRITE, idempotentHint: true },
+  async run({ db, principal }, a) {
+    const l = await linkForEdit(db, principal, a.linkId);
+    const patch: Partial<typeof recordingLink.$inferInsert> = {};
+    if (a.name !== undefined) patch.name = a.name;
+    if (a.folderId !== undefined) {
+      if (a.folderId) await folderInWorkspace(db, a.folderId, l.organizationId);
+      patch.folderId = a.folderId;
+    }
+    if (a.revoked !== undefined) patch.revokedAt = a.revoked ? new Date() : null;
+    if (!Object.keys(patch).length) fail('invalid_body', 'Pass a name, a folderId or revoked.');
+    const [u] = await db.update(recordingLink).set(patch).where(eq(recordingLink.id, l.id)).returning();
+    return json(linkOut(u!));
+  },
+});
+
+const deleteLink = define({
+  name: 'delete_recording_link',
+  title: 'Delete a recording link',
+  description: 'Delete a recording link; it stops working at once. Captures already made through it stay. Ask the user first.',
+  input: z.object({ linkId: z.string().uuid(), intent }),
+  write: true,
+  annotations: DESTROY,
+  async run({ db, principal }, a) {
+    const l = await linkForEdit(db, principal, a.linkId);
+    await db.delete(recordingLink).where(eq(recordingLink.id, l.id));
+    return json({ ok: true, deleted: l.id });
+  },
+});
+
 export const TOOLS: ToolDef[] = [
   getCapture,
   getConsole,
@@ -829,6 +914,9 @@ export const TOOLS: ToolDef[] = [
   createFolder,
   renameFolder,
   deleteFolder,
+  createLink,
+  updateLink,
+  deleteLink,
 ];
 
 export const toolByName = new Map(TOOLS.map((t) => [t.name, t]));
