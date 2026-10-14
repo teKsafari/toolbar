@@ -187,6 +187,11 @@ export class Recorder {
     switch (m.method) {
       case 'Target.attachedToTarget':
         if (p.targetInfo?.type === 'page') {
+          // auto-attach and an explicit attach can both land on one page: keep one session
+          if ([...this.sessions.values()].includes(p.targetInfo.targetId)) {
+            await this.cdp.send('Target.detachFromTarget', { sessionId: p.sessionId }).catch(() => {});
+            break;
+          }
           this.sessions.set(p.sessionId, p.targetInfo.targetId);
           await this.setupPage(p.sessionId, p.targetInfo);
         }
