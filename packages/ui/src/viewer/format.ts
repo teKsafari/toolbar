@@ -3,8 +3,8 @@ import { SERIALIZED_TAG } from '@toolbar/shared/events';
 
 /** m:ss for the panels and the seek bar; negative values (logs before a screenshot) get a minus. */
 export function fmtClock(ms: number): string {
-  const neg = ms < 0;
   const s = Math.floor(Math.abs(ms) / 1000);
+  const neg = ms < 0 && s > 0;
   const m = Math.floor(s / 60);
   const out = `${m}:${String(s % 60).padStart(2, '0')}`;
   return neg ? `-${out}` : out;

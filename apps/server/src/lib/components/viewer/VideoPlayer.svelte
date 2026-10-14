@@ -1,0 +1,510 @@
+<script lang="ts">
+  // Video card (J-092): dark card, creator chip, big play button with the duration, auto-hiding
+  // controls (play, back and forward 5 s, mute, time, chapters, captions, speed, quality,
+  // download, fullscreen), the seek bar with error, request, pen and comment markers (J-072,
+  // J-095, J-128), hover preview (J-094), share at the current time (J-097), keyboard (J-093)
+  // and a replay prompt at the end. The <video> element is the clock master (architecture s12).
+  import { onMount } from 'svelte';
+  import { toasts } from '@toolbar/ui';
+  import { fmtClock, fmtClockPrecise, secondsParam } from '@toolbar/ui/viewer';
+  import VIcon from './VIcon.svelte';
+  import Dropdown from './Dropdown.svelte';
+  import Avatar from './Avatar.svelte';
+  import { useViewer } from './viewer.svelte.ts';
+  import { copyText } from './api.ts';
+  import { agentNudge, shareBaseUrl } from './actions.ts';
+
+  const v = useViewer();
+  const video = $derived(v.detail.media.video!);
+
+  let el: HTMLVideoElement | undefined = $state();
+  let card: HTMLDivElement | undefined = $state();
+  let bar: HTMLDivElement | undefined = $state();
+  let preview: HTMLVideoElement | undefined = $state();
+  let canvas: HTMLCanvasElement | undefined = $state();
+
+  let started = $state(false);
+  let ended = $state(false);
+  let muted = $state(false);
+  let showControls = $state(true);
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  let menu: 'speed' | 'quality' | 'chapters' | null = $state(null);
+  let captions = $state(false);
+  let quality = $state('Original');
+  let src = $state('');
+  let hover: { x: number; ms: number } | null = $state(null);
+  let hoverMarker: { x: number; title: string; lines: string[] } | null = $state(null);
+  let dragging = $state(false);
+  let fullscreen = $state(false);
+
+  const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  const pct = (ms: number) => (v.duration ? Math.min(100, Math.max(0, (ms / v.duration) * 100)) : 0);
+  const cue = $derived(captions ? v.data.cues.find((c) => v.now >= c.startMs && v.now < c.endMs) : undefined);
+
+  // Comment bubbles grouped when they sit close together.
+  const bubbles = $derived.by(() => {
+    const out: { at: number; items: typeof v.timedComments }[] = [];
+    for (const c of [...v.timedComments].sort((a, b) => a.tMs! - b.tMs!)) {
+      const last = out[out.length - 1];
+      if (last && v.duration && ((c.tMs! - last.at) / v.duration) * 100 < 2) last.items.push(c);
+      else out.push({ at: c.tMs!, items: [c] });
+    }
+    return out;
+  });
+
+  onMount(() => {
+    src = video.url;
+    v.seekImpl = (ms) => {
+      if (!el) return;
+      el.currentTime = ms / 1000;
+      ended = false;
+    };
+    v.playImpl = () => void play();
+    let raf = 0;
+    const tick = () => {
+      if (el && !dragging) v.now = el.currentTime * 1000;
+      const rvfc = (el as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number })?.requestVideoFrameCallback;
+      if (el && rvfc && v.playing) rvfc.call(el, tick);
+      else raf = requestAnimationFrame(tick);
+    };
+    tick();
+    const onFs = () => (fullscreen = document.fullscreenElement === card);
+    document.addEventListener('fullscreenchange', onFs);
+    if (v.data.startAt != null) queueMicrotask(() => v.seek(v.data.startAt! * 1000));
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener('fullscreenchange', onFs);
+      v.seekImpl = null;
+      v.playImpl = null;
+    };
+  });
+
+  function onMeta() {
+    if (!el) return;
+    const d = el.duration;
+    if (Number.isFinite(d) && d > 0) v.duration = d * 1000;
+    el.playbackRate = v.prefs.playbackRate;
+    if (v.data.startAt != null && !started) el.currentTime = v.data.startAt;
+  }
+
+  async function play() {
+    if (!el) return;
+    started = true;
+    ended = false;
+    try {
+      await el.play();
+    } catch {
+      /* autoplay refused; the button stays */
+    }
+  }
+  function toggle() {
+    if (!el) return;
+    if (el.paused) void play();
+    else el.pause();
+  }
+  function jump(ms: number) {
+    v.seek((el ? el.currentTime * 1000 : v.now) + ms);
+  }
+  function setSpeed(s: number) {
+    if (el) el.playbackRate = s;
+    v.setPref({ playbackRate: s });
+    menu = null;
+  }
+  function setQuality(label: string, url: string) {
+    const t = el?.currentTime ?? 0;
+    const was = el ? !el.paused : false;
+    quality = label;
+    src = url;
+    menu = null;
+    queueMicrotask(() => {
+      if (!el) return;
+      el.currentTime = t;
+      if (was) void el.play();
+    });
+  }
+  function toggleMute() {
+    if (!el) return;
+    el.muted = !el.muted;
+    muted = el.muted;
+  }
+  async function toggleFullscreen() {
+    if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+    else await card?.requestFullscreen().catch(() => {});
+  }
+  async function pip() {
+    if (!el) return;
+    try {
+      if (document.pictureInPictureElement) await document.exitPictureInPicture();
+      else await el.requestPictureInPicture();
+    } catch {
+      /* not supported */
+    }
+  }
+
+  function poke() {
+    showControls = true;
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      if (v.playing && !menu && !hover) showControls = false;
+    }, 2500);
+  }
+
+  function msAt(clientX: number): { x: number; ms: number } {
+    const r = bar!.getBoundingClientRect();
+    const x = Math.min(Math.max(0, clientX - r.left), r.width);
+    return { x, ms: (x / r.width) * v.duration };
+  }
+  let lastPreview = 0;
+  function onBarMove(e: PointerEvent) {
+    hover = msAt(e.clientX);
+    if (dragging) v.seek(hover.ms);
+    const now = performance.now();
+    if (preview && now - lastPreview > 80) {
+      lastPreview = now;
+      preview.currentTime = hover.ms / 1000;
+    }
+  }
+  function drawPreview() {
+    if (!preview || !canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx?.drawImage(preview, 0, 0, canvas.width, canvas.height);
+  }
+  function onBarDown(e: PointerEvent) {
+    dragging = true;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    v.seek(msAt(e.clientX).ms);
+  }
+  function onBarUp() {
+    dragging = false;
+  }
+  function onBarKey(e: KeyboardEvent) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      e.stopPropagation();
+      jump(e.key === 'ArrowLeft' ? -5000 : 5000);
+    }
+  }
+
+  function markerClick(m: (typeof v.markers)[number]) {
+    v.seek(m.at, { arm: true });
+    if (m.kind === 'error' || m.kind === 'net-fail') v.reveal('console', m.ref ?? '');
+  }
+  const markerTitle = (m: (typeof v.markers)[number]) =>
+    m.kind === 'net-fail'
+      ? `${m.count} failed request${m.count > 1 ? 's' : ''}`
+      : m.kind === 'error'
+        ? `${m.count} error${m.count > 1 ? 's' : ''}`
+        : m.kind === 'pen'
+          ? 'Drawing'
+          : m.kind === 'blur'
+            ? 'Blur'
+            : m.label;
+
+  async function shareAtTime() {
+    const ms = el ? el.currentTime * 1000 : v.now;
+    const base = await shareBaseUrl(v);
+    if (!base) return;
+    const sep = base.includes('?') ? '&' : '?';
+    if (await copyText(`${base}${sep}t=${secondsParam(ms)}`)) toasts.success(`Link to ${fmtClockPrecise(ms)} copied`);
+  }
+
+  function download() {
+    const a = document.createElement('a');
+    a.href = `${video.url}?download=1`;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    agentNudge('Download started');
+  }
+
+  function isTyping(e: KeyboardEvent) {
+    const t = e.target as HTMLElement | null;
+    return !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+  }
+  function onKey(e: KeyboardEvent) {
+    if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || isTyping(e)) return;
+    const k = e.key;
+    if (k === 'k' || k === ' ') {
+      if (k === ' ' && (e.target as HTMLElement)?.closest?.('button')) return;
+      e.preventDefault();
+      toggle();
+    } else if (k === 'm') toggleMute();
+    else if (k === 'f') void toggleFullscreen();
+    else if (k === 'i') void pip();
+    else if (k === 'ArrowLeft' || k === 'ArrowRight') {
+      if ((e.target as HTMLElement)?.closest?.('[data-keys-own]')) return;
+      e.preventDefault();
+      jump(k === 'ArrowLeft' ? -5000 : 5000);
+    } else if (/^[0-9]$/.test(k)) {
+      v.seek((Number(k) / 10) * v.duration);
+    } else return;
+    poke();
+  }
+</script>
+
+<svelte:window onkeydown={onKey} />
+
+<div
+  class="card"
+  class:hide={!showControls && started}
+  class:fs={fullscreen}
+  bind:this={card}
+  onpointermove={poke}
+  onpointerleave={() => { if (v.playing) showControls = false; }}
+  data-testid="video-card"
+  role="region"
+  aria-label="Video">
+  <!-- svelte-ignore a11y_media_has_caption -->
+  <video
+    bind:this={el}
+    {src}
+    preload="metadata"
+    playsinline
+    onloadedmetadata={onMeta}
+    ondurationchange={onMeta}
+    onplay={() => { v.playing = true; started = true; ended = false; poke(); }}
+    onpause={() => { v.playing = false; showControls = true; }}
+    onended={() => { v.playing = false; ended = true; showControls = true; }}
+    onseeked={() => { if (el) v.now = el.currentTime * 1000; }}
+    onclick={toggle}
+    data-testid="video"></video>
+
+  {#if cue}<div class="caption" data-testid="caption">{cue.text}</div>{/if}
+
+  <div class="top">
+    {#if v.detail.author}
+      <span class="chip"><Avatar name={v.detail.author.name} size={20} />{v.detail.author.name}</span>
+    {/if}
+    <span class="grow"></span>
+    <button type="button" class="pill" onclick={shareAtTime} title="Copy a link that opens at this moment" data-testid="share-at-time">
+      <VIcon name="link" size={14} />{fmtClockPrecise(v.now)}
+    </button>
+  </div>
+
+  {#if !started}
+    <button type="button" class="big" onclick={play} aria-label="Play" data-testid="big-play">
+      <VIcon name="play" size={28} />
+      <span class="dur">{fmtClock(v.duration)}</span>
+    </button>
+  {:else if ended}
+    <button type="button" class="big again" onclick={() => { v.seek(0); void play(); }} data-testid="replay-prompt">
+      <VIcon name="replay" size={24} /><span>Watch again</span>
+    </button>
+  {/if}
+
+  <div class="controls">
+    <div class="markers" class:two={bubbles.length > 0} aria-label="Timeline markers">
+      {#each v.markers as m, i (i)}
+        <button
+          type="button"
+          class="mk mk-{m.kind}"
+          style:left="{pct(m.at)}%"
+          onclick={() => markerClick(m)}
+          onpointerenter={() => (hoverMarker = { x: pct(m.at), title: markerTitle(m), lines: m.items.slice(0, 3) })}
+          onpointerleave={() => (hoverMarker = null)}
+          aria-label="{markerTitle(m)} at {fmtClock(m.at)}"
+          data-testid="marker-{m.kind}">
+          {#if m.kind === 'net-fail'}<span class="badge">{m.status ?? 'xhr'}</span>
+          {:else if m.kind === 'error'}<VIcon name="warning" size={11} />{#if m.count > 1}<span class="n">{m.count}</span>{/if}
+          {:else if m.kind === 'pen'}<VIcon name="pen" size={11} />
+          {:else if m.kind === 'blur'}<VIcon name="blur" size={11} />
+          {:else}<span class="dot"></span>{/if}
+        </button>
+      {/each}
+      {#each bubbles as b (b.items[0]!.id)}
+        <button
+          type="button"
+          class="mk bubble"
+          style:left="{pct(b.at)}%"
+          onclick={() => { v.seek(b.at); v.highlightComment = b.items[0]!.id; document.getElementById(`comment-${b.items[0]!.id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }}
+          onpointerenter={() => (hoverMarker = { x: pct(b.at), title: b.items.map((c) => c.displayName).join(', '), lines: b.items.map((c) => c.body.replace(/@\[([^\]]+)\]\(user:[^)]+\)/g, '@$1').slice(0, 90)) })}
+          onpointerleave={() => (hoverMarker = null)}
+          aria-label="{b.items.length} comment{b.items.length > 1 ? 's' : ''} at {fmtClock(b.at)}"
+          data-testid="marker-comment">
+          <VIcon name="bubble" size={14} /><span class="n">{b.items.length}</span>
+        </button>
+      {/each}
+      {#if hoverMarker}
+        <div class="tip" style:left="{hoverMarker.x}%" data-testid="marker-tip">
+          <strong>{hoverMarker.title}</strong>
+          {#each hoverMarker.lines as l, i (i)}<span>{l}</span>{/each}
+        </div>
+      {/if}
+    </div>
+
+    <div
+      class="bar"
+      bind:this={bar}
+      role="slider"
+      tabindex="0"
+      aria-label="Seek"
+      aria-valuemin={0}
+      aria-valuemax={Math.round(v.duration / 1000)}
+      aria-valuenow={Math.round(v.now / 1000)}
+      aria-valuetext={fmtClock(v.now)}
+      onpointerdown={onBarDown}
+      onpointermove={onBarMove}
+      onpointerup={onBarUp}
+      onpointerleave={() => (hover = null)}
+      onkeydown={onBarKey}
+      data-testid="seekbar">
+      {#each v.chapters.slice(1) as c (c.startMs)}<span class="split" style:left="{pct(c.startMs)}%"></span>{/each}
+      <span class="fill" style:width="{pct(v.now)}%"></span>
+      <span class="knob" style:left="{pct(v.now)}%"></span>
+      {#if hover}
+        <div class="preview" style:left="{(hover.x / (bar?.clientWidth || 1)) * 100}%" data-testid="seek-preview">
+          <canvas bind:this={canvas} width="160" height="90"></canvas>
+          <span>{fmtClock(hover.ms)}{#if v.chapterAt(hover.ms)} · {v.chapterAt(hover.ms)!.title}{/if}</span>
+        </div>
+      {/if}
+    </div>
+
+    <div class="row">
+      <button type="button" class="ib" onclick={toggle} aria-label={v.playing ? 'Pause' : 'Play'} title="Play or pause (k)" data-testid="play">
+        <VIcon name={v.playing ? 'pause' : 'play'} size={18} />
+      </button>
+      <button type="button" class="ib" onclick={() => jump(-5000)} aria-label="Back 5 seconds" title="Back 5 s"><VIcon name="skip-back" size={18} /></button>
+      <button type="button" class="ib" onclick={() => jump(5000)} aria-label="Forward 5 seconds" title="Forward 5 s"><VIcon name="skip-forward" size={18} /></button>
+      <button type="button" class="ib" onclick={toggleMute} aria-label={muted ? 'Unmute' : 'Mute'} title="Mute (m)"><VIcon name={muted ? 'volume-off' : 'volume'} size={18} /></button>
+      <span class="time" data-testid="time">{fmtClock(v.now)} / {fmtClock(v.duration)}</span>
+      {#if v.chapters.length}
+        <Dropdown open={menu === 'chapters'} up onclose={() => (menu = null)}>
+          {#snippet trigger()}
+            <button type="button" class="txt chap" onclick={() => (menu = menu === 'chapters' ? null : 'chapters')} data-testid="chapter-pill">
+              {v.chapterAt(v.now)?.title ?? v.chapters[0]!.title}<VIcon name="chevron-up" size={12} />
+            </button>
+          {/snippet}
+          <div class="list" role="menu" data-testid="chapters">
+            {#each v.chapters as c (c.startMs)}
+              <button type="button" role="menuitem" onclick={() => { v.seek(c.startMs); menu = null; }}><span class="t">{fmtClock(c.startMs)}</span>{c.title}</button>
+            {/each}
+          </div>
+        </Dropdown>
+      {/if}
+      <span class="grow"></span>
+      {#if v.data.cues.length}
+        <button type="button" class="ib" class:on={captions} onclick={() => (captions = !captions)} aria-pressed={captions} aria-label="Captions" title="Captions" data-testid="cc"><VIcon name="captions" size={18} /></button>
+      {/if}
+      <Dropdown open={menu === 'speed'} up align="end" onclose={() => (menu = null)}>
+        {#snippet trigger()}
+          <button type="button" class="txt" onclick={() => (menu = menu === 'speed' ? null : 'speed')} aria-label="Playback speed" data-testid="speed">{v.prefs.playbackRate}x</button>
+        {/snippet}
+        <div class="list" role="menu">
+          {#each SPEEDS as s (s)}
+            <button type="button" role="menuitem" class:sel={v.prefs.playbackRate === s} onclick={() => setSpeed(s)}>{s}x</button>
+          {/each}
+        </div>
+      </Dropdown>
+      <Dropdown open={menu === 'quality'} up align="end" onclose={() => (menu = null)}>
+        {#snippet trigger()}
+          <button type="button" class="ib" onclick={() => (menu = menu === 'quality' ? null : 'quality')} aria-label="Quality" title="Quality" data-testid="quality"><VIcon name="settings" size={17} /></button>
+        {/snippet}
+        <div class="list" role="menu">
+          <div class="head">Quality</div>
+          {#each video.renditions as r (r.label)}
+            <button type="button" role="menuitem" class:sel={quality === r.label} onclick={() => setQuality(r.label, r.url)}>{r.label}</button>
+          {/each}
+          <button type="button" role="menuitem" class:sel={quality === 'Auto'} onclick={() => setQuality('Auto', video.url)}>Auto</button>
+        </div>
+      </Dropdown>
+      <button type="button" class="ib" onclick={download} aria-label="Download video" title="Download" data-testid="download"><VIcon name="download" size={18} /></button>
+      <button type="button" class="ib" onclick={toggleFullscreen} aria-label="Fullscreen" title="Fullscreen (f)" data-testid="fullscreen"><VIcon name="fullscreen" size={18} /></button>
+    </div>
+  </div>
+  <!-- hidden twin used for the hover preview frames -->
+  <!-- svelte-ignore a11y_media_has_caption -->
+  <video bind:this={preview} class="twin" src={video.url} preload="auto" muted playsinline onseeked={drawPreview}></video>
+</div>
+
+<style>
+  .card {
+    position: relative; overflow: hidden; border-radius: var(--nb-radius-xl); background: #0d0d0c; color: #f7f6f2;
+    aspect-ratio: 16 / 9; max-height: 70vh; width: 100%; display: grid; user-select: none;
+  }
+  .card.fs { border-radius: 0; max-height: none; }
+  video { width: 100%; height: 100%; object-fit: contain; grid-area: 1 / 1; background: #000; }
+  .twin { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .top {
+    position: absolute; inset: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 12px;
+    background: linear-gradient(rgb(0 0 0 / 0.55), transparent); transition: opacity var(--nb-dur-med);
+  }
+  .grow { flex: 1; }
+  .chip, .pill {
+    display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 4px; border-radius: 999px;
+    background: rgb(0 0 0 / 0.55); color: #f7f6f2; font-size: var(--nb-text-md); border: 0;
+  }
+  .pill { padding: 0 10px; cursor: pointer; font: 500 var(--nb-text-md) var(--nb-font-mono); }
+  .pill:hover { background: rgb(0 0 0 / 0.75); }
+  .big {
+    position: absolute; left: 50%; top: 50%; translate: -50% -50%; display: inline-flex; align-items: center; gap: 10px;
+    height: 56px; padding: 0 20px 0 18px; border-radius: 999px; border: 0; cursor: pointer;
+    background: rgb(255 255 255 / 0.92); color: #1a1918; font: 600 var(--nb-text-base) var(--nb-font-sans);
+    box-shadow: var(--nb-shadow-lg);
+  }
+  .big .dur { font: 500 var(--nb-text-md) var(--nb-font-mono); color: #5f5b53; }
+  .caption {
+    position: absolute; left: 50%; bottom: 84px; translate: -50% 0; max-width: 80%; padding: 4px 10px; border-radius: 6px;
+    background: rgb(0 0 0 / 0.75); color: #fff; font-size: var(--nb-text-lg); text-align: center; pointer-events: none;
+  }
+  .controls {
+    position: absolute; inset: auto 0 0; padding: 28px 12px 8px;
+    background: linear-gradient(transparent, rgb(0 0 0 / 0.7)); transition: opacity var(--nb-dur-med);
+  }
+  .hide .controls, .hide .top { opacity: 0; }
+  .markers { position: relative; height: 22px; margin: 0 6px; }
+  .mk {
+    position: absolute; bottom: 2px; translate: -50% 0; display: inline-flex; align-items: center; gap: 2px;
+    height: 18px; min-width: 18px; padding: 0 4px; border-radius: 999px; border: 0; cursor: pointer;
+    font: 600 10px var(--nb-font-mono); color: #fff; background: #c22e1f;
+  }
+  .mk-net-fail { background: #e04a6e; }
+  .mk-pen, .mk-blur, .mk-mark { background: #f2b100; color: #1a1918; }
+  .mk-pause, .mk-resume, .mk-nav, .mk-voice { background: #6d7deb; min-width: 10px; height: 10px; padding: 0; }
+  .mk .dot { width: 4px; height: 4px; border-radius: 50%; background: #fff; }
+  .bubble { background: #2c2a27; color: #f7f6f2; bottom: 22px; border: 1px solid #45423c; }
+  .markers.two { height: 42px; }
+  .markers.two .tip { bottom: 44px; }
+  .mk:hover { filter: brightness(1.15); z-index: 2; }
+  .tip {
+    position: absolute; bottom: 24px; translate: -50% 0; z-index: 3; display: flex; flex-direction: column; gap: 2px;
+    max-width: 280px; padding: 6px 10px; border-radius: 8px; background: #1a1918; color: #f7f6f2; font-size: var(--nb-text-sm);
+    box-shadow: var(--nb-shadow-lg); pointer-events: none; white-space: nowrap;
+  }
+  .tip span { overflow: hidden; text-overflow: ellipsis; color: #d6d2c8; }
+  .bar { position: relative; height: 14px; margin: 0 6px; cursor: pointer; touch-action: none; }
+  .bar::before { content: ''; position: absolute; inset: 5px 0; border-radius: 2px; background: rgb(255 255 255 / 0.28); }
+  .bar:focus-visible { outline: 2px solid var(--nb-focus); border-radius: 4px; }
+  .fill { position: absolute; left: 0; top: 5px; height: 4px; border-radius: 2px; background: #6d7deb; }
+  .split { position: absolute; top: 4px; width: 2px; height: 6px; background: #0d0d0c; translate: -1px 0; z-index: 1; }
+  .knob { position: absolute; top: 2px; width: 10px; height: 10px; border-radius: 50%; background: #fff; translate: -50% 0; }
+  .preview {
+    position: absolute; bottom: 20px; translate: -50% 0; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 4px; border-radius: 8px; background: #1a1918; pointer-events: none; z-index: 4;
+  }
+  .preview canvas { width: 160px; height: 90px; border-radius: 4px; background: #000; }
+  .preview span { font: 500 var(--nb-text-sm) var(--nb-font-mono); white-space: nowrap; }
+  .row { display: flex; align-items: center; gap: 2px; margin-top: 4px; }
+  .ib, .txt {
+    all: unset; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    height: 32px; min-width: 32px; padding: 0 6px; border-radius: 8px; cursor: pointer; color: #f7f6f2;
+  }
+  .ib:hover, .txt:hover, .ib.on { background: rgb(255 255 255 / 0.14); }
+  .ib:focus-visible, .txt:focus-visible { outline: 2px solid var(--nb-focus); }
+  .txt { font: 500 var(--nb-text-md) var(--nb-font-mono); }
+  .chap { font-family: var(--nb-font-sans); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: rgb(255 255 255 / 0.1); border-radius: 999px; padding: 0 10px; height: 26px; }
+  .time { font: 500 var(--nb-text-md) var(--nb-font-mono); padding: 0 8px; white-space: nowrap; }
+  .list {
+    display: flex; flex-direction: column; min-width: 140px; max-height: 260px; overflow: auto; padding: 4px;
+    border-radius: 8px; background: #1a1918; color: #f7f6f2; box-shadow: var(--nb-shadow-lg); font-size: var(--nb-text-md);
+  }
+  .list button { all: unset; display: flex; gap: 10px; padding: 5px 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+  .list button:hover, .list .sel { background: #2c2a27; }
+  .list .sel { font-weight: 600; }
+  .list .t { font-family: var(--nb-font-mono); color: #a9a499; }
+  .list .head { padding: 4px 8px; color: #a9a499; font-size: var(--nb-text-xs); }
+  @media (max-width: 720px) {
+    .card { border-radius: 0; }
+    .chap { display: none; }
+  }
+</style>
