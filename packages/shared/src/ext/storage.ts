@@ -6,6 +6,7 @@ import type { RecordingKind } from '../constants.ts';
 import type { ExtBootstrap, ExtensionSettings } from '../api/account.ts';
 import type { Person } from '../api/common.ts';
 import type { AnnotationInput } from '../api/dto.ts';
+import type { AiDraftText } from '../areas/editor.ts';
 import type { CaptureSession, RecordMode, ReplayState } from './state.ts';
 
 export type StorageArea = 'local' | 'session';
@@ -90,6 +91,11 @@ export interface Draft extends DraftSummary {
   /** video dimensions in device pixels */
   videoSize?: { w: number; h: number } | null;
   shareUrl?: string | null;
+  // ---- editor area additions ----
+  /** AI ghost text fetched for this draft, kept so a reopened draft shows it again (J-218, J-083). */
+  ai?: AiDraftText | null;
+  /** Set by draft.open: a reopened draft's close button saves for later instead of discarding (J-219). */
+  reopenedAt?: number | null;
 }
 
 /** Upload progress per recording, for the bar and the editor's create button. */

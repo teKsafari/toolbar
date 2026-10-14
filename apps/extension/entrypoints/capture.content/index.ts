@@ -8,6 +8,7 @@ import { CAPTURE_PORT, type PortMessage, type PortCommand, type ContentCommand }
 import type { PageGeometry } from '@toolbar/shared/ext';
 import { SHADOW_MODE } from '../../lib/flags';
 import Toolbar from './Toolbar.svelte';
+import { installEditorHost } from './editor/host';
 import './style.css';
 
 /**
@@ -141,7 +142,10 @@ export default defineContentScript({
       append: 'last',
       css: HOST_CSS,
       isolateEvents: ['keydown', 'keyup', 'keypress'],
-      onMount: (container) => mount(Toolbar, { target: container }),
+      onMount: (container) => {
+        installEditorHost(container);
+        return mount(Toolbar, { target: container });
+      },
       onRemove: (app) => app && unmount(app),
     });
     ui.mount();

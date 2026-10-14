@@ -6,16 +6,26 @@
   "license": "MIT",
   "svelte": "./src/index.ts",
   "exports": {
-    ".": { "types": "./src/index.ts", "svelte": "./src/index.ts", "default": "./src/index.ts" },
+    ".": {
+      "types": "./src/index.ts",
+      "svelte": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
     "./tokens": "./src/tokens.ts",
     "./tokens.css": "./src/tokens.css",
-    "./icons": "./src/icons.ts"
+    "./icons": "./src/icons.ts",
+    "./editor": "./src/editor/index.ts"
   },
   "scripts": {
     "gen:tokens": "node --experimental-strip-types scripts/gen-tokens.ts",
     "build": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@rrweb/replay": "2.1.7",
+    "@toolbar/shared": "workspace:*",
+    "perfect-freehand": "1.2.3"
   },
   "peerDependencies": {
     "svelte": "^5.57.0"

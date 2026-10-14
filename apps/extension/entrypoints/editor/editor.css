@@ -1,0 +1,9 @@
+/* The editor page is an iframe over the host page: transparent ground, no scrollbars. */
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  color-scheme: light dark;
+}

@@ -8,6 +8,7 @@ import { TEST_HOOKS } from '../lib/flags';
 import { registerAuth } from '../lib/bg/auth';
 import { setupCapture } from '../lib/bg/capture';
 import { registerUi } from '../lib/bg/ui';
+import { registerDraftHandlers } from '../lib/bg/drafts';
 
 export default defineBackground(() => {
   registerAuth();
@@ -19,6 +20,7 @@ export default defineBackground(() => {
     console.error('[nib] content script registration failed', e);
     throw e;
   });
+  registerDraftHandlers();
   browser.runtime.onInstalled.addListener(() => void registerCaptureScripts());
   setupCapture();
   browser.runtime.onStartup.addListener(() => void registerCaptureScripts());

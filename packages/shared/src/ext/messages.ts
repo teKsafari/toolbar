@@ -226,7 +226,7 @@ export type OffscreenEvent =
 
 export type EditorFrameMessage =
   | { [EDITOR_FRAME_TAG]: true; type: 'ready' }
-  | { [EDITOR_FRAME_TAG]: true; type: 'close'; reason: 'created' | 'discarded' | 'saved' }
+  | { [EDITOR_FRAME_TAG]: true; type: 'close'; reason: 'created' | 'discarded' | 'saved'; /** created: whether the link reached the clipboard */ copied?: boolean }
   | { [EDITOR_FRAME_TAG]: true; type: 'escape-pressed' }
   | { [EDITOR_FRAME_TAG]: true; type: 'size'; w: number; h: number };
 
