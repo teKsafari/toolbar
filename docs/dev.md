@@ -97,11 +97,13 @@ Load it unpacked:
 Or start a private Chromium with it, on its own display (never `:99`):
 
 ```sh
-Xvfb :101 -screen 0 1440x900x24 & openbox --display :101 &
-DISPLAY=:101 ~/.cache/ms-playwright/chromium-1243/chrome-linux/chrome --user-data-dir=/tmp/nib-profile \
+Xvfb :101 -screen 0 1440x900x24 & DISPLAY=:101 openbox &
+DISPLAY=:101 ~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome --user-data-dir=/tmp/nib-profile --no-first-run \
   --disable-extensions-except=$PWD/apps/extension/.output/chrome-mv3-dev \
   --load-extension=$PWD/apps/extension/.output/chrome-mv3-dev http://localhost:5173
 ```
+
+`--no-first-run` matters: without it a fresh profile opens a modal terms-of-service dialog and Chromium loads nothing until someone clicks Accept. openbox takes its display from `DISPLAY` and rejects a `--display` flag.
 
 WXT's own browser runner is off (`webExt.disabled`), because this VM has no display for it and the shared browser belongs to another agent.
 

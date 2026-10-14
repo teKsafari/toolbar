@@ -84,6 +84,12 @@ services:
     ports: ["${WHISPER_PORT:-8080}:8080"]
     volumes: [whisper-models:/models]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 300s
 
   mailpit:
     image: axllent/mailpit:v1.31.5
