@@ -237,7 +237,10 @@ const extras: UiExtras = { countdownLeftMs: COUNTDOWN_FROM * 1000, capMs: null, 
 
 export function sendToTab(tabId: number | null | undefined, cmd: ContentCommand) {
   if (tabId == null || tabId < 0) return Promise.resolve();
-  return browser.tabs.sendMessage(tabId, cmd, { frameId: 0 }).catch(() => undefined);
+  // a tab without our content script (restricted, or still loading) has no receiver
+  return Promise.resolve()
+    .then(() => browser.tabs.sendMessage(tabId, cmd, { frameId: 0 }))
+    .catch(() => undefined);
 }
 
 function sessionCommand(s: CaptureSession): UiSessionCommand {
