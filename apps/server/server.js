@@ -16,4 +16,7 @@ server.prependListener('request', (req) => {
   // authenticates with a bearer token cannot be forged by another site (browsers never attach one
   // on their own), so it counts as same-origin. Cookie requests keep the check.
   if (/^Bearer\s/i.test(req.headers.authorization ?? '')) req.headers.origin = pub.origin;
+  // MCP OAuth token and revoke requests are form posts from agents without an Origin and without
+  // cookies (PKCE or client secret only), so CSRF does not apply to them (agent area).
+  else if (/^\/mcp\/(token|revoke)(\?|$)/.test(req.url ?? '')) req.headers.origin = pub.origin;
 });

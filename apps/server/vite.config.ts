@@ -11,8 +11,25 @@ try {
 
 const devPort = Number(process.env.DEV_PORT || 3000);
 
+/**
+ * Dev mirror of server.js: requests with a bearer token, and the OAuth token and revoke form posts
+ * from MCP clients, carry no cookies, so Kit's CSRF origin check does not apply to them. Without
+ * this the CLI's multipart uploads and agents' token exchanges fail under `vite dev`.
+ */
+const OAUTH_FORM_PATHS = /^\/mcp\/(token|revoke)(\?|$)/;
+const oauthFormOrigin = {
+  name: 'nib-oauth-form-origin',
+  configureServer(server: { middlewares: { use: (fn: (req: { url?: string; headers: Record<string, unknown> }, res: unknown, next: () => void) => void) => void } }) {
+    server.middlewares.use((req, _res, next) => {
+      if ((req.url && OAUTH_FORM_PATHS.test(req.url)) || /^Bearer\s/i.test(String(req.headers.authorization ?? ''))) req.headers.origin = process.env.PUBLIC_URL || `http://localhost:${devPort}`;
+      next();
+    });
+  },
+};
+
 export default defineConfig({
   plugins: [
+    oauthFormOrigin,
     sveltekit({
       compilerOptions: {
         runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true),
