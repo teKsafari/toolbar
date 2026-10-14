@@ -11,6 +11,7 @@
     "./api": "./src/api/index.ts",
     "./constants": "./src/constants.ts",
     "./ids": "./src/ids.ts",
+    "./redact": "./src/redact.ts",
     "./ext": "./src/ext/index.ts",
     "./areas/*": "./src/areas/*.ts"
   },

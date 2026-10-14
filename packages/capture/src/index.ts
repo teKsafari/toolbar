@@ -1,5 +1,11 @@
 export * from './transport.ts';
 export * from './bridge.ts';
 export * from './hooks/index.ts';
-export { startMainWorld, BOOT_MARKER, type MainBoot } from './main.ts';
-export { startIsolatedWorld } from './isolated.ts';
+export { startMainWorld, frameCtx, BOOT_MARKER, type MainBoot } from './main.ts';
+export { startIsolatedWorld, type IsolatedHandle } from './isolated.ts';
+export { serialize, formatArgs } from './serialize.ts';
+export { describeNode, selectorOf, accessibleName, roleOf } from './target.ts';
+export { collectEnv, parseUserAgent } from './env.ts';
+export { recordUserEvents } from './user-events.ts';
+export { observeDom } from './dom-summary.ts';
+export { evaluateMetadata, METADATA_MAX_BYTES } from './metadata.ts';

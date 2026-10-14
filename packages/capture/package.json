@@ -16,9 +16,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@rrweb/record": "2.1.7",
+    "@rrweb/types": "2.1.7",
     "@toolbar/shared": "workspace:*"
   },
   "devDependencies": {
+    "happy-dom": "21.0.1",
     "typescript": "6.0.3",
     "vitest": "5.0.4"
   }
