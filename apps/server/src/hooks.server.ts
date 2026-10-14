@@ -8,6 +8,7 @@ import { env, assertSafeSecrets } from '#lib/server/env.ts';
 import { startWorker } from '#lib/server/jobs/worker.ts';
 import { bearerFrom, resolveApiToken } from '#lib/server/tokens.ts';
 import { apiGate } from '#lib/server/auth/http.ts';
+import { registerDashboard } from '#lib/server/dashboard/register.ts';
 
 export const init: ServerInit = async () => {
   const unsafe = assertSafeSecrets();
@@ -23,6 +24,7 @@ export const init: ServerInit = async () => {
     process.once('SIGINT', stop);
     console.log('[server] job worker started');
   }
+  registerDashboard();
 };
 
 const securityHeaders: Handle = async ({ event, resolve }) => {

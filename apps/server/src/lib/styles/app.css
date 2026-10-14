@@ -14,7 +14,7 @@ h2 { font-size: var(--nb-text-lg); font-weight: var(--nb-weight-semibold); margi
   display: grid; place-items: center; gap: var(--nb-space-2); padding: 64px 16px;
   color: var(--nb-text-muted); text-align: center;
 }
-input[type='text'], input[type='email'], input[type='password'] {
+input[type='text'], input[type='email'], input[type='password'], input[type='url'], input[type='search'], input[type='number'] {
   height: var(--nb-control-lg); padding: 0 var(--nb-space-3); width: 100%;
   border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md);
   background: var(--nb-surface); color: var(--nb-text); font: inherit;

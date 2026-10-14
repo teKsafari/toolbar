@@ -9,10 +9,12 @@ import { registerAuth } from '../lib/bg/auth';
 import { setupCapture } from '../lib/bg/capture';
 import { registerUi } from '../lib/bg/ui';
 import { registerDraftHandlers } from '../lib/bg/drafts';
+import { registerDashboard } from '../lib/bg/dashboard';
 
 export default defineBackground(() => {
   registerAuth();
   registerUi();
+  registerDashboard();
   const stats = { ports: 0, events: 0, byKind: {} as Record<string, number>, commands: [] as string[], pages: [] as string[] };
   const recent: CaptureEvent[] = [];
 

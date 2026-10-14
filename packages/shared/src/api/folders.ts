@@ -274,6 +274,9 @@ export const recorderCreateBodySchema = z.object({
   startedAt: z.number(),
   env: envInfoSchema.optional(),
   note: z.string().max(10_000).optional(),
+  /** J-126 presets from the recorder page URL: folder (short id or name in the link's workspace) and a reference */
+  folder: z.string().max(200).optional(),
+  ref: z.string().max(2000).optional(),
 });
 
 export const recorderCreate = defineRoute({

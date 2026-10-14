@@ -1,8 +1,8 @@
 // Issue trackers, chat webhooks and outgoing webhooks per workspace. Owner: dashboard area.
 // Areas append new tables to their own file; edit other files only additively (docs/parallel.md).
 import { sql } from 'drizzle-orm';
-import { boolean, index, jsonb, pgTable, text, uuid } from 'drizzle-orm/pg-core';
-import { bytea, id, created } from './columns.ts';
+import { boolean, index, integer, jsonb, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { bytea, id, ts, created } from './columns.ts';
 import { user, organization } from './auth.ts';
 
 export const integration = pgTable(
@@ -36,4 +36,43 @@ export const webhook = pgTable(
     createdAt: created(),
   },
   (t) => [index('webhook_org_idx').on(t.organizationId)],
+);
+
+// ---------- dashboard area additions ----------
+
+/** Issues filed from a capture, or referenced in its text (J-241). */
+export const linkedIssue = pgTable(
+  'linked_issue',
+  {
+    id: id(),
+    recordingId: uuid('recording_id').notNull(),
+    integrationId: uuid('integration_id').references(() => integration.id, { onDelete: 'set null' }),
+    type: text('type').notNull(),
+    url: text('url').notNull(),
+    key: text('key').notNull(),
+    title: text('title'),
+    createdAt: created(),
+  },
+  (t) => [index('linked_issue_recording_idx').on(t.recordingId), uniqueIndex('linked_issue_uq').on(t.recordingId, t.url)],
+);
+
+/** One delivery of one event to one webhook endpoint, with its retry state (J-142). */
+export const webhookDelivery = pgTable(
+  'webhook_delivery',
+  {
+    id: id(),
+    webhookId: uuid('webhook_id')
+      .notNull()
+      .references(() => webhook.id, { onDelete: 'cascade' }),
+    event: text('event').notNull(),
+    payload: jsonb('payload').notNull(),
+    status: text('status', { enum: ['pending', 'ok', 'failed'] }).notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    responseStatus: integer('response_status'),
+    error: text('error'),
+    createdAt: created(),
+    nextAttemptAt: ts('next_attempt_at'),
+    lastAttemptAt: ts('last_attempt_at'),
+  },
+  (t) => [index('webhook_delivery_hook_idx').on(t.webhookId, t.createdAt)],
 );
