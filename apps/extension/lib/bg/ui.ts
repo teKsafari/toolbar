@@ -482,6 +482,11 @@ async function stopRecording(reason: 'user' | 'cap' = 'user'): Promise<CaptureSe
   }
 }
 
+/** Stop the live recording as the bar's stop button would; the capture driver calls it when the browser ends the media (Chrome's stop-sharing bar). */
+export function requestStop(): Promise<CaptureSession> {
+  return stopRecording();
+}
+
 async function pauseRecording(): Promise<void> {
   const s = session;
   if (s.state !== 'recording' || s.pausedAt !== null) return;

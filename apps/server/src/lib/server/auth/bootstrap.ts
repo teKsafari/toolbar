@@ -81,5 +81,7 @@ export async function extBootstrap(db: Db, me: Person, opts: { workspaceId?: str
     settings: DEFAULT_USER_SETTINGS,
     limits: { chunkBytes: LIMITS.chunkBytes, maxRecordingMs: maxMin > 0 ? maxMin * 60_000 : null, aiAvailable: ai !== 'none' && ai !== '' },
     serverVersion: opts.serverVersion,
+    // J-177: the menu's "report a problem" opens this recording link when set
+    supportRecordingLink: process.env.SUPPORT_RECORDING_LINK || null,
   };
 }

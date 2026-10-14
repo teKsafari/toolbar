@@ -66,7 +66,6 @@ export interface UploadDraftResult {
 /** Everything create needs to do. Throws HttpError when the server refuses or stays down. */
 export async function uploadDraft(draft: Draft, finalize: FinalizeCaptureBody, opts: UploadDraftOptions): Promise<UploadDraftResult> {
   const { auth } = opts;
-  const rowKey = draft.uploadKey ?? draft.clientId;
   let id = draft.recordingId;
   let shareUrl = draft.shareUrl ?? '';
   if (!id) {
@@ -85,6 +84,35 @@ export async function uploadDraft(draft: Draft, finalize: FinalizeCaptureBody, o
     id = created.id;
     shareUrl = created.shareUrl;
   }
+  const body: FinalizeCaptureBody = { ...finalize };
+  if (!body.screenshotAssetId && draft.screenshotBlobId) {
+    const shot = await getBlob(draft.screenshotBlobId);
+    if (shot) {
+      const isCrop = !!draft.crop;
+      const a = await withRetry(() => api.uploadAsset(auth, { kind: isCrop ? 'crop' : 'screenshot', recordingId: id! }, shot, 'screenshot.png'));
+      body.screenshotAssetId = a.id;
+    }
+  }
+  if (body.fullScreenshotAssetId === undefined && draft.crop && draft.keepFull && draft.fullBlobId) {
+    const full = await getBlob(draft.fullBlobId);
+    if (full) body.fullScreenshotAssetId = (await withRetry(() => api.uploadAsset(auth, { kind: 'screenshot', recordingId: id! }, full, 'viewport.png'))).id;
+  }
+
+  await uploadDraftStreams(draft, id, auth, opts.onProgress);
+  if (draft.metadata && !body.metadata) body.metadata = draft.metadata;
+  if (body.durationMs === undefined && draft.durationMs !== null) body.durationMs = Math.round(draft.durationMs);
+  const res = await withRetry(() => api.finalize(auth, id!, body));
+  return { recordingId: res.id, shareUrl: res.shareUrl || shareUrl, status: res.status, issue: res.issue, issueError: res.issueError };
+}
+
+/**
+ * The streams half of create: the events, rrweb and replay video kept locally until create
+ * (J-189), plus the video and voice chunks still queued from recording, uploaded to `id` and
+ * completed. The editor's create (lib/bg/drafts.ts) runs it through the capture bridge before
+ * its asset uploads and finalize; uploadDraft() runs it itself.
+ */
+export async function uploadDraftStreams(draft: Draft, id: string, auth: UploadAuthLike, onProgress?: (sent: number, total: number) => void): Promise<void> {
+  const rowKey = draft.uploadKey ?? draft.clientId;
   await rekey(rowKey, id);
 
   const streams: Partial<Record<StreamName, { lastSeq: number; totalBytes: number }>> = { ...(draft.streams ?? {}) };
@@ -111,23 +139,9 @@ export async function uploadDraft(draft: Draft, finalize: FinalizeCaptureBody, o
     if (seq) streams.video = { lastSeq: seq - 1, totalBytes };
   }
 
-  const body: FinalizeCaptureBody = { ...finalize };
-  if (!body.screenshotAssetId && draft.screenshotBlobId) {
-    const shot = await getBlob(draft.screenshotBlobId);
-    if (shot) {
-      const isCrop = !!draft.crop;
-      const a = await withRetry(() => api.uploadAsset(auth, { kind: isCrop ? 'crop' : 'screenshot', recordingId: id! }, shot, 'screenshot.png'));
-      body.screenshotAssetId = a.id;
-    }
-  }
-  if (body.fullScreenshotAssetId === undefined && draft.crop && draft.keepFull && draft.fullBlobId) {
-    const full = await getBlob(draft.fullBlobId);
-    if (full) body.fullScreenshotAssetId = (await withRetry(() => api.uploadAsset(auth, { kind: 'screenshot', recordingId: id! }, full, 'viewport.png'))).id;
-  }
-
   const total = (await pendingRows(id)).length;
   for (let attempt = 1; ; attempt++) {
-    const r = await drain(auth, id, id, { parallel: 4, onProgress: (n) => opts.onProgress?.(n, total) });
+    const r = await drain(auth, id, id, { parallel: 4, onProgress: (n) => onProgress?.(n, total) });
     if (!r.failed) break;
     if (r.lastError && !r.lastError.retryable) throw r.lastError;
     if (attempt >= 6) throw r.lastError ?? new HttpError(0, 'network', 'upload failed');
@@ -135,12 +149,8 @@ export async function uploadDraft(draft: Draft, finalize: FinalizeCaptureBody, o
   }
   for (const [stream, s] of Object.entries(streams)) {
     if (!s) continue;
-    await withRetry(() => api.completeStream(auth, id!, stream as StreamName, s));
+    await withRetry(() => api.completeStream(auth, id, stream as StreamName, s));
   }
-  if (draft.metadata && !body.metadata) body.metadata = draft.metadata;
-  if (body.durationMs === undefined && draft.durationMs !== null) body.durationMs = Math.round(draft.durationMs);
-  const res = await withRetry(() => api.finalize(auth, id!, body));
-  return { recordingId: res.id, shareUrl: res.shareUrl || shareUrl, status: res.status, issue: res.issue, issueError: res.issueError };
 }
 
 /** Discard (J-189): delete what reached the server and everything kept locally. */

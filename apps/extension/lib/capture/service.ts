@@ -37,6 +37,7 @@ import { discardDraftData, uploadDraft } from '../upload/draft';
 import { createDraft, saveDraft } from './drafts';
 import { CAPTURE_KEYS, getAuth, getPrivate, getSettings, getStore, serverUrl, setPrivate, setStore } from './store';
 import { installWebRequest } from './webrequest';
+import { isReplayBlocked } from '@toolbar/shared/areas/ext-ui';
 
 type Port = ReturnType<typeof browser.runtime.connect>;
 export class CaptureError extends Error {
@@ -80,6 +81,21 @@ export interface CaptureStats {
   lastError: string | null;
 }
 
+/**
+ * Driver mode (the merged build): ext-ui's session store in lib/bg/ui.ts owns the capture
+ * session, the countdown, the in-page UI and the keyboard commands, and calls this service
+ * through its CaptureDriver interface (lib/bg/capture.ts). The service then keeps a private
+ * copy of the session for its media work only: it never persists or broadcasts it, never sends
+ * `ui.*` commands to the page, and returns drafts instead of opening the editor.
+ */
+export interface CaptureServiceOptions {
+  external?: boolean;
+  /** the authoritative session (driver mode), for broadcasts */
+  sessionSource?: () => Promise<CaptureSession>;
+  /** a recording the browser ended (Chrome's stop-sharing bar): ask the session owner to stop */
+  onMediaEnded?: () => void;
+}
+
 export class CaptureService {
   readonly ring = new Ring();
   readonly stats: CaptureStats = { ports: 0, events: 0, rrweb: 0, byKind: {}, drafts: [], lastError: null };
@@ -101,7 +117,15 @@ export class CaptureService {
   /** Stop to editor budget; e2e lowers it to exercise the timeout path (J-034). */
   stopTimeoutMs = STOP_TIMEOUT_MS;
 
-  constructor() {
+  readonly external: boolean;
+  private opts: CaptureServiceOptions;
+  /** driver mode: the session's recording id -> the id the media and uploads use (server id when known) */
+  private mediaIds: Record<string, string> = {};
+  private startWaiters = new Map<string, { resolve: (mic: MicState) => void; reject: (e: unknown) => void }>();
+
+  constructor(opts: CaptureServiceOptions = {}) {
+    this.opts = opts;
+    this.external = !!opts.external;
     this.loaded = this.load();
   }
 
@@ -109,6 +133,12 @@ export class CaptureService {
 
   private async load() {
     this.session = (await getStore('session')) ?? IDLE;
+    if (this.external) {
+      // the stored session is the owner's; keep a live recording (with its media id), drop the rest
+      this.mediaIds = await getPrivate<Record<string, string>>(CAPTURE_KEYS.mediaIds, {});
+      const s = this.session;
+      this.session = s.state === 'recording' ? { ...s, recordingId: this.mediaIds[s.recordingId] ?? s.recordingId } : IDLE;
+    }
     this.replay = (await getStore('replay')) ?? DEFAULT_REPLAY;
     this.settings = await getSettings();
     if (this.replay.enabled !== this.settings.instantReplay || this.replay.minutes !== this.settings.replayMinutes) {
@@ -116,7 +146,7 @@ export class CaptureService {
       await setStore('replay', this.replay);
     }
     // a worker restart in the middle of a countdown cannot resume the timer: start now
-    if (this.session.state === 'countdown') void this.countdownDone();
+    if (!this.external && this.session.state === 'countdown') void this.countdownDone();
   }
 
   ready() {
@@ -135,6 +165,11 @@ export class CaptureService {
     await this.loaded;
     const next = transition(this.session, e);
     if (next === this.session) return next;
+    if (this.external) {
+      // private copy: a finished draft belongs to the editor and the owner's session
+      this.session = next.state === 'draft' ? IDLE : next;
+      return next;
+    }
     this.session = next;
     await setStore('session', next);
     this.broadcast();
@@ -142,6 +177,11 @@ export class CaptureService {
   }
 
   private broadcast() {
+    if (this.external) {
+      const src = this.opts.sessionSource;
+      if (src) void src().then((session) => browser.runtime.sendMessage({ type: 'session.changed' as const, session, replay: this.replay }).catch(() => {}));
+      return;
+    }
     const msg = { type: 'session.changed' as const, session: this.session, replay: this.replay };
     void browser.runtime.sendMessage(msg).catch(() => {});
   }
@@ -212,15 +252,8 @@ export class CaptureService {
   }
 
   private ringWanted(tabId: number, url: string): boolean {
-    if (!this.replay.enabled) return false;
-    const blocked = this.settings?.replayBlockedSites ?? [];
-    let host = '';
-    try {
-      host = new URL(url).host;
-    } catch {
-      /* ignore */
-    }
-    return !blocked.some((b) => b && (host === b || host.endsWith(`.${b}`))) && tabId >= 0;
+    if (!this.replay.enabled || tabId < 0) return false;
+    return !isReplayBlocked(url, this.settings?.replayBlockedSites ?? []);
   }
 
   private async onPortMessage(p: PortInfo, m: PortMessage) {
@@ -319,6 +352,8 @@ export class CaptureService {
   }
 
   async sendContent(tabId: number, c: ContentCommand, frameId = 0): Promise<unknown> {
+    // driver mode: the session owner drives the page UI (ui.session, ui.editor-open)
+    if (this.external && c.type.startsWith('ui.')) return undefined;
     try {
       return await browser.tabs.sendMessage(tabId, c, { frameId });
     } catch {
@@ -608,6 +643,7 @@ export class CaptureService {
       }
     } catch (e) {
       this.stats.lastError = String(e);
+      this.startWaiters.get(s.recordingId)?.reject(e);
       await this.apply({ type: 'FAIL', error: 'media', message: e instanceof Error ? e.message : String(e) });
     }
   }
@@ -620,6 +656,7 @@ export class CaptureService {
         if (s.state !== 'starting' || s.recordingId !== e.recordingId) return;
         this.media.set(e.recordingId, { t: e.t, mime: e.mime, width: e.width, height: e.height, mic: e.mic });
         await this.apply({ type: 'MEDIA_STARTED', recordingId: e.recordingId, now: e.t, mic: e.mic });
+        this.startWaiters.get(e.recordingId)?.resolve(e.mic);
         this.emit(s.tabId, 'media', { stream: s.mode === 'tab' ? 'video' : 'screen', op: 'start', mime: e.mime, width: e.width, height: e.height, mic: e.mic }, e.t);
         if (e.mic === 'on') this.emit(s.tabId, 'media', { stream: 'mic', op: 'start', mic: 'on' }, e.t);
         for (const p of this.ports) if (p.tabId === s.tabId) this.postPort(p, { type: 'attach', recordingId: e.recordingId, t0: e.t });
@@ -627,6 +664,7 @@ export class CaptureService {
         return;
       }
       case 'picker-cancelled':
+        if (e.recordingId) this.startWaiters.get(e.recordingId)?.reject(new CaptureError('permission_denied', 'picker_cancelled'));
         if (this.session.state === 'starting') {
           const tabId = this.session.tabId;
           await this.apply({ type: 'PICKER_CANCELLED' });
@@ -636,7 +674,10 @@ export class CaptureService {
         }
         return;
       case 'ended':
-        if (this.session.state === 'recording' && this.session.recordingId === e.recordingId) await this.stopRecording();
+        if (this.session.state === 'recording' && this.session.recordingId === e.recordingId) {
+          if (this.external) this.opts.onMediaEnded?.();
+          else await this.stopRecording();
+        }
         return;
       case 'error':
         this.stats.lastError = `${e.error}: ${e.message}`;
@@ -705,7 +746,7 @@ export class CaptureService {
     await this.sendContent(tabId, { type: 'ui.bar', bar: null });
   }
 
-  private async finishRecording(s: Extract<CaptureSession, { state: 'recording' }>, stoppedAt: number) {
+  private async finishRecording(s: Extract<CaptureSession, { state: 'recording' }>, stoppedAt: number): Promise<Draft | null> {
     try {
       const kind = s.mode === 'tab' ? 'video' : 'screen';
       const media = this.media.get(s.recordingId);
@@ -760,16 +801,129 @@ export class CaptureService {
       this.media.delete(s.recordingId);
       this.stats.drafts.push(draft.id);
       if (this.stopTimer) clearTimeout(this.stopTimer);
-      if (this.session.state !== 'stopping') return; // timed out: the draft is in Drafts
+      if (this.session.state !== 'stopping') return draft; // timed out: the draft is in Drafts
       await this.apply({ type: 'DRAFT_READY', draftId: draft.id, kind, recordingId: draft.recordingId, tabId: s.tabId });
       await this.sendContent(s.tabId, { type: 'ui.bar', bar: null });
       await this.sendContent(s.tabId, { type: 'ui.processing', visible: false });
       await this.sendContent(s.tabId, { type: 'ui.editor-open', draftId: draft.id }); // J-008: the tab active at stop
+      return draft;
     } catch (e) {
       if (this.stopTimer) clearTimeout(this.stopTimer);
       this.stats.lastError = `finish: ${String(e)}`;
       await this.sendContent(s.tabId, { type: 'ui.processing', visible: false });
       await this.apply({ type: 'FAIL', error: 'stop_failed', message: e instanceof Error ? e.message : String(e) });
+      if (this.external) throw e;
+      return null;
+    }
+  }
+
+  // ---------- driver mode (ext-ui owns the session; lib/bg/capture.ts adapts these) ----------
+
+  private async rememberMediaId(sessionId: string, mediaId: string) {
+    this.mediaIds = { ...this.mediaIds, [sessionId]: mediaId };
+    await setPrivate(CAPTURE_KEYS.mediaIds, this.mediaIds);
+  }
+
+  mediaIdOf(sessionId: string): string {
+    return this.mediaIds[sessionId] ?? sessionId;
+  }
+
+  /**
+   * At the user gesture: checks the tab, takes the tabCapture stream id and creates the server
+   * capture (unlisted until create, J-087), so chunks upload while recording.
+   */
+  async prepareFor(o: { tabId: number; mode: RecordMode; recordingId: string }) {
+    await this.loaded;
+    if (this.session.state !== 'idle') await this.apply({ type: 'RESET' });
+    const tab = await this.tabOrThrow(o.tabId);
+    const tabId = tab.id!;
+    let streamId: string | null = null;
+    if (o.mode === 'tab') streamId = await (browser.tabCapture as unknown as typeof Browser.tabCapture).getMediaStreamId({ targetTabId: tabId });
+    let serverId: string | null = null;
+    const auth = await this.uploadAuth();
+    if (auth?.workspaceId) {
+      try {
+        const env = await this.envFor(tabId);
+        const created = await api.createCapture(auth, {
+          clientId: o.recordingId,
+          kind: recordingKindOf(o.mode),
+          workspaceId: auth.workspaceId,
+          page: { url: tab.url ?? '', title: tab.title ?? '' },
+          startedAt: Date.now(),
+          ...(env ? { env } : {}),
+        });
+        serverId = created.id;
+        await this.rememberServerId(o.recordingId, serverId);
+      } catch (e) {
+        this.stats.lastError = `create: ${String(e)}`;
+      }
+    }
+    const mediaId = serverId ?? o.recordingId;
+    await this.rememberMediaId(o.recordingId, mediaId);
+    this.pendingStream = { recordingId: mediaId, streamId, localId: o.recordingId, serverId, upload: auth && serverId ? { serverUrl: auth.serverUrl, token: auth.token } : null, pageUrl: tab.url ?? '', pageTitle: tab.title ?? '' };
+    // the owner runs the countdown; the private copy goes straight to starting
+    await this.apply({ type: 'START_RECORDING', tabId, mode: o.mode, recordingId: mediaId, now: Date.now() });
+    await this.apply({ type: 'COUNTDOWN_DONE' });
+  }
+
+  /** Starts the media; resolves with the mic state once MediaRecorder runs. */
+  async startFor(o: { tabId: number; mode: RecordMode; recordingId: string }): Promise<MicState> {
+    await this.loaded;
+    const mediaId = this.mediaIdOf(o.recordingId);
+    if (this.session.state !== 'starting' || this.session.recordingId !== mediaId) await this.prepareFor(o);
+    const started = new Promise<MicState>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new CaptureError('server', 'The recorder did not start')), 120_000);
+      const done = () => {
+        clearTimeout(timer);
+        this.startWaiters.delete(mediaId);
+      };
+      this.startWaiters.set(mediaId, {
+        resolve: (mic) => (done(), resolve(mic)),
+        reject: (e) => (done(), reject(e)),
+      });
+    });
+    void this.beginMedia();
+    return started;
+  }
+
+  /** Aborts a recording that never went live, or a live one on reset; the server copy goes. */
+  async cancelFor(sessionId: string) {
+    await this.loaded;
+    const mediaId = this.mediaIdOf(sessionId);
+    const s = this.session;
+    if ((s.state === 'countdown' || s.state === 'starting') && s.recordingId === mediaId) {
+      this.startWaiters.get(mediaId)?.reject(new CaptureError('permission_denied', 'picker_cancelled'));
+      await this.cancelCountdown();
+      return;
+    }
+    if (s.state === 'recording' && s.recordingId === mediaId) {
+      await this.offscreen({ to: 'offscreen', type: 'stop', recordingId: mediaId }).catch(() => undefined);
+      await this.apply({ type: 'RESET' });
+      if (this.pendingStream?.serverId) await this.discardServer(this.pendingStream.serverId);
+      this.pendingStream = null;
+    }
+  }
+
+  /** Stops, gathers logs and writes the draft; resolves when the editor can open (J-034). */
+  async stopFor(sessionId: string): Promise<Draft> {
+    await this.loaded;
+    const s = this.session;
+    const mediaId = this.mediaIdOf(sessionId);
+    if (s.state !== 'recording' || s.recordingId !== mediaId) throw new CaptureError('not_found', 'Not recording');
+    const stoppedAt = Date.now();
+    await this.apply({ type: 'STOP', now: stoppedAt });
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const timeout = new Promise<never>((_, reject) => {
+      // J-034: past the budget the owner shows an error; the draft still lands in Drafts
+      timer = setTimeout(() => reject(new CaptureError('server', 'Processing took too long. The recording will be in Drafts.')), this.stopTimeoutMs);
+    });
+    try {
+      const draft = await Promise.race([this.finishRecording(s, stoppedAt), timeout]);
+      if (!draft) throw new CaptureError('server', 'The recording could not be saved');
+      return draft;
+    } finally {
+      if (timer) clearTimeout(timer);
+      if (this.session.state === 'stopping') await this.apply({ type: 'RESET' });
     }
   }
 

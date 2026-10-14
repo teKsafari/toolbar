@@ -24,6 +24,8 @@ export const CAPTURE_KEYS = {
   serverIds: 'nib:cap:server-ids',
   /** tab id -> end of the last capture, so a screenshot's pre-roll restarts after each capture (J-071) */
   lastCaptureEnd: 'nib:cap:last-end',
+  /** driver mode: the session's recording id -> the media and upload id (server id when known) */
+  mediaIds: 'nib:cap:media-ids',
 } as const;
 
 export async function getPrivate<T>(key: string, fallback: T): Promise<T> {

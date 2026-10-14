@@ -212,6 +212,8 @@ export interface CaptureBridge {
   uploadStreams?(draft: Draft, recordingId: string): Promise<void>;
   /** The editor let go of the draft: move the capture session out of `draft` (CREATE, DISCARD, SAVE_FOR_LATER), so the popup re-enables its capture rows and the drafts pill (J-035, J-219). */
   draftClosed?(draftId: string, how: 'created' | 'discarded' | 'saved'): Promise<void>;
+  /** A draft reopened from the Drafts list (draft.open): the session holds it again. Returns true when the session owner opens the editor itself. */
+  draftOpened?(draft: Draft): Promise<boolean>;
 }
 let bridge: CaptureBridge = {};
 
@@ -292,7 +294,9 @@ export async function createFromDraft(args: CreateArgs): Promise<{ recordingId: 
     for (const b of [args.flatBlobId, args.flatFullBlobId]) if (b) await deleteBlob(b).catch(() => {});
     await deleteDraft(d.id);
     await closed(d.id, 'created');
-    if (args.openTab !== false) {
+    // J-089: the extension setting decides whether the capture page opens after create
+    const openTab = args.openTab ?? (await readLocal<{ openInNewTab?: boolean }>(STORAGE.settings.key))?.openInNewTab ?? true;
+    if (openTab) {
       const base = await serverUrl();
       await openBesides(`${base}/c/${encodeURIComponent(res.id ?? recordingId)}`, d.tabId, false).catch(() => {});
       if (res.issue?.url) await openBesides(res.issue.url, d.tabId, false).catch(() => {});
@@ -408,14 +412,17 @@ export const draftHandlers: Handlers = {
   'draft.open': async ({ draftId, tabId }, sender) => {
     const tab = tabId ?? sender.tab?.id ?? (await activeTabId());
     if (tab == null) throw new BgFailure('not_found', 'No tab to open the draft in');
-    await updateDraft(draftId, { status: 'open', reopenedAt: Date.now(), tabId: tab });
-    await openDraftInTab(tab, draftId);
+    const d = await updateDraft(draftId, { status: 'open', reopenedAt: Date.now(), tabId: tab });
+    const opened = await bridge.draftOpened?.(d).catch(() => false);
+    if (!opened) await openDraftInTab(tab, draftId);
     return {};
   },
   'editor.create': async (req) => createFromDraft(req),
   'editor.openCapture': async ({ recordingId, tabId, issueUrl }) => {
     const base = await serverUrl();
-    await openBesides(`${base}/c/${encodeURIComponent(recordingId)}`, tabId, false);
+    // J-089: the extension setting "open the capture in a new tab"
+    const openInNewTab = (await readLocal<{ openInNewTab?: boolean }>(STORAGE.settings.key))?.openInNewTab ?? true;
+    if (openInNewTab) await openBesides(`${base}/c/${encodeURIComponent(recordingId)}`, tabId, false);
     if (issueUrl && /^https?:\/\//.test(issueUrl)) await openBesides(issueUrl, tabId, false).catch(() => {});
     return {};
   },

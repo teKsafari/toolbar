@@ -1,18 +1,88 @@
 // Capture area wiring in the service worker: one call, setupCapture(), from background.ts.
-// Handles the capture port, the capture-related BgRequest types, offscreen events, commands,
-// tab events, the upload drain alarm and webRequest. Other request types are left to the
+// Handles the capture port, offscreen events, tab events, the upload drain alarm, webRequest
+// and the capture-only requests (replay, mic grant, ring). The session, the countdown, the
+// in-page UI and the keyboard commands belong to ext-ui (lib/bg/ui.ts): this module installs
+// the capture service as ext-ui's CaptureDriver, and as the editor's capture bridge for the
+// streams kept locally until create (lib/bg/drafts.ts). Other request types are left to the
 // other areas' listeners (this listener returns false for them).
 import { browser, type Browser } from 'wxt/browser';
-import { isOffscreenEvent, CAPTURE_PORT, type BgRequest, type BgRequestType, type BgError } from '@toolbar/shared/ext';
+import { isOffscreenEvent, CAPTURE_PORT, type BgRequest, type BgRequestType, type BgError, type Draft } from '@toolbar/shared/ext';
 import { STORAGE } from '@toolbar/shared/ext';
 import { TEST_HOOKS } from '../flags';
 import { CaptureError, CaptureService } from '../capture/service';
 import { HttpError } from '../upload/client';
+import { uploadDraftStreams } from '../upload/draft';
+import { getAuth, serverUrl } from '../capture/store';
+import { BgFailure, dispatch, getSession, requestStop, setCaptureDriver, type CaptureDriver, type DraftHandle } from './ui';
+import { setCaptureBridge } from './drafts';
+
+/** CaptureError and HTTP failures as ext-ui's BgFailure (its handlers read `code`). */
+function asBgFailure(e: unknown): BgFailure {
+  if (e instanceof BgFailure) return e;
+  if (e instanceof CaptureError) return new BgFailure(e.code, e.message);
+  if (e instanceof HttpError) return new BgFailure(e.status === 401 ? 'not_signed_in' : e.status === 0 ? 'network' : 'server', e.message);
+  return new BgFailure('server', e instanceof Error ? e.message : String(e));
+}
+
+async function wrap<T>(p: () => Promise<T>): Promise<T> {
+  try {
+    return await p();
+  } catch (e) {
+    throw asBgFailure(e);
+  }
+}
+
+const handleOf = (d: Draft): DraftHandle => ({ draftId: d.id, kind: d.kind, recordingId: d.recordingId, tabId: d.tabId });
+
+function driverFor(svc: CaptureService): CaptureDriver {
+  return {
+    prepareRecording: (o) => wrap(() => svc.prepareFor(o)),
+    startRecording: (o) => wrap(async () => ({ mic: await svc.startFor(o) })),
+    cancelRecording: (id) => wrap(() => svc.cancelFor(id)),
+    stopRecording: (o) => wrap(async () => handleOf(await svc.stopFor(o.recordingId))),
+    pauseRecording: () => wrap(() => svc.pauseRecording()),
+    resumeRecording: () => wrap(() => svc.resumeRecording()),
+    setMic: (_id, o) => wrap(() => svc.setMic(o.muted, o.deviceId)),
+    mark: (_id, kind, label) => wrap(() => svc.mark(kind, label)),
+    takeScreenshot: (o) => wrap(async () => handleOf(await svc.takeScreenshot(o.rect, { tabId: o.tabId, openEditor: false }))),
+    triggerReplay: (o) => wrap(async () => handleOf(await svc.triggerReplay(o.tabId, { openEditor: false }))),
+  };
+}
 
 type Handler = (msg: BgRequest, sender: Browser.runtime.MessageSender) => Promise<Record<string, unknown>>;
 
 export function setupCapture(): CaptureService {
-  const svc = new CaptureService();
+  const svc = new CaptureService({
+    external: true,
+    sessionSource: getSession,
+    onMediaEnded: () => void requestStop().catch(() => undefined),
+  });
+  setCaptureDriver(driverFor(svc));
+  setCaptureBridge({
+    async uploadStreams(draft, recordingId) {
+      const a = await getAuth();
+      if (!a?.token) throw new BgFailure('not_signed_in', 'Sign in to create captures');
+      const base = a.serverUrl || (await serverUrl());
+      await wrap(() => uploadDraftStreams(draft, recordingId, { serverUrl: base, token: a.token }));
+    },
+    // the editor let go of the draft: the session leaves `draft` (J-035, J-219)
+    async draftClosed(draftId, how) {
+      const s = await getSession();
+      if (!('draftId' in s) || s.draftId !== draftId) return;
+      if (how === 'discarded') await dispatch({ type: 'DISCARD' });
+      else if (how === 'saved') await dispatch({ type: 'SAVE_FOR_LATER' });
+      else {
+        await dispatch({ type: 'CREATE', recordingId: ('recordingId' in s && s.recordingId) || draftId });
+        await dispatch({ type: 'UPLOAD_DONE' });
+      }
+    },
+    // a draft reopened from the Drafts list holds the session again while its editor is open
+    async draftOpened(d) {
+      if ((await getSession()).state !== 'idle') return false;
+      const next = await dispatch({ type: 'DRAFT_READY', draftId: d.id, kind: d.kind, recordingId: d.recordingId, tabId: d.tabId });
+      return next.state === 'draft';
+    },
+  });
   svc.startWebRequest();
   svc.startTimers();
 
@@ -22,52 +92,13 @@ export function setupCapture(): CaptureService {
 
   const tabOf = (sender: Browser.runtime.MessageSender, tabId?: number) => tabId ?? sender.tab?.id;
   const handlers: Partial<Record<BgRequestType, Handler>> = {
-    'session.get': async () => {
-      await svc.ready();
-      const [tab] = await browser.tabs.query({ active: true, lastFocusedWindow: true });
-      const { isRestrictedUrl } = await import('../capture/service');
-      return { session: svc.getSession(), replay: svc.getReplay(), tabId: tab?.id ?? null, restricted: isRestrictedUrl(tab?.url) };
-    },
-    capture: async (m, sender) => {
-      const msg = m as Extract<BgRequest, { type: 'capture' }>;
-      const tabId = tabOf(sender, msg.tabId);
-      switch (msg.mode) {
-        case 'screenshot':
-          return { session: await svc.armScreenshot(tabId, msg.delaySec) };
-        case 'video':
-          return { session: await svc.startRecording({ tabId, mode: msg.recordMode, delaySec: msg.delaySec }) };
-        case 'replay': {
-          await svc.triggerReplay(tabId);
-          return { session: svc.getSession() };
-        }
-        default:
-          throw new CaptureError('not_implemented', `${msg.mode} is handled by the recording-link flow`);
-      }
-    },
-    'screenshot.take': async (m) => {
-      const msg = m as Extract<BgRequest, { type: 'screenshot.take' }>;
-      const draft = await svc.takeScreenshot(msg.rect);
-      return { draftId: draft.id };
-    },
-    'screenshot.cancel': async () => (await svc.cancelScreenshot(), {}),
-    'countdown.pause': async () => (await svc.pauseCountdown(), {}),
-    'countdown.resume': async () => (await svc.resumeCountdown(), {}),
-    'countdown.cancel': async () => (await svc.cancelCountdown(), {}),
-    'recording.stop': async () => ({ session: await svc.stopRecording() }),
-    'recording.pause': async () => (await svc.pauseRecording(), {}),
-    'recording.resume': async () => (await svc.resumeRecording(), {}),
-    'recording.mic': async (m) => {
-      const msg = m as Extract<BgRequest, { type: 'recording.mic' }>;
-      return { mic: await svc.setMic(msg.muted, msg.deviceId) };
-    },
-    'recording.mark': async (m) => {
-      const msg = m as Extract<BgRequest, { type: 'recording.mark' }>;
-      await svc.mark(msg.kind, msg.label);
-      return {};
-    },
     'replay.trigger': async (m, sender) => {
       const msg = m as Extract<BgRequest, { type: 'replay.trigger' }>;
-      return { draftId: (await svc.triggerReplay(tabOf(sender, msg.tabId))).id };
+      if ((await getSession()).state !== 'idle') throw new CaptureError('busy', 'Finish the open capture first');
+      const d = await svc.triggerReplay(tabOf(sender, msg.tabId), { openEditor: false });
+      // the session owner opens the editor on the draft (lib/bg/ui.ts)
+      await dispatch({ type: 'DRAFT_READY', draftId: d.id, kind: d.kind, recordingId: d.recordingId, tabId: d.tabId });
+      return { draftId: d.id };
     },
     'replay.set': async (m, sender) => {
       const msg = m as Extract<BgRequest, { type: 'replay.set' }>;
@@ -79,7 +110,10 @@ export function setupCapture(): CaptureService {
       await svc.onMicResult(msg.granted, msg.deviceCount);
       return {};
     },
-    'session.dismiss': async () => ({ session: await svc.dismissError() }),
+    'session.dismiss': async () => {
+      const s = await getSession();
+      return { session: s.state === 'error' ? await dispatch({ type: 'CANCEL' }) : s };
+    },
     'capture.ring': async (m, sender) => {
       const msg = m as Extract<BgRequest, { type: 'capture.ring' }>;
       const tabId = tabOf(sender, msg.tabId);
@@ -106,19 +140,7 @@ export function setupCapture(): CaptureService {
     return true;
   });
 
-  browser.commands.onCommand.addListener((command, tab) => {
-    const tabId = tab?.id;
-    const run = async () => {
-      if (command === 'record-tab') {
-        const s = svc.getSession();
-        if (s.state === 'recording') await svc.stopRecording();
-        else await svc.startRecording({ tabId });
-      } else if (command === 'screenshot-mode') await svc.armScreenshot(tabId);
-      else if (command === 'instant-replay') await svc.triggerReplay(tabId);
-    };
-    void run().catch((e: unknown) => (svc.stats.lastError = `command ${command}: ${String(e)}`));
-  });
-
+  // keyboard commands: lib/bg/ui.ts (ext-ui) routes them through the driver
   browser.tabs.onRemoved.addListener((tabId) => void svc.onTabRemoved(tabId));
   browser.tabs.onActivated.addListener(({ tabId }) => void svc.onTabActivated(tabId));
   browser.tabs.onUpdated.addListener((tabId, info) => void svc.onTabUpdated(tabId, info.status));
