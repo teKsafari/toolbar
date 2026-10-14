@@ -2,7 +2,7 @@
 // Screenshots land in e2e/flows-shots/visual-*.png for a person to look at; the test
 // checks what a machine can: no sideways scroll, nothing wider than the screen, the theme applied.
 import { chromium, type Page } from '@playwright/test';
-import { EXT_ID, LAB_URL, SERVER, chord, editorFrame, expect, hydrated, labPage, saveShot, test } from './fixture.ts';
+import { EXT_ID, LAB_URL, SERVER, chord, editorFrame, expect, labPage, saveShot, test } from './fixture.ts';
 import { instantReplay, recordLabErrors } from './journeys.ts';
 
 const SIZES = [
@@ -51,7 +51,20 @@ async function look(page: Page, name: string, theme: 'light' | 'dark') {
   await page.screenshot({ path: saveShot(`visual-${name}`), fullPage: false });
 }
 
+/**
+ * Open a page for a look: the document, then hydration where the page marks it, then a quiet
+ * network for up to 10 s. Capture pages keep a comments stream and media requests open, and once
+ * on a loaded machine the share page's load event never came (every request had finished), which
+ * stalled the whole pass; a look does not need it.
+ */
+async function open(page: Page, url: string) {
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  if (/\/(c|s)\//.test(url)) await page.locator('[data-hydrated]').waitFor();
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+}
+
 test('visual: web pages at 1440 and 390, light and dark', async ({ nib, context }) => {
+  test.setTimeout(300_000); // 36 page loads; several seconds each when the machine is busy
   const video = await recordLabErrors(nib);
   const replay = await instantReplay(nib);
   const shot = nib.made.screenshot;
@@ -71,17 +84,14 @@ test('visual: web pages at 1440 and 390, light and dark', async ({ nib, context 
       await page.setViewportSize({ width: size.width, height: size.height });
       await page.emulateMedia({ colorScheme: theme });
       for (const [name, p] of member) {
-        await page.goto(SERVER + p);
-        await hydrated(page);
+        await open(page, SERVER + p);
         await look(page, `${name}-${size.name}-${theme}`, theme);
       }
       await page.close();
       const out = await anon.newPage({ viewport: { width: size.width, height: size.height }, colorScheme: theme });
-      await out.goto(`${SERVER}/login`);
-      await hydrated(out);
+      await open(out, `${SERVER}/login`);
       await look(out, `login-${size.name}-${theme}`, theme);
-      await out.goto(video.shareUrl);
-      await hydrated(out);
+      await open(out, video.shareUrl);
       await look(out, `share-${size.name}-${theme}`, theme);
       await out.close();
     }
