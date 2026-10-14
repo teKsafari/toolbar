@@ -15,7 +15,10 @@
   let { data } = $props();
   const ws = $derived(data.ws);
   const admin = $derived(ws.role === 'admin');
+  // svelte-ignore state_referenced_locally
+  // svelte-ignore state_referenced_locally
   let s = $state<WorkspaceSettings>(structuredClone(data.ws.settings));
+  // svelte-ignore state_referenced_locally
   let name = $state(data.ws.name);
   let logoBusy = $state(false);
   let fileInput: HTMLInputElement | undefined = $state();

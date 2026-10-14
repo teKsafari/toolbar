@@ -12,6 +12,7 @@
 
   let { data } = $props();
   const admin = $derived(data.ws.role === 'admin');
+  // svelte-ignore state_referenced_locally
   let blocked = $state<string[]>([...data.settings.extension.replayBlockedSites]);
   let site = $state('');
 

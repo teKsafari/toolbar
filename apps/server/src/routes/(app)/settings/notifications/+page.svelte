@@ -9,6 +9,7 @@
   import { api, errMsg } from '#lib/components/dashboard/api.ts';
 
   let { data } = $props();
+  // svelte-ignore state_referenced_locally
   let n = $state<UserSettings['notifications']>(structuredClone(data.settings.notifications));
   type Key = keyof UserSettings['notifications'];
   const rows: [Key, string, string][] = [

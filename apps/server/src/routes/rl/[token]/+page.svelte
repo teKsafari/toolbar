@@ -13,6 +13,7 @@
   let { data } = $props();
   type Phase = 'choose' | 'starting' | 'recording' | 'review' | 'uploading' | 'done';
   let phase = $state<Phase>('choose');
+  // svelte-ignore state_referenced_locally
   let voice = $state(data.info?.mic ?? false);
   let error = $state<string | null>(null);
   let elapsed = $state(0);

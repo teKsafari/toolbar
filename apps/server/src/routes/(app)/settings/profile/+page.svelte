@@ -11,8 +11,13 @@
   import { api, errMsg, urlOf } from '#lib/components/dashboard/api.ts';
 
   let { data } = $props();
+  // svelte-ignore state_referenced_locally
+  // svelte-ignore state_referenced_locally
+  // svelte-ignore state_referenced_locally
   let first = $state(data.me.firstName ?? '');
+  // svelte-ignore state_referenced_locally
   let last = $state(data.me.lastName ?? '');
+  // svelte-ignore state_referenced_locally
   let role = $state(data.me.roleHint ?? '');
   let busy = $state(false);
   let fileInput: HTMLInputElement | undefined = $state();

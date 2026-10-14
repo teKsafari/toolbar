@@ -20,6 +20,7 @@
 
   let { data } = $props();
   const admin = $derived(data.ws.role === 'admin');
+  // svelte-ignore state_referenced_locally
   let members = $state<Member[]>(data.members);
   let inviteOpen = $state(false);
   let leaving = $state<Member | null>(null);
