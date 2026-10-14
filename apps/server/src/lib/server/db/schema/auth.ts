@@ -2,7 +2,8 @@
 // generic-oauth plugins) plus API tokens and the extension sign-in codes. Owner: auth area.
 // A workspace is a Better Auth organization.
 // Areas append new tables to their own file; edit other files only additively (docs/parallel.md).
-import { boolean, index, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { boolean, index, jsonb, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { bytea, id, ts, created, updated } from './columns.ts';
 
 export const user = pgTable('user', {
@@ -13,6 +14,8 @@ export const user = pgTable('user', {
   image: text('image'),
   createdAt: created(),
   updatedAt: updated(),
+  /** Workspace the dashboard, extension and CLI act in (J-168); session and token alike. Added by auth area. */
+  activeWorkspaceId: uuid('active_workspace_id'),
 });
 
 export const session = pgTable(
@@ -75,6 +78,8 @@ export const organization = pgTable('organization', {
   logo: text('logo'),
   createdAt: created(),
   metadata: text('metadata'),
+  /** Workspace settings (api/workspaces.ts workspaceSettingsSchema minus name); defaults fill gaps. Added by auth area. */
+  settings: jsonb('settings').notNull().default(sql`'{}'::jsonb`),
 });
 
 export const member = pgTable(
@@ -125,6 +130,10 @@ export const apiToken = pgTable(
     lastUsedAt: ts('last_used_at'),
     createdAt: created(),
     revokedAt: ts('revoked_at'),
+    // Added by auth area (J-148): recognisable prefix, scopes and expiry.
+    prefix: text('prefix').notNull().default(''),
+    scopes: text('scopes').array().notNull().default(sql`'{cli:read,cli:write,mcp:read,mcp:write}'::text[]`),
+    expiresAt: ts('expires_at'),
   },
   (t) => [index('api_token_user_idx').on(t.userId)],
 );
@@ -137,4 +146,17 @@ export const extAuthCode = pgTable('ext_auth_code', {
   codeChallenge: text('code_challenge').notNull(),
   redirectUri: text('redirect_uri').notNull(),
   expiresAt: ts('expires_at').notNull(),
+});
+
+/** Workspace invite link (J-173, J-234): one live token per workspace, 29-day expiry, resettable. */
+export const workspaceInviteLink = pgTable('workspace_invite_link', {
+  organizationId: uuid('organization_id')
+    .primaryKey()
+    .references(() => organization.id, { onDelete: 'cascade' }),
+  tokenHash: bytea('token_hash').notNull().unique(),
+  /** sealed with crypto.ts purpose 'invite-link' so the members page can show it again */
+  tokenEnc: bytea('token_enc').notNull(),
+  expiresAt: ts('expires_at').notNull(),
+  createdBy: uuid('created_by').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: created(),
 });

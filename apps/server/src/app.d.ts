@@ -6,7 +6,7 @@ declare global {
       user: Session['user'] | null;
       session: Session['session'] | null;
       /** Set when the request authenticated with `Authorization: Bearer tb_...`. */
-      apiToken: { id: string; kind: 'device' | 'personal' } | null;
+      apiToken: { id: string; kind: 'device' | 'personal'; scopes?: string[] } | null;
     }
     interface Error {
       code?: string;
