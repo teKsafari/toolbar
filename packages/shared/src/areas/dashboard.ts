@@ -3,15 +3,8 @@
 import { CAPTURE_SOURCES, type CaptureSource } from '../api/captures.ts';
 import { RECORDING_KINDS, type RecordingKind } from '../constants.ts';
 
-/**
- * J-018: the dashboard's new-capture button dispatches this DOM event on `window`
- * (`new CustomEvent(NEW_CAPTURE_EVENT, { detail: { from: 'dashboard' } })`). The extension's
- * isolated content script listens for it and opens its capture menu on the page. When the
- * extension marks the document with `data-nib-extension` on <html>, the dashboard treats the
- * extension as installed; otherwise it shows install help instead.
- */
-export const NEW_CAPTURE_EVENT = 'nib:new-capture';
-export const EXTENSION_MARK_ATTR = 'data-nib-extension';
+/** J-018: event and mark shared with the extension; see ./dashboard-ext.ts. */
+export { NEW_CAPTURE_EVENT, EXTENSION_MARK_ATTR } from './dashboard-ext.ts';
 
 /** Upload limit for an existing video (J-020): 200 MB, as Jam. */
 export const MAX_UPLOAD_VIDEO_BYTES = 200 * 1024 * 1024;
