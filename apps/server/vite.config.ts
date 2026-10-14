@@ -11,8 +11,25 @@ try {
 
 const devPort = Number(process.env.DEV_PORT || 3000);
 
+/**
+ * OAuth token and revoke requests from MCP clients are form posts without an Origin header, which
+ * Kit's CSRF check refuses. They carry no cookies (PKCE or client secret only), so treat them as
+ * same-origin. server.js does the same in production.
+ */
+const OAUTH_FORM_PATHS = /^\/mcp\/(token|revoke)(\?|$)/;
+const oauthFormOrigin = {
+  name: 'nib-oauth-form-origin',
+  configureServer(server: { middlewares: { use: (fn: (req: { url?: string; headers: Record<string, unknown> }, res: unknown, next: () => void) => void) => void } }) {
+    server.middlewares.use((req, _res, next) => {
+      if (req.url && OAUTH_FORM_PATHS.test(req.url)) req.headers.origin = process.env.PUBLIC_URL || `http://localhost:${devPort}`;
+      next();
+    });
+  },
+};
+
 export default defineConfig({
   plugins: [
+    oauthFormOrigin,
     sveltekit({
       compilerOptions: {
         runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true),
