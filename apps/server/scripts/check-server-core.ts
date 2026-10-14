@@ -267,8 +267,16 @@ const sections: Record<string, () => Promise<void>> = {
     const events = shiftEvents(startedAt);
     await uploadStream(id, 'video', fixture('tab-video.webm'), 3);
     await uploadStream(id, 'events', eventsNdjsonGz(events), 1, { 'content-encoding': 'gzip' });
-    const fin = await call('POST', `/api/v1/recordings/${id}/finalize`, { body: { title: 'Trim check', trim: { startMs: 1000, endMs: 4000 } } });
-    ok(fin.status === 200, 'finalize with trim 1 s to 4 s');
+    // rrweb: Meta + FullSnapshot at the start, more pairs at 2.5 s and 4.5 s, an increment every 250 ms
+    const rr: { type: number; timestamp: number; data: unknown }[] = [];
+    for (const at of [50, 2500, 4500]) rr.push({ type: 4, timestamp: startedAt + at, data: { href: 'http://localhost:5173/', width: 1280, height: 720 } }, { type: 2, timestamp: startedAt + at + 1, data: { node: { type: 0, childNodes: [], id: 1 }, initialOffset: { top: 0, left: 0 }, at } });
+    for (let ms = 100; ms < 9000; ms += 250) rr.push({ type: 3, timestamp: startedAt + ms, data: { source: 1, positions: [{ x: ms % 700, y: 100, id: 1, timeOffset: 0 }] } });
+    rr.sort((a, b) => a.timestamp - b.timestamp);
+    const rrParts = [rr.slice(0, 15), rr.slice(15)].map((p) => gzipSync(p.map((e) => JSON.stringify(e)).join('\n') + '\n'));
+    for (let i = 0; i < rrParts.length; i++) await put(id, 'rrweb', i, rrParts[i]!, { 'content-encoding': 'gzip' });
+    await call('POST', `/api/v1/recordings/${id}/streams/rrweb/complete`, { body: { lastSeq: 1, totalBytes: rrParts[0]!.length + rrParts[1]!.length } });
+    const fin = await call('POST', `/api/v1/recordings/${id}/finalize`, { body: { title: 'Trim check', trim: { startMs: 3000, endMs: 6000 } } });
+    ok(fin.status === 200, 'finalize with trim 3 s to 6 s (the 500 is at 2.9 s)');
     const proc = await call('GET', `/api/v1/recordings/${id}/media/video`);
     ok(proc.status === 404, 'while the trim job runs the video is not served yet (processing)');
     ok((await waitReady(id)) === 'ready', 'trimmed capture ready');
@@ -278,12 +286,26 @@ const sections: Record<string, () => Promise<void>> = {
     const evs = JSON.parse(gunzipSync((await call('GET', `/api/v1/recordings/${id}/media/events`)).data).toString()) as CaptureEvent[];
     const [row] = await db.select().from(t.recording).where(eq(t.recording.id, id));
     const vo = row!.videoOffsetMs;
-    const lo = startedAt + vo + 1000;
-    const hi = startedAt + vo + 4000;
+    const lo = startedAt + vo + 3000;
+    const hi = startedAt + vo + 6000;
     ok(evs.every((e) => e.kind === 'env' || (e.t >= lo && e.t <= hi)), `only events inside the kept range remain (${evs.length} of ${events.length})`);
     const dropped500 = events.some((e) => e.kind === 'net.res' && e.data.status === 500 && (e.t < lo || e.t > hi));
     const kept500 = evs.some((e) => e.kind === 'net.res' && e.data.status === 500);
-    ok(!dropped500 || !kept500, 'the 500 outside the range is gone');
+    ok(dropped500 && !kept500, 'the 500 outside the kept range is gone from the events');
+    const idx = row!.eventIndex as { markers: { kind: string; status: number | null }[] } | null;
+    ok(!!idx && !idx.markers.some((m) => m.status === 500), 'no 500 marker on the timeline');
+    // the capture detail route is the viewer's; the media names are rrweb-000.. per stored chunk
+    const rrRows = await db.select({ seq: t.recordingChunk.seq }).from(t.recordingChunk).where(and(eq(t.recordingChunk.recordingId, id), eq(t.recordingChunk.stream, 'rrweb')));
+    const rrUrls = rrRows.map((r) => `${S}/api/v1/recordings/${id}/media/rrweb-${String(r.seq).padStart(3, '0')}`);
+    const rrOut: { type: number; timestamp: number; data: { at?: number } }[] = [];
+    for (const u of rrUrls) {
+      const r = await fetch(u, { headers: { authorization: `Bearer ${PAT}` } });
+      rrOut.push(...gunzipSync(new Uint8Array(await r.arrayBuffer())).toString().split('\n').filter(Boolean).map((l) => JSON.parse(l)));
+    }
+    ok(rrUrls.length >= 1 && rrOut.length > 0 && rrOut.every((e) => e.timestamp >= lo && e.timestamp <= hi), `rrweb cut to the kept range (${rrOut.length} of ${rr.length} events in ${rrUrls.length} chunk(s))`);
+    ok(rrOut[0]?.type === 4 && rrOut[1]?.type === 2 && rrOut[1]?.data.at === 2500 && rrOut[0]?.timestamp === lo, 'rrweb starts with the last Meta and FullSnapshot before the cut, moved to the trim start');
+    ok(rrOut.filter((e) => e.type === 2).length === 2, 'the snapshot taken inside the range is kept');
+    ok((await listKeys(keys.recording(id))).filter((k) => k.includes('/rrweb/')).length === 0, 'the untrimmed rrweb chunks are gone from Garage');
     ok(row!.durationMs !== null && Math.abs(row!.durationMs - 3000) < 150, `durationMs matches the draft label (${row!.durationMs})`);
   },
 
@@ -376,6 +398,22 @@ const sections: Record<string, () => Promise<void>> = {
     ok(r.status === 206, 'video-360 served with Range');
     const dl = await call('GET', `/api/v1/recordings/${id}/media/video?download=1`);
     ok(dl.headers.get('content-disposition')?.startsWith('attachment;'), 'download=1 sends an attachment (J-098)');
+    // a 1080p source gets the whole ladder, 720p down to 240p
+    const dir = mkdtempSync(join(tmpdir(), 'nib-hd-'));
+    const hd = join(dir, 'hd.webm');
+    execFileSync('ffmpeg', ['-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=1920x1080:rate=30', '-t', '6', '-c:v', 'libvpx-vp9', '-deadline', 'realtime', '-cpu-used', '8', '-b:v', '2M', hd]);
+    const c = await create('video');
+    await uploadStream(c.data.id, 'video', readFileSync(hd), 2);
+    await call('POST', `/api/v1/recordings/${c.data.id}/finalize`, { body: { title: 'HD' } });
+    await waitReady(c.data.id);
+    for (let i = 0; i < 120; i++) {
+      const [row] = await db.select().from(t.recording).where(eq(t.recording.id, c.data.id));
+      list = (row?.renditions as { height: number }[] | null) ?? [];
+      if (list.length >= 4) break;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    ok(list.map((r) => r.height).join(',') === '720,480,360,240', `1080p original: renditions ${list.map((r) => r.height).join(',')}`);
+    ok((await call('GET', `/api/v1/recordings/${c.data.id}/media/video-720`, { headers: { range: 'bytes=0-99' } })).status === 206, 'video-720 served with Range');
   },
 
   async transcript() {

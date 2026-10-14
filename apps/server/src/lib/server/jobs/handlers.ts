@@ -13,12 +13,12 @@ import type { Trim } from '@toolbar/shared/api';
 import { db as defaultDb, type Db } from '../db/index.ts';
 import { asset, job, recording, recordingChunk, recordingStream, transcript } from '../db/schema/index.ts';
 import { deleteKeys, getBytes, getObject, keys, putFile, putObjectWith } from '../s3.ts';
-import { computeEventIndex, dedupeEvents, parseNdjson, sortEvents, trimEvents, videoOffsetOf } from '../event-index.ts';
+import { computeEventIndex, dedupeEvents, parseNdjson, parseRrwebNdjson, rrwebNdjsonParts, sortEvents, trimEvents, trimRrweb, videoOffsetOf } from '../event-index.ts';
 import { imageThumb, joinWebm, posterFrame, probe, RENDITION_HEIGHTS, renderRendition, trimWebm, withTmp, type Probe } from '../media/ffmpeg.ts';
 import { pickScreenshots, type Rendition } from '../media/proxy.ts';
 import { createTranscriber, parseVtt } from '../transcribe/index.ts';
 import { deleteStaleLinks } from '../share/tokens.ts';
-import { purgeMedia } from '../upload/service.ts';
+import { purgeMedia, sha256hex } from '../upload/service.ts';
 import { enqueue, type JobRow } from './queue.ts';
 import { registerJob, RetryLater } from './worker.ts';
 import { aiChapters, aiConfigured } from './chapters.ts';
@@ -131,7 +131,11 @@ async function runFinalize(rec: typeof recording.$inferSelect, attempts: number)
   }
   events = sortEvents(dedupeEvents(events));
   const videoOffsetMs = videoOffsetOf(events, startedAt);
-  if (trim) ({ events, startedAt } = trimEvents(events, startedAt, videoOffsetMs, trim));
+  if (trim) {
+    // The DOM replay is cut to the same range as the logs (J-227), before startedAt moves.
+    if (has('rrweb')) await trimRrwebStream(id, startedAt + videoOffsetMs + trim.startMs, startedAt + videoOffsetMs + trim.endMs);
+    ({ events, startedAt } = trimEvents(events, startedAt, videoOffsetMs, trim));
+  }
   const eventsKey = keys.final(id, 'events.json.gz');
   const gz = gzipSync(JSON.stringify(events));
   await putObjectWith(eventsKey, gz, { contentType: 'application/gzip' });
@@ -252,6 +256,42 @@ async function runFinalize(rec: typeof recording.$inferSelect, attempts: number)
     .where(and(eq(recordingChunk.recordingId, id), inArray(recordingChunk.stream, ['video', 'voice', 'screenshot', 'events'])));
   await deleteKeys(done.map((d) => d.key));
   await db.delete(recordingChunk).where(and(eq(recordingChunk.recordingId, id), inArray(recordingChunk.stream, ['video', 'voice', 'screenshot', 'events'])));
+}
+
+/**
+ * Replace the rrweb chunks with the trimmed range (J-227). The new chunks go to fresh keys and the
+ * rows swap in one transaction, so a crash at any point leaves either the old or the new set; the
+ * trim is idempotent, so a rerun on the new set gives the same chunks.
+ */
+async function trimRrwebStream(id: string, from: number, to: number) {
+  const rows = await chunksOf(id, 'rrweb');
+  const bodies: Uint8Array[] = [];
+  for (let i = 0; i < rows.length && rows[i]!.seq === i; i++) bodies.push(await getBytes(rows[i]!.s3Key));
+  let rr;
+  try {
+    rr = bodies.flatMap((b) => parseRrwebNdjson(gunzipMaybe(b).toString('utf8')));
+  } catch {
+    rr = parseRrwebNdjson(gunzipMaybe(Buffer.concat(bodies)).toString('utf8'));
+  }
+  const parts = rrwebNdjsonParts(trimRrweb(rr, from, to));
+  const gen = Date.now().toString(36);
+  const fresh: (typeof recordingChunk.$inferInsert)[] = [];
+  for (let seq = 0; seq < parts.length; seq++) {
+    const body = gzipSync(parts[seq]!.text);
+    const key = `${keys.recording(id)}rrweb-trim-${gen}/${String(seq).padStart(6, '0')}`;
+    await putObjectWith(key, body, { contentType: 'application/x-ndjson', contentEncoding: 'gzip' });
+    fresh.push({ recordingId: id, stream: 'rrweb', seq, s3Key: key, bytes: body.byteLength, sha256: sha256hex(body), t0: Math.round(parts[seq]!.t0), t1: Math.round(parts[seq]!.t1) });
+  }
+  await db.transaction(async (tx) => {
+    await tx.delete(recordingChunk).where(and(eq(recordingChunk.recordingId, id), eq(recordingChunk.stream, 'rrweb')));
+    if (fresh.length) await tx.insert(recordingChunk).values(fresh);
+    await tx
+      .update(recordingStream)
+      .set({ lastSeq: fresh.length ? fresh.length - 1 : null, totalBytes: fresh.reduce((n, c) => n + c.bytes!, 0) })
+      .where(and(eq(recordingStream.recordingId, id), eq(recordingStream.name, 'rrweb')));
+  });
+  const kept = new Set(fresh.map((c) => c.s3Key));
+  await deleteKeys(rows.map((r) => r.s3Key).filter((k) => !kept.has(k)));
 }
 
 // ---------- remux-video: rebuild video.webm from video.webm (fix duration and cues) ----------

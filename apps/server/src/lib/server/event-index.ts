@@ -195,3 +195,87 @@ export function parseNdjson(text: string): { events: CaptureEvent[]; bad: number
   }
   return { events, bad };
 }
+
+// ---------- rrweb trim (J-227) ----------
+
+/** One rrweb event as the capture stream stores it (NDJSON line): epoch-ms `timestamp`, numeric `type`. */
+export interface RrwebEvent {
+  type: number;
+  timestamp: number;
+  data?: unknown;
+  [k: string]: unknown;
+}
+
+const RR_FULL_SNAPSHOT = 2;
+const RR_META = 4;
+
+/** Parse rrweb NDJSON text, skipping lines that are not rrweb events. */
+export function parseRrwebNdjson(text: string): RrwebEvent[] {
+  const out: RrwebEvent[] = [];
+  for (const line of text.split('\n')) {
+    const s = line.trim();
+    if (!s) continue;
+    try {
+      const v = JSON.parse(s) as RrwebEvent;
+      if (v && typeof v === 'object' && typeof v.type === 'number' && typeof v.timestamp === 'number') out.push(v);
+    } catch {
+      // a broken line is dropped, as parseNdjson does for capture events
+    }
+  }
+  return out;
+}
+
+/**
+ * Keep the rrweb events of the trimmed range [from, to] (capture clock, epoch ms). A DOM replay
+ * needs a full snapshot to start from, so the last Meta and FullSnapshot at or before `from` and
+ * the incremental events between them and `from` are kept as a lead-in with their timestamps moved
+ * to `from`: the replayer applies them at once and the replay starts at the trim start. Running it
+ * again on its own output gives the same events (finalize may run twice after a crash).
+ */
+export function trimRrweb(events: RrwebEvent[], from: number, to: number): RrwebEvent[] {
+  const sorted = events.map((e, i) => ({ e, i })).sort((a, b) => a.e.timestamp - b.e.timestamp || a.i - b.i).map((x) => x.e);
+  let snap = -1;
+  for (let i = 0; i < sorted.length && sorted[i]!.timestamp <= from; i++) if (sorted[i]!.type === RR_FULL_SNAPSHOT) snap = i;
+  let start = snap;
+  if (snap > 0) {
+    for (let i = snap - 1; i >= 0; i--) {
+      if (sorted[i]!.type === RR_META) {
+        start = i;
+        break;
+      }
+      if (sorted[i]!.type === RR_FULL_SNAPSHOT) break;
+    }
+  }
+  const out: RrwebEvent[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const e = sorted[i]!;
+    if (e.timestamp <= from) {
+      if (start >= 0 && i >= start) out.push(e.timestamp === from ? e : { ...e, timestamp: from });
+    } else if (e.timestamp <= to) out.push(e);
+  }
+  return out;
+}
+
+/** Split rrweb events into NDJSON texts of at most `maxRaw` characters each (one per chunk). */
+export function rrwebNdjsonParts(events: RrwebEvent[], maxRaw = 4 * 1024 * 1024): { text: string; t0: number; t1: number }[] {
+  const parts: { text: string; t0: number; t1: number }[] = [];
+  let buf: string[] = [];
+  let size = 0;
+  let t0 = 0;
+  let t1 = 0;
+  const flush = () => {
+    if (buf.length) parts.push({ text: buf.join('\n') + '\n', t0, t1 });
+    buf = [];
+    size = 0;
+  };
+  for (const e of events) {
+    const line = JSON.stringify(e);
+    if (size + line.length > maxRaw && buf.length) flush();
+    if (!buf.length) t0 = e.timestamp;
+    t1 = e.timestamp;
+    buf.push(line);
+    size += line.length + 1;
+  }
+  flush();
+  return parts;
+}
