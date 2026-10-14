@@ -26,7 +26,14 @@ export interface TbHooks {
 
 /** One browser per worker (extension install and service worker start take seconds). */
 export const test = base.extend<{ context: BrowserContext }, { extContext: BrowserContext; sw: Worker }>({
-  context: async ({ extContext }, use) => use(extContext),
+  context: async ({ extContext }, use) => {
+    await use(extContext);
+    // The browser is shared by every test in the worker. Close what this test left open: left
+    // behind, lab tabs keep their capture scripts and replay rings running and editors keep
+    // talking to the worker, which slowed later tests' draft saves past their waits. The first
+    // page stays, since the browser quits with its last window.
+    for (const p of extContext.pages().slice(1)) await p.close().catch(() => undefined);
+  },
   extContext: [
     async ({}, use) => {
       if (!fs.existsSync(path.join(EXT_DIR, 'manifest.json')))

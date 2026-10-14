@@ -176,6 +176,9 @@ export async function tabIdOf(sw: Worker, page: Page): Promise<number> {
 
 /** The in-page editor iframe over a lab page. */
 export async function openEditorInPage(sw: Worker, page: Page, draftId: string): Promise<FrameLocator> {
+  // the tab a person works in is the front one; behind other tabs Chromium holds back animation
+  // frames, and the editor's fade-in and trim drags wait on them
+  await page.bringToFront();
   const tabId = await tabIdOf(sw, page);
   await sw.evaluate(({ tabId, draftId }) => __tbDrafts.openDraftInTab(tabId, draftId), { tabId, draftId });
   await page.locator('iframe[data-nb-editor]').waitFor();
