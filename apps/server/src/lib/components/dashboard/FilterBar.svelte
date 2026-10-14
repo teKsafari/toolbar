@@ -15,7 +15,7 @@
   function set(next: Partial<GridFilters>) {
     const p = filtersToParams({ ...f, ...next }, page.url.searchParams);
     const qs = p.toString();
-    void goto(`${page.url.pathname}${qs ? `?${qs}` : ''}`, { keepFocus: true, noScroll: true, replaceState: false });
+    void goto(`${page.url.pathname}${qs ? `?${qs}` : ''}`);
   }
 
   const typeLabel = (v: string) => TYPE_FILTERS.find((t) => t.value === v)?.label ?? v;

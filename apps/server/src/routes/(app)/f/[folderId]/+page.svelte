@@ -97,7 +97,11 @@
   title={`Delete "${f.name}"?`}
   message="This permanently deletes the folder and every capture in it. Share links to those captures stop working."
   confirmLabel="Delete folder"
-  onconfirm={() => del().catch((e) => toasts.error(errMsg(e)))}
+  onconfirm={async () => {
+    await del().catch((e) => {
+      toasts.error(errMsg(e));
+    });
+  }}
 />
 
 <style>

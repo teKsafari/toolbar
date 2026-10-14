@@ -86,11 +86,12 @@
 {/if}
 
 {#if target}
-  <Modal bind:open={formOpen} title={target.type === 'slack' ? `Post to ${target.name}` : `File in ${target.name}`} width={460} testid="send-dialog">
-    <TrackerFields integration={target} bind:fields bind:title />
+  {@const t = target}
+  <Modal bind:open={formOpen} title={t.type === 'slack' ? `Post to ${t.name}` : `File in ${t.name}`} width={460} testid="send-dialog">
+    <TrackerFields integration={t} bind:fields bind:title />
     {#snippet footer()}
       <Button onclick={() => (formOpen = false)}>Cancel</Button>
-      <Button variant="primary" loading={busy} disabled={target.type !== 'slack' && !fields.repo} onclick={send} data-testid="send-submit">{target.type === 'slack' ? 'Post' : 'Create issue'}</Button>
+      <Button variant="primary" loading={busy} disabled={t.type !== 'slack' && !fields.repo} onclick={send} data-testid="send-submit">{t.type === 'slack' ? 'Post' : 'Create issue'}</Button>
     {/snippet}
   </Modal>
 {/if}

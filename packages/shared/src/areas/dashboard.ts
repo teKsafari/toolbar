@@ -42,7 +42,7 @@ export interface GridFilters {
 
 const list = (v: string | null) => (v ? v.split(',').map((s) => s.trim()).filter(Boolean) : []);
 
-export function filtersFromParams(p: URLSearchParams, meId?: string): GridFilters {
+export function filtersFromParams(p: { get(key: string): string | null }, meId?: string): GridFilters {
   const typeVals = TYPE_FILTERS.map((t) => t.value) as string[];
   const by = list(p.get('by')).map((a) => (a === 'me' && meId ? meId : a));
   return {
@@ -53,8 +53,8 @@ export function filtersFromParams(p: URLSearchParams, meId?: string): GridFilter
   };
 }
 
-export function filtersToParams(f: GridFilters, base = new URLSearchParams()): URLSearchParams {
-  const p = new URLSearchParams(base);
+export function filtersToParams(f: GridFilters, base: { toString(): string } = ''): URLSearchParams {
+  const p = new URLSearchParams(base.toString());
   for (const k of ['type', 'source', 'by', 'link']) p.delete(k);
   if (f.types.length) p.set('type', f.types.join(','));
   if (f.sources.length) p.set('source', f.sources.join(','));

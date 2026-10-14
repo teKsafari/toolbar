@@ -111,7 +111,7 @@
       </div>
       <div class="acts">
         <Button size="sm" icon="external" onclick={() => test(h)} data-testid="webhook-test">Send test</Button>
-        <Button size="sm" variant="ghost" icon="history" onclick={() => showLog(h.id)} aria-expanded={openLog === h.id} data-testid="webhook-log-toggle">Delivery log</Button>
+        <Button size="sm" variant="ghost" icon="replay" onclick={() => showLog(h.id)} aria-expanded={openLog === h.id} data-testid="webhook-log-toggle">Delivery log</Button>
         <Button size="sm" variant="ghost" icon="trash" onclick={() => (removing = h)} data-testid="webhook-delete">Remove</Button>
       </div>
       {#if openLog === h.id}
