@@ -2,7 +2,8 @@
 // Depth 4, 100 keys, 10 KB per string, cycles marked, Error keeps name/message/stack, DOM nodes
 // become a TargetRef, Map/Set/TypedArray summarized. Tagged values use SERIALIZED_TAG ("$t").
 // Never throws: a getter that throws becomes a string describing the failure.
-import { LIMITS, SERIALIZED_TAG, type Serialized, type TargetRef } from '@toolbar/shared';
+import { LIMITS } from '@toolbar/shared/constants';
+import { SERIALIZED_TAG, type Serialized, type TargetRef } from '@toolbar/shared/events';
 
 export interface SerializeOptions {
   depth?: number;

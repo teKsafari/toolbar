@@ -1,7 +1,7 @@
 // Extension storage: chrome.storage keys with their value types, and the IndexedDB layout.
 // Only the service worker writes STORAGE.session and the IndexedDB stores; other contexts read
 // chrome.storage (and listen to storage.onChanged) or ask the worker with a message.
-import type { Rect } from '../events.ts';
+import type { EnvInfo, Rect } from '../events.ts';
 import type { RecordingKind } from '../constants.ts';
 import type { ExtBootstrap, ExtensionSettings } from '../api/account.ts';
 import type { Person } from '../api/common.ts';
@@ -62,6 +62,34 @@ export interface Draft extends DraftSummary {
   attachmentBlobIds: string[];
   aiAccepted: boolean;
   error: string | null;
+  // ---- capture area additions (optional; written by the capture producer) ----
+  /** capture start, epoch ms (recording start, shot time, or replay window start) */
+  startedAt?: number;
+  /** key of this draft's rows in the IDB `uploads` store (the client id until the server id is known) */
+  uploadKey?: string;
+  /** full local video (WebM) for the editor preview; chunks upload separately during recording */
+  videoBlobId?: string | null;
+  /** mic-only WebM/Opus kept for preview; chunks upload as the `voice` stream */
+  voiceBlobId?: string | null;
+  /** NDJSON of the capture's events, sliced from the ring at capture time; uploads at create (J-189) */
+  eventsBlobId?: string | null;
+  /** NDJSON of rrweb events (instant replay and DOM view); uploads at create */
+  rrwebBlobId?: string | null;
+  /** replay video segments (standalone WebM each), uploaded at create as `video` chunks in order */
+  replaySegmentBlobIds?: string[];
+  /** first video frame time minus startedAt (architecture s4 "Clock") */
+  videoOffsetMs?: number;
+  /** streams already uploaded or queued during recording: last seq and bytes, for `complete` */
+  streams?: Partial<Record<'events' | 'rrweb' | 'video' | 'voice' | 'screenshot', { lastSeq: number; totalBytes: number }>>;
+  env?: EnvInfo | null;
+  /** window.toolbar.setMetadata output (J-073) */
+  metadata?: Record<string, unknown> | null;
+  /** tabs the capture spans (desktop recordings, J-008, J-224) */
+  tabIds?: number[];
+  incognito?: boolean;
+  /** video dimensions in device pixels */
+  videoSize?: { w: number; h: number } | null;
+  shareUrl?: string | null;
 }
 
 /** Upload progress per recording, for the bar and the editor's create button. */

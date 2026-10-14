@@ -3,7 +3,9 @@
 // at once for binary, streamed and oversized bodies); net.fail on network error, abort or
 // timeout. A request that never answers has a net.req and nothing else: the viewer shows it
 // as pending (J-061). Bodies are read off the page's critical path and never block it.
-import { LIMITS, makeRidFactory, type Headers, type NetTiming } from '@toolbar/shared';
+import { LIMITS } from '@toolbar/shared/constants';
+import { makeRidFactory } from '@toolbar/shared/ids';
+import type { Headers, NetTiming } from '@toolbar/shared/events';
 import type { Emit, HookInstaller } from '../transport.ts';
 import { absoluteUrl, cap, isTextLike, now, quiet, replaceProp, wrapFn } from './util.ts';
 

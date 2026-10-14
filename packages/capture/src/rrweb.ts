@@ -2,7 +2,8 @@
 // recording is attached or the instant-replay ring is on. Full snapshot every 30 s so the ring
 // can be pruned to the last checkout. The toolbar host is blocked; inputs are masked per preset.
 import { record } from '@rrweb/record';
-import { LIMITS, type MaskingPreset } from '@toolbar/shared';
+import { LIMITS } from '@toolbar/shared/constants';
+import type { MaskingPreset } from '@toolbar/shared/events';
 import { UI_HOST_TAG } from '@toolbar/shared/constants';
 
 /** rrweb event type of a full snapshot (EventType.FullSnapshot). */

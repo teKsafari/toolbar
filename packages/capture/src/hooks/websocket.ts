@@ -1,6 +1,6 @@
 // WebSocket open, frames in both directions, close and error (J-062, J-066).
 // Text frames keep their data (capped); binary frames keep only their size.
-import { LIMITS } from '@toolbar/shared';
+import { LIMITS } from '@toolbar/shared/constants';
 import type { HookInstaller } from '../transport.ts';
 import { absoluteUrl, cap, quiet, replaceProp, utf8Length, wrapCtor, wrapFn } from './util.ts';
 
