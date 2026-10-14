@@ -69,7 +69,8 @@ export const actions = {
       body: { provider: id as 'google', callbackURL, errorCallbackURL: `/login?next=${encodeURIComponent(callbackURL)}` },
       headers: request.headers,
     });
-    if (res?.url) redirect(303, res.url);
+    // The provider's authorize URL (Better Auth builds it from the configured provider).
+    if (res?.url) redirect(303, res.url, { external: true });
     return fail(500, { message: 'The provider did not return a sign-in URL.' });
   },
 };

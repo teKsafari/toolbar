@@ -1,7 +1,7 @@
 // Auth area, web app (J-217, X-06, J-221, J-123, J-234, J-125, J-124, J-148). Runs against
 // SERVER_URL with Mailpit on :8025; needs no extension.
 import { test, expect, chromium, type Browser, type Page } from '@playwright/test';
-import { SERVER, api, firstUrl, hydrated, mailTo, signInByMail, signInWithPassword, uniqueEmail } from './helpers.ts';
+import { SERVER, api, firstUrl, hydrated, mailTo, showPassword, signInByMail, signInWithPassword, uniqueEmail } from './helpers.ts';
 
 let browser: Browser;
 test.beforeAll(async () => {
@@ -54,7 +54,7 @@ test('J-217: password sign-up and sign-in on the same form', async () => {
   const other = await freshPage();
   await other.goto(`${SERVER}/login`);
   await hydrated(other);
-  await other.getByRole('button', { name: 'Use a password instead' }).click();
+  await showPassword(other);
   await other.getByLabel('Work email').fill(email);
   await other.getByLabel('Password').fill('wrong password here');
   await other.getByRole('button', { name: 'Continue' }).click();

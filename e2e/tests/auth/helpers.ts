@@ -53,7 +53,7 @@ export async function signInByMail(page: Page, email: string, next = '/') {
 export async function signInWithPassword(page: Page, email: string, password: string) {
   await page.goto(`${SERVER}/login`);
   await hydrated(page);
-  await page.getByRole('button', { name: 'Use a password instead' }).click();
+  await showPassword(page);
   await page.getByLabel('Work email').fill(email);
   await page.getByLabel('Password').fill(password);
   await page.getByRole('button', { name: 'Continue' }).click();
@@ -73,4 +73,12 @@ export async function api<T = unknown>(page: Page, method: string, path: string,
 /** Wait until SvelteKit has hydrated (vite dev loads modules lazily on first visit). */
 export async function hydrated(page: Page) {
   await page.waitForLoadState('networkidle');
+}
+
+/** Reveal the password field; retries while a cold dev server is still hydrating the page. */
+export async function showPassword(page: Page) {
+  await expect(async () => {
+    if (!(await page.getByLabel('Password').isVisible())) await page.getByRole('button', { name: 'Use a password instead' }).click({ timeout: 2000 });
+    await expect(page.getByLabel('Password')).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 30_000 });
 }

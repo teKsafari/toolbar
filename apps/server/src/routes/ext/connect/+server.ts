@@ -15,5 +15,6 @@ export const GET = async ({ url, locals }) => {
   if (!isAllowedRedirect(q.data.redirect_uri)) return errorResponse('invalid_redirect_uri', 'This extension is not allowed to sign in here.');
   if (!locals.user || locals.apiToken) redirect(302, `/login?next=${encodeURIComponent(url.pathname + url.search)}`);
   const code = await issueCode(db, { userId: locals.user.id, codeChallenge: q.data.code_challenge, redirectUri: q.data.redirect_uri });
-  redirect(302, redirectWithCode(q.data.redirect_uri, code, q.data.state));
+  // Allowed above: https://<allowed extension id>.chromiumapp.org/cb only.
+  redirect(302, redirectWithCode(q.data.redirect_uri, code, q.data.state), { external: [new URL(q.data.redirect_uri).origin] });
 };
