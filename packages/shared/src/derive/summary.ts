@@ -134,7 +134,7 @@ export function shareMarkdown(b: CaptureBrief, s: Signals | null, ptr: Pointers)
   if (s) body.push(`Signals: ${signalsLine(s)}.`, '');
   else body.push('Signals: this capture is still processing.', '');
   if (b.comments.length) {
-    body.push(`## Comments (${b.comments.length})`, '', ...commentLines(b.comments), '');
+    body.push(`## Comments (${b.comments.reduce((n, c) => n + 1 + (c.replies?.length ?? 0), 0)})`, '', ...commentLines(b.comments), '');
   }
   body.push(
     '## More detail',

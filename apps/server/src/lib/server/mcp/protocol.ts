@@ -79,7 +79,8 @@ function unauthorized(reason: 'missing' | 'invalid' | 'scope'): Response {
 
 /** POST /mcp */
 export async function handleMcpPost(db: Db, request: Request): Promise<Response> {
-  const auth = await principalFrom(db, request.headers.get('authorization'));
+  const surface = request.headers.get('x-nib-client') === 'cli' ? 'cli' : 'mcp';
+  const auth = await principalFrom(db, request.headers.get('authorization'), surface);
   if (!auth.ok) return unauthorized(auth.reason);
   let body: unknown;
   try {

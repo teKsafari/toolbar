@@ -16,8 +16,11 @@ import { resolveMcpAccessToken, type McpPrincipal } from './oauth.ts';
 
 export type BearerResult = { ok: true; principal: McpPrincipal } | { ok: false; reason: 'missing' | 'invalid' | 'scope' };
 
-/** Resolve `Authorization: Bearer` for /mcp: an OAuth access token, or a personal token with an mcp scope. */
-export async function principalFrom(db: Db, authorization: string | null): Promise<BearerResult> {
+/**
+ * Resolve `Authorization: Bearer` for /mcp: an OAuth access token, or a personal token with an
+ * mcp scope. The CLI sends `x-nib-client: cli` and is checked against the token's cli scopes.
+ */
+export async function principalFrom(db: Db, authorization: string | null, surface: 'mcp' | 'cli' = 'mcp'): Promise<BearerResult> {
   const m = authorization?.match(/^Bearer\s+(\S+)$/i);
   if (!m) return { ok: false, reason: 'missing' };
   const token = m[1]!;
@@ -25,10 +28,10 @@ export async function principalFrom(db: Db, authorization: string | null): Promi
     const row = await resolveApiToken(db, token);
     if (!row) return { ok: false, reason: 'invalid' };
     const scopes = (row.scopes as string[] | undefined) ?? [];
-    if (!tokenAllows(scopes, 'mcp', 'read')) return { ok: false, reason: 'scope' };
+    if (!tokenAllows(scopes, surface, 'read')) return { ok: false, reason: 'scope' };
     return {
       ok: true,
-      principal: { userId: row.user.id, workspaceId: null, canWrite: tokenAllows(scopes, 'mcp', 'write'), via: 'personal', grantId: null, clientName: null },
+      principal: { userId: row.user.id, workspaceId: null, canWrite: tokenAllows(scopes, surface, 'write'), via: 'personal', grantId: null, clientName: surface === 'cli' ? 'CLI' : null },
     };
   }
   const p = await resolveMcpAccessToken(db, token);

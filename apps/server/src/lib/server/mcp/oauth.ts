@@ -7,7 +7,7 @@ import { and, desc, eq, gt, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { MCP_CLIENT_PREFIX, MCP_SCOPES, MCP_TOKEN_PREFIX, MCP_TTL, type McpScope } from '@toolbar/shared/areas/agent';
 import type { Db } from '../db/index.ts';
-import { mcpAuthCode, mcpClient, mcpGrant, mcpToken, organization } from '../db/schema/index.ts';
+import { mcpAuthCode, mcpClient, mcpGrant, mcpToken, organization, user } from '../db/schema/index.ts';
 import { env } from '../env.ts';
 
 const sha = (s: string) => createHash('sha256').update(s).digest();
@@ -365,4 +365,16 @@ export async function revokeGrant(db: Db, userId: string, grantId: string): Prom
   if (!r.length) return false;
   await db.update(mcpToken).set({ revokedAt: now }).where(and(eq(mcpToken.grantId, grantId), isNull(mcpToken.revokedAt)));
   return true;
+}
+
+/**
+ * REST access for OAuth access tokens (the CLI's browser login uses the same flow): the user and
+ * the CLI scopes the grant maps to, for hooks.server.ts. Null for unknown, expired or revoked tokens.
+ */
+export async function restIdentityOfMcpToken(db: Db, token: string) {
+  const p = await resolveMcpAccessToken(db, token);
+  if (!p) return null;
+  const [u] = await db.select().from(user).where(eq(user.id, p.userId)).limit(1);
+  if (!u) return null;
+  return { user: u, grantId: p.grantId!, scopes: p.canWrite ? ['cli:read', 'cli:write'] : ['cli:read'] };
 }

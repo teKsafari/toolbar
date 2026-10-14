@@ -8,6 +8,9 @@
     ['browsers', 'Connected browsers'],
     ['tokens', 'API tokens'],
     ['integrations', 'Integrations'],
+    // agent area
+    ['mcp', 'MCP'],
+    ['cli', 'CLI'],
   ] as const;
 </script>
 
