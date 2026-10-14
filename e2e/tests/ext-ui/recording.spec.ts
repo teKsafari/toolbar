@@ -204,6 +204,8 @@ test('J-239: during a recording the popup greys the screenshot row, turns record
   await expect(popup.locator('[data-row="stop"]')).toHaveAttribute('data-tone', 'danger');
   await expect(popup.locator('[data-row="stop"] [data-mic-pill]')).toHaveText(/Mic off/);
   await expect(popup.locator('[data-row="link"]')).toHaveAttribute('aria-disabled', 'false');
+  // the record-mode chevron does not apply to a stop row
+  await expect(popup.locator('[data-row-chevron="stop"]')).toHaveCount(0);
   await popup.locator('[data-row-main="stop"]').click().catch(() => undefined);
   await expect.poll(async () => (await session(sw)).state).toBe('draft');
   expect((await stats(sw)).transitions).toEqual(expect.arrayContaining(['recording>stopping', 'stopping>draft']));
@@ -285,4 +287,13 @@ test('error state: a capture that fails to start shows a toast in the page and l
   expect(tb.x + tb.width).toBeGreaterThan(vp.w - 40);
   expect(tb.y + tb.height).toBeGreaterThan(vp.h - 40);
   await page.close();
+});
+
+test('closing the tab mid-recording ends the recording into the Drafts list and frees the session', async ({ context, sw }) => {
+  const { page, tabId } = await labPage(context);
+  await startLive(sw, page, tabId);
+  await page.close();
+  await expect.poll(async () => (await calls(sw)).map((c) => c.fn)).toContain('stop');
+  await expect.poll(async () => (await session(sw)).state).toBe('idle');
+  expect((await stats(sw)).transitions.slice(-3)).toEqual(['recording>stopping', 'stopping>draft', 'draft>idle']);
 });

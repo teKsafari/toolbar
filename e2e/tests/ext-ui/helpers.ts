@@ -46,7 +46,13 @@ export const AUTH = {
 export async function freshState(sw: Worker, opts: { mic?: string; auth?: Partial<typeof AUTH> | null; settings?: Record<string, unknown> } = {}) {
   await sw.evaluate(
     async ({ mic, auth, settings }) => {
-      await __tbUi.reset();
+      // a tab closed by the test before can still be ending its recording: wait until the
+      // session stays idle
+      for (let i = 0; i < 10; i++) {
+        await __tbUi.reset();
+        await new Promise((r) => setTimeout(r, 150));
+        if ((await __tbUi.session()).state === 'idle') break;
+      }
       __tbUi.useFakeDriver(mic ? { mic } : {});
       await chrome.storage.local.remove(['nib:drafts', 'nib:bootstrap', 'nib:server-url']);
       await chrome.storage.session.remove(['nib:replay', 'nib:heavy-override']);

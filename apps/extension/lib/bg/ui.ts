@@ -264,7 +264,13 @@ async function onSessionChange(prev: CaptureSession, next: CaptureSession) {
     pausedForBlur = false;
     for (const t of new Set([prevTab, ...(prev.state === 'recording' ? prev.tabs : [])])) void sendToTab(t, { type: 'ui.tools-reset' });
   }
-  if (next.state === 'draft' && prev.state !== 'draft') void sendToTab(next.tabId, { type: 'ui.editor-open', draftId: next.draftId });
+  if (next.state === 'draft' && prev.state !== 'draft') {
+    // a draft whose tab is gone (closed while recording or stopping) has nowhere to open its
+    // editor; it goes to the Drafts list instead of holding the session (J-035, J-218)
+    const alive = await browser.tabs.get(next.tabId).catch(() => null);
+    if (alive) void sendToTab(next.tabId, { type: 'ui.editor-open', draftId: next.draftId });
+    else void dispatch({ type: 'SAVE_FOR_LATER' });
+  }
 
   await updateActionIcon(next);
   armCapTimer(next);
@@ -442,6 +448,9 @@ async function stopRecording(reason: 'user' | 'cap' = 'user'): Promise<CaptureSe
   const s = session;
   if (s.state === 'countdown' || s.state === 'starting') return cancelLive();
   if (s.state !== 'recording') return s;
+  // the bar also asks for a stop when its timer reaches the cap, in case the worker slept
+  // through the cap timer (J-013)
+  if (extras.capMs && elapsedMs(s, Date.now()) >= extras.capMs - 500) reason = 'cap';
   stats.stops.push(reason);
   const stopped = await dispatch({ type: 'STOP', now: Date.now() });
   if (stopped.state !== 'stopping') return stopped;
@@ -730,6 +739,26 @@ const handlers: Handlers = {
   },
 };
 
+// ---------------------------------------------------------------- worker restart
+
+/**
+ * The worker can stop and start again while a session is open (MV3 idle shutdown). Timers
+ * live in memory, so a countdown or a start that was waiting on one is lost: end it rather
+ * than leave a veil that never counts. A live recording keeps going (the offscreen document
+ * holds the media); its cap timer is armed again.
+ */
+async function recoverAfterWake() {
+  const s = session;
+  if (s.state === 'countdown' || s.state === 'starting') {
+    await driver.cancelRecording?.(s.recordingId).catch(() => undefined);
+    await dispatch({ type: 'CANCEL' });
+  } else if (s.state === 'recording') {
+    extras.capMs = await loadCap();
+    armCapTimer(s);
+  }
+  await updateActionIcon(session);
+}
+
 // ---------------------------------------------------------------- commands (J-180 to J-183)
 
 async function onCommand(command: string, tab: { id?: number; url?: string } | undefined) {
@@ -877,7 +906,7 @@ export function registerUi() {
     if (area === 'session' && c) replay = (c.newValue as ReplayState | undefined) ?? DEFAULT_REPLAY;
   });
 
-  void loaded.then(() => updateActionIcon(session));
+  void loaded.then(recoverAfterWake);
 
   if (TEST_HOOKS) {
     let fake: ReturnType<typeof fakeDriver> | null = null;

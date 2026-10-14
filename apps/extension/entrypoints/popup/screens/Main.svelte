@@ -86,6 +86,7 @@
     tone={arming ? 'danger' : 'default'}
     disabled={!actions.includes(arming ? 'exit-screenshot' : 'screenshot')}
     command="screenshot-mode"
+    hideOptions={arming}
     onclick={screenshot}
   >
     {#snippet options()}
@@ -109,6 +110,7 @@
     tone={live ? 'danger' : 'default'}
     disabled={!actions.includes(live ? 'stop' : 'record')}
     command="record-tab"
+    hideOptions={live}
     onclick={record}
   >
     {#snippet extra()}

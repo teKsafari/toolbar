@@ -19,10 +19,12 @@
     onclick: () => void;
     /** options shown under the row when the chevron is open */
     options?: Snippet;
+    /** the row is a stop or exit row: its options do not apply */
+    hideOptions?: boolean;
     /** extra inline content at the right of the label (mic pill, badges, help icon) */
     extra?: Snippet;
   }
-  let { id, icon, label, tone = 'default', disabled = false, command, open = $bindable(false), onclick, options, extra }: Props = $props();
+  let { id, icon, label, tone = 'default', disabled = false, command, open = $bindable(false), onclick, options, hideOptions = false, extra }: Props = $props();
 
   let tip: string | null = $state(null);
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -51,14 +53,14 @@
       <span class="label">{label}</span>
     </button>
     {#if extra}<span class="extra">{@render extra()}</span>{/if}
-    {#if options}
+    {#if options && !hideOptions}
       <span class="rule"></span>
       <button class="chev" type="button" {disabled} aria-expanded={open} aria-label="{label} options" data-row-chevron={id} onclick={() => (open = !open)}>
         <Icon name="chevron-down" size={16} />
       </button>
     {/if}
   </div>
-  {#if open && options && !disabled}
+  {#if open && options && !disabled && !hideOptions}
     <div class="opts" data-row-options={id}>{@render options()}</div>
   {/if}
 </div>

@@ -49,6 +49,13 @@
   const elapsed = $derived(session.state === 'recording' ? elapsedMs(session, now) : 0);
   const stage = $derived(capStage(elapsed, capMs));
   const paused = $derived(session.state === 'recording' && session.pausedAt !== null);
+  // the worker stops at the cap; if it slept through its timer, the bar asks once (J-013)
+  let capAsked = '';
+  $effect(() => {
+    if (session.state !== 'recording' || !capMs || paused || elapsed < capMs + 1000 || capAsked === recId) return;
+    capAsked = recId;
+    void send('recording.stop', {});
+  });
   const mic: MicState = $derived(session.state === 'recording' ? session.mic : micSetting ? 'on' : 'off');
 
   // ---- drag by the timer (J-238)
