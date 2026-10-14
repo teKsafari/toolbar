@@ -9,6 +9,7 @@ import { db } from '#lib/server/db/index.ts';
 import { member, organization, recording, transcript } from '#lib/server/db/schema/index.ts';
 import { aiConfig, createSummarizer, workspaceAiEnabled } from '#lib/server/ai/index.ts';
 import { loadEvents } from '#lib/server/ai/events.ts';
+import { aiAllowed } from '#lib/server/dashboard/core.ts';
 import { buildTimeline, vttText } from '#lib/server/ai/timeline.ts';
 
 const route = ROUTES['captures.aiDraft'];
@@ -37,7 +38,7 @@ export const POST = async (event) => {
 
   const cfg = aiConfig();
   if (cfg.provider === 'none') return apiError(503, 'unavailable', 'AI is off on this server (AI_PROVIDER=none)');
-  if (!workspaceAiEnabled(rec.metadata)) return apiError(503, 'unavailable', 'AI is off for this workspace');
+  if (!workspaceAiEnabled(rec.metadata) || !(await aiAllowed(db, rec.orgId))) return apiError(503, 'unavailable', 'AI is off for this workspace');
 
   const events = await loadEvents(db, rec.id);
   const t0 = rec.startedAt?.getTime() ?? events[0]?.t ?? 0;

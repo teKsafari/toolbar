@@ -7,6 +7,7 @@ import { DEFAULT_WORKSPACE_SETTINGS, joinableDomain } from '@toolbar/shared/area
 import type { Db } from '../db/index.ts';
 import { member, organization, user } from '../db/schema/index.ts';
 import { sendMail } from '../mail.ts';
+import { emailAllowed } from '../dashboard/core.ts';
 import { env } from '../env.ts';
 
 export type StoredSettings = Omit<WorkspaceSettings, 'name' | 'logoUrl'>;
@@ -175,11 +176,14 @@ export async function domainJoinWorkspaces(db: Db, email: string) {
 
 async function adminEmails(db: Db, workspaceId: string): Promise<string[]> {
   const rows = await db
-    .select({ email: user.email })
+    .select({ id: user.id, email: user.email })
     .from(member)
     .innerJoin(user, eq(user.id, member.userId))
     .where(and(eq(member.organizationId, workspaceId), inArray(member.role, ['owner', 'admin'])));
-  return rows.map((r) => r.email);
+  // J-136: admins who turned off the same-domain sign-up email do not get it
+  const out: string[] = [];
+  for (const r of rows) if (await emailAllowed(db, r.id, 'domainSignup')) out.push(r.email);
+  return out;
 }
 
 /**

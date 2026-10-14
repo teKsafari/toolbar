@@ -34,6 +34,7 @@ import { resolveCapture, workspaceFor, requireSeatAtLeast, type ResolvedCapture 
 import { briefOf, commentRows, memberUrlOf, preparedOf, screenshotAssets, threadsOf, transcriptOf } from './data.ts';
 import { frameAt, overview, spread, type FrameSize } from './frames.ts';
 import { REACTION_KEYS, setReaction } from './reactions.ts';
+import { publish } from '../viewer/comments.ts';
 import type { McpPrincipal } from './oauth.ts';
 
 export type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
@@ -649,6 +650,7 @@ const createComment = define({
       .insert(comment)
       .values({ recordingId: c.rec.id, parentId, authorUserId: principal.userId, authorName: u?.name ?? null, body: a.body, tMs: a.videoMs ?? null })
       .returning();
+    publish(c.rec.id, { type: 'created', id: row!.id });
     return json({
       id: row!.id,
       captureId: c.rec.id,
@@ -677,8 +679,9 @@ const editComment = define({
   write: true,
   annotations: { ...WRITE, idempotentHint: true },
   async run({ db, principal }, a) {
-    await ownComment(db, principal, a.commentId);
+    const own = await ownComment(db, principal, a.commentId);
     const [row] = await db.update(comment).set({ body: a.body, editedAt: new Date() }).where(eq(comment.id, a.commentId)).returning();
+    publish(own.recordingId, { type: 'updated', id: row!.id });
     return json({ id: row!.id, body: row!.body, editedAt: iso(row!.editedAt) });
   },
 });
@@ -691,8 +694,9 @@ const deleteComment = define({
   write: true,
   annotations: DESTROY,
   async run({ db, principal }, a) {
-    await ownComment(db, principal, a.commentId);
+    const own = await ownComment(db, principal, a.commentId);
     await db.update(comment).set({ deletedAt: new Date() }).where(eq(comment.id, a.commentId));
+    publish(own.recordingId, { type: 'deleted', id: a.commentId });
     return json({ ok: true, deleted: a.commentId });
   },
 });
@@ -719,7 +723,9 @@ const addReaction = define({
   annotations: { ...WRITE, idempotentHint: true },
   async run({ db, principal }, a) {
     const row = await visibleComment(db, principal, a.commentId);
-    return json({ commentId: row.id, reactions: await setReaction(db, row.id, principal.userId, a.reaction, true) });
+    const reactions = await setReaction(db, row.id, principal.userId, a.reaction, true);
+    publish(row.recordingId, { type: 'reactions', id: row.id });
+    return json({ commentId: row.id, reactions });
   },
 });
 
@@ -732,7 +738,9 @@ const removeReaction = define({
   annotations: { ...WRITE, idempotentHint: true },
   async run({ db, principal }, a) {
     const row = await visibleComment(db, principal, a.commentId);
-    return json({ commentId: row.id, reactions: await setReaction(db, row.id, principal.userId, a.reaction, false) });
+    const reactions = await setReaction(db, row.id, principal.userId, a.reaction, false);
+    publish(row.recordingId, { type: 'reactions', id: row.id });
+    return json({ commentId: row.id, reactions });
   },
 });
 

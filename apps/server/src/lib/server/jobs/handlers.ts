@@ -22,6 +22,7 @@ import { purgeMedia, sha256hex } from '../upload/service.ts';
 import { enqueue, type JobRow } from './queue.ts';
 import { registerJob, RetryLater } from './worker.ts';
 import { aiChapters, aiConfigured } from './chapters.ts';
+import { aiAllowed } from '../dashboard/core.ts';
 
 let db: Db = defaultDb;
 /** Tests point the handlers at their own database. */
@@ -399,7 +400,7 @@ async function transcribe(payload: unknown, j: JobRow) {
       .update(transcript)
       .set({ status: 'done', vtt: r.vtt, model: r.model, language, error: null })
       .where(and(eq(transcript.recordingId, id), eq(transcript.stream, 'voice')));
-    if (aiConfigured() && parseVtt(r.vtt).length) await enqueue(db, 'chapters', { recordingId: id });
+    if (aiConfigured() && parseVtt(r.vtt).length && (await aiAllowed(db, rec.organizationId))) await enqueue(db, 'chapters', { recordingId: id });
   } catch (e) {
     const last = j.attempts >= j.max_attempts;
     await db
@@ -416,6 +417,8 @@ async function chapters(payload: unknown) {
   const id = recIdOf(payload);
   const rec = await loadRec(id);
   if (!rec || rec.deletedAt || !aiConfigured()) return;
+  // J-156: the workspace's AI switch (dashboard settings) turns chapters off
+  if (!(await aiAllowed(db, rec.organizationId))) return;
   const [t] = await db
     .select()
     .from(transcript)

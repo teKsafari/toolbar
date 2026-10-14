@@ -8,6 +8,7 @@ import { db } from '#lib/server/db/index.ts';
 import { asset, comment, commentAttachment, commentReaction, member, notification, user } from '#lib/server/db/schema/index.ts';
 import { env } from '#lib/server/env.ts';
 import { sendMail } from '#lib/server/mail.ts';
+import { emailAllowed } from '#lib/server/dashboard/core.ts';
 import { fail, type ViewerCtx } from './access.ts';
 import { mediaBase } from './detail.ts';
 
@@ -29,7 +30,8 @@ export function subscribe(recordingId: string, fn: (s: CommentSignal) => void): 
   };
 }
 
-function publish(recordingId: string, s: CommentSignal) {
+/** Tell open capture pages about a comment change (the MCP comment tools call it too). */
+export function publish(recordingId: string, s: CommentSignal) {
   for (const fn of subscribers.get(recordingId) ?? []) {
     try {
       fn(s);
@@ -188,7 +190,8 @@ export async function notifyMentions(ctx: ViewerCtx, row: { id: string; body: st
     if (m.id === ctx.user?.id) continue;
     const link = `${env.publicUrl}/c/${ctx.rec.id}${row ? `?comment=${row.id}` : ''}`;
     const text = `${by} mentioned you in ${where} on "${ctx.rec.title || 'Untitled capture'}".\n\n${row ? plainText(row.body) + '\n\n' : ''}Open it: ${link}\n`;
-    await sendMail(m.email, `${by} mentioned you on ${PRODUCT_NAME}`, text);
+    // J-136: the mentions email follows the member's notification settings
+    if (await emailAllowed(db, m.id, 'mentions')) await sendMail(m.email, `${by} mentioned you on ${PRODUCT_NAME}`, text);
     await db.insert(notification).values({ userId: m.id, type: 'mention', recordingId: ctx.rec.id, payload: { commentId: row?.id ?? null, by } });
     sent.push(m.email);
   }

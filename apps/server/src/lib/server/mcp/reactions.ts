@@ -1,14 +1,14 @@
 // Comment reactions for the MCP write tools (J-151). The table `comment_reaction` and the key list
-// belong to the viewer area (J-130); this branch reaches the table with plain SQL so it needs no
-// schema of its own, and answers `unavailable` while the table is missing (before the merge).
-// Merge step: import REACTION_KEYS from '@toolbar/shared/api' and call the viewer's publish().
+// belong to the viewer area (J-130); this module reaches the table with plain SQL and answers
+// `unavailable` while the table is missing. The tools call the viewer's publish() after a change.
 import { sql } from 'drizzle-orm';
 import type { Db } from '../db/index.ts';
 import { fail } from '../share/http.ts';
 
-/** Same keys, same order as the viewer's REACTION_KEYS (stored and sent by key, no glyphs). */
-export const REACTION_KEYS = ['thumbs-up', 'thumbs-down', 'heart', 'laugh', 'party', 'eyes', 'check', 'question'] as const;
-export type ReactionKey = (typeof REACTION_KEYS)[number];
+import { REACTION_KEYS, type ReactionKey } from '@toolbar/shared/api';
+
+/** The viewer's keys (stored and sent by key, no glyphs). */
+export { REACTION_KEYS, type ReactionKey };
 
 export interface ReactionCount {
   key: ReactionKey;
