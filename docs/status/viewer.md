@@ -2,7 +2,7 @@
 
 Branch `area/viewer`. Every row in `docs/tasks.md` under "viewer" is listed. E2E specs live in `e2e/tests/viewer/` and run headless against the area server (`SERVER_URL=http://localhost:3105`); `e2e/tests/viewer/fixtures/extra.ts` adds four captures to the seed (no requests, recording link, desktop with two tabs, instant replay). Unit tests: `packages/ui/test/viewer.test.ts` (models, clock, cURL, markdown) and `apps/server/test/viewer-routes.test.ts` (route table coverage, VTT).
 
-Run: `set -a; . ./.env; set +a; pnpm --filter @toolbar/server dev`, then `cd e2e && npx playwright test tests/viewer` (45 tests, about 5 minutes against the dev server).
+Run: `set -a; . ./.env; set +a`, start the server (`pnpm --filter @toolbar/server build && cd apps/server && PORT=3105 node server.js`, or `pnpm --filter @toolbar/server dev`), then `cd e2e && npx playwright test tests/viewer`. Last run: 45 passed in 3.0 min against the production build; against the dev server the same suite takes about 5 to 7 minutes and can time out while Vite recompiles.
 
 | ID | Status | How verified |
 |---|---|---|
