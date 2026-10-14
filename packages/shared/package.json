@@ -12,7 +12,8 @@
     "./constants": "./src/constants.ts",
     "./ids": "./src/ids.ts",
     "./ext": "./src/ext/index.ts",
-    "./areas/*": "./src/areas/*.ts"
+    "./areas/*": "./src/areas/*.ts",
+    "./derive": "./src/derive/index.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
