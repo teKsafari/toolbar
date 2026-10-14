@@ -1,0 +1,137 @@
+<script lang="ts">
+  // Request detail pane (J-106, J-107, J-185): status dot, sub-tabs for headers, payload,
+  // response (messages for sockets and event streams) and timing, copy as cURL, close.
+  import { fmtBytes, fmtClock, fmtDuration, prettyBody, toCurl, type NetworkViewRow } from '@toolbar/ui/viewer';
+  import { toasts } from '@toolbar/ui';
+  import VIcon from './VIcon.svelte';
+  import { copyText } from './api.ts';
+  import { agentNudge } from './actions.ts';
+
+  type Sub = 'headers' | 'payload' | 'response' | 'timing';
+  interface Props {
+    entry: NetworkViewRow;
+    sub: Sub;
+    onclose: () => void;
+  }
+  let { entry, sub = $bindable(), onclose }: Props = $props();
+
+  const stream = $derived(entry.type === 'websocket' || entry.type === 'eventsource');
+  const tone = $derived(entry.state === 'pending' ? 'pend' : entry.state === 'failed' || (entry.status ?? 0) >= 400 ? 'bad' : (entry.status ?? 0) >= 300 ? 'warn' : 'ok');
+  const masked = (name: string, value: string) => entry.redacted.includes(name.toLowerCase()) || /\[redacted\]/i.test(value);
+  const subs = $derived<{ id: Sub; label: string }[]>([
+    { id: 'headers', label: 'Headers' },
+    ...(stream ? [] : [{ id: 'payload' as Sub, label: 'Payload' }]),
+    { id: 'response', label: stream ? 'Messages' : 'Response' },
+    { id: 'timing', label: 'Timing' },
+  ]);
+  $effect(() => {
+    if (!subs.some((s) => s.id === sub)) sub = 'headers';
+  });
+  const resp = $derived(prettyBody(entry.responseBody));
+  const payload = $derived(prettyBody(entry.requestBody));
+
+  async function copyCurl() {
+    if (await copyText(toCurl(entry))) agentNudge('cURL copied');
+    else toasts.error('Could not copy');
+  }
+</script>
+
+<section class="pane" aria-label="Request detail" data-testid="request-detail" data-keys-own>
+  <header>
+    <span class="dot {tone}" aria-hidden="true"></span>
+    <span class="status" data-testid="detail-status">{entry.status ?? (entry.state === 'pending' ? 'Pending' : 'Failed')}</span>
+    <span class="name" title={entry.url}>{entry.method} {entry.path}</span>
+    {#if !stream}
+      <button type="button" class="btn" onclick={copyCurl} data-testid="copy-curl"><VIcon name="copy" size={13} />Copy as cURL</button>
+    {/if}
+    <button type="button" class="x" onclick={onclose} aria-label="Close detail" data-testid="close-detail"><VIcon name="close" size={14} /></button>
+  </header>
+  <div class="subs" role="tablist">
+    {#each subs as s (s.id)}
+      <button type="button" role="tab" aria-selected={sub === s.id} class:on={sub === s.id} onclick={() => (sub = s.id)} data-testid="sub-{s.id}">{s.label}</button>
+    {/each}
+  </div>
+  <div class="body" data-testid="detail-body">
+    {#if sub === 'headers'}
+      <h4>General</h4>
+      <dl>
+        <dt>URL</dt><dd>{entry.url}</dd>
+        <dt>Method</dt><dd>{entry.method}</dd>
+        <dt>Status</dt><dd><span class="dot {tone}"></span>{entry.status ?? entry.state}{entry.statusText ? ` ${entry.statusText}` : ''}{entry.error ? ` (${entry.error})` : ''}</dd>
+        <dt>Type</dt><dd>{entry.type}{entry.initiator ? `, ${entry.initiator}` : ''}</dd>
+        <dt>Seen by</dt><dd>{entry.source === 'both' ? 'page and browser' : entry.source === 'webRequest' ? 'browser' : 'page'}</dd>
+        {#if entry.size != null}<dt>Size</dt><dd>{fmtBytes(entry.size)}{entry.truncated ? ' (body cut)' : ''}</dd>{/if}
+      </dl>
+      {#each [['Response headers', entry.responseHeaders], ['Request headers', entry.requestHeaders]] as [title, hs] (title)}
+        {@const list = Object.entries((hs as Record<string, string>) ?? {})}
+        <h4>{title}</h4>
+        {#if list.length}
+          <dl>
+            {#each list as [k, val] (k)}
+              <dt>{k}</dt>
+              <dd>
+                {#if masked(k, val)}<span class="masked" data-testid="masked-{k.toLowerCase()}"><VIcon name="shield" size={12} />masked</span>{:else}{val}{/if}
+              </dd>
+            {/each}
+          </dl>
+        {:else}<p class="none">None captured</p>{/if}
+      {/each}
+    {:else if sub === 'payload'}
+      {#if entry.requestBody}<pre class:json={payload.json}>{payload.text}</pre>{:else}<p class="none">This request had no body.</p>{/if}
+    {:else if sub === 'response'}
+      {#if stream}
+        <ol class="frames" data-testid="frames">
+          {#each entry.frames as f, i (i)}
+            <li class="op-{f.op}"><span class="t">{fmtClock(f.at)}</span><span class="op">{f.op === 'send' ? 'sent' : f.op === 'recv' || f.op === 'message' ? 'received' : f.op}{f.event ? ` ${f.event}` : ''}</span><code>{f.data ?? ''}</code></li>
+          {/each}
+        </ol>
+      {:else if entry.responseBody}
+        <pre class:json={resp.json} data-testid="response-body">{resp.text}</pre>
+      {:else}<p class="none">{entry.state === 'pending' ? 'No response arrived before the capture ended.' : 'No response body was captured.'}</p>{/if}
+    {:else}
+      <dl class="timing">
+        <dt>Started</dt><dd>{fmtClock(entry.at)} into the capture</dd>
+        <dt>Duration</dt><dd>{entry.state === 'pending' ? 'still waiting' : fmtDuration(entry.durationMs)}</dd>
+        {#if entry.timing}
+          {#if entry.timing.dns != null}<dt>DNS</dt><dd>{fmtDuration(entry.timing.dns)}</dd>{/if}
+          {#if entry.timing.connect != null}<dt>Connect</dt><dd>{fmtDuration(entry.timing.connect)}</dd>{/if}
+          {#if entry.timing.ttfb != null}<dt>Waiting (TTFB)</dt><dd>{fmtDuration(entry.timing.ttfb)}</dd>{/if}
+          {#if entry.timing.download != null}<dt>Download</dt><dd>{fmtDuration(entry.timing.download)}</dd>{/if}
+        {/if}
+      </dl>
+    {/if}
+  </div>
+</section>
+
+<style>
+  .pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--nb-surface); }
+  header { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--nb-border); }
+  .status { font: 600 var(--nb-text-sm) var(--nb-font-mono); }
+  .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--nb-text-sm) var(--nb-font-mono); color: var(--nb-text-muted); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; flex: none; }
+  .dot.ok { background: var(--nb-success); }
+  .dot.warn { background: var(--nb-warning); }
+  .dot.bad { background: var(--nb-danger); }
+  .dot.pend { background: var(--nb-text-faint); }
+  .btn { all: unset; display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border-radius: var(--nb-radius-sm); border: 1px solid var(--nb-border-strong); font-size: var(--nb-text-sm); cursor: pointer; white-space: nowrap; }
+  .btn:hover { background: var(--nb-surface-sunken); }
+  .x { all: unset; display: grid; place-items: center; width: 26px; height: 26px; border-radius: var(--nb-radius-sm); cursor: pointer; color: var(--nb-text-muted); }
+  .x:hover { background: var(--nb-surface-sunken); }
+  .subs { display: flex; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--nb-border); }
+  .subs button { all: unset; padding: 7px 8px; font-size: var(--nb-text-md); color: var(--nb-text-muted); cursor: pointer; border-bottom: 2px solid transparent; }
+  .subs button.on { color: var(--nb-text); border-bottom-color: var(--nb-accent); }
+  .body { flex: 1; min-height: 0; overflow: auto; padding: 8px 12px 16px; font: var(--nb-text-sm) / 1.5 var(--nb-font-mono); }
+  h4 { margin: 10px 0 4px; font: 600 var(--nb-text-xs) var(--nb-font-sans); color: var(--nb-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  dl { display: grid; grid-template-columns: minmax(90px, max-content) 1fr; gap: 2px 12px; margin: 0; }
+  dt { color: var(--nb-text-muted); }
+  dd { margin: 0; word-break: break-all; }
+  .masked { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; border-radius: 999px; background: var(--nb-success-tint); color: var(--nb-success); font-family: var(--nb-font-sans); }
+  pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+  .none { color: var(--nb-text-muted); font-family: var(--nb-font-sans); }
+  .frames { list-style: none; margin: 0; padding: 0; }
+  .frames li { display: grid; grid-template-columns: 40px 70px 1fr; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--nb-border); }
+  .frames .t { color: var(--nb-text-faint); }
+  .frames .op-send .op { color: var(--nb-accent-text); }
+  .frames .op-recv .op, .frames .op-message .op { color: var(--nb-success); }
+  .frames code { word-break: break-all; }
+</style>

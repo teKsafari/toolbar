@@ -197,6 +197,8 @@ export interface NetRequest {
   frameId?: number;
   /** Page origin that issued the request (webRequest `initiator`). */
   origin?: string;
+  /** Browser tab id, set on desktop recordings that follow several tabs (J-224). */
+  tabId?: number;
 }
 
 export interface NetTiming {

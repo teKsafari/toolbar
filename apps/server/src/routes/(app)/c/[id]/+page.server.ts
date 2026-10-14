@@ -1,9 +1,17 @@
-import { error } from '@sveltejs/kit';
+// Member capture page. The page resets to the root layout (+layout@.svelte), so it checks the
+// session itself instead of relying on (app)/+layout.server.ts.
+import { error, redirect } from '@sveltejs/kit';
+import { ApiFail, viewerAccess } from '#lib/server/viewer/access.ts';
+import { viewerPageData } from '#lib/server/viewer/page.ts';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-// Stub: the viewer area agent loads the recording, events and media here.
-export const load = ({ params }) => {
-  if (!UUID.test(params.id)) error(404, 'Capture not found');
-  return { id: params.id };
+export const load = async (event) => {
+  if (!event.locals.user) redirect(303, `/login?next=${encodeURIComponent(event.url.pathname + event.url.search)}`);
+  try {
+    const ctx = await viewerAccess(event, event.params.id, { token: null });
+    if (!ctx.role) error(404, 'Capture not found');
+    return { viewer: await viewerPageData(event, ctx, 'member') };
+  } catch (e) {
+    if (e instanceof ApiFail) error(404, 'Capture not found');
+    throw e;
+  }
 };

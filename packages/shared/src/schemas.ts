@@ -100,6 +100,7 @@ export const eventDataSchemas = {
     graphql: z.object({ operationName: z.string().nullable() }).optional(),
     frameId: z.number().optional(),
     origin: z.string().optional(),
+    tabId: z.number().int().optional(),
   }),
   'net.res': z.object({
     rid: z.string(),

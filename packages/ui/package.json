@@ -14,7 +14,8 @@
     "./tokens": "./src/tokens.ts",
     "./tokens.css": "./src/tokens.css",
     "./icons": "./src/icons.ts",
-    "./editor": "./src/editor/index.ts"
+    "./editor": "./src/editor/index.ts",
+    "./viewer": "./src/viewer/index.ts"
   },
   "scripts": {
     "gen:tokens": "node --experimental-strip-types scripts/gen-tokens.ts",
@@ -38,6 +39,7 @@
     "svelte-check": "4.7.6",
     "typescript": "6.0.3",
     "vite": "8.3.4",
-    "vitest": "5.0.4"
+    "vitest": "5.0.4",
+    "zod": "4.6.7"
   }
 }
