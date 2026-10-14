@@ -1,7 +1,10 @@
 // Shared helpers for the capture area's e2e suite: a mock upload server (until server-core
 // lands), signed-in state in extension storage, and access to the worker's capture service.
-import type { Page, Worker } from '@playwright/test';
-import { test as extTest, LAB_URL } from '../../fixtures/extension.ts';
+import { chromium, type BrowserContext, type Page, type Worker } from '@playwright/test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { test as extTest, LAB_URL, DISPLAY, EXT_DIR, EXT_ID } from '../../fixtures/extension.ts';
 import { MOCK_TOKEN, startMockServer, type MockServer } from '../../fixtures/mock-upload-server.ts';
 
 /** The extension API inside sw.evaluate() callbacks (they run in the service worker). */
@@ -18,7 +21,42 @@ export interface RingSlice {
   rrweb: { type: number; timestamp: number }[];
 }
 
-export const test = extTest.extend<{ mock: MockServer }, { mockServer: MockServer }>({
+/**
+ * A second browser without --use-fake-device-for-media-stream: with that flag Chromium answers
+ * tab-capture getUserMedia with "Requested device not found", so tab recordings run here.
+ * Screen, desktop and microphone tests use the main fixture's fake devices.
+ */
+export interface TabBrowser {
+  context: BrowserContext;
+  sw: Worker;
+}
+
+export const test = extTest.extend<{ mock: MockServer; tab: TabBrowser }, { mockServer: MockServer; tabBrowser: TabBrowser }>({
+  tabBrowser: [
+    async ({}, use) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-e2e-tab-'));
+      fs.mkdirSync(path.join(dir, 'Default'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID] } }));
+      const context = await chromium.launchPersistentContext(dir, {
+        headless: false,
+        env: { ...process.env, DISPLAY },
+        viewport: null,
+        args: [`--disable-extensions-except=${EXT_DIR}`, `--load-extension=${EXT_DIR}`, `--allowlisted-extension-id=${EXT_ID}`, '--window-position=0,0', '--window-size=1280,800', '--force-device-scale-factor=1'],
+      });
+      const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+      await use({ context, sw });
+      await context.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    },
+    { scope: 'worker' },
+  ],
+  tab: async ({ tabBrowser, mockServer }, use) => {
+    await tabBrowser.sw.evaluate(() => (globalThis as unknown as { __tb: { ready(): Promise<unknown> } }).__tb.ready());
+    mockServer.reset();
+    await signIn(tabBrowser.sw, mockServer.url);
+    await resetSession(tabBrowser.sw);
+    await use(tabBrowser);
+  },
   mockServer: [
     async ({}, use) => {
       const m = await startMockServer(MOCK_PORT);
@@ -32,6 +70,7 @@ export const test = extTest.extend<{ mock: MockServer }, { mockServer: MockServe
     await sw.evaluate(() => (globalThis as unknown as { __tb: { ready(): Promise<unknown> } }).__tb.ready());
     mockServer.reset();
     await signIn(sw, mockServer.url);
+    await resetSession(sw);
     await use(mockServer);
   },
 });
@@ -48,6 +87,11 @@ export async function signIn(sw: Worker, serverUrl: string) {
     },
     { serverUrl, token: MOCK_TOKEN, ws: WORKSPACE_ID },
   );
+}
+
+/** Puts the capture session back to idle (a failed test may leave it in error or draft). */
+export async function resetSession(sw: Worker) {
+  await sw.evaluate(() => (globalThis as unknown as { __tb: { capture: { apply(e: unknown): Promise<unknown> } } }).__tb.capture.apply({ type: 'RESET' }));
 }
 
 export async function setSettings(sw: Worker, patch: Record<string, unknown>) {
@@ -125,8 +169,10 @@ export async function draftWithBlobs(sw: Worker, draftId: string): Promise<{ dra
       const id = draft?.[k];
       if (id) blobSizes[k] = ((await get('blobs', id))?.blob as Blob | undefined)?.size ?? 0;
     }
+    const events = lines(await text(draft?.eventsBlobId));
+    const rrweb = lines(await text(draft?.rrwebBlobId));
     db.close();
-    return { draft, events: lines(await text(draft?.eventsBlobId)), rrweb: lines(await text(draft?.rrwebBlobId)), blobSizes };
+    return { draft, events, rrweb, blobSizes };
   }, draftId);
 }
 

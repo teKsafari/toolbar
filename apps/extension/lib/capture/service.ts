@@ -91,7 +91,7 @@ export class CaptureService {
   private shots = new CaptureQueue();
   private countdownTimer: ReturnType<typeof setTimeout> | null = null;
   private countdownLeft = COUNTDOWN_MS;
-  private pendingStream: { recordingId: string; streamId: string | null; localId: string; serverId: string | null; upload: UploadAuth | null } | null = null;
+  private pendingStream: { recordingId: string; streamId: string | null; localId: string; serverId: string | null; upload: UploadAuth | null; pageUrl: string; pageTitle: string } | null = null;
   private stopTimer: ReturnType<typeof setTimeout> | null = null;
   private micWaiters: ((granted: boolean) => void)[] = [];
   private loaded: Promise<void>;
@@ -413,12 +413,12 @@ export class CaptureService {
     const full = await cropImage(png, null, innerWidth, { cssPixels: true });
     const crop = rect && rect.w > 2 && rect.h > 2 ? await cropImage(png, rect, innerWidth, { cssPixels: true }) : null;
     this.emit(tabId, 'marker', { type: 'screenshot', label: crop ? 'area' : 'viewport' }, t);
+    const [env, metadata, auth] = await Promise.all([this.envFor(tabId), this.metadataFor(tabId), getAuth()]);
     await this.flushTabs([tabId]);
     const lastEnd = (await getPrivate<Record<number, number>>(CAPTURE_KEYS.lastCaptureEnd, {}))[tabId] ?? 0;
     const minutes = Math.max(this.replay.minutes, LIMITS.replayDefaultMin);
     const from = Math.max(t - minutes * 60_000, lastEnd);
-    const slice = await this.ring.read(tabId, from, t + 50);
-    const [env, metadata, auth] = await Promise.all([this.envFor(tabId), this.metadataFor(tabId), getAuth()]);
+    const slice = await this.ring.read(tabId, from, Date.now());
     const draft = await createDraft({
       kind: 'screenshot',
       tabId,
@@ -509,7 +509,7 @@ export class CaptureService {
       }
     }
     const recordingId = serverId ?? localId;
-    this.pendingStream = { recordingId, streamId, localId, serverId, upload: auth && serverId ? { serverUrl: auth.serverUrl, token: auth.token } : null };
+    this.pendingStream = { recordingId, streamId, localId, serverId, upload: auth && serverId ? { serverUrl: auth.serverUrl, token: auth.token } : null, pageUrl: tab.url ?? '', pageTitle: tab.title ?? '' };
     const next = await this.apply({ type: 'START_RECORDING', tabId, mode, recordingId, now: Date.now() });
     if (next.state === 'countdown') {
       this.countdownLeft = (opts.delaySec ?? COUNTDOWN_MS / 1000) * 1000;
@@ -683,6 +683,7 @@ export class CaptureService {
       const kind = s.mode === 'tab' ? 'video' : 'screen';
       const media = this.media.get(s.recordingId);
       this.emit(s.tabId, 'media', { stream: kind === 'video' ? 'video' : 'screen', op: 'stop' }, stoppedAt);
+      const [env, metadata, auth] = await Promise.all([this.envFor(s.tabId), this.metadataFor(s.tabId), getAuth()]);
       await this.flushTabs(s.tabs);
       for (const p of this.ports) if (s.tabs.includes(p.tabId)) this.postPort(p, { type: 'detach', recordingId: s.recordingId });
       const off = await this.offscreen<{ ok: boolean; durationMs: number; lastSeq: Record<string, number>; bytes: Record<string, number>; blobs: Record<string, string>; message?: string }>({ to: 'offscreen', type: 'stop', recordingId: s.recordingId });
@@ -697,17 +698,15 @@ export class CaptureService {
       }
       events.sort((a, b) => a.t - b.t || (a.ctx < b.ctx ? -1 : a.ctx > b.ctx ? 1 : a.seq - b.seq));
       const tab = await browser.tabs.get(s.tabId).catch(() => null);
-      const firstNav = events.find((e) => e.kind === 'nav' || e.kind === 'env');
-      const startUrl = (firstNav?.data as { url?: string } | undefined)?.url ?? tab?.url ?? '';
-      const [env, metadata, auth] = await Promise.all([this.envFor(s.tabId), this.metadataFor(s.tabId), getAuth()]);
       const pend = this.pendingStream?.recordingId === s.recordingId ? this.pendingStream : null;
+      const startUrl = pend?.pageUrl || tab?.url || '';
       const streams: Draft['streams'] = {};
       for (const [name, last] of Object.entries(off.lastSeq)) (streams as Record<string, unknown>)[name] = { lastSeq: last, totalBytes: off.bytes[name] ?? 0 };
       const draft = await createDraft({
         kind,
         tabId: s.tabId,
         pageUrl: startUrl, // J-070: the URL at capture start, even after route changes
-        pageTitle: tab?.title ?? '',
+        pageTitle: pend?.pageTitle || tab?.title || '',
         startedAt,
         durationMs: off.durationMs,
         clientId: pend?.localId,
@@ -799,6 +798,7 @@ export class CaptureService {
     if (this.session.state !== 'idle') throw new CaptureError('busy', `Busy: ${this.session.state}`);
     const tab = await this.tabOrThrow(tabId);
     const id = tab.id!;
+    const [env, metadata, auth] = await Promise.all([this.envFor(id), this.metadataFor(id), getAuth()]);
     await this.flushTabs([id]);
     const now = Date.now();
     const windowMs = this.replay.minutes * 60_000;
@@ -814,7 +814,6 @@ export class CaptureService {
       const r = await this.offscreen<{ ok: boolean; blobIds?: string[] }>({ to: 'offscreen', type: 'replay-video-flush', tabId: id, recordingId: draftKey, upload: { serverUrl: '', token: '' } });
       replaySegmentBlobIds = r?.blobIds ?? [];
     }
-    const [env, metadata, auth] = await Promise.all([this.envFor(id), this.metadataFor(id), getAuth()]);
     const draft = await createDraft({
       kind: 'replay',
       tabId: id,
