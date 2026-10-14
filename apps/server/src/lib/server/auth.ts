@@ -83,7 +83,10 @@ export const auth = betterAuth({
       // X-06, J-125: join a workspace by email domain, or get a personal workspace as owner.
       create: { after: async (u) => void (await bootstrapNewUser(db, u)) },
       // An address verified later (magic link on a password account) can still join by domain.
-      update: { after: async (u) => void (u.emailVerified ? await joinByDomain(db, u) : undefined) },
+      // Only on a verification request, so a profile edit never re-adds someone an admin removed.
+      update: {
+        after: async (u, ctx) => void (u.emailVerified && /verify/.test(ctx?.path ?? '') ? await joinByDomain(db, u) : undefined),
+      },
     },
   },
   socialProviders,
