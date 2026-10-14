@@ -76,9 +76,11 @@
     }
   }
 
+  // A string, so a new but equal query object (after invalidate) does not reload or clear the selection.
+  const queryKey = $derived(JSON.stringify(query));
   $effect(() => {
     // reload when the query or the reload counter changes
-    void JSON.stringify(query);
+    void queryKey;
     void shell.reloadTick;
     selected = [];
     void load(true);

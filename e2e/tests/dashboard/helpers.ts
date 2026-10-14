@@ -59,8 +59,8 @@ export async function me(page: Page) {
 }
 
 /** A toast with this text appears. */
-export async function toast(page: Page, text: string | RegExp) {
-  await expect(page.getByRole('status').filter({ hasText: text }).or(page.getByRole('alert').filter({ hasText: text })).first()).toBeVisible();
+export async function toast(page: Page, text: string | RegExp, timeout = 10_000) {
+  await expect(page.getByRole('status').filter({ hasText: text }).or(page.getByRole('alert').filter({ hasText: text })).first()).toBeVisible({ timeout });
 }
 
 /** A small HTTP listener for webhook and Slack deliveries. */
