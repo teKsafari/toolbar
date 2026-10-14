@@ -22,6 +22,8 @@ export const targetRefSchema = z.object({
   rect: rectSchema,
   landmarks: z.array(z.string()).optional(),
   heading: z.string().optional(),
+  attrs: z.record(z.string(), z.string()).optional(),
+  frame: z.string().optional(),
 });
 
 const headersSchema = z.record(z.string(), z.string());
@@ -47,6 +49,14 @@ export const envInfoSchema = z.object({
     .object({ effectiveType: z.string().optional(), downlink: z.number().optional(), rtt: z.number().optional() })
     .optional(),
   incognito: z.boolean().optional(),
+  battery: z.object({ level: z.number(), charging: z.boolean() }).optional(),
+  cores: z.number().optional(),
+  memory: z.number().optional(),
+  touch: z.boolean().optional(),
+  source: z.enum(['page', 'sw']).optional(),
+  /** ISO 3166-1 alpha-2 country; the client derives it from the time zone, the server may replace it from the request IP. */
+  country: z.string().length(2).optional(),
+  countrySource: z.enum(['tz', 'ip']).optional(),
 });
 
 export const eventDataSchemas = {
@@ -56,6 +66,7 @@ export const eventDataSchemas = {
     url: z.string(),
     from: z.string().optional(),
     title: z.string().optional(),
+    cause: z.enum(['reload', 'typed', 'link', 'back_forward', 'form', 'other']).optional(),
   }),
   console: z.object({
     level: z.enum([
@@ -82,8 +93,13 @@ export const eventDataSchemas = {
     headers: headersSchema.optional(),
     body: z.string().optional(),
     bodyTruncated: z.boolean().optional(),
-    initiator: z.enum(['fetch', 'xhr', 'beacon', 'document', 'script', 'image', 'other']).optional(),
+    initiator: z
+      .enum(['fetch', 'xhr', 'beacon', 'document', 'script', 'image', 'other', 'stylesheet', 'font', 'media', 'websocket', 'eventsource', 'subdocument', 'ping'])
+      .optional(),
     source: z.enum(['page', 'webRequest']),
+    graphql: z.object({ operationName: z.string().nullable() }).optional(),
+    frameId: z.number().optional(),
+    origin: z.string().optional(),
   }),
   'net.res': z.object({
     rid: z.string(),
@@ -98,8 +114,11 @@ export const eventDataSchemas = {
       .object({ start: z.number(), dns: z.number().optional(), connect: z.number().optional(), ttfb: z.number().optional(), end: z.number() })
       .optional(),
     source: z.enum(['page', 'webRequest']).optional(),
+    graphqlErrors: z.number().int().optional(),
+    fromCache: z.boolean().optional(),
+    binary: z.boolean().optional(),
   }),
-  'net.fail': z.object({ rid: z.string(), error: z.string() }),
+  'net.fail': z.object({ rid: z.string(), error: z.string(), cors: z.boolean().optional(), source: z.enum(['page', 'webRequest']).optional() }),
   ws: z.object({
     sid: z.string(),
     op: z.enum(['open', 'send', 'recv', 'close', 'error']),
@@ -108,6 +127,9 @@ export const eventDataSchemas = {
     truncated: z.boolean().optional(),
     code: z.number().optional(),
     reason: z.string().optional(),
+    binary: z.boolean().optional(),
+    length: z.number().optional(),
+    protocol: z.string().optional(),
   }),
   sse: z.object({
     sid: z.string(),
@@ -143,6 +165,9 @@ export const eventDataSchemas = {
     mime: z.string().optional(),
     width: z.number().optional(),
     height: z.number().optional(),
+    mic: z.enum(['off', 'on', 'muted', 'denied']).optional(),
+    deviceId: z.string().optional(),
+    segment: z.number().int().optional(),
   }),
   shot: z.object({
     assetId: z.string(),
@@ -151,7 +176,7 @@ export const eventDataSchemas = {
     target: targetRefSchema.optional(),
   }),
   annotation: z.object({ annotationId: z.string(), op: z.enum(['create', 'update', 'delete']) }),
-  marker: z.object({ type: z.enum(['mark', 'voice.start', 'voice.end']), label: z.string().optional() }),
+  marker: z.object({ type: z.enum(['mark', 'voice.start', 'voice.end', 'pen', 'blur', 'screenshot']), label: z.string().optional() }),
 } as const satisfies Record<(typeof EVENT_KINDS)[number], z.ZodType>;
 
 function envelope<K extends keyof typeof eventDataSchemas>(kind: K) {
@@ -163,6 +188,7 @@ function envelope<K extends keyof typeof eventDataSchemas>(kind: K) {
     t: z.number(),
     kind: z.literal(kind),
     data: eventDataSchemas[kind],
+    tab: z.number().int().optional(),
   });
 }
 

@@ -17,6 +17,8 @@ export interface Envelope<K extends string, D> {
   t: Ms;
   kind: K;
   data: D;
+  /** Browser tab id, stamped by the service worker (desktop recordings span tabs, J-224). */
+  tab?: number;
 }
 
 export interface Rect {
@@ -41,6 +43,10 @@ export interface TargetRef {
   rect: Rect;
   landmarks?: string[];
   heading?: string;
+  /** A few attributes for the pseudo tag in action rows (J-067): type, name, href, aria-label, value (masked). */
+  attrs?: Record<string, string>;
+  /** Frame context of the element ("top" or a frame ctx). */
+  frame?: string;
 }
 
 /** Output of serialize(): plain JSON plus tagged objects for values JSON cannot hold. */
@@ -72,7 +78,12 @@ export type SerializedTag =
   | 'symbol'
   | 'cycle'
   | 'more'
-  | 'trunc';
+  | 'trunc'
+  | 'date'
+  | 'regexp'
+  | 'number'
+  | 'promise'
+  | 'throws';
 
 export type MaskingPreset = 'staging' | 'production' | 'none';
 
@@ -92,14 +103,28 @@ export interface EnvInfo {
   title?: string;
   connection?: { effectiveType?: string; downlink?: number; rtt?: number };
   incognito?: boolean;
+  battery?: { level: number; charging: boolean };
+  /** Logical cores and device memory (GB), when the browser exposes them. */
+  cores?: number;
+  memory?: number;
+  touch?: boolean;
+  /** Who produced the env record: the page (isolated world) or the service worker. */
+  source?: 'page' | 'sw';
+  /** ISO 3166-1 alpha-2 country (J-070). The extension derives it from `tz`; the server may replace it from the request IP. */
+  country?: string;
+  countrySource?: 'tz' | 'ip';
 }
 
 export type NavType = 'load' | 'pushState' | 'replaceState' | 'popstate' | 'hashchange' | 'bfcache';
+/** Why a full load happened (J-069), from the navigation timing entry and the referrer. */
+export type NavCause = 'reload' | 'typed' | 'link' | 'back_forward' | 'form' | 'other';
 export interface Nav {
   type: NavType;
   url: string;
   from?: string;
   title?: string;
+  /** Full loads only. */
+  cause?: NavCause;
 }
 
 export const CONSOLE_LEVELS = [
@@ -141,7 +166,21 @@ export interface PageError {
 
 export type Headers = Record<string, string>;
 export type NetSource = 'page' | 'webRequest';
-export type NetInitiator = 'fetch' | 'xhr' | 'beacon' | 'document' | 'script' | 'image' | 'other';
+export type NetInitiator =
+  | 'fetch'
+  | 'xhr'
+  | 'beacon'
+  | 'document'
+  | 'script'
+  | 'image'
+  | 'other'
+  | 'stylesheet'
+  | 'font'
+  | 'media'
+  | 'websocket'
+  | 'eventsource'
+  | 'subdocument'
+  | 'ping';
 
 export interface NetRequest {
   rid: string;
@@ -152,6 +191,12 @@ export interface NetRequest {
   bodyTruncated?: boolean;
   initiator?: NetInitiator;
   source: NetSource;
+  /** GraphQL operation in the request body (J-064). */
+  graphql?: { operationName: string | null };
+  /** Chrome's frame id from webRequest (0 is the top frame). */
+  frameId?: number;
+  /** Page origin that issued the request (webRequest `initiator`). */
+  origin?: string;
 }
 
 export interface NetTiming {
@@ -173,12 +218,20 @@ export interface NetResponse {
   encodedSize?: number;
   timing?: NetTiming;
   source?: NetSource;
+  /** Count of entries in a GraphQL `errors` array at any HTTP status (J-064). */
+  graphqlErrors?: number;
+  fromCache?: boolean;
+  /** Response body was binary; only its size is kept (J-066). */
+  binary?: boolean;
 }
 
 export interface NetFailure {
   rid: string;
-  /** 'net::ERR_*', 'abort' or 'timeout'. */
+  /** 'net::ERR_*', 'abort', 'timeout' or 'cors'. */
   error: string;
+  /** The browser blocked the response by CORS (J-065). */
+  cors?: boolean;
+  source?: NetSource;
 }
 
 export interface WsEvent {
@@ -189,6 +242,11 @@ export interface WsEvent {
   truncated?: boolean;
   code?: number;
   reason?: string;
+  /** Binary frame: `data` is absent and `length` holds its size (J-066). */
+  binary?: boolean;
+  /** Payload length in bytes (UTF-8 for text). */
+  length?: number;
+  protocol?: string;
 }
 
 export interface SseEvent {
@@ -249,6 +307,11 @@ export interface MediaEvent {
   mime?: string;
   width?: number;
   height?: number;
+  /** Microphone state after a mute, unmute or device switch (J-211). */
+  mic?: 'off' | 'on' | 'muted' | 'denied';
+  deviceId?: string;
+  /** Replay video segment index. */
+  segment?: number;
 }
 
 export interface Shot {
@@ -264,7 +327,7 @@ export interface AnnotationRef {
 }
 
 export interface Marker {
-  type: 'mark' | 'voice.start' | 'voice.end';
+  type: 'mark' | 'voice.start' | 'voice.end' | 'pen' | 'blur' | 'screenshot';
   label?: string;
 }
 

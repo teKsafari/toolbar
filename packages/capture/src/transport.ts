@@ -1,17 +1,26 @@
 // The only exit of the capture code (architecture section 2). The extension implements it
 // with chrome.runtime ports; the Part 2 injector implements it with fetch to the server.
-import type { CaptureEvent } from '@toolbar/shared';
+import type { CaptureEvent, MaskingPreset } from '@toolbar/shared';
 
 export type Command =
   | { type: 'start'; recordingId: string; mode: 'video' | 'screen' | 'replay' | 'screenshot' }
   | { type: 'stop'; recordingId: string }
   | { type: 'snapshot' }
   | { type: 'flush' }
-  | { type: 'config'; maskingPreset?: 'staging' | 'production' | 'none'; captureUserEvents?: boolean };
+  | { type: 'config'; maskingPreset?: MaskingPreset; captureUserEvents?: boolean }
+  /** stream into a recording from now on: rrweb starts (with a full snapshot) if it is off */
+  | { type: 'attach'; recordingId: string; t0: number }
+  | { type: 'detach'; recordingId: string }
+  /** instant-replay ring: rrweb runs while this is on */
+  | { type: 'ring'; enabled: boolean; minutes: number }
+  /** rrweb full snapshot now */
+  | { type: 'checkout' };
 
 export interface Transport {
   /** Fire and forget, ordered. */
   send(batch: CaptureEvent[]): void;
+  /** rrweb events, kept apart from the event stream (architecture s4). `full` when the batch holds a full snapshot. */
+  sendRrweb?(batch: unknown[], full: boolean): void;
   /** start/stop/snapshot from the host. */
   onCommand(fn: (c: Command) => void): void;
 }
@@ -26,9 +35,13 @@ export type HookInstaller = (emit: Emit, win: Window & typeof globalThis) => Uni
 /** A Transport that keeps everything in memory. For tests and for the page-side ring. */
 export class MemoryTransport implements Transport {
   readonly events: CaptureEvent[] = [];
+  readonly rrweb: unknown[] = [];
   private handlers: ((c: Command) => void)[] = [];
   send(batch: CaptureEvent[]): void {
     this.events.push(...batch);
+  }
+  sendRrweb(batch: unknown[]): void {
+    this.rrweb.push(...batch);
   }
   onCommand(fn: (c: Command) => void): void {
     this.handlers.push(fn);

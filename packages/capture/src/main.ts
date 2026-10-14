@@ -3,6 +3,9 @@
 import { createEmitter, type CaptureEvent } from '@toolbar/shared/events';
 import { createMainBridge } from './bridge.ts';
 import { DEFAULT_HOOKS } from './hooks/index.ts';
+import { navCause } from './hooks/history.ts';
+import { learnOwnFile } from './hooks/util.ts';
+import { installMetadata } from './metadata.ts';
 import type { Emit, HookInstaller, Uninstall } from './transport.ts';
 
 /** Marker on window, non-enumerable, so tests can tell that the hooks ran. */
@@ -24,16 +27,36 @@ export interface StartMainOptions {
   win?: Window & typeof globalThis;
 }
 
+/** Frame context id: "top" for the top document, a random "f…" id for each frame. */
+export function frameCtx(win: Window): string {
+  try {
+    if (win.top === win) return 'top';
+  } catch {
+    /* cross-origin top */
+  }
+  return `f${Math.random().toString(36).slice(2, 7)}`;
+}
+
 export function startMainWorld(opts: StartMainOptions = {}) {
   const win = opts.win ?? (window as Window & typeof globalThis);
   const existing = (win as unknown as Record<symbol, MainBoot | undefined>)[BOOT_MARKER];
   if (existing) return { boot: existing, stop: () => {} };
+  try {
+    learnOwnFile();
+  } catch {
+    /* ignore */
+  }
 
-  const ctx = opts.ctx ?? (win.top === win ? 'top' : 'frame');
+  const ctx = opts.ctx ?? frameCtx(win);
   let post = opts.post;
   if (!post) {
     const bridge = createMainBridge(win);
     post = (e) => bridge.post(e);
+    try {
+      installMetadata(win, bridge);
+    } catch {
+      /* optional */
+    }
   }
   const send = post;
   const make = createEmitter(ctx);
@@ -52,8 +75,15 @@ export function startMainWorld(opts: StartMainOptions = {}) {
     }
   }
 
-  // First event of every document: where we are. Also proves the bridge end to end.
-  if (win.location) emit('nav', { type: 'load', url: win.location.href, title: win.document.title || undefined });
+  // First event of every document: where we are and why it loaded. Also proves the bridge end to end.
+  if (win.location)
+    emit('nav', {
+      type: 'load',
+      url: win.location.href,
+      ...(win.document.title ? { title: win.document.title } : {}),
+      ...(win.performance ? { cause: navCause(win) } : {}),
+      ...(win.document.referrer ? { from: win.document.referrer } : {}),
+    });
 
   const boot: MainBoot = { ctx, t: Date.now(), readyState: win.document.readyState, hooks: installed, failed };
   Object.defineProperty(win, BOOT_MARKER, { value: boot, enumerable: false, configurable: true });

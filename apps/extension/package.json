@@ -21,6 +21,7 @@
   "devDependencies": {
     "@types/node": "24.19.2",
     "@wxt-dev/module-svelte": "2.0.5",
+    "fake-indexeddb": "6.2.5",
     "svelte": "5.57.2",
     "svelte-check": "4.7.6",
     "typescript": "6.0.3",

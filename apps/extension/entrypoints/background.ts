@@ -6,6 +6,7 @@ import { registerCaptureScripts } from '../lib/registration';
 import { CAPTURE_PORT, type BgRequest, type PortMessage } from '../lib/messages';
 import { TEST_HOOKS } from '../lib/flags';
 import { registerAuth } from '../lib/bg/auth';
+import { setupCapture } from '../lib/bg/capture';
 
 export default defineBackground(() => {
   registerAuth();
@@ -17,6 +18,7 @@ export default defineBackground(() => {
     throw e;
   });
   browser.runtime.onInstalled.addListener(() => void registerCaptureScripts());
+  setupCapture();
   browser.runtime.onStartup.addListener(() => void registerCaptureScripts());
 
   browser.runtime.onConnect.addListener((port) => {
@@ -29,7 +31,6 @@ export default defineBackground(() => {
         for (const e of msg.batch) stats.byKind[e.kind] = (stats.byKind[e.kind] ?? 0) + 1;
         if (TEST_HOOKS) recent.push(...msg.batch.slice(-200));
         if (recent.length > 1000) recent.splice(0, recent.length - 1000);
-        // TODO(capture/upload area): append to the per-tab ring and the active recording's events stream.
       }
     });
     port.onDisconnect.addListener(() => stats.ports--);
@@ -37,18 +38,12 @@ export default defineBackground(() => {
 
   browser.commands.onCommand.addListener((command, tab) => {
     stats.commands.push(command);
-    // TODO(capture area): route each command (screenshot mode, tab recording, instant replay, recording link).
     console.debug('[nib] command', command as CommandName, tab?.id);
   });
 
   browser.runtime.onMessage.addListener((msg: BgRequest, _sender, reply) => {
     if (msg?.type === 'status') {
       reply({ ok: true, stats });
-      return true;
-    }
-    if (msg?.type === 'capture') {
-      // TODO(capture area): start the chosen capture mode on the active tab.
-      reply({ ok: false, error: 'not_implemented' });
       return true;
     }
     return false;
