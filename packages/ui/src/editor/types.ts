@@ -2,10 +2,10 @@
 // the extension's editor iframe, in tests, and in a dev harness.
 import type { ExtBootstrap } from '@toolbar/shared/api';
 import type { Draft } from '@toolbar/shared/ext';
-import type { AiDraftText, AiUnavailableReason, EditorPrefs } from '@toolbar/shared/areas/editor';
+import type { AiDraftText, AiUnavailableReason, EditorPrefs, TrackerOptions, TrackerRecent } from '@toolbar/shared/areas/editor';
 import type { FinalizeCaptureBody } from '@toolbar/shared/api';
 
-export type { AiDraftText, AiUnavailableReason, EditorPrefs };
+export type { AiDraftText, AiUnavailableReason, EditorPrefs, TrackerOptions, TrackerRecent };
 
 export interface AttachmentInfo {
   id: string;
@@ -58,9 +58,14 @@ export interface EditorHost {
   /** copy from the extension, never from the page (J-202) */
   copy(text: string): Promise<boolean>;
   /** the editor is done; the host removes it */
-  close(reason: 'created' | 'discarded' | 'saved', info?: { copied?: boolean }): void;
+  close(reason: 'created' | 'discarded' | 'saved', info?: { copied?: boolean; opened?: boolean; issueError?: string | null }): void;
   /** Open the created capture right of the source tab, after the link is copied (J-086). */
-  openCapture?(res: CreateResult, tabId: number): Promise<void>;
+  openCapture?(res: CreateResult, tabId: number): Promise<{ opened: boolean } | void>;
+  /**
+   * Tracker field form data (J-140): repos, labels, assignees and milestones for a repo, the values
+   * last filed with this integration, and an error when the tracker did not answer.
+   */
+  trackerOptions?(integrationId: string, repo?: string): Promise<{ options: TrackerOptions | null; recent: TrackerRecent | null; error: string | null }>;
   openUrl(url: string): void;
   /** server base URL for settings links */
   serverUrl(): string;

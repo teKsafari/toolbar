@@ -13,6 +13,33 @@ export interface Recording {
   height: number | null;
 }
 
+/** The microphone was refused or is missing (J-200); the page offers instructions and screen only. */
+export class MicUnavailableError extends Error {
+  constructor(readonly reason: 'denied' | 'missing') {
+    super(reason === 'denied' ? 'Microphone permission is missing' : 'No microphone found');
+    this.name = 'MicUnavailableError';
+  }
+}
+
+/** Ask for the microphone before the screen picker, so a refusal is known before anything starts. */
+export async function requestMic(): Promise<MediaStream> {
+  try {
+    return await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+  } catch (e) {
+    const name = (e as DOMException)?.name;
+    throw new MicUnavailableError(name === 'NotFoundError' || name === 'OverconstrainedError' ? 'missing' : 'denied');
+  }
+}
+
+/** The browser's stored answer for the microphone, when it tells: 'granted', 'denied' or 'prompt'. */
+export async function micPermission(): Promise<PermissionState | null> {
+  try {
+    return (await navigator.permissions.query({ name: 'microphone' as PermissionName })).state;
+  } catch {
+    return null;
+  }
+}
+
 const pick = (types: string[]) => types.find((t) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t)) ?? '';
 
 export class ScreenRecorder {
@@ -27,15 +54,18 @@ export class ScreenRecorder {
   private size: { w: number | null; h: number | null } = { w: null, h: null };
   onended: (() => void) | null = null;
 
-  /** Ask for a screen (and the microphone) and start recording. Throws when the person cancels. */
+  /**
+   * Ask for the microphone (with voice), then a screen, and start recording. Throws
+   * MicUnavailableError before the screen picker when the microphone is refused or missing, and
+   * the browser's error when the person cancels the picker.
+   */
   async start(withVoice: boolean) {
-    this.display = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true });
-    if (withVoice) {
-      try {
-        this.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-      } catch {
-        this.mic = null;
-      }
+    if (withVoice) this.mic = await requestMic();
+    try {
+      this.display = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true });
+    } catch (e) {
+      this.release();
+      throw e;
     }
     const vt = this.display.getVideoTracks()[0]!;
     const st = vt.getSettings();

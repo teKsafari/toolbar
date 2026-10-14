@@ -58,7 +58,7 @@ test.describe('member', () => {
     await expect(page.getByTestId('send-split')).toBeVisible();
     await expect(page.getByTestId('copy-split')).toBeVisible();
     await page.getByTestId('send-caret').click();
-    await expect(page.getByRole('menuitem', { name: 'Connect an app' })).toBeVisible();
+    for (const name of ['Connect GitHub', 'Connect GitLab', 'Connect Slack', 'Set up a webhook']) await expect(page.getByRole('menuitem', { name })).toBeVisible();
     await page.keyboard.press('Escape');
     await page.getByTestId('more').click();
     await expect(page.getByRole('menuitem', { name: 'Delete' })).toBeVisible();

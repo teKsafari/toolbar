@@ -2,6 +2,18 @@
 // Only the editor area edits this file.
 import type { z } from 'zod';
 import type { aiDraftSchema } from '../api/captures.ts';
+import type { integrationOptionsSchema } from '../api/integrations.ts';
+
+/** Picker data for the tracker field form (J-140), as the server's integrations.options returns it. */
+export type TrackerOptions = z.infer<typeof integrationOptionsSchema>;
+
+/** Values last filed with one integration (account settings `editor.recentFields`, J-140). */
+export interface TrackerRecent {
+  repo?: string | null;
+  labels?: string[];
+  assignees?: string[];
+  milestone?: string | null;
+}
 
 /** Ghost text for a video or replay draft (J-083). Step times are ms from the recording start. */
 export type AiDraftText = z.infer<typeof aiDraftSchema>;

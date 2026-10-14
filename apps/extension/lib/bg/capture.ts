@@ -110,6 +110,11 @@ export function setupCapture(): CaptureService {
     },
     'replay.set': async (m, sender) => {
       const msg = m as Extract<BgRequest, { type: 'replay.set' }>;
+      // J-011: continue on the popup's heavy-page warning
+      if (msg.allowHeavy) {
+        const tabId = tabOf(sender, msg.tabId);
+        if (tabId != null && msg.enabled) return { replay: await svc.allowHeavy(tabId) };
+      }
       return { replay: await svc.setReplay({ enabled: msg.enabled, video: msg.video, tabId: msg.video !== undefined ? tabOf(sender, msg.tabId) : undefined }) };
     },
     'mic.request': async () => ({ granted: await svc.requestMic() }),

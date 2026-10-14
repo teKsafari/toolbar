@@ -13,7 +13,7 @@ export interface ViewerData {
   devtools: boolean;
   folders: { id: string; name: string }[];
   members: { id: string; name: string; email: string }[];
-  integrations: { id: string; type: string; name: string }[];
+  integrations: { id: string; type: string; name: string; defaultTarget?: string | null }[];
   cues: { startMs: number; endMs: number; text: string }[];
   /** ?t= in seconds (J-097) */
   startAt: number | null;

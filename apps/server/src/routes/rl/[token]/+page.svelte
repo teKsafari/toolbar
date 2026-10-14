@@ -2,12 +2,13 @@
   // J-017: whoever opens a recording link picks screen only or screen plus voice, starts, picks a
   // source in the browser's picker, records with a small control (an always-on-top
   // picture-in-picture window where the browser offers one), stops, reviews, adds a note, then
-  // submits or redoes. J-126: ?title=&folder=&ref=&mic=1 preset the page.
+  // submits or redoes. J-126: ?title=&folder=&ref=&mic=1 preset the page. J-200: a refused or
+  // missing microphone shows how to allow it and offers to record without voice.
   import { onDestroy } from 'svelte';
   import { PRODUCT_NAME } from '@toolbar/shared';
   import { Button, Icon } from '@toolbar/ui';
   import DIcon from '#lib/components/dashboard/DIcon.svelte';
-  import { ScreenRecorder, submitRecording, type Recording } from '#lib/components/dashboard/recorder.ts';
+  import { MicUnavailableError, ScreenRecorder, micPermission, submitRecording, type Recording } from '#lib/components/dashboard/recorder.ts';
   import { page } from '$app/state';
 
   let { data } = $props();
@@ -16,6 +17,7 @@
   // svelte-ignore state_referenced_locally
   let voice = $state(data.info?.mic ?? false);
   let error = $state<string | null>(null);
+  let micProblem = $state<'denied' | 'missing' | null>(null);
   let elapsed = $state(0);
   let result = $state<Recording | null>(null);
   let previewUrl = $state<string | null>(null);
@@ -31,6 +33,21 @@
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   };
 
+  // A microphone the browser already refuses is known before Start (J-200).
+  async function chooseVoice() {
+    voice = true;
+    micProblem = (await micPermission()) === 'denied' ? 'denied' : null;
+  }
+  $effect(() => {
+    if (data.info?.mic) void chooseVoice();
+  });
+
+  function withoutVoice() {
+    voice = false;
+    micProblem = null;
+    void start();
+  }
+
   async function start() {
     error = null;
     phase = 'starting';
@@ -38,10 +55,15 @@
     rec.onended = () => void stop();
     try {
       await rec.start(voice);
+      micProblem = null;
     } catch (e) {
       rec.release();
       rec = null;
       phase = 'choose';
+      if (e instanceof MicUnavailableError) {
+        micProblem = e.reason;
+        return;
+      }
       const name = (e as DOMException)?.name;
       if (name !== 'NotAllowedError' && name !== 'AbortError') error = `Recording could not start: ${(e as Error).message}`;
       return;
@@ -149,10 +171,28 @@
           <p class="err">This browser cannot record the screen. Open the link in a desktop Chrome, Edge or Firefox.</p>
         {/if}
         <div class="choice" role="radiogroup" aria-label="What to record">
-          <button role="radio" aria-checked={!voice} onclick={() => (voice = false)} data-testid="choose-screen"><DIcon name="monitor" size={20} /><span><strong>Screen only</strong><small>Video of a window, tab or screen</small></span></button>
-          <button role="radio" aria-checked={voice} onclick={() => (voice = true)} data-testid="choose-voice"><DIcon name="mic" size={20} /><span><strong>Screen and voice</strong><small>Talk us through it with your microphone</small></span></button>
+          <button role="radio" aria-checked={!voice} onclick={() => { voice = false; micProblem = null; }} data-testid="choose-screen"><DIcon name="monitor" size={20} /><span><strong>Screen only</strong><small>Video of a window, tab or screen</small></span></button>
+          <button role="radio" aria-checked={voice} onclick={() => void chooseVoice()} data-testid="choose-voice"><DIcon name="mic" size={20} /><span><strong>Screen and voice</strong><small>Talk us through it with your microphone</small></span></button>
         </div>
-        <Button variant="primary" size="lg" icon="record" onclick={start} loading={phase === 'starting'} disabled={!supported} data-testid="recorder-start">Start recording</Button>
+        {#if voice && micProblem}
+          <div class="mic" role="alert" data-testid="mic-help" data-reason={micProblem}>
+            <strong>{micProblem === 'denied' ? 'Your browser blocks the microphone for this page' : 'No microphone was found'}</strong>
+            {#if micProblem === 'denied'}
+              <ol>
+                <li>Click the icon left of the address bar (a lock or a sliders icon).</li>
+                <li>Set Microphone to Allow, then reload this page.</li>
+                <li>On a Mac, also check System Settings, Privacy and Security, Microphone, and turn your browser on.</li>
+              </ol>
+            {:else}
+              <p>Plug in or turn on a microphone, then try again.</p>
+            {/if}
+            <div class="acts">
+              <Button variant="primary" icon="monitor" onclick={withoutVoice} data-testid="record-without-voice">Record without voice</Button>
+            </div>
+          </div>
+        {/if}
+        <Button variant={voice && micProblem ? undefined : 'primary'} size="lg" icon="record" onclick={start} loading={phase === 'starting'} disabled={!supported} data-testid="recorder-start">{voice && micProblem ? 'Try again with voice' : 'Start recording'}</Button>
+
       {:else if phase === 'recording'}
         <div class="live" data-testid="recorder-live">
           <span class="dot"></span><span class="t" data-testid="recorder-time">{fmt(elapsed)}</span><span class="muted">Recording your screen{voice ? ' and voice' : ''}</span>
@@ -227,6 +267,8 @@
   .prog span { display: block; height: 100%; background: var(--nb-accent); transition: width 0.2s; }
   .ok { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--nb-success); color: #fff; }
   .err { color: var(--nb-danger); }
+  .mic { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--nb-warning, var(--nb-border-strong)); border-radius: var(--nb-radius-lg); background: var(--nb-surface-sunken); }
+  .mic ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
   .foot { margin-top: 14px; font-size: var(--nb-text-sm); color: var(--nb-text-faint); text-align: center; max-width: 640px; }
   @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
 </style>

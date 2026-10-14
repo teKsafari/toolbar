@@ -21,6 +21,8 @@ export interface Transport {
   send(batch: CaptureEvent[]): void;
   /** rrweb events, kept apart from the event stream (architecture s4). `full` when the batch holds a full snapshot. */
   sendRrweb?(batch: unknown[], full: boolean): void;
+  /** Page weight for the heavy-page guard (J-011), top frame only, while the replay ring runs. */
+  sendPageWeight?(w: { nodes: number; mutationsPerSec: number }): void;
   /** start/stop/snapshot from the host. */
   onCommand(fn: (c: Command) => void): void;
 }

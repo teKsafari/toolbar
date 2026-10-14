@@ -79,8 +79,13 @@ export function installEditorHost(container: HTMLElement): EditorHostHandle {
       const id = draftId;
       close();
       ensureToaster();
-      if (m.reason === 'created')
-        toasts.success(m.copied === false ? 'Capture created. It opened in a new tab; copy the link there.' : 'Link copied. The capture opened in a new tab.');
+      if (m.reason === 'created') {
+        // J-089: with open-in-new-tab off nothing opens; J-140: a tracker failure still saved the capture
+        const opened = m.opened !== false;
+        if (m.copied === false) toasts.success(opened ? 'Capture created. It opened in a new tab; copy the link there.' : 'Capture created. Copy its link from your captures.');
+        else toasts.success(opened ? 'Link copied. The capture opened in a new tab.' : 'Link copied.');
+        if (m.issueError) toasts.error(`The capture is saved, but filing the issue failed: ${m.issueError}`, { duration: 10_000 });
+      }
       else if (m.reason === 'saved' && id)
         toasts.show('Saved to your drafts', {
           duration: 6000,

@@ -70,6 +70,8 @@ interface PortInfo {
   url: string;
   /** events received on this port, compared with the content script's count at flush */
   received: number;
+  /** the document's performance.timeOrigin: one value per page load (J-011) */
+  loadId?: number;
 }
 
 export interface CaptureStats {
@@ -191,6 +193,15 @@ export class CaptureService {
     const enabled = this.settings.instantReplay;
     const minutes = this.settings.replayMinutes;
     if (enabled !== this.replay.enabled || minutes !== this.replay.minutes) await this.setReplay({ enabled, minutes });
+    else if (enabled) {
+      // J-012: a change to the blocked-sites list reaches open pages: a newly blocked site stops
+      // its ring and drops what it held, an unblocked one starts
+      for (const p of this.ports) {
+        const want = this.ringWanted(p.tabId, p.url);
+        this.postPort(p, { type: 'ring', enabled: want, minutes });
+        if (!want && p.top && !this.activeRecording()?.tabs.includes(p.tabId)) await this.ring.purgeTab(p.tabId).catch(() => {});
+      }
+    }
     for (const p of this.ports) this.postPort(p, { type: 'config', captureUserEvents: this.settings.captureUserEvents, maskingPreset: 'staging' });
   }
 
@@ -253,6 +264,7 @@ export class CaptureService {
 
   private ringWanted(tabId: number, url: string): boolean {
     if (!this.replay.enabled || tabId < 0) return false;
+    if (this.replay.tabs[tabId]?.heavy) return false;
     return !isReplayBlocked(url, this.settings?.replayBlockedSites ?? []);
   }
 
@@ -260,6 +272,8 @@ export class CaptureService {
     switch (m.type) {
       case 'hello':
         p.url = m.url;
+        p.loadId = m.loadId;
+        if (p.top) await this.onPageLoad(p);
         return;
       case 'events': {
         p.received += m.batch.length;
@@ -277,8 +291,71 @@ export class CaptureService {
         this.ring.appendRrweb(p.tabId, m.batch);
         return;
       case 'page-weight':
+        if (p.top) await this.onPageWeight(p, m);
         return;
     }
+  }
+
+  // ---------- heavy-page guard (J-011) ----------
+
+  /** A new document in a tab: its weight is measured again, and a continue from an earlier load lapses. */
+  private async onPageLoad(p: PortInfo) {
+    await this.loaded;
+    const overrides = (await getStore('heavyOverride')) ?? {};
+    if (overrides[p.tabId] !== undefined && overrides[p.tabId] !== this.loadKey(p)) {
+      delete overrides[p.tabId];
+      await setStore('heavyOverride', overrides);
+    }
+    const cur = this.replay.tabs[p.tabId];
+    if (cur?.heavy) {
+      this.replay = { ...this.replay, tabs: { ...this.replay.tabs, [p.tabId]: { ...cur, heavy: false } } };
+      await setStore('replay', this.replay);
+      if (this.ringWanted(p.tabId, p.url)) this.postPort(p, { type: 'ring', enabled: true, minutes: this.replay.minutes });
+      this.broadcast();
+    }
+  }
+
+  /** The override value for one page load of a tab: its URL and the document's time origin. */
+  private loadKey(p: PortInfo) {
+    return `${p.url}#${p.loadId ?? 0}`;
+  }
+
+  /** Thresholds for a heavy page: storage override (the lab e2e lowers them) or the defaults. */
+  private async heavyThresholds() {
+    const t = (await getStore('heavyThresholds')) ?? null;
+    return { nodes: t?.nodes ?? LIMITS.heavyPageNodes, mutationsPerSec: t?.mutationsPerSec ?? LIMITS.heavyPageMutationsPerSec };
+  }
+
+  /** Pauses the ring on a heavy page until the popup's continue (`replay.set` with `allowHeavy`). */
+  async onPageWeight(p: PortInfo, w: { nodes: number; mutationsPerSec: number }) {
+    await this.loaded;
+    if (!this.ringWanted(p.tabId, p.url)) return;
+    const t = await this.heavyThresholds();
+    if (w.nodes < t.nodes && w.mutationsPerSec < t.mutationsPerSec) return;
+    const overrides = (await getStore('heavyOverride')) ?? {};
+    if (overrides[p.tabId] === this.loadKey(p)) return;
+    const cur = this.replay.tabs[p.tabId];
+    this.replay = { ...this.replay, tabs: { ...this.replay.tabs, [p.tabId]: { since: cur?.since ?? Date.now(), video: cur?.video ?? false, heavy: true } } };
+    await setStore('replay', this.replay);
+    for (const q of this.ports) if (q.tabId === p.tabId) this.postPort(q, { type: 'ring', enabled: false, minutes: this.replay.minutes });
+    // the ring's rows go too, unless a recording of this tab holds them
+    if (!this.activeRecording()?.tabs.includes(p.tabId)) await this.ring.purgeTab(p.tabId).catch(() => {});
+    this.broadcast();
+  }
+
+  /** The popup's continue on the heavy-page warning: replay runs on this tab for this page load. */
+  async allowHeavy(tabId: number) {
+    await this.loaded;
+    const top = [...this.ports].find((q) => q.tabId === tabId && q.top);
+    const overrides = (await getStore('heavyOverride')) ?? {};
+    if (top) overrides[tabId] = this.loadKey(top);
+    await setStore('heavyOverride', overrides);
+    const cur = this.replay.tabs[tabId];
+    if (cur) this.replay = { ...this.replay, tabs: { ...this.replay.tabs, [tabId]: { ...cur, heavy: false } } };
+    await setStore('replay', this.replay);
+    for (const q of this.ports) if (q.tabId === tabId && this.ringWanted(q.tabId, q.url)) this.postPort(q, { type: 'ring', enabled: true, minutes: this.replay.minutes });
+    this.broadcast();
+    return this.replay;
   }
 
   /** An event produced in the worker (webRequest, media, markers), redacted and stamped. */
@@ -986,7 +1063,7 @@ export class CaptureService {
       if (opts.video && opts.enabled) {
         const streamId = await (browser.tabCapture as unknown as typeof Browser.tabCapture).getMediaStreamId({ targetTabId: opts.tabId });
         await this.offscreen({ to: 'offscreen', type: 'replay-video-start', tabId: opts.tabId, streamId, minutes });
-        tabs[opts.tabId] = { since: Date.now(), video: true, heavy: false };
+        tabs[opts.tabId] = { since: Date.now(), video: true, heavy: tabs[opts.tabId]?.heavy ?? false };
       } else {
         await this.offscreen({ to: 'offscreen', type: 'replay-video-stop', tabId: opts.tabId });
         if (tabs[opts.tabId]) tabs[opts.tabId] = { ...tabs[opts.tabId]!, video: false };

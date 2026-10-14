@@ -7,11 +7,40 @@ One line per row of `docs/tasks.md`: the eight foundations (X-01 to X-08) and th
 | Priority | Built | Partial | Missing | Skipped | Total |
 |---|---|---|---|---|---|
 | P0 | 73 | 0 | 0 | 0 | 73 |
-| P1 | 101 | 5 | 0 | 0 | 106 |
-| P2 | 61 | 1 | 0 | 10 | 72 |
-| All | 235 | 6 | 0 | 10 | 251 |
+| P1 | 106 | 0 | 0 | 0 | 106 |
+| P2 | 62 | 0 | 0 | 10 | 72 |
+| All | 241 | 0 | 0 | 10 | 251 |
 
 "Built" includes rows covered by another row and rows built with a skipped part (see `docs/skip-list.md`).
+
+## Close-out of the partial rows (2026-10-14)
+
+Eleven rows were partial or carried a "Missing" note after the merge: J-011, J-012, J-089, J-136, J-137, J-138, J-140, J-156, J-177, J-200 and J-219. Each is built on main now; its line below says what changed and which test proves the check. Before this pass the table counted 235 built and 6 partial (J-011, J-136, J-137, J-138, J-140, J-200); five more (J-012, J-089, J-156, J-177, J-219) were marked built at the merge with their area report still saying partial.
+
+What was added:
+
+- J-011: page weight from the isolated world (`packages/capture/src/page-weight.ts`), the pause and the per-load continue in `apps/extension/lib/capture/service.ts`. The content script's transport wrapper also had to forward the new message.
+- J-012: blocked-site list changes reach pages that are already open.
+- J-089: `editor.openCapture` answers whether a tab opened, so the toast stops saying it did.
+- J-136: the first-view mail (`notifyFirstView` in `lib/server/dashboard/notices.ts`, called from `POST /api/v1/recordings/:id/views`).
+- J-137, J-140: the editor's tracker form with options and recents through a new `editor.trackerOptions` worker request; a tracker failure at create now reaches the page toast (`issueError` in the editor's close message).
+- J-138: the capture page's send split opens the field form and lists connect items when the workspace has no apps.
+- J-177: `supportLinkUrl()` gives the menu a recording link of the server admin without any setting.
+- J-200: the link recorder asks for the microphone before the screen picker and helps when it is refused.
+
+How it was verified:
+
+- `apps/server/test/gates.int.test.ts` (5 tests): a throwaway Postgres database behind the server's own `db` module, Mailpit, and a local OpenAI-compatible stand-in. Covers J-136 (first view, mentions, domain join), J-156 and J-177.
+- `e2e/tests/rows/rows.spec.ts` (10 tests): the extension's test build against a real server, signed in with a personal token of an account made through the login page. GitHub is a local stand-in the workspace connects to with a token and a base URL, Slack a local incoming webhook, mail goes to Mailpit. It ran three times in a row without a failure, on Xvfb `:121` against `pnpm --filter @toolbar/server dev` on :3121 (database `toolbar_fix121`, `S3_KEY_PREFIX=fix121/`):
+
+  ```sh
+  WXT_OUT_SUFFIX=-121 WXT_TEST_HOOKS=1 pnpm --filter @toolbar/extension exec wxt build
+  cd e2e && E2E_DISPLAY=:121 SERVER_URL=http://localhost:3121 E2E_EXT_BUILD=chrome-mv3-test-121 npx playwright test tests/rows
+  ```
+
+  `WXT_OUT_SUFFIX` (new) keeps a test build apart from other runs that use `chrome-mv3-test`.
+- `packages/capture/test/page-weight.test.ts` (3 tests) for the page-weight watcher.
+- Regression against the same server and build: the ext-ui, editor, viewer and dashboard e2e suites pass, and `capture/replay.spec.ts` with `hooks.spec.ts` pass except J-201's picker cancel, which crashes Chromium on Xvfb as noted under "Gaps left". Two viewer tests failed once and passed on a rerun (J-116 waited too long for hydration; J-098 ran right after a `--no-media` reseed of this database). The viewer suite's `reseed()` reads `DATABASE_URL` and `S3_KEY_PREFIX` from the environment, so pass them when the server under test is not the compose one. `pnpm -r build`, `pnpm -r test` (server 145 tests) and `pnpm -r check` pass.
 
 ## User journeys on main (2026-10-14)
 
@@ -106,8 +135,8 @@ Gaps left:
 | J-001 | ext-ui | P0 | Toolbar popup with the capture menu | built |
 | J-003 | ext-ui | P0 | Area screenshot by drag | built |
 | J-005 | ext-ui | P2 | Screenshot delay timer | built |
-| J-011 | ext-ui | P2 | Heavy-page guard for instant replay | partial |
-| J-012 | ext-ui | P2 | Replay site lists | built (merge: the ring uses isReplayBlocked) |
+| J-011 | ext-ui | P2 | Heavy-page guard for instant replay | built (close-out: heavy-page detection and continue in the capture service; e2e `rows`) |
+| J-012 | ext-ui | P2 | Replay site lists | built (close-out: list changes reach open pages; e2e `rows`) |
 | J-215 | ext-ui | P2 | Replay setting follows the account | built |
 | J-013 | ext-ui | P1 | Recording length cap and upsell | built |
 | J-015 | ext-ui | P1 | Recording link created from the popup | built |
@@ -129,10 +158,10 @@ Gaps left:
 | J-035 | ext-ui | P1 | Unfinished draft guard | built |
 | J-218 | ext-ui | P1 | Local drafts list | built |
 | J-036 | ext-ui | P2 | Blur before recording | built |
-| J-089 | ext-ui | P2 | Open in new tab setting | built (merge: the editor reads openInNewTab) |
+| J-089 | ext-ui | P2 | Open in new tab setting | built (close-out: e2e `rows` against a real server) |
 | J-176 | ext-ui | P1 | Extension settings in the popup | built |
 | J-226 | ext-ui | P2 | Limit the sites the extension runs on | built (covered by J-001) |
-| J-177 | ext-ui | P2 | Extension utility menu | built (merge: bootstrap carries SUPPORT_RECORDING_LINK) |
+| J-177 | ext-ui | P2 | Extension utility menu | built (close-out: a recording link of the server admin by default; int `gates`, e2e `rows`) |
 | J-179 | ext-ui | P1 | Open the popup by key | built |
 | J-180 | ext-ui | P0 | Screenshot mode by key | built |
 | J-181 | ext-ui | P0 | Start and stop tab recording by key | built |
@@ -143,7 +172,7 @@ Gaps left:
 | J-190 | ext-ui | P1 | Turn off user-event capture | built |
 | J-193 | ext-ui | P1 | Popup open time | built (covered by J-001) |
 | J-199 | ext-ui | P1 | Restricted page popup | built |
-| J-200 | ext-ui | P1 | Missing mic permission | partial |
+| J-200 | ext-ui | P1 | Missing mic permission | built (close-out: recorder page instructions and record without voice; e2e `rows`) |
 | J-004 | editor | P1 | Full viewport kept with an area crop | built |
 | J-037 | editor | P0 | In-page screenshot editor | built |
 | J-216 | editor | P2 | Editor leaves page scroll unlocked | built (decision D-048: match) |
@@ -177,7 +206,7 @@ Gaps left:
 | J-086 | editor | P0 | Create and copy link | built |
 | J-220 | editor | P1 | Create by key | built |
 | J-088 | editor | P1 | Discard the draft | built |
-| J-219 | editor | P1 | Save a video draft for later | built (merge: capture bridge moves the session out of draft) |
+| J-219 | editor | P1 | Save a video draft for later | built (close-out: popup half verified; e2e `rows`) |
 | J-197 | editor | P0 | Create to link on clipboard | built (budget of J-086) |
 | J-202 | editor | P1 | Clipboard permission prompt | built (covered by J-086) |
 | J-054 | server-core | P0 | Tab video file | built |
@@ -244,11 +273,11 @@ Gaps left:
 | J-120 | dashboard | P2 | Workspace default link access | built |
 | J-122 | dashboard | P1 | Folder sharing | built |
 | J-126 | dashboard | P2 | Recording link sharing | built |
-| J-136 | dashboard | P1 | Email notification settings | partial (merge: mention and domain-join mails gated; no first-view mail is sent yet) |
-| J-137 | dashboard | P1 | Send to tracker at create | partial |
-| J-138 | dashboard | P1 | Send an existing capture to an app | partial |
+| J-136 | dashboard | P1 | Email notification settings | built (close-out: first-view mail added; mention, domain-join and first-view gates in int `gates`) |
+| J-137 | dashboard | P1 | Send to tracker at create | built (close-out: editor tracker form; e2e `rows` with a GitHub stand-in and a Slack webhook) |
+| J-138 | dashboard | P1 | Send an existing capture to an app | built (close-out: capture page field form and connect items; e2e `rows`) |
 | J-139 | dashboard | P1 | Integrations settings page | built |
-| J-140 | dashboard | P1 | Tracker field forms | partial |
+| J-140 | dashboard | P1 | Tracker field forms | built (close-out: editor and capture page forms, recents, tracker down; e2e `rows`) |
 | J-251 | dashboard | P1 | Integrations belong to a workspace | built |
 | J-241 | dashboard | P1 | Linked tracker issue on a capture | built |
 | J-242 | dashboard | P1 | Body of the filed tracker issue | built |
@@ -256,7 +285,7 @@ Gaps left:
 | J-142 | dashboard | P1 | Webhooks | built |
 | J-143 | dashboard | P2 | Connect your domain for recording links | skipped |
 | J-144 | dashboard | P2 | Help-desk flows | skipped |
-| J-156 | dashboard | P2 | Workspace AI switch and quotas | built (merge: chapters and ai-draft call aiAllowed) |
+| J-156 | dashboard | P2 | Workspace AI switch and quotas | built (close-out: int `gates` for ai-draft and chapters) |
 | J-158 | dashboard | P0 | Capture grid | built |
 | J-159 | dashboard | P1 | Card hover quick actions | built |
 | J-160 | dashboard | P1 | Filters | built (part skipped) |
@@ -450,7 +479,7 @@ How things were verified:
 - **trial merge** means the second pass merged `area/dashboard` (which already contains `area/auth`) into a throwaway branch, pushed the merged schema to `toolbar_ext_ui`, seeded it, ran the server on 3103 with `MAX_RECORDING_MIN=1`, and drove the real popup against it with the seed token. The throwaway branch is deleted; nothing from it is committed here.
 - Unit tests: `packages/shared/test/ext-ui.test.ts`, `apps/extension/test/ui-controller.test.ts`.
 
-Counts (41 rows): P0 8 built. P1 16 built, 1 partial (J-200), 1 covered (J-193). P2 8 built, 4 partial (J-011, J-012, J-089, J-177), 2 skipped (J-023, J-024), 1 covered (J-226). X-07 built. Every partial row is complete on the ext-ui side and waits on another area's path.
+Counts (41 rows, after the close-out pass on main): P0 8 built. P1 17 built, 1 covered (J-193). P2 12 built, 2 skipped (J-023, J-024), 1 covered (J-226). X-07 built.
 
 | ID | Pri | Status | How verified, or what is missing |
 |---|---|---|---|
@@ -458,8 +487,8 @@ Counts (41 rows): P0 8 built. P1 16 built, 1 partial (J-200), 1 covered (J-193).
 | J-001 | P0 | built | e2e: screenshot, record, link rows (replay row when on), home and menu icons, rows 370x40 with 8 px gaps. Trial merge: signed in with the seed account, the popup loads and fetches the bootstrap; the menu shows sign out. Screenshots compared with ergonomics.md (header, rows, chevrons, mic pill, menu). |
 | J-003 | P0 | built | e2e: tinted box and live `W × H` readout follow the drag; the worker receives exactly the dragged rect. The crop image and the editor are capture (J-002) and editor (J-037). |
 | J-005 | P2 | built | e2e: 3 s from the chevron, badge bottom-left counts down, cancel pill bottom-right, shot at zero, setting back to off; cancel leaves no shot. Choices off, 3 s, 6 s (D-044). |
-| J-011 | P2 | partial | Popup side e2e (heavy badge, in-popup warning, continue calls `replay.set {allowHeavy}`). Missing (capture): heavy-page detection. `area/capture` always writes `heavy: false` and has no `allowHeavy` path, so the badge never shows after merge. |
-| J-012 | P2 | partial | Settings list e2e: 83 default domains, add, trash removes; the replay row reads "Off on this site". `area/capture` skips the ring for blocked sites (`ringWanted`), read but not run. It compares `URL.host` (with port) against our hostnames; it should call `isReplayBlocked(url, settings.replayBlockedSites)` from `@toolbar/shared/areas/ext-ui`. |
+| J-011 | P2 | built | Popup side e2e (heavy badge, in-popup warning, continue calls `replay.set {allowHeavy}`). Close-out: the isolated world reports element count and DOM mutations per second while the ring runs (`packages/capture/src/page-weight.ts`); the capture service pauses the ring and drops what it held when a page passes `LIMITS.heavyPageNodes` (8000) or `heavyPageMutationsPerSec` (600), overridable through `nib:heavy-thresholds`; continue stores an override for that page load (URL plus `performance.timeOrigin`). Verified: unit `packages/capture/test/page-weight.test.ts`; e2e `e2e/tests/rows/rows.spec.ts` (real server, test build) J-011 with the lab threshold (1000 elements): /list with 500 rows is flagged, the ring holds no rrweb, the popup badge opens the warning, continue restarts the ring and later weight reports leave it on, a reload pauses it again, the lab root in the same tab keeps its ring. |
+| J-012 | P2 | built | Settings list e2e: 83 default domains, add, trash removes; the replay row reads "Off on this site". The ring check calls `isReplayBlocked(url, settings.replayBlockedSites)`. Close-out: a change to the list now reaches open pages (a newly blocked site stops its ring and drops its rows; an unblocked one starts). Verified: e2e `e2e/tests/rows/rows.spec.ts` (real server, test build) J-012: with `localhost` blocked the lab tab's ring holds no rrweb and the popup shows the blocked badge; unblocking starts the ring without a reload; blocking again stops it. |
 | J-215 | P2 | built | e2e against a mock server, and trial merge against dashboard's real `/me/settings`: turning replay on in the popup reaches the account; turning it off on the account turns it off locally on the next popup open. |
 | J-013 | P1 | built | e2e: `m:ss / cap`, orange in the last 30 s, red in the last 10 s, stop at the cap with reason `cap`; also from a chord-started recording with no bootstrap cached (the worker fetches `ext.bootstrap`, D-046). Trial merge: auth's bootstrap gives 60000 ms for `MAX_RECORDING_MIN=1`; the timer showed `/ 1:00`, went orange then red, and the recording stopped at 1:00. No upsell (skip list). |
 | J-015 | P1 | built | e2e against a mock server, and trial merge: the form lists the seed folder, creates a real link in it on dashboard's route, copies it and shows it with a copy button. |
@@ -481,10 +510,10 @@ Counts (41 rows): P0 8 built. P1 16 built, 1 partial (J-200), 1 covered (J-193).
 | J-035 | P1 | built | e2e: with a draft open the header pill counts drafts and is inert, only the link row is live; after `SAVE_FOR_LATER` rows return and the pill opens Drafts. e2e: closing the tab mid-recording ends in the Drafts list with the session idle (D-046). |
 | J-218 | P1 | built | e2e: Drafts rows with a 66x50 thumbnail, host, age, view and trash; trash turns into a red confirm, the second click calls `draft.discard`. `draft.open` and `draft.discard` are editor's. |
 | J-036 | P2 | built | e2e: blur on the countdown bar holds the count; the element is blurred before the recording starts and stays blurred. At merge: first video frame. |
-| J-089 | P2 | partial | e2e: the switch saves `openInNewTab` at once. Missing (editor): `area/editor` does not read `openInNewTab` when it creates, so a new tab still opens. |
+| J-089 | P2 | built | e2e: the switch saves `openInNewTab` at once. The editor creates with `openTab: false` and asks `editor.openCapture`, which reads `openInNewTab`; it now answers `{opened}` and the in-page toast no longer claims a tab opened. Verified: e2e `e2e/tests/rows/rows.spec.ts` (real server, test build) J-089: switch off, create from the editor: the link is on the clipboard and no tab opens; switch on: the capture page opens beside the source tab. |
 | J-176 | P1 | built | e2e: menu, settings screen in place (scrolls at 560 px), switches save at once, shortcuts link, replay with length and site list, error reports, server, reset with an in-place confirm. |
 | J-226 | P2 | covered by J-001 | Not run: needs Chrome's site-access control. Script registration and the popup do not depend on all-sites access. |
-| J-177 | P2 | partial | e2e: menu has docs, report, restart; restart reloads the extension and the new worker reopens the popup. Missing (auth): `bootstrap.supportRecordingLink` is null on `area/auth` (trial merge), so report opens the issue tracker. |
+| J-177 | P2 | built | e2e: menu has docs, report, restart; restart reloads the extension and the new worker reopens the popup. Close-out: `bootstrap.supportRecordingLink` comes from `supportLinkUrl()` (`lib/server/dashboard/links.ts`): `SUPPORT_RECORDING_LINK` when set (`off` falls back to the issue tracker), else a "Problem reports" recording link owned by the server's first account in its first own workspace, made on first use; a link the admin turned off stays off. Verified: int `apps/server/test/gates.int.test.ts` J-177 (override, off, made once, the recipient page works, revoked); e2e `e2e/tests/rows/rows.spec.ts` (real server, test build) J-177: popup menu, Report a problem opens that `/rl/` link and the recorder page loads. |
 | J-179 | P1 | built | e2e: real Ctrl+Shift+Y via xdotool on :113 opens the popup. |
 | J-180 | P0 | built | e2e: real Ctrl+Shift+S arms in under 0.5 s with no popup. |
 | J-181 | P0 | built | e2e: real Ctrl+Shift+Space starts with the countdown and stops. |
@@ -495,7 +524,7 @@ Counts (41 rows): P0 8 built. P1 16 built, 1 partial (J-200), 1 covered (J-193).
 | J-190 | P1 | built | e2e: the switch saves `captureUserEvents`. `area/capture` drops user events when it is false (read, not run). |
 | J-193 | P1 | covered by J-001 | e2e: popup painted under 1.7 s. |
 | J-199 | P1 | built | e2e: chrome://extensions shows the restricted illustration and line; chords there leave the session idle with no message. |
-| J-200 | P1 | partial | e2e: a denied mic greys the bar's mic button with a "permission is missing" tooltip and ignores clicks. Missing (dashboard): the link recorder page on `area/dashboard` has no instructions or record-without-voice choice for a denied mic. |
+| J-200 | P1 | built | e2e: a denied mic greys the bar's mic button with a "permission is missing" tooltip and ignores clicks. Close-out: the link recorder asks for the microphone before the screen picker; when the browser blocks it (or there is none) the page shows steps to allow it, a "Record without voice" button and "Try again with voice". Verified: e2e `e2e/tests/rows/rows.spec.ts` (real server, test build) J-200 in a Chromium without the fake-UI flag and the microphone set to denied over CDP: choosing voice shows the steps, trying again with voice is refused and starts nothing, record without voice records the screen only and reaches the preview. |
 
 #### For the merge
 
@@ -554,11 +583,11 @@ Test fixes: several e2e drags mapped coordinates before the editor's layout sett
 - J-086: built. E2E: create shows a spinner and a toast, the editor closes in about 1 s, the link is on the clipboard, the capture opens in a background tab directly right of the source tab, the draft is deleted. Against the mock server until server-core's routes land.
 - J-220: built. E2E: Ctrl+Enter with focus in the title creates.
 - J-088: built. E2E: close discards a screenshot draft at once; Escape shows a press-again toast, a second press within 1 s discards, a late second press asks again.
-- J-219: partial. E2E: a reopened video draft's close button reads "Save for later", closes the editor, shows a toast with a view button that reopens it with trim and AI text intact; the draft is stored with status `saved`, `nib:drafts` says `saved`, and the capture bridge hears `draftClosed(id, 'saved')`. Missing: the popup half. ext-ui's pill and capture rows (J-035) key off the capture session leaving `draft`, which happens only once the capture area wires `draftClosed` to its SAVE_FOR_LATER transition at merge.
+- J-219: built. E2E: a reopened video draft's close button reads "Save for later", closes the editor, shows a toast with a view button that reopens it with trim and AI text intact; the draft is stored with status `saved`, `nib:drafts` says `saved`, and the capture bridge hears `draftClosed(id, 'saved')`. Close-out, the popup half: e2e `e2e/tests/rows/rows.spec.ts` (real server, test build) J-219 opens a saved video draft from the popup's Drafts list (the session goes to `draft`), saves it for later from the editor, and checks the session back at `idle`, the toast with View, the drafts pill enabled, the screenshot, record and link rows live and the draft listed.
 - J-197: built (budget of J-086). E2E: create to closed editor with the link copied measured at 0.3 to 2.0 s for a screenshot and 0.3 to 1.8 s for a replay on the mock server; an earlier run under heavy load took 7.7 s. Video create runs in the trim test without a timing assertion.
 - J-202: built (covered by J-086). The link is copied from the extension-origin editor frame (`clipboardWrite` permission, `allow="clipboard-write"`), never from the page, so the page gets no clipboard prompt.
 
-Counts (36 rows): P0 16 built; P1 13 built, 1 partial (J-219); P2 6 built. None missing.
+Counts (36 rows, after the close-out pass on main): P0 16 built; P1 14 built; P2 6 built. None partial, none missing.
 
 ### viewer: Viewer area status (Part 1, step 2)
 
@@ -633,10 +662,10 @@ Area 6 of the parallel build (`docs/parallel.md`), branch `area/dashboard`. The 
 | Priority | Rows | Built | Built, part skipped | Partial | Skipped |
 |---|---|---|---|---|---|
 | P0 | 5 | 5 | 0 | 0 | 0 |
-| P1 | 24 | 19 | 1 (J-160) | 4 (J-136, J-137, J-138, J-140) | 0 |
-| P2 | 21 | 13 | 2 (J-170, J-178) | 1 (J-156) | 5 |
+| P1 | 24 | 23 | 1 (J-160) | 0 | 0 |
+| P2 | 21 | 14 | 2 (J-170, J-178) | 0 | 5 |
 
-Counted plainly: 45 rows to build, 40 built (3 of them with the skipped part left out), 5 partial (J-136, J-137, J-138, J-140 at P1; J-156 at P2), 0 missing, 5 skipped. Each partial is done on the dashboard side and waits on a call or mount in a file another area owns; the rows below give the exact change for the merge step.
+Counted plainly after the close-out pass on main: 45 rows to build, 45 built (3 of them with the skipped part left out), 0 partial, 0 missing, 5 skipped. The five rows that were partial here (J-136, J-137, J-138, J-140, J-156) were finished on main; their lines below say how.
 
 The completer pass re-ran every check: `pnpm -r build`, `test` (server 98) and `check` (0 errors, 0 warnings), and the dashboard e2e suite (34 tests) headed on Xvfb `:116` against :3106. It built J-018's extension side, added the SDK page to the settings nav (J-171), and fixed "1 captures" in the palette's folder rows. One earlier e2e failure in J-017 came from a Vite full reload while shared files were being edited during the run; it passed on a clean run.
 
@@ -654,16 +683,16 @@ How the checks ran:
 | J-120 | built | int J-120: the default link access saves to the settings. It is mirrored into `organization.metadata`, where server-core's `defaultAccessOf` reads it, and a new capture gets access `workspace`. e2e `settings` J-172 sets it in the UI. |
 | J-122 | built | e2e `shell` J-122: the share popover copies the folder link and invites by email (Mailpit gets the mail with the `/f/<id>` link). The who-has-access list shows the invite as pending, general access switches to "Only people listed", and the sidebar shows a lock. int J-122 checks the private-folder visibility through server-core's `visibleFoldersWhere` (`folder_access`, `folder_member`). |
 | J-126 | built | Share on a link row copies it, with a "copy with voice on" variant. e2e `links` J-017 opens it with `?title=&mic=1&ref=`: the title shows, voice is preselected, and the ref becomes a linked issue. int checks the `folder` preset by name. The owner email: see J-017. |
-| J-136 | partial | e2e `settings` J-136: the toggles for first view, shared with me, recording link used, same-domain signup and mentions, plus turn off all, save at once with no toast and survive a reload. The emails this area sends are gated: recording link used (int J-017/J-136) and folder shares to existing accounts (int J-122). Missing, in other areas' files (merge step applies): viewer's first-view and mention emails and auth's domain-join email in `lib/server/auth/workspaces.ts` `joinByDomain` must skip a recipient when `await emailAllowed(db, userId, kind)` (from `lib/server/dashboard/core.ts`; kinds `firstView`, `mentions`, `domainSignup`) is false. For `joinByDomain`, filter the admin list with the admins' user ids instead of `adminEmails()`. No plan-limit toggle (skip list). |
-| J-137 | partial | Server side built. `registerDashboard()` hooks `destinationHandler` into server-core's `setDestinationHandler`, so finalize with `destination: {type:'integration'}` files the issue (int J-137) and a tracker failure becomes `issueError` while the capture is saved. `TrackerFields.svelte` is the field form. Missing (editor area, merge step): the draft's destination menu lists `integrations.list` for the draft's workspace and mounts `<TrackerFields integration={i} bind:fields bind:title />`, then sends `destination: {type:'integration', integrationId, fields}` in the finalize body; area/editor (646b502) does not do this yet. Other trackers are on the skip list. |
-| J-138 | partial | `lib/components/dashboard/SendToApp.svelte` is the split button: connected apps, connect items when none, then the field form; filing goes through `POST /recordings/:id/send` (int J-138: GitHub issue and Slack post). Missing (viewer's `(app)/c/[id]` header, merge step): `{#if data.user}<SendToApp captureId={capture.id} workspaceId={capture.workspaceId} captureTitle={capture.title} canEdit={...} onsent={() => invalidate(...)} />{/if}` left of the copy-link button. Nothing in this branch shows it, and area/viewer (690785b) does not mount it yet. |
+| J-136 | built | e2e `settings` J-136: the toggles for first view, shared with me, recording link used, same-domain signup and mentions, plus turn off all, save at once with no toast and survive a reload. Gated mails: recording link used (int J-017/J-136), folder shares (int J-122), mentions (`viewer/comments.ts`), same-domain sign-up (`auth/workspaces.ts` filters admins by `domainSignup`). Close-out: the first-view mail now exists: `POST .../views` calls `notifyFirstView()` (`dashboard/notices.ts`), which mails the author once, on the first view by anyone else, unless `firstView` or turn-off-all says no. Verified: int `apps/server/test/gates.int.test.ts` against Mailpit (first view: author's own view sends nothing, the first other viewer sends one mail, repeat and later viewers none, toggle off and turn-off-all send none; mentions skip a member who turned them off but still store the in-app notice; the domain-join mail reaches only the admin who left it on); e2e `e2e/tests/rows/rows.spec.ts` (real server, test build) J-138 opens a capture through a signed-out share link and finds the author's first-view mail in Mailpit. No plan-limit toggle (skip list). |
+| J-137 | built | Server side: `registerDashboard()` hooks `destinationHandler` into finalize; a tracker failure becomes `issueError` while the capture is saved (int J-137). Close-out: the editor's destination menu lists the workspace's GitHub, GitLab and Slack connections and mounts the tracker form (J-140); finalize carries `destination: {type:'integration', integrationId, fields}`; the filed issue opens in a new tab. Verified: e2e `e2e/tests/rows/rows.spec.ts` (real server, test build) J-137/J-140 with a local GitHub API stand-in connected by token and base URL: pick GitHub, repo preset, labels, assignee and milestone picked, create: one issue with those fields and the capture link, opened in a new tab; J-137 Slack: the message and title reach a local incoming webhook. Other trackers are on the skip list. |
+| J-138 | built | `POST /recordings/:id/send` files the capture (int J-138: GitHub issue and Slack post). Close-out: the capture page header's send split opens the field form (`TrackerFields.svelte` in a modal) for the picked app or, from the main button, the app used last; with no apps it offers Connect GitHub, GitLab, Slack and Set up a webhook; signed-out viewers do not get it. Verified: e2e `e2e/tests/rows/rows.spec.ts` (real server, test build) J-138: the caret lists the connected GitHub and Slack, the GitHub form files an issue with the picked label and assignee and opens it; a fresh workspace shows the four connect items; a share-link viewer has no send button; e2e `viewer/page.spec.ts` J-112 checks the connect items on the seed. |
 | J-139 | built | e2e `settings` J-139: the searchable two-column grid (GitHub, GitLab, Slack, Webhooks, MCP agents, CLI). A failing token test shows the error. Slack connects through an incoming webhook URL and lists under this workspace; members see the connection but cannot connect or remove it. int: tokens are sealed, never returned, and checked against the API. |
-| J-140 | partial | int J-140: `GET /integrations/:id/options` returns repos, labels, assignees and milestones from the GitHub API (mock). Values are remembered per integration in `editor.recentFields`. A tracker that is down gives `integration_failed` and marks the connection. `TrackerFields.svelte` loads options and recents. Missing: no UI in this branch mounts the form (editor and viewer, see J-137 and J-138). |
+| J-140 | built | int J-140: `GET /integrations/:id/options` returns repos, labels, assignees and milestones from the GitHub API (stand-in); filed values are remembered per integration in `editor.recentFields`; a tracker that is down gives `integration_failed` and marks the connection. Close-out: the editor form (`packages/ui/src/editor/Editor.svelte`, data through the new `editor.trackerOptions` worker request) and the capture page form both load options and recents. Verified: e2e `e2e/tests/rows/rows.spec.ts` (real server, test build): repo from the API list, label chips, assignee and milestone selects; the next draft starts from the values filed last; another repo reloads its labels; with GitHub answering 502 the form says it did not answer, create still saves the capture and the page shows "the capture is saved, but filing the issue failed". |
 | J-251 | built | int J-251: a connection belongs to its workspace, and sending another workspace's capture through it gives 403. `integrations.list` is per workspace, so the draft's workspace picker (editor) gets the right list. |
 | J-241 | built | int: filing stores a linked issue, `org/repo#12` and GitHub or GitLab URLs in the title or description count, and so does a recording link's ticket URL (e2e `links` J-017). `hasIssue` filters in `GET /recordings` and `/search`, and search matches issue keys. The links page shows the ticket number. |
 | J-242 | built | unit `issue body` and int J-242: the filed body holds the description, capture link, URL, time, reporter, browser, OS, device, viewport, locale and zone, network speed, console errors (counted) and failing requests. Country is not captured; locale and time zone stand in. |
 | J-142 | built | e2e `settings` J-142: add an endpoint, the secret shows once, and the test delivery verifies with HMAC-SHA256 of `t.body`. Against a failing endpoint the log lists a pending retry; the retry goes out after 10 s and is logged as attempt 2 OK. int: `capture.created` reaches the endpoint after the notice sweep and is announced once. |
-| J-156 | partial | The switch saves (e2e `settings` J-172), and `aiAllowed(db, workspaceId)` reads it (int). Missing, in other areas' files (merge step applies): server-core `jobs/handlers.ts` `chapters()` returns early when `!(await aiAllowed(db, rec.organizationId))`, and the same check before enqueueing `chapters` in `transcribe`; the editor's `api/v1/recordings/[id]/ai-draft` route answers without ghost text (its `disabled` reason) when `aiAllowed` is false. Neither file is changed in this branch, because both branches moved on since the merge here. No quota (skip list). |
+| J-156 | built | The switch saves (e2e `settings` J-172), and `aiAllowed(db, workspaceId)` reads it. `chapters()` returns early and `transcribe` does not enqueue chapters when it is off; the `ai-draft` route answers 503 "AI is off for this workspace", which the editor shows as no ghost text with a reason. Verified (close-out): int `apps/server/test/gates.int.test.ts` J-156 with a local OpenAI-compatible stand-in: switch off, the ai-draft route answers 503 and the chapters job writes no chapters, with no model call; switch on, both come from the model. No quota (skip list). |
 | J-158 | built | e2e `grid` J-158: cards with thumbnail, creator overlay, duration pill, title and relative time, newest first. The foldered capture is left out. Recording-link captures show a chip (e2e `links`). Three columns at desktop width, 2 then 1 as the window narrows. |
 | J-159 | built | e2e `grid` J-159: hover lifts the card and shows the checkbox and a round copy button. Copying gives a toast and leaves the page alone. The card is a real link. |
 | J-160 | built (part skipped) | e2e `grid` J-160: type, source (extension, recording link, upload, CLI) and creator multi-selects become chips with clear buttons and survive a reload through the URL. No Fin, iOS or Mac sources (skip list). |

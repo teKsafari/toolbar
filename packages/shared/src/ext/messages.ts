@@ -41,7 +41,8 @@ export const EDITOR_FRAME_TAG = '__nib_editor';
 
 /** Content script (isolated world) -> service worker. */
 export type PortMessage =
-  | { type: 'hello'; url: string; top: boolean; title?: string; frameId?: number }
+  /** `loadId` is the document's performance.timeOrigin, one value per page load (J-011) */
+  | { type: 'hello'; url: string; top: boolean; title?: string; frameId?: number; loadId?: number }
   | { type: 'events'; batch: CaptureEvent[] }
   /** rrweb events go to their own stream (architecture s4) */
   | { type: 'rrweb'; batch: unknown[]; full: boolean }
@@ -229,7 +230,7 @@ export type OffscreenEvent =
 
 export type EditorFrameMessage =
   | { [EDITOR_FRAME_TAG]: true; type: 'ready' }
-  | { [EDITOR_FRAME_TAG]: true; type: 'close'; reason: 'created' | 'discarded' | 'saved'; /** created: whether the link reached the clipboard */ copied?: boolean }
+  | { [EDITOR_FRAME_TAG]: true; type: 'close'; reason: 'created' | 'discarded' | 'saved'; /** created: whether the link reached the clipboard */ copied?: boolean; /** created: whether the capture page opened (J-089) */ opened?: boolean; /** created: the tracker refused the issue; the capture is saved (J-140) */ issueError?: string | null }
   | { [EDITOR_FRAME_TAG]: true; type: 'escape-pressed' }
   | { [EDITOR_FRAME_TAG]: true; type: 'size'; w: number; h: number };
 

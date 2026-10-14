@@ -7,6 +7,7 @@ import { BUILT_INTEGRATIONS, DEFAULT_USER_SETTINGS, type ExtBootstrap, type Fold
 import type { Db } from '../db/index.ts';
 import { folder, integration, recording, user } from '../db/schema/index.ts';
 import { activeWorkspaceId, listWorkspaces } from './workspaces.ts';
+import { supportLinkUrl } from '../dashboard/links.ts';
 
 type Person = { id: string; name: string; email: string; image: string | null };
 
@@ -81,7 +82,7 @@ export async function extBootstrap(db: Db, me: Person, opts: { workspaceId?: str
     settings: DEFAULT_USER_SETTINGS,
     limits: { chunkBytes: LIMITS.chunkBytes, maxRecordingMs: maxMin > 0 ? maxMin * 60_000 : null, aiAvailable: ai !== 'none' && ai !== '' },
     serverVersion: opts.serverVersion,
-    // J-177: the menu's "report a problem" opens this recording link when set
-    supportRecordingLink: process.env.SUPPORT_RECORDING_LINK || null,
+    // J-177: the menu's "report a problem" opens a recording link to the server admin
+    supportRecordingLink: await supportLinkUrl(db).catch(() => null),
   };
 }

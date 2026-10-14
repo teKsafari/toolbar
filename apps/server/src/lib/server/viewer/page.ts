@@ -23,11 +23,15 @@ export async function viewerPageData(event: Pick<RequestEvent, 'url'>, ctx: View
         .orderBy(asc(user.name))
     : [];
   const integrations = isMember && mode === 'member'
-    ? (await db.select().from(integration).where(eq(integration.organizationId, ctx.rec.organizationId))).map((i) => ({
-        id: i.id,
-        type: i.type,
-        name: ((i.config as { name?: string } | null)?.name ?? i.type.replace(/^\w/, (c) => c.toUpperCase())) as string,
-      }))
+    ? (await db.select().from(integration).where(eq(integration.organizationId, ctx.rec.organizationId)))
+        .filter((i) => ['github', 'gitlab', 'slack'].includes(i.type))
+        .map((i) => ({
+          id: i.id,
+          type: i.type,
+          name: ((i.config as { name?: string } | null)?.name ?? i.type.replace(/^\w/, (c) => c.toUpperCase())) as string,
+          // J-140: the field form preselects it
+          defaultTarget: ((i.config as { defaultTarget?: string | null } | null)?.defaultTarget ?? null) as string | null,
+        }))
     : [];
   const t = Number(event.url.searchParams.get('t'));
   const highlight = event.url.searchParams.get('comment');

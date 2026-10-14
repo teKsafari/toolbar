@@ -1,11 +1,16 @@
 <script lang="ts">
   // Capture page header (J-112, J-113, J-114, J-117, J-118, J-121): home, folder chip, three-dot
   // menu (move to folder, delete), send-to-app split button and the copy-link split button.
+  // J-138, J-140: send-to-app opens the tracker field form (repo, labels, assignee, milestone from
+  // the tracker API, remembered values) for the picked app, or offers connect items when none.
   // Signed-out viewers see the product mark with sign-in and sign-up only.
   import { goto } from '$app/navigation';
   import { Button, toasts } from '@toolbar/ui';
   import { PRODUCT_NAME } from '@toolbar/shared';
-  import type { LinkedIssue } from '@toolbar/shared/api';
+  import type { Integration, LinkedIssue } from '@toolbar/shared/api';
+  import TrackerFields from '#lib/components/dashboard/TrackerFields.svelte';
+  import FormModal from '#lib/components/dashboard/Modal.svelte';
+  import type { Fields } from '#lib/components/dashboard/fields.ts';
   import VIcon from './VIcon.svelte';
   import Dropdown from './Dropdown.svelte';
   import Menu, { type MenuItem } from './Menu.svelte';
@@ -76,19 +81,40 @@
       busy = false;
     }
   }
-  async function send(integrationId: string, name: string) {
+  // the field form for the picked app (J-140)
+  let target = $state<Integration | null>(null);
+  let formOpen = $state(false);
+  let fields = $state<Fields>({ labels: [], assignees: [] });
+  let issueTitle = $state('');
+  let sending = $state(false);
+  function openForm(i: { id: string; type: string; name: string; defaultTarget?: string | null }) {
     menu = null;
-    const id = toasts.loading(`Sending to ${name}`);
+    target = { id: i.id, workspaceId: v.detail.workspaceId, type: i.type as Integration['type'], name: i.name, account: null, baseUrl: null, defaultTarget: i.defaultTarget ?? null, status: 'ok', lastError: null, createdBy: null, createdAt: '' };
+    fields = { labels: [], assignees: [] };
+    issueTitle = v.detail.title || '';
+    formOpen = true;
+  }
+  async function send() {
+    if (!target) return;
+    const t = target;
+    sending = true;
     try {
-      const issue = await call<LinkedIssue>('integrations.send', { id: v.detail.id }, { integrationId, fields: { labels: [], assignees: [] } });
-      toasts.update(id, { kind: 'success', message: `Sent to ${name}: ${issue.key}`, action: { label: 'Open', run: () => window.open(issue.url, '_blank', 'noopener') } });
+      const issue = await call<LinkedIssue>('integrations.send', { id: v.detail.id }, { integrationId: t.id, fields: { ...$state.snapshot(fields), title: issueTitle } });
+      formOpen = false;
       try {
-        localStorage.setItem('nib.viewer.lastSend', integrationId);
+        localStorage.setItem('nib.viewer.lastSend', t.id);
       } catch {
         /* private mode */
       }
+      if (t.type === 'slack') toasts.success(`Posted to ${t.name}`);
+      else {
+        toasts.success(`Sent to ${t.name}: ${issue.key}`, { action: { label: 'Open', run: () => window.open(issue.url, '_blank', 'noopener') } });
+        window.open(issue.url, '_blank', 'noopener');
+      }
     } catch (e) {
-      toasts.update(id, { kind: 'error', message: `Not sent: ${(e as Error).message}` });
+      toasts.error(`Not sent: ${(e as Error).message}`);
+    } finally {
+      sending = false;
     }
   }
   const lastSend = $derived.by(() => {
@@ -135,7 +161,7 @@
   {:else}
     {#if member}
       <div class="split" data-testid="send-split">
-        <button type="button" class="sbtn" onclick={() => (lastSend ? send(lastSend.id, lastSend.name) : (menu = 'send'))} data-testid="send-main">
+        <button type="button" class="sbtn" onclick={() => (lastSend ? openForm(lastSend) : (menu = 'send'))} data-testid="send-main">
           <VIcon name="external" size={14} />{lastSend ? `Send to ${lastSend.name}` : 'Send to app'}
         </button>
         <Dropdown open={menu === 'send'} align="end" onclose={() => (menu = null)}>
@@ -145,10 +171,17 @@
           <Menu
             label="Send to"
             onpick={() => (menu = null)}
-            items={[
-              ...v.data.integrations.map((i) => ({ id: i.id, label: i.name, icon: 'external', run: () => void send(i.id, i.name) })),
-              { id: 'connect', label: v.data.integrations.length ? 'Manage apps' : 'Connect an app', icon: 'plus', run: () => void goto('/settings/integrations') },
-            ]} />
+            items={v.data.integrations.length
+              ? [
+                  ...v.data.integrations.map((i) => ({ id: i.id, label: i.name, icon: 'external', run: () => openForm(i) })),
+                  { id: 'connect', label: 'Manage apps', icon: 'settings', run: () => void goto('/settings/integrations') },
+                ]
+              : [
+                  { id: 'connect-github', label: 'Connect GitHub', icon: 'plus', run: () => void goto('/settings/integrations#github') },
+                  { id: 'connect-gitlab', label: 'Connect GitLab', icon: 'plus', run: () => void goto('/settings/integrations#gitlab') },
+                  { id: 'connect-slack', label: 'Connect Slack', icon: 'plus', run: () => void goto('/settings/integrations#slack') },
+                  { id: 'connect-webhook', label: 'Set up a webhook', icon: 'plus', run: () => void goto('/settings/webhooks') },
+                ]} />
         </Dropdown>
       </div>
     {/if}
@@ -165,6 +198,17 @@
     </div>
   {/if}
 </header>
+
+{#if target}
+  {@const t = target}
+  <FormModal bind:open={formOpen} title={t.type === 'slack' ? `Post to ${t.name}` : `File in ${t.name}`} width={460} testid="send-dialog">
+    <TrackerFields integration={t} bind:fields bind:title={issueTitle} />
+    {#snippet footer()}
+      <Button onclick={() => (formOpen = false)}>Cancel</Button>
+      <Button variant="primary" loading={sending} disabled={t.type !== 'slack' && !fields.repo} onclick={send} data-testid="send-submit">{t.type === 'slack' ? 'Post' : 'Create issue'}</Button>
+    {/snippet}
+  </FormModal>
+{/if}
 
 {#if confirmDelete}
   <Modal title="Delete this capture?" confirmLabel="Delete" danger {busy} onconfirm={remove} oncancel={() => (confirmDelete = false)}>

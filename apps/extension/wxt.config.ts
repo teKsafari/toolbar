@@ -27,7 +27,7 @@ const devPort = Number(process.env.WXT_DEV_PORT || 3001);
 
 export default defineConfig({
   modules: ['@wxt-dev/module-svelte'],
-  outDirTemplate: testHooks ? '{{browser}}-mv{{manifestVersion}}-test' : undefined,
+  outDirTemplate: testHooks ? `{{browser}}-mv{{manifestVersion}}-test${process.env.WXT_OUT_SUFFIX ?? ''}` : undefined,
   // The VM has no display for WXT's own browser runner, and the shared browser belongs to another agent.
   webExt: { disabled: true },
   // Port 3000 belongs to the server; WXT's HMR server takes 3001. Area worktrees set

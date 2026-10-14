@@ -7,10 +7,10 @@ import { and, eq, gt, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { PRODUCT_NAME } from '@toolbar/shared';
 import type { WebhookPayload } from '@toolbar/shared/api';
 import type { Db } from '../db/index.ts';
-import { captureNotice, job, organization, recording, recordingLink, user } from '../db/schema/index.ts';
+import { captureNotice, captureView, job, organization, recording, recordingLink, user } from '../db/schema/index.ts';
 import { enqueue } from '../jobs/queue.ts';
 import { sendMail } from '../mail.ts';
-import { recordingLinkUsedMail } from '../mail-templates/index.ts';
+import { firstViewMail, recordingLinkUsedMail } from '../mail-templates/index.ts';
 import { dispatch } from '../webhooks/index.ts';
 import { syncTextRefs } from '../integrations/index.ts';
 import { deleteCapture } from '../upload/service.ts';
@@ -54,6 +54,27 @@ export async function onCreated(db: Db, r: RecordingRow) {
       await sendMail(l.email, m.subject, m.text, m.html).catch((e) => console.warn('[dashboard] link-used mail failed', e));
     }
   }
+}
+
+/**
+ * J-136 "Someone opens my capture": after a view is stored, email the capture's author when this is
+ * the first view by anyone other than them, unless they turned that email off. Returns the
+ * address mailed, or null.
+ */
+export async function notifyFirstView(db: Db, r: Pick<RecordingRow, 'id' | 'title' | 'authorUserId'>, viewer: { actor: string; userId: string | null; name: string | null }): Promise<string | null> {
+  if (!r.authorUserId || viewer.userId === r.authorUserId) return null;
+  const others = await db
+    .select({ viewer: captureView.viewer, count: captureView.count })
+    .from(captureView)
+    .where(and(eq(captureView.recordingId, r.id), or(isNull(captureView.userId), sql`${captureView.userId} <> ${r.authorUserId}`)));
+  // exactly this viewer, seen once: the first view by someone else
+  if (others.length !== 1 || others[0]!.viewer !== viewer.actor || others[0]!.count !== 1) return null;
+  if (!(await emailAllowed(db, r.authorUserId, 'firstView'))) return null;
+  const [a] = await db.select({ email: user.email }).from(user).where(eq(user.id, r.authorUserId));
+  if (!a?.email) return null;
+  const m = firstViewMail({ viewer: viewer.name || 'Someone', title: r.title || 'Untitled capture', captureUrl: captureUrl(r.id), product: PRODUCT_NAME });
+  await sendMail(a.email, m.subject, m.text, m.html);
+  return a.email;
 }
 
 export async function onDeleted(db: Db, r: RecordingRow) {

@@ -135,10 +135,14 @@ export async function createHost(draftId: string): Promise<EditorHost> {
     copy: copyText,
     close(reason, info) {
       document.documentElement.dataset.closed = reason;
-      if (window.parent !== window) post({ type: 'close', reason, copied: info?.copied });
+      if (window.parent !== window) post({ type: 'close', reason, copied: info?.copied, opened: info?.opened, issueError: info?.issueError ?? null });
       else if (reason !== 'created') setTimeout(() => window.close(), 300);
     },
-    openCapture: async (res, tabId) => void (await send({ type: 'editor.openCapture', recordingId: res.recordingId, tabId, issueUrl: res.issueUrl })),
+    openCapture: async (res, tabId) => ({ opened: (await send({ type: 'editor.openCapture', recordingId: res.recordingId, tabId, issueUrl: res.issueUrl })).opened }),
+    trackerOptions: async (integrationId, repo) => {
+      const r = await send({ type: 'editor.trackerOptions', integrationId, repo });
+      return { options: r.options, recent: r.recent, error: r.error };
+    },
     openUrl: (u) => void send({ type: 'editor.openTab', url: u }).catch(() => window.open(u, '_blank')),
     serverUrl: () => base,
   };

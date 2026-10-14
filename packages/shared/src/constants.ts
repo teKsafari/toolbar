@@ -72,6 +72,13 @@ export const LIMITS = {
   replayDefaultMin: 2,
   replayMaxMin: 5,
   rrwebCheckoutMs: 30_000,
+  /**
+   * Heavy-page guard for instant replay (J-011): a page with this many elements, or this many DOM
+   * mutation records per second, pauses the ring until the person continues. The extension's
+   * `nib:heavy-thresholds` storage key overrides both (the lab e2e lowers them).
+   */
+  heavyPageNodes: 8000,
+  heavyPageMutationsPerSec: 600,
   /** Free-plan video cap observed in the catalogue (J-013). */
   videoCapMs: 5 * 60 * 1000,
   shareTokenBytes: 16,

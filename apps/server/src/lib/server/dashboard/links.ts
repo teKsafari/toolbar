@@ -4,7 +4,7 @@ import { randomToken } from '@toolbar/shared';
 import type { RecordingLink, SeatRole } from '@toolbar/shared/api';
 import { refOfUrl } from '@toolbar/shared/areas/dashboard';
 import type { Db } from '../db/index.ts';
-import { folder, organization, recording, recordingLink, user } from '../db/schema/index.ts';
+import { folder, member as memberTable, organization, recording, recordingLink, user } from '../db/schema/index.ts';
 import { seal, unseal } from '../crypto.ts';
 import { hashToken } from '../tokens.ts';
 import { fail } from '../share/http.ts';
@@ -223,4 +223,36 @@ export async function recorderCreate(
   if (body.ref) meta.ref = body.ref;
   if (Object.keys(meta).length && r.created) await db.update(recording).set({ metadata: meta }).where(eq(recording.id, r.id));
   return { id: r.id, shareUrl: r.shareUrl, uploadToken: r.uploadToken };
+}
+
+/** Name of the recording link the extension menu's "Report a problem" opens (J-177). */
+export const SUPPORT_LINK_NAME = 'Problem reports';
+
+/**
+ * J-177: the recording link for bug reports about Nib itself, owned by the server admin (the
+ * first account on this server) in their first own workspace. SUPPORT_RECORDING_LINK overrides
+ * it with any URL, or turns it off with `off`. A link the admin turned off is left off.
+ */
+export async function supportLinkUrl(db: Db, envValue = process.env.SUPPORT_RECORDING_LINK): Promise<string | null> {
+  if (envValue === 'off') return null;
+  if (envValue) return envValue;
+  const [admin] = await db.select({ id: user.id }).from(user).orderBy(asc(user.createdAt), asc(user.id)).limit(1);
+  if (!admin) return null;
+  const [ws] = await db
+    .select({ id: organization.id })
+    .from(organization)
+    .innerJoin(memberTable, eq(memberTable.organizationId, organization.id))
+    .where(and(eq(memberTable.userId, admin.id), eq(memberTable.role, 'owner')))
+    .orderBy(asc(organization.createdAt))
+    .limit(1);
+  if (!ws) return null;
+  const [found] = await db
+    .select()
+    .from(recordingLink)
+    .where(and(eq(recordingLink.organizationId, ws.id), eq(recordingLink.createdBy, admin.id), eq(recordingLink.name, SUPPORT_LINK_NAME)))
+    .orderBy(asc(recordingLink.createdAt))
+    .limit(1);
+  if (found) return found.revokedAt ? null : linkUrl(unseal(found.tokenEnc, 'recording-link-token'));
+  const row = await createLink(db, ws.id, admin.id, { name: SUPPORT_LINK_NAME });
+  return linkUrl(unseal(row.tokenEnc, 'recording-link-token'));
 }

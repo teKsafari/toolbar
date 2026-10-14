@@ -566,7 +566,7 @@ const handlers: Handlers = {
     } catch {
       /* not a URL */
     }
-    const overrides = (await readStore('heavyOverride')) ?? {};
+    // the capture service clears `heavy` for the page load the person continued on (J-011)
     const ring = tabId != null ? replay.tabs[tabId] : undefined;
     const context: PopupContext = {
       tabId,
@@ -575,7 +575,7 @@ const handlers: Handlers = {
       restricted: isRestrictedUrl(url),
       isServerPage,
       recordMode: isServerPage && settings.recordMode === 'tab' ? 'desktop' : settings.recordMode,
-      heavy: !!ring?.heavy && tabId != null && overrides[tabId] !== url,
+      heavy: !!ring?.heavy && tabId != null,
       replayBlocked: url ? isReplayBlocked(url, settings.replayBlockedSites) : false,
     };
     stats.popupOpens++;

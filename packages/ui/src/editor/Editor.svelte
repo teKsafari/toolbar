@@ -2,7 +2,7 @@
   // The draft editor (J-037): a large modal over the dimmed page. Left about 70%: close button,
   // preview, floating tool pill (screenshots) or play and trim (videos). Right about 30%: the
   // submit form. Everything outside talks through `host`.
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import type { ExtBootstrap, Integration } from '@toolbar/shared/api';
   import { DEFAULT_EDITOR_PREFS, MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES } from '@toolbar/shared/areas/editor';
   import Toaster from '../lib/Toaster.svelte';
@@ -20,7 +20,7 @@
   import { flattenPng, loadImage } from './flatten.ts';
   import type { Shape } from './shapes.ts';
   import type { TitleAndBody } from './richtext.ts';
-  import type { AiDraftText, AiUnavailableReason, AttachmentInfo, EditorData, EditorHost, EditorPrefs } from './types.ts';
+  import type { AiDraftText, AiUnavailableReason, AttachmentInfo, EditorData, EditorHost, EditorPrefs, TrackerOptions } from './types.ts';
 
   interface Props {
     host: EditorHost;
@@ -220,15 +220,17 @@
         flatFullBlobId: full,
       });
       const copied = await host.copy(res.shareUrl);
-      await host.openCapture?.(res, data.draft.tabId).catch(() => {});
-      toasts.update(tid, { kind: 'success', message: copied ? 'Link copied. The capture opened in a new tab.' : 'Capture created. It opened in a new tab.' });
+      const o = await host.openCapture?.(res, data.draft.tabId).catch(() => undefined);
+      // J-089: the extension setting may keep the capture page closed
+      const opened = !o || o.opened;
+      toasts.update(tid, { kind: 'success', message: `${copied ? 'Link copied.' : 'Capture created.'}${opened ? ' The capture opened in a new tab.' : ''}` });
       if (res.issueError) toasts.error(`The capture is saved, but filing the issue failed: ${res.issueError}`);
       void host.savePrefs({
         lastFolderId: folderId,
         lastWorkspaceId: workspaceId,
         lastDestination: destination.type === 'integration' ? { integrationId: destination.integrationId, fields: $state.snapshot(destination.fields) as Record<string, unknown> } : null,
       });
-      host.close('created', { copied });
+      host.close('created', { copied, opened, issueError: res.issueError });
     } catch (e) {
       toasts.update(tid, { kind: 'error', message: e instanceof Error ? e.message : 'Could not create the capture', duration: 6000 });
       creating = false;
@@ -404,6 +406,65 @@
     destination = { ...destination, fields: { ...destination.fields, [key]: value } };
   }
 
+  // ---------- tracker field form (J-140) ----------
+
+  let trackerOpts = $state<TrackerOptions | null>(null);
+  let trackerErr = $state<string | null>(null);
+  let trackerLoading = $state(false);
+  let trackerKey = '';
+  /** the repo the options were loaded for */
+  let trackerRepo: string | undefined;
+  const trackerName = $derived(destIntegration?.type === 'gitlab' ? 'GitLab' : 'GitHub');
+
+  async function loadTracker(integrationId: string, repo: string | undefined, fillRecent: boolean) {
+    if (!host.trackerOptions) return;
+    trackerLoading = true;
+    trackerRepo = repo;
+    try {
+      const r = await host.trackerOptions(integrationId, repo);
+      if (destination.type !== 'integration' || destination.integrationId !== integrationId) return;
+      trackerOpts = r.options;
+      trackerErr = r.error;
+      // remembered values fill what the person has not set (J-140 recents)
+      if (fillRecent && r.recent) {
+        const f = destination.fields;
+        const rec = r.recent;
+        const next: Record<string, unknown> = { ...f };
+        if (!f.repo && rec.repo) next.repo = rec.repo;
+        if (!(f.labels as string[] | undefined)?.length && rec.labels?.length) next.labels = rec.labels;
+        if (!(f.assignees as string[] | undefined)?.length && rec.assignees?.length) next.assignees = rec.assignees;
+        if (!f.milestone && rec.milestone) next.milestone = rec.milestone;
+        destination = { ...destination, fields: next };
+        if (next.repo && next.repo !== repo) return loadTracker(integrationId, next.repo as string, false);
+      }
+    } finally {
+      trackerLoading = false;
+    }
+  }
+  $effect(() => {
+    const d = destIntegration;
+    if (!d || d.type === 'slack') {
+      trackerKey = '';
+      trackerOpts = null;
+      trackerErr = null;
+      return;
+    }
+    if (trackerKey === d.id) return;
+    trackerKey = d.id;
+    const repo = untrack(() => (destination.type === 'integration' ? (destination.fields.repo as string | undefined) : undefined));
+    void loadTracker(d.id, repo || undefined, true);
+  });
+  function pickRepo(repo: string) {
+    if (destination.type !== 'integration') return;
+    if ((trackerRepo ?? '') === repo) return;
+    destination = { ...destination, fields: { ...destination.fields, repo: repo || undefined, labels: [], assignees: [], milestone: undefined } };
+    void loadTracker(destination.integrationId, repo || undefined, false);
+  }
+  const toggleIn = (list: unknown, v: string) => {
+    const l = (list as string[] | undefined) ?? [];
+    return l.includes(v) ? l.filter((x) => x !== v) : [...l, v];
+  };
+
   const wsItems = $derived(workspaces.map((w) => ({ value: w.id, label: w.name, checked: w.id === workspaceId, testid: `ws-${w.id}` })));
   const folderItems = $derived([
     { value: null as string | null, label: 'No folder', checked: !folderId, testid: 'folder-none' },
@@ -523,24 +584,74 @@
           {:else}
             <label>
               <span>{destIntegration.type === 'gitlab' ? 'Project' : 'Repository'}</span>
-              <input type="text" placeholder="owner/repo" value={(destination.fields.repo as string) ?? ''} oninput={(e) => setField('repo', e.currentTarget.value)} data-testid="dest-repo" />
-            </label>
-            <label>
-              <span>Labels</span>
               <input
                 type="text"
-                placeholder="bug, ui"
-                value={((destination.fields.labels as string[]) ?? []).join(', ')}
-                oninput={(e) =>
-                  setField(
-                    'labels',
-                    e.currentTarget.value
-                      .split(',')
-                      .map((s) => s.trim())
-                      .filter(Boolean),
-                  )}
+                placeholder="owner/repo"
+                list="nb-ed-repos"
+                value={(destination.fields.repo as string) ?? ''}
+                oninput={(e) => setField('repo', e.currentTarget.value)}
+                onchange={(e) => pickRepo(e.currentTarget.value.trim())}
+                data-testid="dest-repo"
               />
+              <datalist id="nb-ed-repos">
+                {#each trackerOpts?.repos ?? [] as r (r.id)}<option value={r.fullName}></option>{/each}
+              </datalist>
             </label>
+            {#if trackerLoading}<span class="nb-ed-note" data-testid="dest-loading">Loading from {trackerName}</span>{/if}
+            {#if trackerErr}
+              <p class="nb-ed-note nb-ed-warn" role="status" data-testid="dest-error">{trackerName} did not answer ({trackerErr}). Create still saves the capture and copies its link; filing the issue may fail.</p>
+            {/if}
+            {#if trackerOpts?.labels.length}
+              <div class="nb-ed-flabel">Labels</div>
+              <div class="nb-ed-chips" data-testid="dest-labels">
+                {#each trackerOpts.labels as l (l.name)}
+                  <button
+                    type="button"
+                    class:on={((destination.fields.labels as string[]) ?? []).includes(l.name)}
+                    aria-pressed={((destination.fields.labels as string[]) ?? []).includes(l.name)}
+                    onclick={() => setField('labels', toggleIn(destination.type === 'integration' ? destination.fields.labels : [], l.name))}
+                    data-label={l.name}>
+                    {#if l.color}<span class="nb-ed-dot" style="background:{l.color.startsWith('#') ? l.color : `#${l.color}`}"></span>{/if}{l.name}
+                  </button>
+                {/each}
+              </div>
+            {:else}
+              <label>
+                <span>Labels</span>
+                <input
+                  type="text"
+                  placeholder="bug, ui"
+                  value={((destination.fields.labels as string[]) ?? []).join(', ')}
+                  oninput={(e) =>
+                    setField(
+                      'labels',
+                      e.currentTarget.value
+                        .split(',')
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    )}
+                  data-testid="dest-labels-text"
+                />
+              </label>
+            {/if}
+            {#if trackerOpts?.assignees.length}
+              <label>
+                <span>Assignee</span>
+                <select value={((destination.fields.assignees as string[]) ?? [])[0] ?? ''} onchange={(e) => setField('assignees', e.currentTarget.value ? [e.currentTarget.value] : [])} data-testid="dest-assignee">
+                  <option value="">Nobody</option>
+                  {#each trackerOpts.assignees as a (a.login)}<option value={a.login}>{a.name ? `${a.name} (${a.login})` : a.login}</option>{/each}
+                </select>
+              </label>
+            {/if}
+            {#if trackerOpts?.milestones.length}
+              <label>
+                <span>Milestone</span>
+                <select value={(destination.fields.milestone as string) ?? ''} onchange={(e) => setField('milestone', e.currentTarget.value || undefined)} data-testid="dest-milestone">
+                  <option value="">None</option>
+                  {#each trackerOpts.milestones as m (m.id)}<option value={m.id}>{m.title}</option>{/each}
+                </select>
+              </label>
+            {/if}
           {/if}
         </div>
       {/if}
@@ -800,6 +911,54 @@
     gap: 4px;
     font-size: var(--nb-text-sm);
     color: var(--nb-text-muted);
+  }
+  .nb-ed-fields select {
+    height: 32px;
+    padding: 0 6px;
+    border: 1px solid var(--nb-border-strong);
+    border-radius: var(--nb-radius-sm);
+    background: var(--nb-surface);
+    color: var(--nb-text);
+    font: var(--nb-text-md) var(--nb-font-sans);
+  }
+  .nb-ed-note {
+    margin: 0;
+    font-size: var(--nb-text-sm);
+    color: var(--nb-text-muted);
+  }
+  .nb-ed-warn {
+    color: var(--nb-danger);
+  }
+  .nb-ed-flabel {
+    font-size: var(--nb-text-sm);
+    color: var(--nb-text-muted);
+  }
+  .nb-ed-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .nb-ed-chips button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 10px;
+    border-radius: var(--nb-radius-pill);
+    border: 1px solid var(--nb-border-strong);
+    background: var(--nb-surface);
+    color: var(--nb-text);
+    font: var(--nb-text-sm) var(--nb-font-sans);
+    cursor: pointer;
+  }
+  .nb-ed-chips button.on {
+    border-color: var(--nb-accent);
+    background: var(--nb-accent-tint);
+    color: var(--nb-accent-text);
+  }
+  .nb-ed-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
   }
   .nb-ed-fields input {
     height: 32px;

@@ -9,6 +9,7 @@ import { collectEnv } from './env.ts';
 import { createRrwebRecorder } from './rrweb.ts';
 import type { Command, Transport } from './transport.ts';
 import { recordUserEvents } from './user-events.ts';
+import { watchPageWeight } from './page-weight.ts';
 
 export interface StartIsolatedOptions {
   transport: Transport;
@@ -21,6 +22,8 @@ export interface StartIsolatedOptions {
   env?: boolean;
   /** Extension version for env.extVersion. */
   extVersion?: string;
+  /** Timing of page-weight reports (J-011); tests shorten it. */
+  pageWeight?: { firstMs?: number; everyMs?: number };
 }
 
 export interface IsolatedHandle {
@@ -34,7 +37,7 @@ export interface IsolatedHandle {
   readonly ctx: string;
 }
 
-export function startIsolatedWorld({ transport, win = window as Window & typeof globalThis, batchMs = 50, dom = true, env, extVersion }: StartIsolatedOptions): IsolatedHandle {
+export function startIsolatedWorld({ transport, win = window as Window & typeof globalThis, batchMs = 50, dom = true, env, extVersion, pageWeight }: StartIsolatedOptions): IsolatedHandle {
   const top = (() => {
     try {
       return win.top === win;
@@ -95,6 +98,16 @@ export function startIsolatedWorld({ transport, win = window as Window & typeof 
   });
   let ringOn = false;
   const attached = new Set<string>();
+  // J-011: while the ring runs, the top frame reports its weight so the worker can pause it
+  let weight: ReturnType<typeof watchPageWeight> | null = null;
+  const syncWeight = () => {
+    if (!top || !transport.sendPageWeight) return;
+    if (ringOn && !weight) weight = watchPageWeight((w) => transport.sendPageWeight?.(w), win, pageWeight);
+    else if (!ringOn && weight) {
+      weight.stop();
+      weight = null;
+    }
+  };
   const syncRrweb = () => {
     if (!top) return; // rrweb in the top frame records same-origin iframes itself
     if (ringOn || attached.size) rrweb.start(preset);
@@ -122,6 +135,7 @@ export function startIsolatedWorld({ transport, win = window as Window & typeof 
       case 'ring':
         ringOn = c.enabled;
         syncRrweb();
+        syncWeight();
         break;
       case 'attach':
         attached.add(c.recordingId);

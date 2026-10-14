@@ -78,7 +78,7 @@
         <div class="lab">Labels</div>
         <div class="chips">
           {#each options.labels as l (l.name)}
-            <button type="button" class:on={fields.labels.includes(l.name)} onclick={() => (fields = { ...fields, labels: toggle(fields.labels, l.name) })} data-label={l.name}>
+            <button type="button" class:on={fields.labels.includes(l.name)} aria-pressed={fields.labels.includes(l.name)} onclick={() => (fields = { ...fields, labels: toggle(fields.labels, l.name) })} data-label={l.name}>
               {#if l.color}<span class="dot" style="background:{l.color}"></span>{/if}{l.name}
             </button>
           {/each}

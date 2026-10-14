@@ -6,7 +6,7 @@ import { TEST_HOOKS } from '../flags';
 import { DEFAULT_SERVER_URL } from '@toolbar/shared/constants';
 import { IDB, STORAGE, type AuthState, type BgRequestMap, type BgRequestType, type BgResult, type BlobRow, type ContentCommand, type Draft, type DraftSummary } from '@toolbar/shared/ext';
 import type { ExtBootstrap, FinalizeCaptureBody, LinkedIssue } from '@toolbar/shared/api';
-import { DEFAULT_EDITOR_PREFS, EDITOR_PREFS_KEY, type AiDraftText, type AiUnavailableReason, type EditorPrefs } from '@toolbar/shared/areas/editor';
+import { DEFAULT_EDITOR_PREFS, EDITOR_PREFS_KEY, type AiDraftText, type AiUnavailableReason, type EditorPrefs, type TrackerOptions, type TrackerRecent } from '@toolbar/shared/areas/editor';
 
 // ---------- IndexedDB ----------
 
@@ -434,11 +434,28 @@ export const draftHandlers: Handlers = {
     const openInNewTab = (await readLocal<{ openInNewTab?: boolean }>(STORAGE.settings.key))?.openInNewTab ?? true;
     if (openInNewTab) await openBesides(`${base}/c/${encodeURIComponent(recordingId)}`, tabId, false);
     if (issueUrl && /^https?:\/\//.test(issueUrl)) await openBesides(issueUrl, tabId, false).catch(() => {});
-    return {};
+    return { opened: openInNewTab };
   },
   'editor.ai': async ({ draftId }) => aiFor(draftId),
   'editor.bootstrap': async ({ workspaceId, refresh }) => ({ bootstrap: await bootstrapFor(workspaceId, refresh) }),
   'editor.prefs': async ({ patch }) => ({ prefs: await editorPrefs(patch) }),
+  'editor.trackerOptions': async ({ integrationId, repo }) => {
+    const id = encodeURIComponent(integrationId);
+    let recent: TrackerRecent | null = null;
+    try {
+      const s = await api<{ editor?: { recentFields?: Record<string, TrackerRecent> } }>('/api/v1/me/settings');
+      recent = s.editor?.recentFields?.[integrationId] ?? null;
+    } catch {
+      /* remembered values are a convenience */
+    }
+    try {
+      const q = repo ? `?repo=${encodeURIComponent(repo)}` : '';
+      const options = await api<TrackerOptions>(`/api/v1/integrations/${id}/options${q}`);
+      return { options, recent, error: null };
+    } catch (e) {
+      return { options: null, recent, error: (e as Error).message };
+    }
+  },
   'editor.openTab': async ({ url, tabId }, sender) => {
     const base = await serverUrl();
     if (!url.startsWith(base + '/')) throw new BgFailure('invalid', 'Only server pages open from the editor');

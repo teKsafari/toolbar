@@ -41,3 +41,12 @@ export function accountDeletedMail(o: { name: string; workspaces: string[]; prod
   if (o.workspaces.length) lines.push(`These workspaces were erased with it: ${o.workspaces.join(', ')}.`);
   return { subject: `Your ${o.product} account was deleted`, text: lines.join('\n\n'), html: html(lines) };
 }
+
+export function firstViewMail(o: { viewer: string; title: string; captureUrl: string; product: string }): Mail {
+  const lines = [`${o.viewer} opened your capture "${o.title}". This is the first view by someone other than you.`];
+  return {
+    subject: `${o.viewer} viewed "${o.title}"`,
+    text: `${lines.join('\n\n')}\n\nOpen it: ${o.captureUrl}\n\n(${o.product} notifications: turn this email off in your account settings)`,
+    html: html(lines, { label: 'Open the capture', url: o.captureUrl }),
+  };
+}

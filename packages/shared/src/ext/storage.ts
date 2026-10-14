@@ -116,6 +116,8 @@ export const STORAGE = {
   serverUrl: { area: 'local', key: 'nib:server-url' },
   installId: { area: 'local', key: 'nib:install-id' },
   micGranted: { area: 'local', key: 'nib:mic-granted' },
+  /** heavy-page thresholds (J-011); unset means LIMITS.heavyPageNodes and heavyPageMutationsPerSec */
+  heavyThresholds: { area: 'local', key: 'nib:heavy-thresholds' },
   // chrome.storage.session: survives worker restarts, not browser restarts
   session: { area: 'session', key: 'nib:session' },
   replay: { area: 'session', key: 'nib:replay' },
@@ -133,6 +135,7 @@ export interface StorageValues {
   serverUrl: string | null;
   installId: string;
   micGranted: boolean;
+  heavyThresholds: { nodes?: number; mutationsPerSec?: number } | null;
   session: CaptureSession;
   replay: ReplayState;
   uploads: Record<string, UploadProgress>;

@@ -9,3 +9,4 @@ export { collectEnv, parseUserAgent } from './env.ts';
 export { recordUserEvents } from './user-events.ts';
 export { observeDom } from './dom-summary.ts';
 export { evaluateMetadata, METADATA_MAX_BYTES } from './metadata.ts';
+export { watchPageWeight, countNodes, type PageWeight } from './page-weight.ts';

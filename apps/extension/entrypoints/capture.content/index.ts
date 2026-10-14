@@ -37,7 +37,7 @@ function portTransport(): Transport {
         }
       }, 250);
     });
-    port.postMessage({ type: 'hello', url: location.href, top: window.top === window, title: document.title || undefined } satisfies PortMessage);
+    port.postMessage({ type: 'hello', url: location.href, top: window.top === window, title: document.title || undefined, loadId: performance.timeOrigin } satisfies PortMessage);
   };
   const post = (m: PortMessage) => {
     if (m.type === 'events') sentEvents += m.batch.length;
@@ -56,6 +56,9 @@ function portTransport(): Transport {
     },
     sendRrweb(batch, full) {
       post({ type: 'rrweb', batch, full });
+    },
+    sendPageWeight(w) {
+      post({ type: 'page-weight', nodes: w.nodes, mutationsPerSec: w.mutationsPerSec });
     },
     onCommand(fn) {
       handlers.push(fn);
@@ -120,6 +123,7 @@ export default defineContentScript({
     const t: Transport = {
       send: (b) => transport.send(b),
       sendRrweb: (b, f) => transport.sendRrweb?.(b, f),
+      sendPageWeight: (w) => transport.sendPageWeight?.(w),
       onCommand: (fn) => {
         transport.onCommand(fn);
         const prev = commandAll;

@@ -2,7 +2,7 @@
 // Entries merge into BgRequestMap and ContentCommand in ../messages.ts.
 import type { ExtBootstrap } from '../../api/account.ts';
 import type { FinalizeCaptureBody, LinkedIssue } from '../../api/captures.ts';
-import type { AiDraftText, AiUnavailableReason, EditorPrefs } from '../../areas/editor.ts';
+import type { AiDraftText, AiUnavailableReason, EditorPrefs, TrackerOptions, TrackerRecent } from '../../areas/editor.ts';
 
 /** Extra service-worker requests: `'name': { req: {...}; res: {...} }`. */
 export interface EditorBgRequests {
@@ -26,7 +26,16 @@ export interface EditorBgRequests {
    * (J-086). The editor sends it after the link is on the clipboard, so the copy never races the
    * new tab.
    */
-  'editor.openCapture': { req: { recordingId: string; tabId: number; issueUrl?: string | null }; res: {} };
+  'editor.openCapture': { req: { recordingId: string; tabId: number; issueUrl?: string | null }; res: { opened: boolean } };
+  /**
+   * Tracker field form data (J-140): repos, labels, assignees and milestones from the tracker API
+   * through the server, plus the values last filed with this integration. `error` when the tracker
+   * did not answer; the capture can still be created.
+   */
+  'editor.trackerOptions': {
+    req: { integrationId: string; repo?: string };
+    res: { options: TrackerOptions | null; recent: TrackerRecent | null; error: string | null };
+  };
   /** Open a server page (integration settings) in a new tab next to the source tab. */
   'editor.openTab': { req: { url: string; tabId?: number }; res: {} };
 }
