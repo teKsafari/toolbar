@@ -9,13 +9,17 @@
     ".": { "types": "./src/index.ts", "svelte": "./src/index.ts", "default": "./src/index.ts" },
     "./tokens": "./src/tokens.ts",
     "./tokens.css": "./src/tokens.css",
-    "./icons": "./src/icons.ts"
+    "./icons": "./src/icons.ts",
+    "./viewer": "./src/viewer/index.ts"
   },
   "scripts": {
     "gen:tokens": "node --experimental-strip-types scripts/gen-tokens.ts",
     "build": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@toolbar/shared": "workspace:*"
   },
   "peerDependencies": {
     "svelte": "^5.57.0"
@@ -28,6 +32,7 @@
     "svelte-check": "4.7.6",
     "typescript": "6.0.3",
     "vite": "8.3.4",
-    "vitest": "5.0.4"
+    "vitest": "5.0.4",
+    "zod": "4.6.7"
   }
 }

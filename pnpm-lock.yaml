@@ -158,6 +158,10 @@ importers:
         version: 5.0.4(@types/node@24.19.2)(happy-dom@21.0.1)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
   packages/ui:
+    dependencies:
+      '@toolbar/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: 7.3.1
@@ -183,6 +187,9 @@ importers:
       vitest:
         specifier: 5.0.4
         version: 5.0.4(@types/node@24.19.2)(happy-dom@21.0.1)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
 
 packages:
 
