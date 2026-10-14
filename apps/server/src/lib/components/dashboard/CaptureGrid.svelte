@@ -173,7 +173,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="wrap" ondragover={over} ondragleave={leave} ondrop={drop}>
+<div class="wrap" data-testid="grid-wrap" ondragover={over} ondragleave={leave} ondrop={drop}>
   {#if selected.length}
     <SelectionBar ids={selected} {folders} currentFolder={currentFolder ?? null} {workspaceId} onclear={() => (selected = [])} />
   {:else}

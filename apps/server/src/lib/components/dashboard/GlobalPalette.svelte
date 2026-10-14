@@ -10,6 +10,8 @@
   const off = $derived(/^\/(s|rl|login|invite|ext)(\/|$)/.test(page.url.pathname));
 
   $effect(() => {
+    // tells tests and scripts that the app has hydrated
+    document.documentElement.setAttribute('data-app-ready', '');
     try {
       const t = localStorage.getItem('nib.theme');
       if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
