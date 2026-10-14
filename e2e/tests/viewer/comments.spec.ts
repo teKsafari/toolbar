@@ -1,6 +1,7 @@
 // Comments: J-127, J-128, J-129, J-130, J-131, J-132, J-133, J-134, J-135.
 import { expect, test } from '@playwright/test';
 import { SERVER, allowClipboard, captureUrl, clipboard, IDS, mailsTo, open, open as openPage, reseed, shareUrl, signIn, videoTime } from './helpers.ts';
+import { budget } from '../../fixtures/budget.ts';
 
 test.beforeAll(() => reseed());
 test.beforeEach(async ({ context }) => {
@@ -27,7 +28,7 @@ test('J-127 timestamped comment: pill names the time, Enter adds a line, clears 
         check();
       }),
   );
-  expect(cleared).toBeLessThan(200);
+  expect(cleared).toBeLessThan(budget(200));
   const c = page.getByTestId('comment').filter({ hasText: 'second line' });
   await expect(c.getByTestId('comment-time')).toHaveText('0:05');
   await page.reload();

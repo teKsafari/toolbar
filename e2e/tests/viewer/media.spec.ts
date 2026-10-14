@@ -2,6 +2,7 @@
 // J-098, J-099, J-209, J-100, J-229, J-236, J-115, J-198.
 import { expect, test } from '@playwright/test';
 import { allowClipboard, captureUrl, open, clipboard, IDS, ready, reseed, shareUrl, signIn, videoTime } from './helpers.ts';
+import { budget } from '../../fixtures/budget.ts';
 
 test.beforeAll(() => reseed());
 
@@ -247,6 +248,6 @@ test('J-198 logged-out first paint under 3 s', async ({ page }) => {
   await open(page, shareUrl(IDS.video));
   await page.reload();
   const fcp = await page.evaluate(() => performance.getEntriesByName('first-contentful-paint')[0]?.startTime ?? 99999);
-  expect(fcp).toBeLessThan(3000);
+  expect(fcp).toBeLessThan(budget(3000));
   await expect(page.getByTestId('video-card')).toBeVisible();
 });

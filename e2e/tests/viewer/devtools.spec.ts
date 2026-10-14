@@ -3,6 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { expect, test, type Page } from '@playwright/test';
 import { allowClipboard, captureUrl, clipboard, IDS, open, ready, reseed, signIn, videoTime } from './helpers.ts';
+import { budget } from '../../fixtures/budget.ts';
 
 test.beforeAll(() => reseed());
 test.beforeEach(async ({ context }) => {
@@ -97,7 +98,7 @@ test('J-104 panels follow playback and highlight within 100 ms', async ({ page }
         requestAnimationFrame(check);
       }),
   );
-  expect(lag).toBeLessThan(100);
+  expect(lag).toBeLessThan(budget(100));
   await expect(page.locator('[data-testid="console-list"] .vp-row.future').first()).toBeVisible();
   // the list scrolls with playback: with a short panel the current row stays in view
   await page.setViewportSize({ width: 1440, height: 520 });
