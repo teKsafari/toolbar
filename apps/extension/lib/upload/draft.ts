@@ -4,7 +4,7 @@
 // assets, drains the queue, completes each stream and finalizes. Nothing of a screenshot or an
 // instant replay reaches the server before this call.
 import type { StreamName } from '@toolbar/shared';
-import { LIMITS, STREAM_CONTENT_TYPES } from '@toolbar/shared/constants';
+import { STREAM_CONTENT_TYPES } from '@toolbar/shared/constants';
 import type { Draft } from '@toolbar/shared/ext';
 import type { FinalizeCaptureBody } from '@toolbar/shared/api';
 import { getBlob, idbDelete } from '../idb';
@@ -158,4 +158,3 @@ export async function discardDraftData(draft: Draft, auth: UploadAuthLike | null
   for (const b of blobIds) if (b) await idbDelete('blobs', b);
 }
 
-export { LIMITS };
