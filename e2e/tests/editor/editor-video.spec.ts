@@ -5,7 +5,9 @@ import path from 'node:path';
 import type { Page } from '@playwright/test';
 import { expect, test, LAB_URL } from '../../fixtures/extension.ts';
 import { startMock, type MockState } from './mock-server.ts';
-import { MOCK_PORT, getDraft, openEditorInPage, openEditorTab, seedDraft, signIn, tabIdOf } from './helpers.ts';
+import { MOCK_PORT, getDraft, openEditorInPage, openEditorTab, seedDraft, settled, signIn, tabIdOf, type DraftHooks } from './helpers.ts';
+
+declare const __tbDrafts: DraftHooks;
 
 const VIDEO = fs.readFileSync(path.resolve(import.meta.dirname, '../../../apps/server/fixtures/tab-video.webm')).toString('base64');
 const AI = {
@@ -225,9 +227,18 @@ test('a reopened video draft saves for later from its close button; toast with v
   await page.locator('toolbar-root').waitFor({ state: 'attached' });
   const tabId = await tabIdOf(sw, page);
   const id = await seedDraft(sw, { kind: 'video', videoBase64: VIDEO, durationMs: 8000, tabId, reopened: true });
+  await sw.evaluate(() => {
+    const g = globalThis as unknown as { __closed: string[] };
+    g.__closed = [];
+    __tbDrafts.setCaptureBridge({ draftClosed: async (draftId, how) => void g.__closed.push(`${draftId}:${how}`) });
+  });
   let f = await openEditorInPage(sw, page, id);
   await expect(f.getByTestId('close')).toHaveText(/Save for later/);
   await expect(f.getByTestId('ai-ghost-title')).toBeVisible();
+  // the video knows its length before the grip moves
+  await expect.poll(() => f.getByTestId('draft-video').evaluate((v: HTMLVideoElement) => v.readyState >= 1 && Number.isFinite(v.duration))).toBe(true);
+  await expect(f.getByTestId('length')).toHaveText('8 seconds');
+  await settled(f.getByTestId('trim-track'));
   const track = (await f.getByTestId('trim-track').boundingBox())!;
   const g = (await f.getByTestId('grip-start').boundingBox())!;
   await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
@@ -242,6 +253,11 @@ test('a reopened video draft saves for later from its close button; toast with v
   const d = await getDraft(sw, id);
   expect(d).toMatchObject({ status: 'saved', trim: { startMs: expect.any(Number) } });
   expect((d as { ai: { title: string } }).ai.title).toBe(AI.title);
+  // the popup's list (nib:drafts) says saved, and the capture session was told the draft is closed
+  const rows = await sw.evaluate(async () => (await chrome.storage.local.get('nib:drafts'))['nib:drafts'] as { id: string; status: string }[]);
+  expect(rows.find((r) => r.id === id)?.status).toBe('saved');
+  expect(await sw.evaluate(() => (globalThis as unknown as { __closed: string[] }).__closed)).toEqual([`${id}:saved`]);
+  await sw.evaluate(() => __tbDrafts.setCaptureBridge(null));
   // view reopens it with the trim and the AI text
   await page.locator('toolbar-root').getByRole('button', { name: 'View' }).click();
   f = page.frameLocator('iframe[data-nb-editor]');

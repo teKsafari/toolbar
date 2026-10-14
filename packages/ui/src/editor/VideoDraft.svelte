@@ -1,9 +1,11 @@
 <script lang="ts">
   // Video and replay draft preview (J-084, J-085, J-240): play, click-to-toggle, a trim bar with
   // two grips that scrub the preview, the kept length in words, trim undo and redo. No drawing.
+  import { untrack } from 'svelte';
   import EdIcon from './EdIcon.svelte';
   import Tip from './Tip.svelte';
   import { clock, spellDuration, type TrimState } from './trim.svelte.ts';
+  import { ReplayDriver, type parseNdjson } from './replay.ts';
 
   interface Props {
     src: string | null;
@@ -13,8 +15,42 @@
     /** a frame for the drafts list, once */
     onthumb?: (blob: Blob) => void;
     placeholder?: string;
+    /** rrweb events of an instant-replay draft with no video: a DOM replay instead (J-009, J-010) */
+    replayEvents?: ReturnType<typeof parseNdjson> | null;
+    /** epoch ms of draft time 0, to line the replay up with the trim range */
+    startedAt?: number | null;
   }
-  let { src, trim, fallbackDurationMs = null, onthumb, placeholder = 'No video in this draft' }: Props = $props();
+  let { src, trim, fallbackDurationMs = null, onthumb, placeholder = 'No video in this draft', replayEvents = null, startedAt = null }: Props = $props();
+
+  let replayStage: HTMLDivElement | undefined = $state();
+  let driver: ReplayDriver | null = null;
+  const isReplay = $derived(!src && !!replayEvents?.length);
+  $effect(() => {
+    const stage = replayStage;
+    if (!isReplay || !stage) return;
+    const d = untrack(() => {
+      try {
+        const d = new ReplayDriver(stage, replayEvents!, startedAt);
+        d.onfinish = () => {
+          playing = false;
+          cancelAnimationFrame(raf);
+        };
+        trim.setDuration(fallbackDurationMs || d.totalMs, trim.range);
+        d.seek(trim.startMs);
+        currentMs = trim.startMs;
+        ready = true;
+        return d;
+      } catch {
+        return null;
+      }
+    });
+    if (!d) return;
+    driver = d;
+    return () => {
+      d.destroy();
+      driver = null;
+    };
+  });
 
   let video: HTMLVideoElement | undefined = $state();
   let track: HTMLDivElement | undefined = $state();
@@ -71,6 +107,17 @@
   }
 
   function loop() {
+    if (driver) {
+      currentMs = driver.currentMs;
+      if (playing && currentMs >= trim.endMs - 20) {
+        driver.seek(trim.endMs);
+        playing = false;
+        currentMs = trim.endMs;
+        return;
+      }
+      if (playing) raf = requestAnimationFrame(loop);
+      return;
+    }
     if (!video) return;
     currentMs = video.currentTime * 1000;
     if (playing && currentMs >= trim.endMs - 20) {
@@ -83,6 +130,20 @@
   }
 
   export async function toggle() {
+    if (driver) {
+      if (playing) {
+        driver.pause();
+        playing = false;
+        cancelAnimationFrame(raf);
+        currentMs = driver.currentMs;
+        return;
+      }
+      const t = driver.currentMs;
+      driver.play(t < trim.startMs || t >= trim.endMs - 50 ? trim.startMs : t);
+      playing = true;
+      raf = requestAnimationFrame(loop);
+      return;
+    }
     if (!video || !src) return;
     if (playing) {
       video.pause();
@@ -98,8 +159,15 @@
     }
   }
   export function seek(ms: number) {
-    if (!video) return;
     const clamped = Math.max(0, Math.min(ms, trim.durationMs));
+    if (driver) {
+      driver.seek(clamped);
+      playing = false;
+      cancelAnimationFrame(raf);
+      currentMs = clamped;
+      return;
+    }
+    if (!video) return;
     video.currentTime = clamped / 1000;
     currentMs = clamped;
   }
@@ -114,6 +182,7 @@
     e.preventDefault();
     e.stopPropagation();
     video?.pause();
+    if (driver && playing) toggle();
     dragging = which;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     trim.beginDrag();
@@ -123,8 +192,9 @@
     trim.moveGrip(dragging, msAt(e.clientX));
     seek(dragging === 'start' ? trim.startMs : trim.endMs);
   }
-  function gripUp() {
+  function gripUp(e?: PointerEvent) {
     if (!dragging) return;
+    if (e?.type === 'pointerup') gripMove(e); // the release point, in case the last move was coalesced
     dragging = null;
     trim.endDrag();
   }
@@ -144,7 +214,7 @@
 
   $effect(() => () => cancelAnimationFrame(raf));
   $effect(() => {
-    if (!ready && fallbackDurationMs && !src) {
+    if (!ready && fallbackDurationMs && !src && !isReplay) {
       trim.setDuration(fallbackDurationMs, trim.range);
       ready = true;
     }
@@ -180,6 +250,14 @@
           <EdIcon name="play" size={26} />
         </button>
       {/if}
+    {:else if isReplay}
+      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+      <div class="nb-vd-replay" bind:this={replayStage} data-testid="draft-replay" onclick={toggle}></div>
+      {#if !playing}
+        <button type="button" class="nb-vd-play" aria-label="Play" data-testid="play" onclick={toggle}>
+          <EdIcon name="play" size={26} />
+        </button>
+      {/if}
     {:else}
       <div class="nb-vd-empty">{placeholder}</div>
     {/if}
@@ -210,8 +288,8 @@
         data-testid="grip-start"
         onpointerdown={(e) => gripDown('start', e)}
         onpointermove={gripMove}
-        onpointerup={gripUp}
-        onpointercancel={gripUp}
+        onpointerup={(e) => gripUp(e)}
+        onpointercancel={() => gripUp()}
         onkeydown={(e) => gripKey('start', e)}
       ></button>
       <button
@@ -222,8 +300,8 @@
         data-testid="grip-end"
         onpointerdown={(e) => gripDown('end', e)}
         onpointermove={gripMove}
-        onpointerup={gripUp}
-        onpointercancel={gripUp}
+        onpointerup={(e) => gripUp(e)}
+        onpointercancel={() => gripUp()}
         onkeydown={(e) => gripKey('end', e)}
       ></button>
     </div>
@@ -270,6 +348,39 @@
     max-height: 100%;
     display: block;
     cursor: pointer;
+  }
+  .nb-vd-replay {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: var(--nb-surface);
+    cursor: pointer;
+  }
+  .nb-vd-replay :global(.replayer-wrapper) {
+    position: absolute;
+  }
+  .nb-vd-replay :global(iframe) {
+    border: 0;
+    pointer-events: none;
+    background: #fff;
+  }
+  /* our own pointer glyph: a small ink arrow */
+  .nb-vd-replay :global(.replayer-mouse) {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    pointer-events: none;
+    transition:
+      left 0.05s linear,
+      top 0.05s linear;
+    background: no-repeat 0 0 / 18px 18px
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='M2 1.5v13l3.6-3.4 2.6 5.4 2.2-1-2.6-5.3H13z' fill='%231a1918' stroke='%23fff' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+  .nb-vd-replay :global(.replayer-mouse.active) {
+    transform: scale(0.85);
+  }
+  .nb-vd-replay :global(.replayer-mouse-tail) {
+    display: none;
   }
   .nb-vd-play {
     all: unset;

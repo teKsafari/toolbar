@@ -3,7 +3,7 @@
 // to tabs goes through the worker.
 import { browser } from 'wxt/browser';
 import { EDITOR_FRAME_TAG, type BgRequestMap, type BgRequestOf, type BgRequestType, type BgResult, type EditorFrameMessage, type UploadRow } from '@toolbar/shared/ext';
-import type { AttachmentInfo, EditorHost } from '@toolbar/ui/editor';
+import { parseNdjson, type AttachmentInfo, type EditorData, type EditorHost } from '@toolbar/ui/editor';
 import { deleteBlob, getBlob, getDraft, openDb, putBlob, serverUrl } from '../../lib/bg/drafts';
 
 async function send<K extends BgRequestType>(req: BgRequestOf<K>): Promise<BgRequestMap[K]['res']> {
@@ -37,6 +37,8 @@ function post(msg: FrameMsg) {
 }
 
 async function copyText(text: string): Promise<boolean> {
+  // the async clipboard API needs this document to hold focus
+  window.focus();
   try {
     await navigator.clipboard.writeText(text);
     return true;
@@ -48,9 +50,13 @@ async function copyText(text: string): Promise<boolean> {
     ta.value = text;
     ta.style.cssText = 'position:fixed;opacity:0;left:-9999px';
     document.body.appendChild(ta);
+    const prev = document.activeElement as HTMLElement | null;
+    ta.focus();
     ta.select();
-    const ok = document.execCommand('copy');
+    // with no selection execCommand still answers true and copies nothing
+    const ok = ta.selectionEnd - ta.selectionStart === text.length && document.execCommand('copy');
     ta.remove();
+    prev?.focus?.();
     if (ok) return true;
   } catch {
     /* fall through */
@@ -87,6 +93,13 @@ export async function createHost(draftId: string): Promise<EditorHost> {
         const v = await videoFromChunks(draft.recordingId).catch(() => null);
         if (v) videoUrl = url(v);
       }
+      // Instant replay without video: the capture area keeps the rrweb slice as NDJSON in `blobs`.
+      const extra = draft as typeof draft & { rrwebBlobId?: string | null; startedAt?: number };
+      let replayEvents: EditorData['replayEvents'] = null;
+      if (!videoUrl && draft.kind === 'replay' && extra.rrwebBlobId) {
+        const b = await getBlob(extra.rrwebBlobId);
+        if (b) replayEvents = parseNdjson(await b.blob.text());
+      }
       const attachments: AttachmentInfo[] = [];
       for (const id of draft.attachmentBlobIds ?? []) {
         const b = await getBlob(id);
@@ -97,6 +110,8 @@ export async function createHost(draftId: string): Promise<EditorHost> {
         screenshotUrl: await blobUrl(draft.screenshotBlobId),
         fullUrl: draft.crop ? await blobUrl(draft.fullBlobId) : null,
         videoUrl,
+        replayEvents,
+        startedAt: extra.startedAt ?? null,
         attachments,
       };
     },
@@ -107,7 +122,8 @@ export async function createHost(draftId: string): Promise<EditorHost> {
     putBlob: (blob) => putBlob(blob),
     deleteBlob: async (id) => void (await deleteBlob(id)),
     async create(req) {
-      const r = await send({ type: 'editor.create', draftId, finalize: req.finalize, flatBlobId: req.flatBlobId, flatFullBlobId: req.flatFullBlobId });
+      // the editor opens the capture tab itself once the link is copied (openCapture)
+      const r = await send({ type: 'editor.create', draftId, finalize: req.finalize, flatBlobId: req.flatBlobId, flatFullBlobId: req.flatFullBlobId, openTab: false });
       return { recordingId: r.recordingId, shareUrl: r.shareUrl, issueError: r.issueError, issueUrl: r.issue?.url ?? null };
     },
     discard: async () => void (await send({ type: 'draft.discard', draftId })),
@@ -117,11 +133,12 @@ export async function createHost(draftId: string): Promise<EditorHost> {
       return { ai: r.ai, reason: r.reason };
     },
     copy: copyText,
-    close(reason) {
+    close(reason, info) {
       document.documentElement.dataset.closed = reason;
-      if (window.parent !== window) post({ type: 'close', reason });
+      if (window.parent !== window) post({ type: 'close', reason, copied: info?.copied });
       else if (reason !== 'created') setTimeout(() => window.close(), 300);
     },
+    openCapture: async (res, tabId) => void (await send({ type: 'editor.openCapture', recordingId: res.recordingId, tabId, issueUrl: res.issueUrl })),
     openUrl: (u) => void send({ type: 'editor.openTab', url: u }).catch(() => window.open(u, '_blank')),
     serverUrl: () => base,
   };

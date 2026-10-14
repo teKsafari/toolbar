@@ -59,12 +59,54 @@ test('wheel over the preview scrolls the page behind (J-216: match)', async ({ c
   await page.locator('toolbar-root').waitFor({ state: 'attached' });
   const id = await seedDraft(sw, { tabId: await tabIdOf(sw, page) });
   const f = await openEditorInPage(sw, page, id);
-  const box = await f.getByTestId('annotator').boundingBox();
+  // let the layout settle (image size, form) before taking the reference position
+  let box = await f.getByTestId('annotator').boundingBox();
+  await expect
+    .poll(async () => {
+      const prev = box;
+      box = await f.getByTestId('annotator').boundingBox();
+      return prev && box && prev.y === box.y && prev.height === box.height;
+    }, { intervals: [400] })
+    .toBe(true);
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
   for (let i = 0; i < 5; i++) await page.mouse.wheel(0, 100);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(100);
   // the preview stays put
   const after = await f.getByTestId('annotator').boundingBox();
   expect(after!.y).toBeCloseTo(box!.y, 0);
+  await page.close();
+});
+
+test('in dark mode the page still shows through the backdrop (no opaque frame)', async ({ context, sw }) => {
+  await signIn(sw, mock.url);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1440, height: 860 });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto(LAB_URL);
+  await page.locator('toolbar-root').waitFor({ state: 'attached' });
+  await page.evaluate(() => {
+    document.documentElement.style.background = 'rgb(255, 255, 255)';
+    document.body.style.background = 'rgb(255, 255, 255)';
+  });
+  const id = await seedDraft(sw, { tabId: await tabIdOf(sw, page) });
+  const f = await openEditorInPage(sw, page, id);
+  await expect(f.getByTestId('editor-backdrop')).toHaveClass(/nb-shown/);
+  await page.waitForTimeout(500); // fade-in
+  // a corner outside the modal: white page under a 60% black veil is mid grey, an opaque frame is near black
+  const png = await page.screenshot({ clip: { x: 2, y: 840, width: 4, height: 4 } });
+  const lum = await page.evaluate(async (b64) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width;
+    c.height = img.height;
+    const g = c.getContext('2d')!;
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(1, 1, 1, 1).data;
+    return (d[0]! + d[1]! + d[2]!) / 3;
+  }, png.toString('base64'));
+  expect(lum).toBeGreaterThan(70);
+  expect(lum).toBeLessThan(140);
   await page.close();
 });

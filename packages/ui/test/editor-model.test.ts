@@ -353,3 +353,19 @@ describe('AnnotatorState clicks', () => {
     expect(st.selected).toEqual([]);
   });
 });
+
+describe('pointer release', () => {
+  it('applies the release point when the last moves were coalesced away', () => {
+    const st = new AnnotatorState({ width: 1000, height: 600 });
+    st.tool = 'rect';
+    st.pointerDown({ x: 100, y: 100 });
+    st.pointerMove({ x: 110, y: 105 });
+    st.pointerUp({ x: 300, y: 200 });
+    const s = st.shapes[0] as BoxShape;
+    expect([s.x, s.y, s.w, s.h]).toEqual([100, 100, 200, 100]);
+    // a move whose only event is the release
+    st.pointerDown({ x: 100, y: 150 });
+    st.pointerUp({ x: 150, y: 150 });
+    expect((st.shapes[0] as BoxShape).x).toBe(150);
+  });
+});

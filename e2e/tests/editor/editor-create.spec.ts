@@ -121,7 +121,7 @@ test('create a screenshot: annotations and blur burned into one PNG, link copied
   // link on the clipboard, copied by the extension (focus the page to read it)
   await page.bringToFront();
   await page.mouse.click(5, 5);
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`${mock.url}/s/share-${fin.id.slice(0, 8)}`);
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText()), { timeout: 5000 }).toBe(`${mock.url}/s/share-${fin.id.slice(0, 8)}`);
   // the capture page opened in a background tab directly right of the source tab
   const tabs = await sw.evaluate(async () => (await chrome.tabs.query({ currentWindow: true })).map((t) => ({ id: t.id, index: t.index, url: t.url ?? t.pendingUrl, active: t.active })));
   const src = tabs.find((t) => t.id === tabId)!;

@@ -6,6 +6,7 @@ export { default as VideoDraft } from './VideoDraft.svelte';
 export { default as RichField } from './RichField.svelte';
 export { AnnotatorState, SWATCHES, DEFAULT_COLOR, TOOL_KEYS, PASTE_OFFSET } from './annotator.svelte.ts';
 export { TrimState, spellDuration, clock, eventsInRange, MIN_TRIM_MS, type TrimRange } from './trim.svelte.ts';
+export { ReplayDriver, parseNdjson, replayOffsetMs } from './replay.ts';
 export { flattenPng, flattenToCanvas, canvasToPng, loadImage } from './flatten.ts';
 export { draw, canvasMeasure, type Prim, type Drawn } from './render.ts';
 export * from './shapes.ts';

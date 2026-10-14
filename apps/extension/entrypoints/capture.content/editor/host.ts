@@ -17,7 +17,9 @@ const FRAME_CSS = [
   'margin:0',
   'padding:0',
   'background:transparent',
-  'color-scheme:normal',
+  // Must match the editor document's color-scheme (light dark). When the frame element's used
+  // scheme differs from the document's, Chrome paints the frame opaque and hides the page.
+  'color-scheme:light dark',
   'pointer-events:auto',
   'z-index:2147483646',
   'display:block',
@@ -77,7 +79,8 @@ export function installEditorHost(container: HTMLElement): EditorHostHandle {
       const id = draftId;
       close();
       ensureToaster();
-      if (m.reason === 'created') toasts.success('Link copied. The capture opened in a new tab.');
+      if (m.reason === 'created')
+        toasts.success(m.copied === false ? 'Capture created. It opened in a new tab; copy the link there.' : 'Link copied. The capture opened in a new tab.');
       else if (m.reason === 'saved' && id)
         toasts.show('Saved to your drafts', {
           duration: 6000,

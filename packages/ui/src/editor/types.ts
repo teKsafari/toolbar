@@ -20,6 +20,10 @@ export interface EditorData {
   screenshotUrl: string | null;
   fullUrl: string | null;
   videoUrl: string | null;
+  /** rrweb events of an instant-replay draft (from the capture area's `rrwebBlobId`), for the DOM replay preview */
+  replayEvents?: { type: number; timestamp: number; data?: unknown }[] | null;
+  /** epoch ms of draft time 0 (the capture area's `startedAt`); trim ranges count from here */
+  startedAt?: number | null;
   attachments: AttachmentInfo[];
 }
 
@@ -54,7 +58,9 @@ export interface EditorHost {
   /** copy from the extension, never from the page (J-202) */
   copy(text: string): Promise<boolean>;
   /** the editor is done; the host removes it */
-  close(reason: 'created' | 'discarded' | 'saved'): void;
+  close(reason: 'created' | 'discarded' | 'saved', info?: { copied?: boolean }): void;
+  /** Open the created capture right of the source tab, after the link is copied (J-086). */
+  openCapture?(res: CreateResult, tabId: number): Promise<void>;
   openUrl(url: string): void;
   /** server base URL for settings links */
   serverUrl(): string;

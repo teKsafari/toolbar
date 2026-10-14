@@ -147,9 +147,12 @@ test('marquee selects two shapes, they move together, Delete removes both and on
   const at = await fresh(page, sw);
   await page.locator('[data-tool="rect"]').click();
   await drag(page, at(100, 100), at(200, 200));
+  await expect(shapes(page)).toHaveCount(1);
   await page.locator('[data-tool="ellipse"]').click();
   await drag(page, at(300, 100), at(400, 200));
+  await expect(shapes(page)).toHaveCount(2);
   await page.keyboard.press('v');
+  await expect(page.locator('[data-tool="select"]')).toHaveAttribute('aria-pressed', 'true');
   await drag(page, at(50, 50), at(450, 130));
   await expect(page.locator('[data-selection]')).toHaveCount(2);
   await drag(page, at(100, 150), at(130, 170));
@@ -208,7 +211,9 @@ test('colour palette: six swatches, ink default, red recolours selection and new
 test('blur box blurs what is under it and re-blurs when moved (J-044)', async ({ page, sw }) => {
   const at = await fresh(page, sw);
   await page.locator('[data-tool="blur"]').click();
+  await expect(page.locator('[data-tool="blur"]')).toHaveAttribute('aria-pressed', 'true');
   await drag(page, at(20, 20), at(400, 120));
+  await expect(page.locator('[data-blur]')).toHaveCount(1);
   const clip = page.locator('clipPath rect');
   expect(Number(await clip.getAttribute('x'))).toBeCloseTo(20, -1);
   expect(Number(await clip.getAttribute('y'))).toBeCloseTo(20, -1);

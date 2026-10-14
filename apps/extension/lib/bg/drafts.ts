@@ -203,6 +203,30 @@ async function uploadAsset(blob: Blob, kind: string, recordingId: string, name?:
 
 // ---------- create (J-086) ----------
 
+/**
+ * What the capture area does at the editor's end of a draft. It plugs in with one
+ * setCaptureBridge() call in its bg module at merge; until then both are no-ops.
+ */
+export interface CaptureBridge {
+  /** Upload the draft's local streams (events, rrweb, replay video) and complete them; runs before any asset or finalize call, so screenshots and replays keep their logs (J-071, J-189). */
+  uploadStreams?(draft: Draft, recordingId: string): Promise<void>;
+  /** The editor let go of the draft: move the capture session out of `draft` (CREATE, DISCARD, SAVE_FOR_LATER), so the popup re-enables its capture rows and the drafts pill (J-035, J-219). */
+  draftClosed?(draftId: string, how: 'created' | 'discarded' | 'saved'): Promise<void>;
+}
+let bridge: CaptureBridge = {};
+
+export function setCaptureBridge(b: CaptureBridge | null) {
+  bridge = b ?? {};
+}
+
+async function closed(draftId: string, how: 'created' | 'discarded' | 'saved') {
+  try {
+    await bridge.draftClosed?.(draftId, how);
+  } catch (e) {
+    console.warn('[nib] capture bridge draftClosed failed', e);
+  }
+}
+
 export interface CreateArgs {
   draftId: string;
   finalize: FinalizeCaptureBody;
@@ -230,12 +254,16 @@ export async function createFromDraft(args: CreateArgs): Promise<{ recordingId: 
           workspaceId,
           folderId: args.finalize.folderId ?? undefined,
           page: { url: d.pageUrl, title: d.pageTitle },
-          startedAt: d.createdAt,
+          startedAt: (d as Draft & { startedAt?: number }).startedAt ?? d.createdAt,
         },
       });
       recordingId = created.id;
       await updateDraft(d.id, { recordingId });
     }
+
+    // Events, rrweb and replay video kept locally until create (J-189) belong to the capture
+    // area's uploader; it registers here at merge and runs before any asset or finalize call.
+    if (bridge.uploadStreams) await bridge.uploadStreams(d, recordingId);
 
     const finalize: FinalizeCaptureBody = { ...args.finalize, workspaceId: workspaceId ?? undefined };
     if (d.kind === 'screenshot') {
@@ -263,6 +291,7 @@ export async function createFromDraft(args: CreateArgs): Promise<{ recordingId: 
     // the draft is done; flattened images go with it
     for (const b of [args.flatBlobId, args.flatFullBlobId]) if (b) await deleteBlob(b).catch(() => {});
     await deleteDraft(d.id);
+    await closed(d.id, 'created');
     if (args.openTab !== false) {
       const base = await serverUrl();
       await openBesides(`${base}/c/${encodeURIComponent(res.id ?? recordingId)}`, d.tabId, false).catch(() => {});
@@ -366,12 +395,14 @@ export const draftHandlers: Handlers = {
   'draft.create': async ({ draftId, finalize }) => createFromDraft({ draftId, finalize }),
   'draft.discard': async ({ draftId }, sender) => {
     const d = await deleteDraft(draftId);
+    await closed(draftId, 'discarded');
     const tab = d?.tabId ?? sender.tab?.id;
     if (tab != null && tab >= 0 && sender.tab?.id == null) await sendToTab(tab, { type: 'ui.editor-close' });
     return {};
   },
   'draft.saveForLater': async ({ draftId }) => {
     await updateDraft(draftId, { status: 'saved' });
+    await closed(draftId, 'saved');
     return {};
   },
   'draft.open': async ({ draftId, tabId }, sender) => {
@@ -382,6 +413,12 @@ export const draftHandlers: Handlers = {
     return {};
   },
   'editor.create': async (req) => createFromDraft(req),
+  'editor.openCapture': async ({ recordingId, tabId, issueUrl }) => {
+    const base = await serverUrl();
+    await openBesides(`${base}/c/${encodeURIComponent(recordingId)}`, tabId, false);
+    if (issueUrl && /^https?:\/\//.test(issueUrl)) await openBesides(issueUrl, tabId, false).catch(() => {});
+    return {};
+  },
   'editor.ai': async ({ draftId }) => aiFor(draftId),
   'editor.bootstrap': async ({ workspaceId, refresh }) => ({ bootstrap: await bootstrapFor(workspaceId, refresh) }),
   'editor.prefs': async ({ patch }) => ({ prefs: await editorPrefs(patch) }),
@@ -408,6 +445,6 @@ export function registerDraftHandlers() {
     return true;
   });
   if (TEST_HOOKS) {
-    (globalThis as unknown as { __tbDrafts: unknown }).__tbDrafts = { saveDraft, getDraft, listDraftRows, openDraftInTab, putBlob, getBlob, deleteDraft, editorPrefs, syncSummaries };
+    (globalThis as unknown as { __tbDrafts: unknown }).__tbDrafts = { saveDraft, getDraft, listDraftRows, openDraftInTab, putBlob, getBlob, deleteDraft, editorPrefs, syncSummaries, setCaptureBridge };
   }
 }

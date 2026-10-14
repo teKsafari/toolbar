@@ -220,6 +220,7 @@
         flatFullBlobId: full,
       });
       const copied = await host.copy(res.shareUrl);
+      await host.openCapture?.(res, data.draft.tabId).catch(() => {});
       toasts.update(tid, { kind: 'success', message: copied ? 'Link copied. The capture opened in a new tab.' : 'Capture created. It opened in a new tab.' });
       if (res.issueError) toasts.error(`The capture is saved, but filing the issue failed: ${res.issueError}`);
       void host.savePrefs({
@@ -227,7 +228,7 @@
         lastWorkspaceId: workspaceId,
         lastDestination: destination.type === 'integration' ? { integrationId: destination.integrationId, fields: $state.snapshot(destination.fields) as Record<string, unknown> } : null,
       });
-      host.close('created');
+      host.close('created', { copied });
     } catch (e) {
       toasts.update(tid, { kind: 'error', message: e instanceof Error ? e.message : 'Could not create the capture', duration: 6000 });
       creating = false;
@@ -301,7 +302,14 @@
   }
 
   function onKey(e: KeyboardEvent) {
-    if (!data || creating) return;
+    if (creating) return;
+    // Escape works from the first frame, even while the draft is still loading (J-088)
+    if (e.key === 'Escape' && !data) {
+      e.preventDefault();
+      escape();
+      return;
+    }
+    if (!data) return;
     const mod = e.ctrlKey || e.metaKey;
     if (e.key === 'Enter' && mod) {
       e.preventDefault();
@@ -436,8 +444,10 @@
             src={data.videoUrl}
             {trim}
             fallbackDurationMs={data.draft.durationMs}
+            replayEvents={data.replayEvents ?? null}
+            startedAt={data.startedAt ?? null}
             onthumb={thumb}
-            placeholder={kind === 'replay' ? 'This replay has no video; the viewer replays the page' : 'No video in this draft'}
+            placeholder={kind === 'replay' ? 'Nothing was recorded for this replay' : 'No video in this draft'}
           />
         {/if}
       </div>

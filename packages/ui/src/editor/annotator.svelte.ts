@@ -420,9 +420,10 @@ export class AnnotatorState {
 
   pointerUp(p?: Pt) {
     const d = this.drag;
-    this.drag = null;
     if (!d) return;
+    // apply the release point first: under load the last pointermove can be coalesced away
     if (p) this.pointerMove(p);
+    this.drag = null;
     switch (d.kind) {
       case 'create': {
         const s = (this.draft ?? d.shape) as Shape;

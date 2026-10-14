@@ -21,6 +21,12 @@ export interface EditorBgRequests {
   /** Workspaces, folders and integrations for the pickers (J-080, J-081, J-079); null when signed out. */
   'editor.bootstrap': { req: { workspaceId?: string | null; refresh?: boolean }; res: { bootstrap: ExtBootstrap | null } };
   'editor.prefs': { req: { patch?: Partial<EditorPrefs> }; res: { prefs: EditorPrefs } };
+  /**
+   * Open a created capture (and its filed issue) in background tabs right of the source tab
+   * (J-086). The editor sends it after the link is on the clipboard, so the copy never races the
+   * new tab.
+   */
+  'editor.openCapture': { req: { recordingId: string; tabId: number; issueUrl?: string | null }; res: {} };
   /** Open a server page (integration settings) in a new tab next to the source tab. */
   'editor.openTab': { req: { url: string; tabId?: number }; res: {} };
 }

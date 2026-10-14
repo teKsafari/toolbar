@@ -1,15 +1,21 @@
 // Seeding drafts for the editor e2e through the test build's service worker hooks.
-import type { Page, Worker, FrameLocator } from '@playwright/test';
+import type { Page, Worker, FrameLocator, Locator } from '@playwright/test';
 import { EXT_ID } from '../../fixtures/extension.ts';
 
 export const MOCK_PORT = 3204;
 
-interface DraftHooks {
+export interface DraftHooks {
   saveDraft(d: unknown, blobs?: { id: string; blob: Blob }[]): Promise<void>;
   getDraft(id: string): Promise<Record<string, unknown> | undefined>;
   listDraftRows(): Promise<Record<string, unknown>[]>;
   openDraftInTab(tabId: number, id: string): Promise<void>;
   deleteDraft(id: string): Promise<unknown>;
+  setCaptureBridge(
+    b: {
+      uploadStreams?(d: Record<string, unknown>, recordingId: string): Promise<void>;
+      draftClosed?(draftId: string, how: string): Promise<void>;
+    } | null,
+  ): void;
 }
 declare const __tbDrafts: DraftHooks;
 
@@ -43,6 +49,10 @@ export interface SeedOptions {
   reopened?: boolean;
   recordingId?: string | null;
   status?: 'open' | 'saved';
+  /** rrweb events for a replay draft, stored as NDJSON like the capture area does */
+  rrweb?: unknown[];
+  startedAt?: number;
+  trim?: { startMs: number; endMs: number } | null;
 }
 
 /**
@@ -82,6 +92,8 @@ export async function seedDraft(sw: Worker, o: SeedOptions = {}): Promise<string
         screenshotBlobId = `${id}-shot`;
         blobs.push({ id: screenshotBlobId, blob: await draw(1000, 600, 'Shot') });
       }
+    } else if (o.rrweb) {
+      blobs.push({ id: `${id}-rrweb`, blob: new Blob([o.rrweb.map((e) => JSON.stringify(e)).join('\n') + '\n'], { type: 'application/x-ndjson' }) });
     } else if (o.videoBase64) {
       videoBlobId = `${id}-video`;
       const bin = Uint8Array.from(atob(o.videoBase64), (ch) => ch.charCodeAt(0));
@@ -99,7 +111,7 @@ export async function seedDraft(sw: Worker, o: SeedOptions = {}): Promise<string
       title: o.title ?? '',
       durationMs: o.durationMs ?? null,
       thumbBlobId: null,
-      recordingId: o.recordingId ?? (kind === 'screenshot' ? null : crypto.randomUUID()),
+      recordingId: o.recordingId !== undefined ? o.recordingId : kind === 'screenshot' ? null : crypto.randomUUID(),
       status: o.status ?? 'open',
       clientId: crypto.randomUUID(),
       tabId: o.tabId ?? -1,
@@ -112,7 +124,7 @@ export async function seedDraft(sw: Worker, o: SeedOptions = {}): Promise<string
       crop: o.crop ?? null,
       keepFull: true,
       annotations: [],
-      trim: null,
+      trim: o.trim ?? null,
       destination: { type: 'link' },
       attachmentBlobIds: [],
       aiAccepted: false,
@@ -120,6 +132,7 @@ export async function seedDraft(sw: Worker, o: SeedOptions = {}): Promise<string
       videoBlobId,
       ai: null,
       reopenedAt: o.reopened ? now : null,
+      ...(o.rrweb ? { rrwebBlobId: `${id}-rrweb`, startedAt: o.startedAt ?? now } : {}),
     };
     await __tbDrafts.saveDraft(draft, blobs);
     return id;
@@ -133,7 +146,21 @@ export const draftCount = (sw: Worker) => sw.evaluate(async () => (await __tbDra
 export async function openEditorTab(page: Page, draftId: string) {
   await page.goto(`chrome-extension://${EXT_ID}/editor.html?draft=${encodeURIComponent(draftId)}`);
   await page.getByTestId('editor').waitFor();
+  await page.getByTestId('field').waitFor();
+  await settled(page.getByTestId('annotator'));
   return page;
+}
+
+/** Wait until a box (if it exists) keeps its place for 300 ms, so mapped coordinates hold. */
+export async function settled(loc: Locator) {
+  if (!(await loc.count())) return;
+  let prev = await loc.boundingBox();
+  for (let i = 0; i < 30; i++) {
+    await new Promise((r) => setTimeout(r, 300));
+    const cur = await loc.boundingBox();
+    if (prev && cur && prev.x === cur.x && prev.y === cur.y && prev.width === cur.width && prev.height === cur.height) return;
+    prev = cur;
+  }
 }
 
 /** Tab id of a page, from the worker. */
@@ -154,5 +181,8 @@ export async function openEditorInPage(sw: Worker, page: Page, draftId: string):
   await page.locator('iframe[data-nb-editor]').waitFor();
   const frame = page.frameLocator('iframe[data-nb-editor]');
   await frame.getByTestId('editor').waitFor();
+  // the draft is loaded once its form field is there
+  await frame.getByTestId('field').waitFor();
+  await settled(frame.getByTestId('annotator'));
   return frame;
 }
