@@ -23,7 +23,7 @@ import {
 import { API_PREFIX, uuidv7 } from '../src/index.ts';
 
 const routes = ROUTE_LIST as readonly RouteDef[];
-const PAGE_PATHS = ['/s/', '/rl/', '/ext/connect', '/mcp', '/api/health'];
+const PAGE_PATHS = ['/s/', '/rl/', '/ext/connect', '/mcp', '/api/health', '/.well-known/'];
 
 describe('route table', () => {
   it('has unique names and unique method + path pairs', () => {
