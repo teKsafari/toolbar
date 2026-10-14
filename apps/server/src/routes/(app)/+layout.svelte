@@ -119,7 +119,7 @@
   @media (max-width: 860px) {
     .shell { grid-template-columns: minmax(0, 1fr); }
     aside {
-      position: fixed; z-index: 30; left: 0; top: 0; bottom: 0; width: 270px; transform: translateX(-100%);
+      position: fixed; z-index: 30; left: 0; top: 0; bottom: 0; width: 270px; transform: translateX(calc(-100% - 24px));
       transition: transform var(--nb-dur-med) var(--nb-ease-out); box-shadow: var(--nb-shadow-lg);
     }
     aside.open { transform: none; }

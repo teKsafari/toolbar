@@ -78,7 +78,7 @@
   .mobilebar { display: none; }
   @media (max-width: 860px) {
     .settings { grid-template-columns: minmax(0, 1fr); }
-    nav { position: fixed; z-index: 30; top: 52px; left: 0; bottom: 0; height: auto; width: 260px; transform: translateX(-100%); transition: transform var(--nb-dur-med) var(--nb-ease-out); box-shadow: var(--nb-shadow-lg); }
+    nav { position: fixed; z-index: 30; top: 52px; left: 0; bottom: 0; height: auto; width: 260px; transform: translateX(calc(-100% - 24px)); transition: transform var(--nb-dur-med) var(--nb-ease-out); box-shadow: var(--nb-shadow-lg); }
     nav.open { transform: none; }
     .mobilebar {
       position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; height: 52px; padding: 0 12px;
