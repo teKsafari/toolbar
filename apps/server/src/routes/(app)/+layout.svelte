@@ -1,9 +1,11 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { Button, Icon, type IconName } from '@toolbar/ui';
-  import { PRODUCT_NAME } from '@toolbar/shared';
+  import WorkspaceMenu from '#lib/components/auth/WorkspaceMenu.svelte';
+  import InviteDialog from '#lib/components/auth/InviteDialog.svelte';
 
   let { data, children } = $props();
+  let inviteOpen = $state(false);
   const nav: { href: string; label: string; icon: IconName }[] = [
     { href: '/', label: 'All captures', icon: 'home' },
     { href: '/?by=me', label: 'Created by me', icon: 'user' },
@@ -16,8 +18,7 @@
 <div class="shell">
   <aside>
     <div class="ws">
-      <span class="mark"><Icon name="logo" size={20} /></span>
-      <span class="ws-name">{data.workspaces[0]?.name ?? PRODUCT_NAME}</span>
+      <WorkspaceMenu workspaces={data.myWorkspaces} activeId={data.activeWorkspaceId} user={data.user} />
     </div>
     <nav>
       {#each nav as n (n.href)}
@@ -39,11 +40,17 @@
         <input type="text" placeholder="Search captures, people and folders" aria-label="Search" />
         <kbd>Ctrl K</kbd>
       </label>
-      <Button variant="primary" icon="plus">New capture</Button>
+      <span class="head-actions">
+        {#if data.activeWorkspace && data.activeWorkspace.role !== 'viewer'}
+          <Button icon="user" onclick={() => (inviteOpen = true)} data-testid="invite-button">Invite</Button>
+        {/if}
+        <Button variant="primary" icon="plus">New capture</Button>
+      </span>
     </header>
     <div class="content">{@render children()}</div>
   </div>
 </div>
+{#if data.activeWorkspace}<InviteDialog workspace={data.activeWorkspace} bind:open={inviteOpen} />{/if}
 
 <style>
   .shell { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
@@ -51,9 +58,8 @@
     display: flex; flex-direction: column; gap: var(--nb-space-1);
     padding: var(--nb-space-3); border-right: 1px solid var(--nb-border); background: var(--nb-surface-2);
   }
-  .ws { display: flex; align-items: center; gap: 8px; padding: 6px 8px 14px; font-weight: 600; }
-  .mark { color: var(--nb-accent-text); display: inline-flex; }
-  .ws-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ws { display: flex; align-items: center; padding: 0 0 10px; }
+  .head-actions { display: inline-flex; gap: var(--nb-space-2); }
   nav { display: flex; flex-direction: column; gap: 2px; }
   nav a {
     display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: var(--nb-radius-md);

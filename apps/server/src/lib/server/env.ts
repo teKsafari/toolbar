@@ -73,6 +73,8 @@ export function loadEnv() {
     extensionIds: read('EXTENSION_IDS').split(/[\s,]+/).filter(Boolean),
     auth: {
       emailPassword: flag('AUTH_EMAIL_PASSWORD', true),
+      /** work-email sign-in link by mail (J-217) */
+      magicLink: flag('AUTH_MAGIC_LINK', true),
       google: { clientId: read('GOOGLE_CLIENT_ID'), clientSecret: read('GOOGLE_CLIENT_SECRET') },
       github: { clientId: read('GITHUB_CLIENT_ID'), clientSecret: read('GITHUB_CLIENT_SECRET') },
       oidc: oidcProvidersFromEnv(),
