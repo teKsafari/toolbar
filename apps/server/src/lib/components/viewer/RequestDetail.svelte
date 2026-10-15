@@ -27,6 +27,40 @@
   $effect(() => {
     if (!subs.some((s) => s.id === sub)) sub = 'headers';
   });
+  // Frame list (J-062): direction, data, length and time, a regex filter, a direction filter and
+  // a pretty-printed pane for the selected frame. Binary frames show their size only (J-066).
+  type Dir = 'all' | 'send' | 'recv';
+  let frameQ = $state('');
+  let frameDir = $state<Dir>('all');
+  let frameSel = $state<number | null>(null);
+  const frameRe = $derived.by(() => {
+    if (!frameQ) return null;
+    try {
+      return new RegExp(frameQ, 'i');
+    } catch {
+      return 'bad' as const;
+    }
+  });
+  const isRecv = (op: string) => op === 'recv' || op === 'message';
+  const frameRows = $derived(
+    entry.frames
+      .map((f, i) => ({ f, i }))
+      .filter(({ f }) => {
+        if (frameDir === 'send' && f.op !== 'send') return false;
+        if (frameDir === 'recv' && !isRecv(f.op)) return false;
+        if (frameRe && frameRe !== 'bad') return frameRe.test(`${f.event ?? ''} ${f.data ?? ''}`);
+        return true;
+      }),
+  );
+  const selFrame = $derived(frameSel === null ? null : (entry.frames[frameSel] ?? null));
+  const selPretty = $derived(prettyBody(selFrame?.data ?? null));
+  $effect(() => {
+    void entry.rid;
+    frameSel = null;
+  });
+  const dirLabel = (f: { op: string; event: string | null }) => (f.op === 'send' ? 'sent' : isRecv(f.op) ? 'received' : f.op) + (f.event ? ` ${f.event}` : '');
+  const frameText = (f: { binary: boolean; data: string | null; length: number | null; op: string }) =>
+    f.binary ? `Binary frame, ${f.length != null ? fmtBytes(f.length) : 'size unknown'}` : (f.data ?? '');
   const resp = $derived(prettyBody(entry.responseBody));
   const payload = $derived(prettyBody(entry.requestBody));
 
@@ -80,11 +114,39 @@
       {#if entry.requestBody}<pre class:json={payload.json}>{payload.text}</pre>{:else}<p class="none">This request had no body.</p>{/if}
     {:else if sub === 'response'}
       {#if stream}
+        <div class="ffilter" data-testid="frame-filters">
+          <input type="search" placeholder="Filter frames (regex)" aria-label="Filter frames by regular expression" bind:value={frameQ} class:bad={frameRe === 'bad'} data-testid="frame-filter" />
+          <div class="seg" role="radiogroup" aria-label="Direction">
+            {#each [['all', 'All'], ['send', 'Sent'], ['recv', 'Received']] as [id, label] (id)}
+              <button type="button" role="radio" aria-checked={frameDir === id} class:on={frameDir === id} onclick={() => (frameDir = id as Dir)} data-testid="frame-dir-{id}">{label}</button>
+            {/each}
+          </div>
+          <span class="count" data-testid="frame-count">{frameRows.length} of {entry.frames.length}</span>
+        </div>
+        {#if frameRe === 'bad'}<p class="none">That is not a valid regular expression.</p>{/if}
         <ol class="frames" data-testid="frames">
-          {#each entry.frames as f, i (i)}
-            <li class="op-{f.op}"><span class="t">{fmtClock(f.at)}</span><span class="op">{f.op === 'send' ? 'sent' : f.op === 'recv' || f.op === 'message' ? 'received' : f.op}{f.event ? ` ${f.event}` : ''}</span><code>{f.data ?? ''}</code></li>
+          <li class="fhead" aria-hidden="true"><span>Time</span><span>Direction</span><span>Length</span><span>Data</span></li>
+          {#each frameRows as { f, i } (i)}
+            <li class="op-{f.op}" class:sel={frameSel === i} data-testid="frame">
+              <button type="button" onclick={() => (frameSel = frameSel === i ? null : i)} aria-pressed={frameSel === i}>
+                <span class="t">{fmtClock(f.at)}</span>
+                <span class="op">{dirLabel(f)}</span>
+                <span class="len" data-testid="frame-length">{f.length != null ? fmtBytes(f.length) : ''}</span>
+                <code class:bin={f.binary} data-testid="frame-data">{frameText(f)}</code>
+              </button>
+            </li>
+          {:else}
+            <li class="empty"><span class="none">No frames match.</span></li>
           {/each}
         </ol>
+        {#if selFrame}
+          <div class="fdetail" data-testid="frame-detail">
+            <h4>{dirLabel(selFrame)} at {fmtClock(selFrame.at)}{selFrame.length != null ? `, ${fmtBytes(selFrame.length)}` : ''}{selFrame.truncated ? ' (cut)' : ''}</h4>
+            {#if selFrame.binary}<p class="none">{frameText(selFrame)}. Binary payloads are not kept.</p>
+            {:else if selFrame.data}<pre class:json={selPretty.json}>{selPretty.text}</pre>
+            {:else}<p class="none">No data.</p>{/if}
+          </div>
+        {/if}
       {:else if entry.responseBody}
         <pre class:json={resp.json} data-testid="response-body">{resp.text}</pre>
       {:else}<p class="none">{entry.state === 'pending' ? 'No response arrived before the capture ended.' : 'No response body was captured.'}</p>{/if}
@@ -129,9 +191,22 @@
   pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
   .none { color: var(--nb-text-muted); font-family: var(--nb-font-sans); }
   .frames { list-style: none; margin: 0; padding: 0; }
-  .frames li { display: grid; grid-template-columns: 40px 70px 1fr; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--nb-border); }
+  .ffilter { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+  .ffilter input { flex: 1; min-width: 120px; height: 26px; padding: 0 8px; border-radius: var(--nb-radius-sm); border: 1px solid var(--nb-border-strong); background: var(--nb-surface); color: var(--nb-text); font: inherit; }
+  .ffilter input.bad { border-color: var(--nb-danger); }
+  .seg { display: inline-flex; border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-sm); overflow: hidden; }
+  .seg button { all: unset; padding: 3px 8px; font: var(--nb-text-sm) var(--nb-font-sans); color: var(--nb-text-muted); cursor: pointer; }
+  .seg button.on { background: var(--nb-surface-sunken); color: var(--nb-text); }
+  .count { color: var(--nb-text-faint); font-family: var(--nb-font-sans); }
+  .frames li > button, .frames .fhead { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 40px 76px 60px 1fr; gap: 8px; padding: 3px 0; cursor: pointer; }
+  .frames .fhead { cursor: default; color: var(--nb-text-faint); font: 600 var(--nb-text-xs) var(--nb-font-sans); }
+  .frames li { border-bottom: 1px solid var(--nb-border); }
+  .frames li.sel { background: var(--nb-surface-sunken); }
+  .frames .len { color: var(--nb-text-muted); text-align: right; }
+  .frames code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .frames code.bin { color: var(--nb-text-muted); font-style: italic; }
+  .fdetail { margin-top: 10px; border-top: 1px solid var(--nb-border); }
   .frames .t { color: var(--nb-text-faint); }
   .frames .op-send .op { color: var(--nb-accent-text); }
   .frames .op-recv .op, .frames .op-message .op { color: var(--nb-success); }
-  .frames code { word-break: break-all; }
 </style>

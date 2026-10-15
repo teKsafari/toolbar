@@ -81,8 +81,9 @@ describe('network', () => {
     expect(order.type).toBe('fetch');
     expect(net.find((n) => n.host === 'localhost:5174')!.type).toBe('image');
     const ws = net.find((n) => n.type === 'websocket')!;
-    expect(ws.wsFrames).toBe(2);
-    expect(ws.frames.map((f) => f.op)).toEqual(['open', 'send', 'recv']);
+    expect(ws.wsFrames).toBe(3);
+    expect(ws.frames.map((f) => f.op)).toEqual(['open', 'send', 'recv', 'recv']);
+    expect(ws.frames.at(-1)).toMatchObject({ binary: true, length: 2048, data: null });
   });
 
   it('filters by chip, text and errors only, and sorts', () => {

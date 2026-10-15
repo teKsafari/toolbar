@@ -6,6 +6,7 @@ import { buildPath, ROUTES, type CaptureDetail, type CaptureSummary } from '@too
 import { db } from '#lib/server/db/index.ts';
 import { annotation, asset, comment, folder, recordingChunk, recordingLink, recordingStream, transcript, user } from '#lib/server/db/schema/index.ts';
 import { env } from '#lib/server/env.ts';
+import { videoRenditions } from '#lib/server/media/proxy.ts';
 import type { RecordingRow, ViewerCtx } from './access.ts';
 import { indexOf, loadEvents } from './events.ts';
 
@@ -118,7 +119,7 @@ export async function captureDetail(ctx: ViewerCtx): Promise<CaptureDetail> {
             width: (env0 as { viewport?: { w: number } } | null)?.viewport?.w ?? null,
             height: (env0 as { viewport?: { h: number } } | null)?.viewport?.h ?? null,
             durationMs: rec.durationMs,
-            renditions: [{ label: 'Original', height: null, url: `${base}/video` }],
+            renditions: videoRenditions(rec, base),
           }
         : null,
       screenshot: crop ? toAsset(crop, 'screenshot') : shot ? toAsset(shot, 'screenshot') : null,

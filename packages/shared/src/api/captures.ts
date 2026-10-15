@@ -580,7 +580,7 @@ export const queryNetwork = defineRoute({
   errors: ['unauthorized', 'forbidden', 'not_found', 'invalid_query'],
   area: 'agent',
   tasks: ['J-105', 'J-149', 'J-247'],
-  summary: 'Merged requests with status, type, method and host filters; bodies and headers on request (an improvement over Jam: headers too).',
+  summary: 'Merged requests with status, type, method and host filters; bodies and headers on request.',
 });
 
 export const wsFrameSchema = z.object({

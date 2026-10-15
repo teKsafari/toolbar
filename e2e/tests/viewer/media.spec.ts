@@ -77,6 +77,27 @@ test.describe('member page', () => {
     await expect.poll(() => videoTime(page)).toBeLessThan(2);
   });
 
+  test('J-054 quality menu lists the renditions on the member and share pages, and 240p plays', async ({ page }) => {
+    const labels = ['Original', '480p', '360p', '240p', 'Auto'];
+    for (const url of [captureUrl(IDS.video), shareUrl(IDS.video)]) {
+      // the seed queues the renditions job; the worker needs a few seconds after a reseed
+      await expect
+        .poll(
+          async () => {
+            await open(page, url);
+            await page.getByTestId('quality').click();
+            return page.getByRole('menuitem').allTextContents();
+          },
+          { timeout: budget(60_000), intervals: [2000] },
+        )
+        .toEqual(labels);
+      await page.getByRole('menuitem', { name: '240p' }).click();
+      const video = page.getByTestId('video');
+      await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentSrc)).toMatch(/\/media\/video-240$/);
+      await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.videoHeight), { timeout: budget(10_000) }).toBe(240);
+    }
+  });
+
   test('J-093 keyboard: k, space, m, f, arrows, digits', async ({ page }) => {
     await open(page, captureUrl(IDS.video));
     await page.locator('body').click({ position: { x: 5, y: 300 } });

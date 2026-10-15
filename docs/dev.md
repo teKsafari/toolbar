@@ -18,7 +18,7 @@ Internal packages ship TypeScript source (`exports` point at `src/*.ts`); Vite a
 
 ## Requirements
 
-Node 24, pnpm 11.27 (`corepack enable` picks it up from `packageManager`), Docker with compose. For e2e: Xvfb, and openbox if you want the screen picker (on this VM: `nix profile add nixpkgs#xorg.xvfb nixpkgs#openbox`).
+Node 24, pnpm 11.27 (`corepack enable` picks it up from `packageManager`; where Node lives in a read-only store, as on NixOS, `corepack enable` fails: use `corepack pnpm@11.27.0 ...`, `npm i -g pnpm@11.27.0`, or a pnpm already on `PATH`), Docker with compose. For e2e: Xvfb, and openbox if you want the screen picker (on this VM: `nix profile add nixpkgs#xorg.xvfb nixpkgs#openbox`).
 
 ## Ports
 

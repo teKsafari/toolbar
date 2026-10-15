@@ -142,6 +142,23 @@ describe('derive: network, console, actions', () => {
     expect(querySocketFrames(p, 'nope', {})).toBeNull();
   });
 
+  it('keeps frame length and marks binary frames, which carry no data (J-062, J-066)', () => {
+    const evs = events();
+    const last = evs[evs.length - 1]!;
+    evs.push({ ...last, t: last.t + 50, kind: 'ws', data: { sid: 'w1', op: 'recv', binary: true, length: 2048 } } as CaptureEvent);
+    const q = prepare(evs, T0, true);
+    const rid = q.network.find((r) => r.type === 'websocket')!.rid;
+    const frames = q.network.find((r) => r.rid === rid)!.frames;
+    expect(frames.map((f) => [f.op, f.length, f.binary])).toEqual([
+      ['open', null, false],
+      ['send', 11, false],
+      ['recv', 10, false],
+      ['recv', 2048, true],
+    ]);
+    const bin = querySocketFrames(q, rid, { direction: 'recv' })!.items.at(-1)!;
+    expect(bin).toMatchObject({ binary: true, length: 2048, data: null });
+  });
+
   it('merges console with errors and failed requests, filtered by level and window', () => {
     const errs = queryConsole(p, { levels: ['error'] }).items;
     expect(errs.map((r) => r.kind)).toEqual(['network', 'error']);

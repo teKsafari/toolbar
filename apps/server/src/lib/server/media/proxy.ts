@@ -2,12 +2,10 @@
 // URL points here, at /api/v1/recordings/:id/media/:name (members) or /s/:token/media/:name
 // (share links). Names: video, video-720 .. video-240, screenshot, full, thumb, voice, events,
 // rrweb-000.., transcript, or an asset id of the capture.
-import { and, asc, eq } from 'drizzle-orm';
-import type { CaptureMedia } from '@toolbar/shared/api';
+import { and, eq } from 'drizzle-orm';
 import type { Db } from '../db/index.ts';
 import { asset, recordingChunk, recordingStream, transcript } from '../db/schema/index.ts';
 import { getObject, keys, presignGet } from '../s3.ts';
-import { env } from '../env.ts';
 import type { RecordingRow } from '../share/access.ts';
 import { errorJson } from '../share/http.ts';
 
@@ -163,57 +161,11 @@ function rangeNotSatisfiable() {
   return new Response(null, { status: 416, headers: { 'content-range': 'bytes */*' } });
 }
 
-/** Media URLs for captureDetailSchema.media, against the member proxy or a share token's proxy. */
-export async function captureMedia(db: Db, rec: RecordingRow, via: { shareToken?: string; devtools?: boolean } = {}): Promise<CaptureMedia> {
-  const devtools = via.devtools !== false;
-  const base = via.shareToken ? `${env.publicUrl}/s/${via.shareToken}/media` : `${env.publicUrl}/api/v1/recordings/${rec.id}/media`;
-  const u = (name: string) => `${base}/${name}`;
-  const streams = await db.select().from(recordingStream).where(eq(recordingStream.recordingId, rec.id));
-  const byName = new Map(streams.map((s) => [s.name, s]));
-  const assets = await db.select().from(asset).where(eq(asset.recordingId, rec.id));
-  const { main, full } = pickScreenshots(assets);
-  const rrweb = await db
-    .select({ seq: recordingChunk.seq })
-    .from(recordingChunk)
-    .where(and(eq(recordingChunk.recordingId, rec.id), eq(recordingChunk.stream, 'rrweb')))
-    .orderBy(asc(recordingChunk.seq));
-  const [tr] = await db
-    .select({ status: transcript.status })
-    .from(transcript)
-    .where(eq(transcript.recordingId, rec.id))
-    .limit(1);
-  const renditions = (rec.renditions as Rendition[] | null) ?? [];
-  const video = byName.get('video')?.finalKey
-    ? {
-        url: u('video'),
-        mime: 'video/webm',
-        width: rec.videoWidth,
-        height: rec.videoHeight,
-        durationMs: rec.durationMs,
-        renditions: [
-          { label: 'Original', height: rec.videoHeight, url: u('video') },
-          ...renditions.filter((r) => r.height !== null).map((r) => ({ label: `${r.height}p`, height: r.height, url: u(`video-${r.height}`) })),
-        ],
-      }
-    : null;
-  const assetDto = (a: AssetRow, url: string) => ({
-    id: a.id,
-    kind: a.kind,
-    url,
-    contentType: a.contentType,
-    width: a.width,
-    height: a.height,
-    bytes: a.bytes,
-    name: a.name,
-  });
-  return {
-    video,
-    screenshot: main ? assetDto(main, u('screenshot')) : null,
-    fullScreenshot: full ? assetDto(full, u('full')) : null,
-    thumbUrl: rec.thumbKey ? u('thumb') : null,
-    eventsUrl: devtools && (byName.get('events')?.finalKey || rec.status === 'ready') ? u('events') : null,
-    rrwebUrls: (devtools ? rrweb : []).map((r) => u(`rrweb-${String(r.seq).padStart(3, '0')}`)),
-    voiceUrl: byName.get('voice')?.finalKey ? u('voice') : null,
-    transcriptVttUrl: tr?.status === 'done' ? u('transcript') : null,
-  };
+/** Quality menu entries (J-054): the original, then each rendition the ffmpeg job finished. */
+export function videoRenditions(rec: Pick<RecordingRow, 'renditions' | 'videoHeight'>, base: string) {
+  const done = ((rec.renditions as Rendition[] | null) ?? []).filter((r) => r.height !== null);
+  return [
+    { label: 'Original', height: rec.videoHeight ?? null, url: `${base}/video` },
+    ...done.map((r) => ({ label: `${r.height}p`, height: r.height, url: `${base}/video-${r.height}` })),
+  ];
 }

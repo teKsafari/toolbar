@@ -414,6 +414,16 @@ const sections: Record<string, () => Promise<void>> = {
     }
     ok(list.map((r) => r.height).join(',') === '720,480,360,240', `1080p original: renditions ${list.map((r) => r.height).join(',')}`);
     ok((await call('GET', `/api/v1/recordings/${c.data.id}/media/video-720`, { headers: { range: 'bytes=0-99' } })).status === 206, 'video-720 served with Range');
+    // the viewer's quality menu reads these from the capture detail, for members and share links
+    const labels = (d: any) => (d?.media?.video?.renditions ?? []).map((r: { label: string }) => r.label).join(',');
+    const member = (await call('GET', `/api/v1/recordings/${c.data.id}`)).data;
+    ok(labels(member) === 'Original,720p,480p,360p,240p', `capture detail lists the renditions: ${labels(member)}`);
+    const tok = c.data.shareUrl.split('/s/')[1] as string;
+    const shared = (await call('GET', `/api/v1/recordings/${c.data.id}`, { token: null, headers: { 'x-nib-share': tok } })).data;
+    const r240 = (shared?.media?.video?.renditions ?? []).find((x: { label: string }) => x.label === '240p');
+    ok(labels(shared) === labels(member) && r240?.url.endsWith(`/s/${tok}/media/video-240`), `share viewer gets the same menu on the share proxy: ${labels(shared)}`);
+    const via = await call('GET', new URL(r240?.url ?? '/none', S).pathname, { token: null, headers: { range: 'bytes=0-99' } });
+    ok(via.status === 206 && via.headers.get('content-type') === 'video/webm', 'the 240p menu entry plays through the share proxy');
   },
 
   async transcript() {

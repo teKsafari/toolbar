@@ -16,6 +16,7 @@ import { db, sqlClient } from '../src/lib/server/db/index.ts';
 import * as t from '../src/lib/server/db/schema/index.ts';
 import { env } from '../src/lib/server/env.ts';
 import { keys, putObject } from '../src/lib/server/s3.ts';
+import { enqueue } from '../src/lib/server/jobs/queue.ts';
 import { seal } from '../src/lib/server/crypto.ts';
 import { hashToken } from '../src/lib/server/tokens.ts';
 import { commentedEvents, FIXTURE_T0, LAB, screenshotEvents, sortEvents, tabVideoEvents } from '../fixtures/events.ts';
@@ -252,6 +253,8 @@ async function main() {
       await put(keys.final(id, 'thumb.webp'), fixture('tab-video.thumb.webp'), 'image/webp');
     }
     await put(keys.final(s, 'thumb.webp'), fixture('screenshot.thumb.webp'), 'image/webp');
+    // the server's worker makes 480p, 360p and 240p from the 720p video for the quality menu (J-054)
+    await enqueue(db, 'renditions', { recordingId: v });
     await put(keys.asset(s, cropId), fixture('screenshot.png'), 'image/png');
     await put(keys.asset(s, fullId), fixture('screenshot-full.png'), 'image/png');
   }

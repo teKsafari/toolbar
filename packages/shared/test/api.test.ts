@@ -53,6 +53,11 @@ describe('route table', () => {
     }
   });
 
+  it('keeps the reference product out of route summaries, which /settings/api shows', () => {
+    const named = ROUTE_LIST.filter((r) => /\bjam\b/i.test(r.summary)).map((r) => r.name);
+    expect(named).toEqual([]);
+  });
+
   it('exposes routes by name', () => {
     expect(ROUTES['captures.finalize'].path).toBe('/api/v1/recordings/:id/finalize');
     expect(ROUTES['captures.create'].status).toBe(201);

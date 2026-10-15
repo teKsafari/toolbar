@@ -214,6 +214,9 @@ export function tabVideoEvents(t0 = FIXTURE_T0): CaptureEvent[] {
   emit('top', 'marker', { type: 'mark', label: 'pen' });
   at(7990);
   emit('off', 'media', { stream: 'video', op: 'stop' });
+  // A binary socket frame at 4.85 s (J-066), emitted last so the earlier events keep their ids.
+  at(4850);
+  emit('top', 'ws', { sid: 'ws-0', op: 'recv', binary: true, length: 2048 });
   return out;
 }
 

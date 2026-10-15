@@ -155,9 +155,37 @@ test('J-106 J-185 detail pane: two-column list, sub-tabs, status dot, masked hea
   await expect(page.getByTestId('sub-response')).toHaveText('Messages');
   await expect(page.getByTestId('sub-payload')).toHaveCount(0);
   await page.getByTestId('sub-response').click();
-  await expect(page.getByTestId('frames').locator('li')).toHaveCount(3);
+  await expect(page.getByTestId('frame')).toHaveCount(4);
   await page.getByTestId('close-detail').click();
   await expect(pane).toHaveCount(0);
+});
+
+test('J-062 J-066 socket frames: length, regex and direction filters, detail, binary placeholder', async ({ page }) => {
+  await open(page, captureUrl(IDS.video));
+  await ready(page);
+  await tab(page, 'network');
+  await page.locator('[data-rid="ws:top:ws-0"]').click();
+  await page.getByTestId('sub-response').click();
+  const frames = page.getByTestId('frame');
+  await expect(frames).toHaveCount(4);
+  await expect(frames.nth(1)).toContainText('sent');
+  await expect(frames.nth(1).getByTestId('frame-length')).toHaveText('16 B');
+  // binary frame: size only
+  await expect(frames.nth(3).getByTestId('frame-data')).toHaveText('Binary frame, 2.0 kB');
+  await expect(frames.nth(3).getByTestId('frame-length')).toHaveText('2.0 kB');
+  await page.getByTestId('frame-dir-send').click();
+  await expect(frames).toHaveCount(1);
+  await page.getByTestId('frame-dir-recv').click();
+  await expect(frames).toHaveCount(2);
+  await page.getByTestId('frame-dir-all').click();
+  await page.getByTestId('frame-filter').fill('"n":\\s*\\d');
+  await expect(frames).toHaveCount(1);
+  await expect(page.getByTestId('frame-count')).toHaveText('1 of 4');
+  await page.getByTestId('frame-filter').fill('(');
+  await expect(page.getByTestId('frame-filter')).toHaveClass(/bad/);
+  await page.getByTestId('frame-filter').fill('');
+  await frames.nth(2).locator('button').click();
+  await expect(page.getByTestId('frame-detail').locator('pre')).toContainText('"type": "tick"');
 });
 
 test('J-243 Up and Down step through requests and keep the sub-tab', async ({ page }) => {

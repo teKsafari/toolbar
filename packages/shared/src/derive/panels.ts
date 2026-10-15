@@ -26,6 +26,11 @@ export interface WsFrameRow {
   op: 'open' | 'send' | 'recv' | 'close' | 'error' | 'message';
   data: string | null;
   event: string | null;
+  /** Payload size in bytes as captured; for SSE and old captures, the text length. */
+  length: number | null;
+  /** Binary frame: only its size was kept (J-066). */
+  binary: boolean;
+  truncated: boolean;
 }
 
 const LEVEL_OF: Partial<Record<ConsoleLevel, ConsoleRow['level']>> = {
@@ -209,6 +214,9 @@ export function deriveNetwork(events: readonly CaptureEvent[], map: TimeMap): Ne
         op,
         data: e.data.data ?? null,
         event: e.kind === 'sse' ? (e.data.event ?? null) : null,
+        length: (e.kind === 'ws' ? e.data.length : undefined) ?? (e.data.data != null ? e.data.data.length : null),
+        binary: e.kind === 'ws' && !!e.data.binary,
+        truncated: e.kind === 'ws' && !!e.data.truncated,
       });
     }
   }
@@ -318,7 +326,7 @@ export function deriveNetwork(events: readonly CaptureEvent[], map: TimeMap): Ne
       frame: s.first.ctx === 'sw' ? 'top' : s.first.ctx,
       tabId: null,
       durationMs: s.closed ? last.t - s.first.t : null,
-      size: s.frames.reduce((n, f) => n + (f.data?.length ?? 0), 0),
+      size: s.frames.reduce((n, f) => n + (f.length ?? 0), 0),
       contentType: s.kind === 'sse' ? 'text/event-stream' : null,
       timing: null,
       requestHeaders: {},

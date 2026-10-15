@@ -200,8 +200,8 @@ export function querySocketFrames(p: Prepared, rid: string, q: FramesQuery) {
       videoMs: Math.round(f.at),
       op: f.op,
       data: f.data,
-      binary: false,
-      length: f.data?.length ?? 0,
+      binary: f.binary,
+      length: f.length ?? 0,
       event: f.event,
     }));
   return pageItems(rows, q);

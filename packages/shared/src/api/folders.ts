@@ -99,7 +99,7 @@ export const deleteFolder = defineRoute({
   response: z.object({ ok: z.literal(true), deletedCaptures: z.number().int().nonnegative() }),
   area: 'dashboard',
   tasks: ['J-164'],
-  summary: 'Delete a folder and the captures in it (as Jam does), after the UI confirms.',
+  summary: 'Delete a folder and the captures in it, after the UI confirms.',
 });
 
 export const folderShareSchema = z.object({
