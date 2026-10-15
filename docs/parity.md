@@ -67,7 +67,7 @@ One row per P0 and P1 catalogue ID (73 P0, 106 P1). The scenarios that fill each
 | J-073 | capture | P1 | | | | | |
 | J-074 | server-core | P1 | | | | | |
 | J-077 | editor | P0 | | | | | |
-| J-079 | editor | P0 | | | | | |
+| J-079 | editor | P0 | - | - | - | paused | docs/scope.md (owner) |
 | J-080 | editor | P1 | | | | | |
 | J-081 | editor | P1 | | | | | |
 | J-083 | editor | P1 | | | | | |
@@ -109,11 +109,11 @@ One row per P0 and P1 catalogue ID (73 P0, 106 P1). The scenarios that fill each
 | J-131 | viewer | P1 | | | | | |
 | J-134 | viewer | P1 | | | | | |
 | J-135 | viewer | P1 | | | | | |
-| J-136 | dashboard | P1 | | | | | |
-| J-137 | dashboard | P1 | | | | | |
-| J-138 | dashboard | P1 | | | | | |
-| J-139 | dashboard | P1 | | | | | |
-| J-140 | dashboard | P1 | | | | | |
+| J-136 | dashboard | P1 | - | - | - | paused | docs/scope.md (owner) |
+| J-137 | dashboard | P1 | - | - | - | paused | docs/scope.md (owner) |
+| J-138 | dashboard | P1 | - | - | - | paused | docs/scope.md (owner) |
+| J-139 | dashboard | P1 | - | - | - | paused | docs/scope.md (owner) |
+| J-140 | dashboard | P1 | - | - | - | paused | docs/scope.md (owner) |
 | J-142 | dashboard | P1 | | | | | |
 | J-145 | agent | P0 | | | | | |
 | J-146 | agent | P0 | | | | | |
@@ -124,7 +124,7 @@ One row per P0 and P1 catalogue ID (73 P0, 106 P1). The scenarios that fill each
 | J-151 | agent | P1 | | | | | |
 | J-152 | agent | P1 | | | | | |
 | J-153 | agent | P0 | | | | | |
-| J-155 | agent | P1 | | | | | |
+| J-155 | agent | P1 | - | - | - | paused | docs/scope.md (owner) |
 | J-158 | dashboard | P0 | | | | | |
 | J-159 | dashboard | P1 | | | | | |
 | J-160 | dashboard | P1 | | | | | |
@@ -178,14 +178,14 @@ One row per P0 and P1 catalogue ID (73 P0, 106 P1). The scenarios that fill each
 | J-238 | ext-ui | P1 | | | | | |
 | J-239 | ext-ui | P1 | | | | | |
 | J-240 | editor | P1 | | | | | |
-| J-241 | dashboard | P1 | | | | | |
-| J-242 | dashboard | P1 | | | | | |
+| J-241 | dashboard | P1 | - | - | - | paused | docs/scope.md (owner) |
+| J-242 | dashboard | P1 | - | - | - | paused | docs/scope.md (owner) |
 | J-243 | viewer | P1 | | | | | |
-| J-244 | agent | P1 | | | | | |
-| J-245 | agent | P1 | | | | | |
-| J-246 | agent | P1 | | | | | |
-| J-247 | agent | P1 | | | | | |
+| J-244 | agent | P1 | - | - | - | paused | docs/scope.md (owner) |
+| J-245 | agent | P1 | - | - | - | paused | docs/scope.md (owner) |
+| J-246 | agent | P1 | - | - | - | paused | docs/scope.md (owner) |
+| J-247 | agent | P1 | - | - | - | paused | docs/scope.md (owner) |
 | J-248 | capture | P1 | | | | | |
 | J-249 | dashboard | P1 | | | | | |
 | J-250 | ext-ui | P1 | | | | | |
-| J-251 | dashboard | P1 | | | | | |
+| J-251 | dashboard | P1 | - | - | - | paused | docs/scope.md (owner) |

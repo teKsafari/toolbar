@@ -440,6 +440,9 @@ Evidence: popover shots, the signed-out page at 1440 and 390 in light and dark, 
 
 ### S5.2 Comments and notifications
 
+> **Partly PAUSED (docs/scope.md):** skip every Mailpit, email, magic-link, Google or GitHub sign-in check. Notification settings (J-136) are paused. Invites are by link only. Keep everything else.
+
+
 Jam capture: N1 and N4. Proves J-127, J-128, J-131, J-134, J-135, J-136.
 
 1. On N1 seek to 0:05. Click the composer: the send button names 0:05. Type two lines with Enter between them, send with Ctrl+Enter. Time the composer clearing (J-127).
@@ -452,6 +455,9 @@ Jam capture: N1 and N4. Proves J-127, J-128, J-131, J-134, J-135, J-136.
 Evidence: comment shots, composer clear time, notification page at 1440 and 390 in light and dark, Mailpit messages (Nib).
 
 ### S5.3 Folder sharing, invites and roles
+
+> **Partly PAUSED (docs/scope.md):** skip every Mailpit, email, magic-link, Google or GitHub sign-in check. Notification settings (J-136) are paused. Invites are by link only. Keep everything else.
+
 
 Jam capture: none. Proves J-122, J-123, J-124. On Jam nothing is sent: no invites, per the account rule.
 
@@ -510,6 +516,9 @@ Rows: J-114, J-137, J-138, J-139, J-140, J-142, J-171, J-172, J-173, J-176, J-18
 
 ### S7.1 Settings pages, members, workspaces and sign-in
 
+> **Partly PAUSED (docs/scope.md):** skip every Mailpit, email, magic-link, Google or GitHub sign-in check. Notification settings (J-136) are paused. Invites are by link only. Keep everything else.
+
+
 Jam capture: none. On Jam this scenario only looks: no workspace is created and no role or setting is changed. Proves J-171, J-172, J-173, J-222, J-221, J-249, J-217.
 
 1. From the dashboard open settings through the workspace menu (2 clicks). Shoot the layout: back link, the nav groups and their order (J-171).
@@ -536,6 +545,9 @@ Jam capture: NEW N7. Proves J-176, J-190.
 Evidence: settings shots (popup, 1440 only), the actions tab of N7.
 
 ### S7.3 Integrations
+
+> **PAUSED by owner (docs/scope.md).** Do not run this on either product. Mark its rows "paused" in docs/parity.md.
+
 
 Jam capture: none. On Jam nothing is connected (account rule; `docs/jam/untested.md`), so its column holds the menus and pages it shows and its public docs. Nib runs every check against the stand-ins in `e2e/fixtures/net.ts`. Proves J-137, J-138, J-139, J-140, J-251, J-241, J-242, J-142.
 
@@ -584,6 +596,9 @@ Jam capture: N1. Proves J-145, J-146, J-147, J-148, J-149, J-150, J-151, J-152, 
 Evidence: page and consent shots at 1440 and 390 in light and dark, entry counts per tool next to the viewer counts, the markdown (Nib in git, Jam private), click counts.
 
 ### S8.2 CLI
+
+> **PAUSED by owner (docs/scope.md).** Do not run this on either product. Mark its rows "paused" in docs/parity.md.
+
 
 Jam capture: none. Jam's CLI is public doc only and installing it would bring Jam's code onto this machine, so the Jam side is its settings page plus the docs. Proves J-155, J-244, J-245, J-246, J-247.
 
