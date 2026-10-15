@@ -38,7 +38,8 @@ export default defineConfig({
     }),
   ],
   // DEV_PORT lets area worktrees run side by side (docs/parallel.md: 3100 + area index).
-  server: { port: devPort, strictPort: true, host: true },
+  // host.docker.internal: containers on this machine (the injector's compose test) call the dev server.
+  server: { port: devPort, strictPort: true, host: true, allowedHosts: ['host.docker.internal'] },
   preview: { port: devPort, strictPort: true },
   test: { include: ['src/**/*.test.ts', 'test/**/*.test.ts'], environment: 'node' },
 });

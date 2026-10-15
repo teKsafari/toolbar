@@ -68,7 +68,7 @@ export interface CreateCaptureInput {
   page: { url: string; title: string };
   startedAt: number;
   env?: unknown;
-  source?: 'extension' | 'recording-link' | 'upload' | 'cli';
+  source?: 'extension' | 'recording-link' | 'upload' | 'cli' | 'injector';
   durationMs?: number;
 }
 

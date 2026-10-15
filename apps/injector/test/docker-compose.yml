@@ -1,0 +1,24 @@
+# Compose test (D-117): the injector in front of the lab app, sending uploads to an open-toolbar
+# server. Run through apps/injector/test/run.sh, which starts it, runs
+# e2e/injector/injector.spec.ts in a browser without the extension, and stops it.
+#
+# The lab (user service toolbar-lab, :5173) and the server (any dev server, SERVER_URL) run on
+# the host; the container reaches both through host-gateway.
+name: tb-injector-test
+services:
+  injector:
+    build:
+      context: ../../..
+      dockerfile: apps/injector/Dockerfile
+    image: open-toolbar-injector:dev
+    ports:
+      - '${INJECTOR_PORT:-3506}:8080'
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    environment:
+      INJECTOR_UPSTREAM: ${LAB_UPSTREAM:-http://host.docker.internal:5173}
+      TOOLBAR_SERVER_URL: ${INJECTOR_SERVER_URL:-http://host.docker.internal:3306}
+      TOOLBAR_PUBLIC_URL: ${SERVER_URL:-http://localhost:3306}
+      INJECTOR_SECRET: ${INJECTOR_SECRET:?set INJECTOR_SECRET to the server's value}
+      # the browser talks to the injector directly here, with no Traefik in front
+      INJECTOR_TRUST_FORWARDED: '0'

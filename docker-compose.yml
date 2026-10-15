@@ -70,6 +70,10 @@ services:
       APP_LOGO_DARK_URL: ${APP_LOGO_DARK_URL:-}
       APP_ACCENT: ${APP_ACCENT:-}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      # the injector (apps/injector/README.md): off while INJECTOR_SECRET is empty
+      INJECTOR_SECRET: ${INJECTOR_SECRET:-}
+      INJECTOR_ORIGINS: ${INJECTOR_ORIGINS:-}
+      INJECTOR_COOKIE_DAYS: ${INJECTOR_COOKIE_DAYS:-7}
     depends_on:
       postgres: { condition: service_healthy }
       garage: { condition: service_healthy }

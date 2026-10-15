@@ -163,6 +163,19 @@ export function loadEnv() {
       .split(/[\s,]+/)
       .map((e) => e.trim().toLowerCase())
       .filter(Boolean),
+    /**
+     * The injector (apps/injector, D-117): INJECTOR_SECRET is the HMAC key shared with it (empty
+     * turns /review/start off); INJECTOR_ORIGINS lists the app origins it fronts, comma separated;
+     * INJECTOR_COOKIE_DAYS is how long a reviewer cookie lasts.
+     */
+    injector: {
+      secret: read('INJECTOR_SECRET'),
+      origins: read('INJECTOR_ORIGINS')
+        .split(/[\s,]+/)
+        .map((o) => o.trim().replace(/\/+$/, '').toLowerCase())
+        .filter(Boolean),
+      cookieDays: Math.min(90, Math.max(1, Number(read('INJECTOR_COOKIE_DAYS', '7')) || 7)),
+    },
     worker: flag('WORKER', true),
     migrateOnStart: flag('MIGRATE_ON_START', true),
     testMode: flag('TEST_MODE', false),
@@ -194,5 +207,6 @@ export function assertSafeSecrets(e: Env = env): string[] {
   if (e.authSecret === DEV_SECRET) bad.push('BETTER_AUTH_SECRET');
   if (e.s3.accessKeyId === DEV_S3_KEY) bad.push('S3_ACCESS_KEY_ID');
   if (e.s3.secretAccessKey === DEV_S3_SECRET) bad.push('S3_SECRET_ACCESS_KEY');
+  if (e.injector.secret && e.injector.secret.length < 32) bad.push('INJECTOR_SECRET');
   return bad;
 }
