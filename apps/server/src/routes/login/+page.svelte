@@ -82,7 +82,7 @@
     {#if form?.message}<p class="err" role="alert">{form.message}</p>{/if}
     {#if data.error}<p class="err" role="alert">{errorText[data.error] ?? 'Sign-in did not finish. Try again.'}</p>{/if}
     {#if !opts.emailPassword && !opts.magicLink && !opts.providers.length}
-      <p class="err">No sign-in method is configured. Set GOOGLE_CLIENT_ID, GITHUB_CLIENT_ID or OIDC_1_* in .env.</p>
+      <p class="err" data-testid="no-sign-in">No sign-in method is configured. Set the OIDC_1_* variables in .env (docs/scope.md, "Sign-in").</p>
     {/if}
   {/if}
 </main>

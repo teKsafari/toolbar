@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
-import { env } from '#lib/server/env.ts';
+import { featureFlags } from '#lib/server/env.ts';
 import { member, organization } from '#lib/server/db/schema/index.ts';
 import { activeWorkspaceId, listWorkspaces } from '#lib/server/auth/workspaces.ts';
 import { shellData } from '#lib/server/dashboard/shell.ts';
@@ -23,7 +23,8 @@ export const load = async ({ locals, url, depends }) => {
     activeWorkspace: myWorkspaces.find((w) => w.id === activeId) ?? null,
     user: { id: locals.user.id, name: locals.user.name, email: locals.user.email, image: locals.user.image ?? null },
     workspaces,
-    features: { email: env.features.email },
+    // paused features (docs/scope.md): the UI hides what is off
+    features: featureFlags(),
     // dashboard area: sidebar folders, header avatars, creator filter, onboarding card (J-158 to J-169).
     dash: await shellData(db, locals.user.id, activeId),
   };

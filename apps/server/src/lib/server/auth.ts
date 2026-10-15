@@ -1,8 +1,8 @@
-// Better Auth (D-011). Part 1 copies Jam's sign-in options (J-217: Google, GitHub, Apple,
-// work email). Apple needs a paid developer account and is on the skip list. Work email is a
-// magic link (AUTH_MAGIC_LINK, default on; Mailpit in dev) plus email + password
-// (AUTH_EMAIL_PASSWORD, default on in Part 1, off in Part 2). Google, GitHub and any number of
-// generic OIDC providers turn on when their env vars are set.
+// Better Auth (D-011). Sign-in follows the owner's scope (docs/scope.md, D-080, J-217): one
+// generic OIDC provider set by the admin (OIDC_1_*), limited by AUTH_ALLOWED_DOMAINS. Email and
+// password exist for development and tests only (AUTH_DEV_PASSWORD=1, off by default); the
+// magic link is paused with the rest of mail (FEATURE_EMAIL). Google and GitHub buttons appear
+// only when their client ids are set, which the default deployment does not do.
 //
 // Workspaces are Better Auth organizations, but every workspace change goes through /api/v1
 // (lib/server/auth/*.ts), which knows our seat roles; the plugin's own HTTP endpoints are off.

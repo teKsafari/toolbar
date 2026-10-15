@@ -1,9 +1,9 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import { loadEnv, oidcProvidersFromEnv, assertSafeSecrets } from '../src/lib/server/env.ts';
+import { loadEnv, oidcProvidersFromEnv, assertSafeSecrets, featureFlags } from '../src/lib/server/env.ts';
 
 const saved = { ...process.env };
 beforeEach(() => {
-  for (const k of Object.keys(process.env)) if (/^(OIDC_|PUBLIC_URL|BETTER_AUTH|S3_|GOOGLE_|GITHUB_)/.test(k)) delete process.env[k];
+  for (const k of Object.keys(process.env)) if (/^(OIDC_|PUBLIC_URL|BETTER_AUTH|S3_|GOOGLE_|GITHUB_|AUTH_DEV_PASSWORD|AUTH_EMAIL_PASSWORD)/.test(k)) delete process.env[k];
 });
 afterEach(() => {
   process.env = { ...saved };
@@ -33,7 +33,17 @@ describe('env', () => {
     const e = loadEnv();
     expect(e.publicUrl).toBe('http://localhost:3000');
     expect(e.s3.bucket).toBe('toolbar');
-    expect(e.auth.emailPassword).toBe(true);
+    expect(e.auth.emailPassword).toBe(false);
+  });
+
+  it('keeps paused features and password sign-in off unless their flags are set', () => {
+    for (const k of ['FEATURE_EMAIL', 'FEATURE_TRACKERS', 'FEATURE_SLACK', 'FEATURE_CLI', 'FEATURE_AI', 'FEATURE_ADMIN_EXTRAS', 'AUTH_DEV_PASSWORD', 'AUTH_EMAIL_PASSWORD']) delete process.env[k];
+    expect(featureFlags(loadEnv())).toEqual({ email: false, trackers: false, slack: false, cli: false, ai: false, adminExtras: false });
+    expect(loadEnv().auth.emailPassword).toBe(false);
+    process.env.AUTH_DEV_PASSWORD = '1';
+    process.env.FEATURE_CLI = 'true';
+    expect(loadEnv().auth.emailPassword).toBe(true);
+    expect(featureFlags(loadEnv()).cli).toBe(true);
   });
 
   it('allows dev secrets on localhost only', () => {

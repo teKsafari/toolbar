@@ -67,6 +67,26 @@ export function loadEnv() {
       get email() {
         return flag('FEATURE_EMAIL', false);
       },
+      /** GitHub and GitLab issue trackers, send to app, linked issues (FEATURE_TRACKERS, D-078) */
+      get trackers() {
+        return flag('FEATURE_TRACKERS', false);
+      },
+      /** Slack incoming webhook (FEATURE_SLACK, D-078) */
+      get slack() {
+        return flag('FEATURE_SLACK', false);
+      },
+      /** the `nib` command-line tool, its settings page and pointers to it (FEATURE_CLI, D-078) */
+      get cli() {
+        return flag('FEATURE_CLI', false);
+      },
+      /** AI titles, chapters and the workspace AI switch (FEATURE_AI, D-084) */
+      get ai() {
+        return flag('FEATURE_AI', false);
+      },
+      /** data retention (auto-delete) and the audit log (FEATURE_ADMIN_EXTRAS, D-084) */
+      get adminExtras() {
+        return flag('FEATURE_ADMIN_EXTRAS', false);
+      },
     },
     smtpUrl: read('SMTP_URL', 'smtp://localhost:1025'),
     mailFrom: read('MAIL_FROM', 'Nib <nib@localhost>'),
@@ -79,7 +99,11 @@ export function loadEnv() {
     },
     extensionIds: read('EXTENSION_IDS').split(/[\s,]+/).filter(Boolean),
     auth: {
-      emailPassword: flag('AUTH_EMAIL_PASSWORD', true),
+      /**
+       * Email and password sign-in: development and tests only, off by default (docs/scope.md,
+       * D-080). AUTH_DEV_PASSWORD=1 turns it on; the older AUTH_EMAIL_PASSWORD name still works.
+       */
+      emailPassword: flag('AUTH_DEV_PASSWORD', flag('AUTH_EMAIL_PASSWORD', false)),
       /** work-email sign-in link by mail (J-217); paused with the rest of mail unless FEATURE_EMAIL is on */
       magicLink: flag('AUTH_MAGIC_LINK', flag('FEATURE_EMAIL', false)),
       /**
@@ -106,6 +130,19 @@ export function loadEnv() {
 }
 
 export type Env = ReturnType<typeof loadEnv>;
+
+/** The paused-feature flags as plain values, for page data (the UI hides what is off). */
+export function featureFlags(e: Pick<Env, 'features'> = env) {
+  return {
+    email: e.features.email,
+    trackers: e.features.trackers,
+    slack: e.features.slack,
+    cli: e.features.cli,
+    ai: e.features.ai,
+    adminExtras: e.features.adminExtras,
+  };
+}
+export type FeatureFlags = ReturnType<typeof featureFlags>;
 export const env: Env = loadEnv();
 
 const isLocal = (u: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(u);

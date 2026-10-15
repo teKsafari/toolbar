@@ -32,7 +32,8 @@ pnpm --filter @toolbar/cli build >/dev/null || exit 1
 fresh() {
   step "stack"
   if [ "${KEEP:-0}" != 1 ]; then docker compose down -v || exit 1; fi
-  AUTH_RATE_LIMIT=off docker compose up --build -d || exit 1
+  # password sign-in is for dev and tests only (docs/scope.md); the suites sign in with it
+  AUTH_DEV_PASSWORD=1 AUTH_RATE_LIMIT=off docker compose up --build -d || exit 1
   for _ in $(seq 1 120); do curl -sf localhost:3000/api/health >/dev/null && break; sleep 2; done
   curl -sf localhost:3000/api/health >/dev/null || { echo "server not healthy" >&2; exit 1; }
   curl -sf localhost:5173/ >/dev/null || { echo "lab not answering on :5173 (systemctl --user start toolbar-lab)" >&2; exit 1; }
