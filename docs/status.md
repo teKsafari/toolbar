@@ -83,7 +83,25 @@ Gaps left:
 
 The area suites (`e2e/tests`, test build) and the flows (`e2e/flows`, release build) ran together against one compose stack from empty volumes (`docker compose down -v`, `AUTH_RATE_LIMIT=off docker compose up --build -d`, `db:seed`), with `scripts/e2e-all.sh`. This was the first run of the area suites against the production image instead of area dev servers; most of what failed came from that.
 
-RESULTS_TABLE
+Result: three consecutive green runs were not reached. Each fix below came from a full run; the last runs failed only on real-time checks while the VM ran at a load average of 8 to 31 (other agents share it, and one area run took 46 minutes against 17 to 19 earlier in the day). Run 4 had both suites green, and run 7 had the area suites green. Runs of the full pipeline (each from `docker compose down -v`, seeded), newest last; the area suites have 231 tests, 6 of them skipped by design (4 provider tests need `E2E_PROVIDERS=1` with real OAuth apps, 2 `real-server` tests need `NIB_E2E_WORKSPACE` and a server URL of their own):
+
+| Run | Code at the start of the run | Area suites | Flows | Area time | Failures, and what was done |
+|---|---|---|---|---|---|
+| 1 | before this pass's fixes | 189 pass, 22 fail, 10 not run | 17 of 18 | 20.8 min | rate limits, listeners, `DATABASE_URL`, J-018, J-201; the visual pass stalled on held connections. All fixed below |
+| 2 | comments stream, tab id, listeners, rate-limit switch | 221 pass, 3 fail | 18 of 18 | 19.8 min | J-018 cookies, the screenshot mock log, J-219: fixed |
+| 3 | + J-201 by its own browser, mock log reads, rows waits | 217 pass, 2 fail, 6 not run | 17 of 18 | 20.6 min | J-201 crashes, GitHub tracker menu, flow M popup focus: fixed |
+| 4 | + J-201 Cancel by click, editors restore the capture bridge, reseed with media, fresh stack per run | 225 pass | 18 of 18 | 19.1 min | both suites green |
+| 5 | same | 223 pass, 1 fail | 18 of 18 (D took the fake-media fallback) | 19.1 min | J-219 close slowed by left-over pages |
+| 6 | + picker flows on a private display, J-219 waits | 224 pass, 1 fail | 18 of 18 | 17.1 min | J-219 trim drag in a background tab: editors open in the front tab, the fixture closes left-over pages |
+| 6b | same | 218 pass, 1 fail, 6 not run | not run (stopped) | 20.2 min | the GitHub tracker test's destination menu stayed shut behind left-over editor tabs |
+| 7 | + those two | 225 pass | 17 of 18 | 19.0 min | flow F: two `/api/fail` rows: webRequest merge window |
+| 8 | + merge window | 223 pass, 2 fail | 17 of 18 | 39.2 min | J-010 ring age, J-001 cold popup: fixed; flow F again: the viewer's own copy of the panel models, removed |
+| 9 | + shared panel models in the viewer | 222 pass, 3 fail | 18 of 18 | 34.2 min | create-to-link 8.3 s, a 10 MB upload and a cold sign-in past 60 s: load-scaled budgets, 120 s timeout |
+| 10 | + load-scaled budgets | 224 pass, 1 fail | 17 of 18 | 28.6 min | J-127 composer clear 321 ms; the visual pass stalled on one share page: budget, bounded page waits |
+| 11 | + J-088 Escape pair inside the editor | 220 pass, 5 fail | 18 of 18 | 46.1 min | load average up to 31: video seek and playback (J-092, J-097), a 1 s highlight (J-072), a wheel scroll (J-216), J-220 create |
+| 12 | same | 222 pass, 3 fail | 14 of 18 | 38.2 min | J-010 ring age, tab video length, ten recordings in a row; four flows waited over 10 s for the popup over CDP (now 30 s). Stopped here |
+
+Unit tests and checks on the final code: `pnpm -r test` passes (shared 74, cli 9, capture 34, ui 80, extension 22, server 145) and `pnpm -r check` reports 0 errors.
 
 Product fixes:
 - Every open capture page held a comments stream (SSE) for as long as it stayed open. Chromium allows six HTTP/1.1 connections per host, so with six capture tabs open, any further page of the app never finished loading (reproduced: the seventh capture page timed out). The stream now runs only while the page is visible; a tab that comes back reconnects and reloads the comment list. New test: `viewer/comments.spec.ts` "a hidden tab closes its comments stream".
@@ -111,6 +129,11 @@ Test fixes (each made deterministic, none retried):
 - The flows write to `test-results-flows/`: a flows run cleared the area suite's `test-results/` traces mid-run.
 
 Picker crash (the documented exception, `docs/spikes.md` S2): flows D and E and the capture suite's J-201 run in a browser of their own on a private display, so a crash cannot take the shared one down. A crash (and only a crash) gets another try in a fresh browser. D and E fall back to Chromium's fake media flags after three crashes and log `LIMITATION`; `FLOWS_PICKER=fake` runs that fallback on purpose, and it passed. J-201 has four tries and no fallback, since a fake picker cannot be cancelled. J-201 now clicks the picker's Cancel button: activating the picker window for an Escape key (xdotool `windowactivate`) crashed Chromium in about half the tries, the click in about one in five. `e2e/global-setup.ts` checks that openbox stays up, since without a window manager the picker crashes every time. In flow E the picker is a dialog inside the tab rather than a window of its own, so the spec finds it by its pixels.
+
+Gaps left:
+- Three consecutive green runs: not reached (table above). The remaining failures are timing checks that a CPU-starved browser misses (video playback position, a 1 s highlight, a wheel scroll, recording length against wall time); run `scripts/e2e-all.sh` with `RUNS=3` on a quiet machine to confirm.
+- Flow D: about half the tries crash Chromium as the picker opens; D falls back to fake media after three crashes and logs `LIMITATION` (it did in run D2).
+- The share page once never fired `load` under heavy load (see above); not reproduced.
 
 ## Rows
 

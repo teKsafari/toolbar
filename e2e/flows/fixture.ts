@@ -266,7 +266,7 @@ export async function openPopup(context: BrowserContext, page: Page): Promise<Pa
         popup = holder.__cdp.contexts().flatMap((c) => c.pages()).find(isPopup);
         return !!popup;
       },
-      { timeout: 10_000, message: 'the popup opened' },
+      { timeout: 30_000, message: 'the popup opened' }, // over 10 s at a load average near 15
     )
     .toBe(true);
   await popup!.locator('[data-popup][data-loading="false"]').waitFor();
