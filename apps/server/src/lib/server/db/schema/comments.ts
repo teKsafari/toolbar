@@ -15,7 +15,13 @@ export const comment = pgTable(
     parentId: uuid('parent_id'),
     /** Null for anonymous comments on public links (J-134). */
     authorUserId: uuid('author_user_id').references(() => user.id, { onDelete: 'set null' }),
+    /** the visitor's name for anonymous comments; for members, the name at writing time */
     authorName: text('author_name'),
+    // Author snapshot of a member at writing time (D-114): email, and the issuer and subject of
+    // their identity provider account. Null for anonymous comments.
+    authorEmail: text('author_email'),
+    authorIssuer: text('author_issuer'),
+    authorSubject: text('author_subject'),
     body: text('body').notNull(),
     tMs: integer('t_ms'),
     createdAt: created(),

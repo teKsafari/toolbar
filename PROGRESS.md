@@ -22,7 +22,8 @@ A new session reads this file first.
 - Step 2 done, gate 2 passed (2026-10-14): 241 rows built, 10 skipped; clean-clone verification passed. Area branches area/* kept for history.
 - Step 3 done, gate 3 passed (2026-10-15): docs/parity.md 115 match, 48 better, 0 gap, 16 paused.
 - Step 4, branding done (2026-10-15): Nib renamed to open-toolbar (D-111), instance branding by env or Settings > Server (D-112), extension follows the signed-in server's brand (D-113); user docs `docs/branding.md`; flows A, B and the new P pass on a rebuilt stack.
-- Next: step 4 (Part 2 specifics plus owner scope in docs/scope.md: flags for paused features, generic OIDC, open-toolbar branding, chunked hosted transcription, compose and Coolify files), then the teksafari.org design pass, then step 5.
+- Step 4, scope task B done (2026-10-15): paused-feature flags close their routes (404) and the editor's destination picker, their e2e tests skip with "paused (docs/scope.md)" (D-115); one OIDC provider from `OIDC_ISSUER`/`OIDC_CLIENT_ID`/`OIDC_CLIENT_SECRET` with `ALLOWED_EMAIL_DOMAINS` and the `hd` check, Google and GitHub buttons gone, author issuer and subject on captures and comments (D-114); no SMTP or Mailpit by default, e2e signs in through the mock provider (D-116). Sign-in settings in `docs/configuration.md`.
+- Next: rest of step 4 (Part 2 specifics: chunked hosted transcription, compose and Coolify files, the rest of `docs/configuration.md`), then the teksafari.org design pass, then step 5.
 - Open after the merge (each a call or mount in another area's file, from the area reports):
   - J-137, J-140: the editor's destination menu does not list integrations or mount dashboard's `TrackerFields`; finalize never sends `destination: {type:'integration'}`.
   - J-138: the capture page header has the viewer's own send menu; dashboard's `SendToApp` (field form, J-140) is not mounted.

@@ -1,6 +1,10 @@
 # Full stack: docker compose up --build
 # Dev defaults work on a clean machine. For a real deploy, copy .env.example to .env and
 # set every variable marked "!" there (scripts/gen-secrets.sh writes random values).
+# Sign-in is one OIDC provider (docs/configuration.md, "Sign-in"): OIDC_ISSUER, OIDC_CLIENT_ID,
+# OIDC_CLIENT_SECRET and ALLOWED_EMAIL_DOMAINS. For development, the `dev` profile adds a mock
+# provider (see oidc-mock below). No mail leaves the server unless FEATURE_EMAIL and SMTP_URL
+# are set; the `mail` profile adds Mailpit to catch it.
 name: toolbar
 
 services:
@@ -9,7 +13,7 @@ services:
     ports: ["${PORT:-3000}:3000"]
     # webhooks and integrations may point at a service on the host (and the e2e suite's listeners do)
     # oidc.localhost: the dev mock OIDC server (profile dev). Browsers resolve *.localhost to this
-    # machine, the server reaches it through the host, so both see the same issuer URL.
+    # machine, the server reaches it through the host, so both see the same issuer URL (D-094).
     extra_hosts: ["host.docker.internal:host-gateway", "oidc.localhost:host-gateway"]
     environment:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
@@ -28,23 +32,22 @@ services:
       WHISPER_URL: http://whisper:8080
       STT_URL: ${STT_URL:-}
       STT_API_KEY: ${STT_API_KEY:-}
-      SMTP_URL: ${SMTP_URL:-smtp://mailpit:1025}
+      # mail is paused (FEATURE_EMAIL); with the `mail` profile: SMTP_URL=smtp://mailpit:1025
+      SMTP_URL: ${SMTP_URL:-}
       MAIL_FROM: ${MAIL_FROM:-}
       EXTENSION_IDS: ${EXTENSION_IDS:-fmongfmimgdafigcahdpofnmmhljpnei}
+      # sign-in (docs/configuration.md): the one OIDC provider and the domain allowlist
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_SCOPES: ${OIDC_SCOPES:-}
+      OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-}
+      OIDC_PROVIDER_ID: ${OIDC_PROVIDER_ID:-}
+      ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS:-}
+      # development and tests only
       AUTH_DEV_PASSWORD: ${AUTH_DEV_PASSWORD:-}
-      AUTH_EMAIL_PASSWORD: ${AUTH_EMAIL_PASSWORD:-}
       AUTH_RATE_LIMIT: ${AUTH_RATE_LIMIT:-}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
-      OIDC_1_ID: ${OIDC_1_ID:-}
-      OIDC_1_NAME: ${OIDC_1_NAME:-}
-      OIDC_1_DISCOVERY_URL: ${OIDC_1_DISCOVERY_URL:-}
-      OIDC_1_CLIENT_ID: ${OIDC_1_CLIENT_ID:-}
-      OIDC_1_CLIENT_SECRET: ${OIDC_1_CLIENT_SECRET:-}
-      OIDC_1_SCOPES: ${OIDC_1_SCOPES:-}
-      AUTH_ALLOWED_DOMAINS: ${AUTH_ALLOWED_DOMAINS:-}
       AUTH_MAGIC_LINK: ${AUTH_MAGIC_LINK:-}
       FEATURE_EMAIL: ${FEATURE_EMAIL:-}
       FEATURE_TRACKERS: ${FEATURE_TRACKERS:-}
@@ -120,15 +123,18 @@ services:
       retries: 5
       start_period: 300s
 
+  # Paused mail (FEATURE_EMAIL, docs/scope.md): Mailpit catches it for development and tests.
+  #   FEATURE_EMAIL=1 SMTP_URL=smtp://mailpit:1025 docker compose --profile mail up -d
   mailpit:
     image: axllent/mailpit:v1.31.5
+    profiles: [mail]
     ports: ["${MAILPIT_UI_PORT:-8025}:8025", "${SMTP_PORT:-1025}:1025"]
     restart: unless-stopped
 
-  # Development and e2e sign-in (docs/scope.md, "Sign-in"): a mock OpenID Connect provider.
-  #   docker compose --profile dev up -d
-  #   OIDC_1_ID=company OIDC_1_NAME="Company SSO" OIDC_1_CLIENT_ID=toolbar OIDC_1_CLIENT_SECRET=dev \
-  #   OIDC_1_DISCOVERY_URL=http://oidc.localhost:3311/company/.well-known/openid-configuration docker compose up -d server
+  # Development and e2e sign-in (docs/scope.md, "Sign-in"): a mock OpenID Connect provider. It
+  # signs in anyone with any claims, so it never belongs in a real deployment.
+  #   OIDC_ISSUER=http://oidc.localhost:3311/toolbar OIDC_CLIENT_ID=toolbar OIDC_CLIENT_SECRET=dev \
+  #   OIDC_PROVIDER_NAME="Dev SSO" docker compose --profile dev up -d
   oidc-mock:
     image: ghcr.io/navikt/mock-oauth2-server:2.1.10
     profiles: [dev]

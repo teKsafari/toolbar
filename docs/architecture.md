@@ -14,13 +14,13 @@ Status: design for Part 1, step 2 (Jam replica), written so Part 2 lands as addi
 | DOM recording | rrweb | 2.1.7 (`@rrweb/record`, `@rrweb/replay`, `@rrweb/types`, `@rrweb/packer`) | MIT, 2.x is stable. `rrweb-player` is skipped because the viewer has its own controls. |
 | Drawing | perfect-freehand | 1.2.3 | Outline polygons rendered as SVG `<path>`. |
 | Server | SvelteKit + `@sveltejs/adapter-node` | kit 3.0.1, adapter 6.0.0, vite 8.3 | See section 3. |
-| Auth | Better Auth | 1.7.7 + `@better-auth/drizzle-adapter` | Google, generic OAuth/OIDC, organization plugin, SvelteKit handler. |
+| Auth | Better Auth | 1.7.7 + `@better-auth/drizzle-adapter` | One generic OAuth/OIDC provider (Google Workspace included), organization plugin, SvelteKit handler (D-114). |
 | DB access | Drizzle ORM + drizzle-kit, `postgres` (postgres.js) driver | drizzle-orm 0.45.x, drizzle-kit 0.31.x, postgres 3.4.x | See section 6. Stay on 0.45 until Drizzle 1.0 leaves beta. |
 | Database | Postgres | `postgres:18-alpine` | Built-in `uuidv7()` for primary keys. |
 | Object storage | Garage | `dxflrs/garage:v2.4.1` | See section 7. |
 | S3 client | `@aws-sdk/client-s3` | 3.11xx | `forcePathStyle: true`. |
 | Transcription | whisper.cpp server | `ghcr.io/ggml-org/whisper.cpp:main` (whisper.cpp v1.9.5), pin by digest | See section 12. |
-| Mail (dev and default compose) | Mailpit | `axllent/mailpit:v1.31.5` | Invitations and magic links on a clean machine with no SMTP account. |
+| Mail (paused, compose profile `mail`) | Mailpit | `axllent/mailpit:v1.31.5` | Catches the paused mail (FEATURE_EMAIL) in development and tests; the default compose file sends no mail (D-079, D-114). |
 | Validation | zod | 4.x | Shared schema checks on the server. |
 | Tests | vitest 5.0.x; `@playwright/test` **1.63.0** | | 1.63.0 matches the Chromium build already cached on this VM (`~/.cache/ms-playwright/chromium-1243`). |
 | CLI build | tsdown | 0.23.x | Bundles `packages/cli` into one ESM file for `npx`. |
@@ -285,18 +285,19 @@ export const auth = betterAuth({
   baseURL: env.PUBLIC_URL,
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, { provider: 'pg', schema }),
-  emailAndPassword: { enabled: false },                    // Part 2 rule; Part 1 follows the catalogue
-  socialProviders: { google: { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET } }, // only if set
+  emailAndPassword: { enabled: env.auth.emailPassword },   // AUTH_DEV_PASSWORD=1: development and tests only
   plugins: [
-    genericOAuth({ config: oidcProvidersFromEnv() }),      // OIDC_<N>_ID / _DISCOVERY_URL / _CLIENT_ID / _CLIENT_SECRET / _SCOPES
+    // the one provider (D-114): OIDC_ISSUER or OIDC_DISCOVERY_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET,
+    // OIDC_SCOPES, OIDC_PROVIDER_NAME; mapProfileToUser refuses claims outside ALLOWED_EMAIL_DOMAINS
+    genericOAuth({ config: env.auth.oidc ? [oidcConfig] : [] }),
     organization(),
-    magicLink({ sendMagicLink }),                          // only if the catalogue shows Jam offers email sign-in
+    magicLink({ sendMagicLink }),                          // sign-up only with FEATURE_EMAIL (paused mail)
     sveltekitCookies(getRequestEvent),
   ],
 });
 ```
 
-`hooks.server.ts` calls `svelteKitHandler({ event, resolve, auth, building })` (imports from `better-auth/svelte-kit` and `$app/env`), puts `session` and `user` on `event.locals`, and resolves `Authorization: Bearer tb_…` against `api_token` for API routes. Provider callbacks live at `/api/auth/callback/<providerId>`. Every record stores issuer and subject: the server reads them from the `account` row at creation and snapshots them on `recording`.
+`hooks.server.ts` calls `svelteKitHandler({ event, resolve, auth, building })` (imports from `better-auth/svelte-kit` and `$app/env`), puts `session` and `user` on `event.locals`, and resolves `Authorization: Bearer tb_…` against `api_token` for API routes. Provider callbacks live at `/api/auth/callback/<providerId>`. Every record stores issuer, subject, email and name: `lib/server/auth/author.ts` reads them from the user and its `account` row (the OIDC account's issuer URL and `sub`) when a capture or comment is made, and snapshots them on `recording` and `comment` (D-114). The allowlist (`lib/server/auth/allowlist.ts`) applies to sign-up, every new session, API and device tokens and MCP access tokens.
 
 Extension sign-in with `chrome.identity.launchWebAuthFlow`. The server is the only OAuth client and the extension holds no client secret.
 
@@ -397,10 +398,12 @@ services:
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-0000000000000000000000000000000000000000000000000000000000000000} # !
       TRANSCRIBE_PROVIDER: ${TRANSCRIBE_PROVIDER:-whispercpp}
       WHISPER_URL: http://whisper:8080
-      SMTP_URL: ${SMTP_URL:-smtp://mailpit:1025}
+      SMTP_URL: ${SMTP_URL:-}                             # paused mail (FEATURE_EMAIL); empty sends nothing
       EXTENSION_IDS: ${EXTENSION_IDS:-<dev id from the manifest key>}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}                       # ! sign-in (docs/configuration.md, D-114)
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}                 # !
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}         # !
+      ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS:-}   # !
     depends_on:
       postgres: { condition: service_healthy }
       garage: { condition: service_healthy }
@@ -437,15 +440,16 @@ services:
     volumes: [whisper-models:/models]
     restart: unless-stopped
 
-  mailpit:
+  mailpit:                                       # paused mail only: --profile mail
     image: axllent/mailpit:v1.31.5
+    profiles: [mail]
     ports: ["8025:8025"]                         # inbox UI on http://localhost:8025
     restart: unless-stopped
 
-  oidc-mock:                                     # e2e only: docker compose --profile test up
-    image: ghcr.io/navikt/mock-oauth2-server:6.0.7
-    profiles: [test]
-    ports: ["8090:8080"]
+  oidc-mock:                                     # development and e2e sign-in: --profile dev
+    image: ghcr.io/navikt/mock-oauth2-server:2.1.10
+    profiles: [dev]
+    ports: ["3311:8080"]
 
 volumes: { pg: {}, garage-meta: {}, garage-data: {}, whisper-models: {} }
 ```
@@ -456,7 +460,7 @@ Placeholder keys must match Garage's format (`GK` plus hex for the key id, hex f
 
 ```bash
 pnpm install
-docker compose up -d postgres garage whisper mailpit
+docker compose --profile dev up -d postgres garage whisper oidc-mock
 pnpm --filter @toolbar/server db:migrate        # drizzle-kit migrate
 pnpm --filter @toolbar/server dev               # vite dev on http://localhost:3000
 pnpm --filter @toolbar/extension dev            # WXT watch build -> apps/extension/.output/chrome-mv3-dev

@@ -17,13 +17,21 @@ import {
   matchPath,
   pathParams,
   roleAtLeast,
+  routeListed,
   type ErrorCode,
   type RouteDef,
   type SeatRole,
 } from '@toolbar/shared/api';
 import { neededScope, tokenAllows } from '@toolbar/shared/areas/auth';
 import { db } from '../db/index.ts';
+import { featureFlags } from '../env.ts';
 import { ensureCanCreate, seatRole } from './workspaces.ts';
+
+/**
+ * Paused routes that answer for themselves while their flag is off (503 unavailable, D-108);
+ * every other route of a paused feature answers 404 (D-114).
+ */
+const SELF_GATED = new Set(['captures.aiDraft', 'workspaces.audit']);
 
 export class ApiFail extends Error {
   constructor(
@@ -104,6 +112,8 @@ export const apiGate: Handle = async ({ event, resolve }) => {
   if (!(p.startsWith('/api/v1/') || p === '/ext/connect')) return resolve(event);
   const hit = findRoute(event.request.method, p);
   if (!hit) return resolve(event);
+  // routes of paused features (docs/scope.md) do not exist while their flags are off
+  if (!SELF_GATED.has(hit.route.name) && !routeListed(hit.route, featureFlags())) return errorResponse('not_found', 'Not found');
   // /ext/connect redirects to the login page itself when signed out.
   if (hit.route.name === 'ext.connect' && !event.locals.user) return resolve(event);
   let params = hit.params;

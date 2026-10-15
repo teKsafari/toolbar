@@ -81,12 +81,15 @@ export async function extBootstrap(db: Db, me: Person, opts: { workspaceId?: str
     workspaces,
     activeWorkspaceId: active,
     folders: active ? await foldersOf(db, active) : [],
-    integrations: active ? await integrationsOf(db, active) : [],
+    // paused trackers and Slack (D-114): the editor gets no destinations unless their flag is on
+    integrations: active
+      ? (await integrationsOf(db, active)).filter((i) => (i.type === 'slack' ? env.features.slack : env.features.trackers))
+      : [],
     // Per-user settings storage belongs to the dashboard area (GET /api/v1/me/settings); defaults until then.
     settings: DEFAULT_USER_SETTINGS,
     limits: { chunkBytes: LIMITS.chunkBytes, maxRecordingMs: maxMin > 0 ? maxMin * 60_000 : null, aiAvailable: ai !== 'none' && ai !== '' },
     serverVersion: opts.serverVersion,
-    features: { ai: aiFeature },
+    features: { ai: aiFeature, trackers: env.features.trackers, slack: env.features.slack },
     // J-177: the menu's "report a problem" opens a recording link to the server admin
     supportRecordingLink: await supportLinkUrl(db).catch(() => null),
     branding: brandingDto(await getBrand(db)),

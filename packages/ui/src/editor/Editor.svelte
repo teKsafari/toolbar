@@ -386,13 +386,18 @@
   );
   const destIcon = (t: Integration['type']) => (t === 'slack' ? 'hash' : t === 'gitlab' ? 'merge' : 'issue');
   type DestPick = { kind: 'link' } | { kind: 'integration'; id: string } | { kind: 'connect'; type: string };
-  const destItems = $derived.by((): MenuItem<DestPick>[] => {
-    const out: MenuItem<DestPick>[] = [{ value: { kind: 'link' }, label: 'Share link', icon: 'link', checked: destination.type === 'link', testid: 'dest-link' }];
-    for (const [type, name] of [
+  // Trackers and Slack are paused (docs/scope.md, D-114): with both flags off there is nothing
+  // to pick but the share link, so the picker is hidden.
+  const destTypes = $derived(
+    ([
       ['github', 'GitHub'],
       ['gitlab', 'GitLab'],
       ['slack', 'Slack'],
-    ] as const) {
+    ] as const).filter(([t]) => (t === 'slack' ? !!boot?.features?.slack : !!boot?.features?.trackers)),
+  );
+  const destItems = $derived.by((): MenuItem<DestPick>[] => {
+    const out: MenuItem<DestPick>[] = [{ value: { kind: 'link' }, label: 'Share link', icon: 'link', checked: destination.type === 'link', testid: 'dest-link' }];
+    for (const [type, name] of destTypes) {
       const conns = integrations.filter((i) => i.type === type);
       if (conns.length)
         for (const c of conns)
@@ -545,15 +550,19 @@
 
     <section class="nb-ed-form">
       <div class="nb-ed-top">
-        <Menu items={destItems} onpick={pickDest} label="Destination">
-          {#snippet trigger({ toggle, open })}
-            <button type="button" class="nb-ed-select nb-dest" aria-haspopup="menu" aria-expanded={open} data-testid="destination" onclick={toggle}>
-              <EdIcon name={destIntegration ? destIcon(destIntegration.type) : 'link'} size={15} />
-              <span class="nb-ellipsis">{destLabel}</span>
-              <EdIcon name="chevron" size={14} />
-            </button>
-          {/snippet}
-        </Menu>
+        {#if destTypes.length}
+          <Menu items={destItems} onpick={pickDest} label="Destination">
+            {#snippet trigger({ toggle, open })}
+              <button type="button" class="nb-ed-select nb-dest" aria-haspopup="menu" aria-expanded={open} data-testid="destination" onclick={toggle}>
+                <EdIcon name={destIntegration ? destIcon(destIntegration.type) : 'link'} size={15} />
+                <span class="nb-ellipsis">{destLabel}</span>
+                <EdIcon name="chevron" size={14} />
+              </button>
+            {/snippet}
+          </Menu>
+        {:else}
+          <span class="nb-dest-spacer"></span>
+        {/if}
         <Menu items={wsItems} onpick={(id) => void switchWorkspace(id)} label="Workspace" placement="bottom-end">
           {#snippet trigger({ toggle, open })}
             <Tip label={workspace ? `Workspace: ${workspace.name}` : 'Workspace'} placement="bottom">

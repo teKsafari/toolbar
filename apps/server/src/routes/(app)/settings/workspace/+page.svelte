@@ -90,7 +90,7 @@
 </Section>
 
 <Section title="Access" description="Who can get in and what new share links allow." docs={HELP_LINKS.docs}>
-  <Field label="Single sign-on" hint={data.sso.length ? `Members can sign in with ${data.sso.join(', ')}.` : 'Add an OIDC provider with the OIDC_1_* variables on the server to offer it on the sign-in page.'}>
+  <Field label="Single sign-on" hint={data.sso.length ? `Members can sign in with ${data.sso.join(', ')}.` : 'Set OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET on the server to offer it on the sign-in page.'}>
     <span class="pill" class:on={data.sso.length > 0}>{data.sso.length ? 'On' : 'Off'}</span>
   </Field>
   <Field label="Default link access" hint="General access of new captures. Anyone with the link, or only members of this workspace.">

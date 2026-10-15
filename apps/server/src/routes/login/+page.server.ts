@@ -20,7 +20,7 @@ export const load = ({ locals, url }) => {
     next,
     /** set when the request came from the extension's sign-in window */
     fromExtension: next.startsWith('/ext/connect'),
-    mailHint: isLocal ? 'http://localhost:8025' : null,
+    mailHint: isLocal && env.features.email ? 'http://localhost:8025' : null,
     error: url.searchParams.get('error'),
   };
 };
@@ -66,7 +66,7 @@ export const actions = {
     if (!opt) return fail(400, { message: 'Unknown sign-in provider.' });
     // In better-auth 1.7 generic OAuth providers sign in through the same social endpoint.
     const res = await auth.api.signInSocial({
-      body: { provider: id as 'google', callbackURL, errorCallbackURL: `/login?next=${encodeURIComponent(callbackURL)}` },
+      body: { provider: id as never, callbackURL, errorCallbackURL: `/login?next=${encodeURIComponent(callbackURL)}` },
       headers: request.headers,
     });
     // The provider's authorize URL (Better Auth builds it from the configured provider).

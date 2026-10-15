@@ -5,6 +5,8 @@ import { env } from '#lib/server/env.ts';
 import { cliBundle, installPs1, installSh } from '#lib/server/mcp/cli-bundle.ts';
 
 export const GET: RequestHandler = async ({ params }) => {
+  // the CLI is paused (docs/scope.md, D-114): its install routes exist only with FEATURE_CLI on
+  if (!env.features.cli) error(404, { message: 'Not found' });
   const text = (body: string, type: string) => new Response(body, { headers: { 'content-type': `${type}; charset=utf-8`, 'cache-control': 'no-cache' } });
   if (params.file === 'install.sh') return text(installSh(env.publicUrl), 'text/x-shellscript');
   if (params.file === 'install.ps1') return text(installPs1(env.publicUrl), 'text/plain');

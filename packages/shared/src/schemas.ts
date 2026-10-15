@@ -295,6 +295,8 @@ export const healthSchema = z.object({
   ok: z.boolean(),
   version: z.string(),
   checks: z.record(z.string(), z.object({ ok: z.boolean(), ms: z.number(), error: z.string().optional() })),
+  /** paused features that are on (docs/scope.md), e.g. ["email"]; tests skip what is off (D-114) */
+  features: z.array(z.string()).optional(),
 });
 
 export const apiErrorSchema = z.object({ error: z.string(), message: z.string().optional(), issues: z.unknown().optional() });

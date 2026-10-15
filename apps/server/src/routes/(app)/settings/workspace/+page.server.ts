@@ -8,6 +8,6 @@ export const load = async ({ parent, locals }) => {
   if (!activeWorkspaceId || !locals.user) error(404, 'No workspace');
   return {
     ws: await workspaceDetail(db, activeWorkspaceId, locals.user.id),
-    sso: env.auth.oidc.map((o) => o.name),
+    sso: env.auth.oidc ? [env.auth.oidc.name] : [],
   };
 };

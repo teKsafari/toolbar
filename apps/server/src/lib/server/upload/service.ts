@@ -16,7 +16,7 @@ import {
 import type { z } from 'zod';
 import type { createCaptureBodySchema, finalizeCaptureBodySchema } from '@toolbar/shared/api';
 import type { Db } from '../db/index.ts';
-import { account, annotation, asset, folder, organization, recording, recordingChunk, recordingStream, user } from '../db/schema/index.ts';
+import { annotation, asset, folder, organization, recording, recordingChunk, recordingStream } from '../db/schema/index.ts';
 import { deleteKeys, deletePrefix, keys, putObjectWith } from '../s3.ts';
 import { enqueue } from '../jobs/queue.ts';
 import { env } from '../env.ts';
@@ -31,31 +31,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ---------- create ----------
 
-export interface AuthorSnapshot {
-  userId: string | null;
-  name: string | null;
-  email: string | null;
-  issuer: string | null;
-  subject: string | null;
-}
-
-/** Who made it: the user row plus the identity provider and subject of their first account (Part 2). */
-export async function authorSnapshot(db: Db, userId: string): Promise<AuthorSnapshot> {
-  const [u] = await db.select({ name: user.name, email: user.email }).from(user).where(eq(user.id, userId));
-  const [a] = await db
-    .select({ providerId: account.providerId, accountId: account.accountId })
-    .from(account)
-    .where(eq(account.userId, userId))
-    .orderBy(asc(account.createdAt))
-    .limit(1);
-  return {
-    userId,
-    name: u?.name ?? null,
-    email: u?.email ?? null,
-    issuer: a ? (a.providerId === 'credential' ? env.publicUrl : a.providerId) : env.publicUrl,
-    subject: a?.accountId ?? userId,
-  };
-}
+export { authorSnapshot, type AuthorSnapshot } from '../auth/author.ts';
+import type { AuthorSnapshot } from '../auth/author.ts';
 
 /** Workspace default link access (J-120), from the organization metadata the dashboard writes. */
 export async function defaultAccessOf(db: Db, organizationId: string): Promise<ShareAccess> {

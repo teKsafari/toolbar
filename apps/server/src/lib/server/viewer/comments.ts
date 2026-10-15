@@ -10,6 +10,7 @@ import { sendMail } from '#lib/server/mail.ts';
 import { emailAllowed } from '#lib/server/dashboard/core.ts';
 import { fail, type ViewerCtx } from './access.ts';
 import { mediaBase } from './detail.ts';
+import { authorSnapshot } from '../auth/author.ts';
 import { currentBrand } from '../branding/index.ts';
 
 type Row = typeof comment.$inferSelect;
@@ -85,14 +86,15 @@ async function attachmentsOf(ids: string[], base: string) {
 function toDto(r: Row, ctx: ViewerCtx, who: Map<string, Person>, reactions: Map<string, Comment['reactions']>, atts: Map<string, Comment['attachments']>): Comment {
   const author = r.authorUserId ? who.get(r.authorUserId) : undefined;
   const resolver = r.resolvedBy ? who.get(r.resolvedBy) : undefined;
-  const anonymous = !r.authorUserId;
+  // a member's comment keeps its author snapshot (D-114) after the account is deleted
+  const anonymous = !r.authorUserId && !r.authorSubject;
   return {
     id: r.id,
     recordingId: r.recordingId,
     parentId: r.parentId,
     author: author ? { id: author.id, name: author.name, email: author.email, image: author.image } : null,
     anonymous,
-    displayName: author?.name ?? r.authorName ?? (anonymous ? 'Anonymous' : 'Deleted user'),
+    displayName: author?.name ?? (anonymous ? (r.authorName ?? 'Anonymous') : 'Deleted user'),
     viaAgent: r.viaAgent ?? null,
     body: r.body,
     tMs: r.tMs,
@@ -158,13 +160,17 @@ export async function createComment(
     const owned = await db.select({ id: asset.id, rec: asset.recordingId }).from(asset).where(inArray(asset.id, body.attachmentAssetIds));
     if (owned.length !== body.attachmentAssetIds.length || owned.some((a) => a.rec && a.rec !== ctx.rec.id)) fail(422, 'invalid_body', 'Unknown attachment');
   }
+  const who = ctx.user ? await authorSnapshot(db, ctx.user.id) : null;
   const [row] = await db
     .insert(comment)
     .values({
       recordingId: ctx.rec.id,
       parentId,
       authorUserId: ctx.user?.id ?? null,
-      authorName: ctx.user ? null : (body.anonName?.trim() || null),
+      authorName: who ? who.name : (body.anonName?.trim() || null),
+      authorEmail: who?.email ?? null,
+      authorIssuer: who?.issuer ?? null,
+      authorSubject: who?.subject ?? null,
       anonKey: ctx.user ? null : ctx.anonKey,
       body: body.body,
       tMs: body.tMs ?? null,

@@ -6,6 +6,7 @@ import { TOKEN_PREFIX } from '@toolbar/shared';
 import type { ApiTokenInfo, TokenScope } from '@toolbar/shared/api';
 import type { Db } from './db/index.ts';
 import { apiToken, user } from './db/schema/index.ts';
+import { domainAllowed } from './auth/allowlist.ts';
 
 export const hashToken = (token: string) => createHash('sha256').update(token).digest();
 
@@ -37,7 +38,8 @@ export async function resolveApiToken(db: Db, token: string) {
       ),
     )
     .limit(1);
-  if (!row) return null;
+  // an address the allowlist no longer admits cannot use its old tokens (D-114)
+  if (!row || !domainAllowed(row.user.email)) return null;
   void db.update(apiToken).set({ lastUsedAt: now }).where(eq(apiToken.id, row.tokenId)).catch(() => {});
   return row;
 }

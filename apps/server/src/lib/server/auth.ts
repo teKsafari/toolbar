@@ -1,12 +1,13 @@
-// Better Auth (D-011). Sign-in follows the owner's scope (docs/scope.md, D-080, J-217): one
-// generic OIDC provider set by the admin (OIDC_1_*), limited by AUTH_ALLOWED_DOMAINS. Email and
+// Better Auth (D-011). Sign-in follows the owner's scope (docs/scope.md, D-080, D-114, J-217):
+// one generic OIDC provider set by the admin (OIDC_ISSUER or OIDC_DISCOVERY_URL, OIDC_CLIENT_ID,
+// OIDC_CLIENT_SECRET), limited by ALLOWED_EMAIL_DOMAINS and Google's `hd` claim. Email and
 // password exist for development and tests only (AUTH_DEV_PASSWORD=1, off by default); the
-// magic link is paused with the rest of mail (FEATURE_EMAIL). Google and GitHub buttons appear
-// only when their client ids are set, which the default deployment does not do.
+// magic link is paused with the rest of mail (FEATURE_EMAIL). The Google and GitHub social
+// providers are gone from the config: Google Workspace signs in through the OIDC provider.
 //
 // Workspaces are Better Auth organizations, but every workspace change goes through /api/v1
 // (lib/server/auth/*.ts), which knows our seat roles; the plugin's own HTTP endpoints are off.
-import { betterAuth, type BetterAuthOptions } from 'better-auth';
+import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { organization } from 'better-auth/plugins/organization';
 import { genericOAuth } from 'better-auth/plugins/generic-oauth';
@@ -23,15 +24,9 @@ import { bootstrapNewUser, joinByDomain } from './auth/workspaces.ts';
 import { claimFolderInvites } from './share/access.ts';
 import { eq } from 'drizzle-orm';
 import { APIError } from 'better-auth/api';
+import { DOMAIN_REFUSED, claimsRefusal, domainAllowed } from './auth/allowlist.ts';
 
-const DOMAIN_REFUSED = 'This server only lets in addresses of its allowed email domains.';
-/** Is this address on the email-domain allowlist? An empty list lets everyone in. */
-export function domainAllowed(email: string | null | undefined): boolean {
-  const list = env.auth.allowedDomains;
-  if (!list.length) return true;
-  const domain = (email ?? '').toLowerCase().split('@')[1] ?? '';
-  return list.some((d) => domain === d || domain.endsWith(`.${d}`));
-}
+export { domainAllowed };
 
 const ORG_PATHS = [
   'accept-invitation', 'add-team-member', 'cancel-invitation', 'check-slug', 'create', 'create-role', 'create-team',
@@ -41,12 +36,6 @@ const ORG_PATHS = [
   'remove-member', 'remove-team', 'remove-team-member', 'set-active', 'set-active-team', 'update', 'update-member-role',
   'update-role', 'update-team',
 ].map((p) => `/organization/${p}`);
-
-const socialProviders: NonNullable<BetterAuthOptions['socialProviders']> = {};
-if (env.auth.google.clientId)
-  socialProviders.google = { clientId: env.auth.google.clientId, clientSecret: env.auth.google.clientSecret };
-if (env.auth.github.clientId)
-  socialProviders.github = { clientId: env.auth.github.clientId, clientSecret: env.auth.github.clientSecret };
 
 const plugins = [
   organization(),
@@ -65,20 +54,24 @@ const plugins = [
   }),
   // Always present (an empty list is fine) so its endpoints stay in the inferred API type.
   genericOAuth({
-    config: env.auth.oidc.map((p) => ({
-      providerId: p.providerId,
-      discoveryUrl: p.discoveryUrl,
-      clientId: p.clientId,
-      clientSecret: p.clientSecret,
-      scopes: p.scopes,
-      pkce: true,
-      // Google Workspace sends `hd`, the hosted domain: it must be on the allowlist too (docs/scope.md)
-      mapProfileToUser: (profile: Record<string, unknown>) => {
-        const hd = typeof profile.hd === 'string' ? profile.hd.toLowerCase() : null;
-        if (hd && env.auth.allowedDomains.length && !env.auth.allowedDomains.includes(hd)) throw new APIError('FORBIDDEN', { message: DOMAIN_REFUSED });
-        return {};
-      },
-    })),
+    config: env.auth.oidc
+      ? [
+          {
+            providerId: env.auth.oidc.providerId,
+            discoveryUrl: env.auth.oidc.discoveryUrl,
+            clientId: env.auth.oidc.clientId,
+            clientSecret: env.auth.oidc.clientSecret,
+            scopes: env.auth.oidc.scopes,
+            pkce: true,
+            // With an allowlist: a verified address of an allowed domain, and Google Workspace's
+            // `hd` (hosted domain) on the list too when sent (docs/scope.md, D-114).
+            mapProfileToUser: (profile: Record<string, unknown>) => {
+              if (claimsRefusal(profile)) throw new APIError('FORBIDDEN', { message: DOMAIN_REFUSED });
+              return {};
+            },
+          },
+        ]
+      : [],
   }),
   // Must stay last: it copies Set-Cookie headers onto SvelteKit's cookies.
   sveltekitCookies(getRequestEvent),
@@ -136,7 +129,6 @@ export const auth = betterAuth({
       },
     },
   },
-  socialProviders,
   plugins,
 });
 
@@ -144,15 +136,11 @@ export const auth = betterAuth({
 export type Auth = typeof auth;
 export type Session = typeof auth.$Infer.Session;
 
-/** Sign-in options the login page shows, in Jam's order (J-217) minus Apple. */
+/** Sign-in options the login page shows: the OIDC provider, plus the dev-only ways when on (D-114). */
 export function signInOptions() {
   return {
     emailPassword: env.auth.emailPassword,
     magicLink: env.auth.magicLink,
-    providers: [
-      ...(env.auth.github.clientId ? [{ id: 'github', name: 'GitHub', kind: 'social' as const }] : []),
-      ...(env.auth.google.clientId ? [{ id: 'google', name: 'Google', kind: 'social' as const }] : []),
-      ...env.auth.oidc.map((p) => ({ id: p.providerId, name: p.name, kind: 'oidc' as const })),
-    ],
+    providers: env.auth.oidc ? [{ id: env.auth.oidc.providerId, name: env.auth.oidc.name, kind: 'oidc' as const }] : [],
   };
 }

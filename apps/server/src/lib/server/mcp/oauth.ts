@@ -10,6 +10,7 @@ import type { Db } from '../db/index.ts';
 import { mcpAuthCode, mcpClient, mcpGrant, mcpToken, organization, user } from '../db/schema/index.ts';
 import { env } from '../env.ts';
 import { currentBrand } from '#lib/server/branding/index.ts';
+import { domainAllowed } from '../auth/allowlist.ts';
 
 const sha = (s: string) => createHash('sha256').update(s).digest();
 const rand = (n = 32) => randomBytes(n).toString('base64url');
@@ -316,13 +317,15 @@ export async function resolveMcpAccessToken(db: Db, token: string): Promise<McpP
   if (!token.startsWith(MCP_TOKEN_PREFIX.access)) return null;
   const now = new Date();
   const [row] = await db
-    .select({ g: mcpGrant, name: mcpClient.name })
+    .select({ g: mcpGrant, name: mcpClient.name, email: user.email })
     .from(mcpToken)
     .innerJoin(mcpGrant, eq(mcpGrant.id, mcpToken.grantId))
     .innerJoin(mcpClient, eq(mcpClient.id, mcpGrant.clientId))
+    .innerJoin(user, eq(user.id, mcpGrant.userId))
     .where(and(eq(mcpToken.tokenHash, sha(token)), eq(mcpToken.kind, 'access'), isNull(mcpToken.revokedAt), isNull(mcpGrant.revokedAt), gt(mcpToken.expiresAt, now)))
     .limit(1);
-  if (!row) return null;
+  // the allowlist also applies to agents of an address it no longer admits (D-114)
+  if (!row || !domainAllowed(row.email)) return null;
   void db.update(mcpGrant).set({ lastUsedAt: now }).where(eq(mcpGrant.id, row.g.id)).catch(() => {});
   return {
     userId: row.g.userId,

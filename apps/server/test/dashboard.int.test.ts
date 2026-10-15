@@ -33,7 +33,12 @@ import { ApiError } from '../src/lib/server/share/http.ts';
 const base = process.env.DATABASE_URL ?? 'postgres://toolbar:toolbar@localhost:5432/toolbar';
 // these tests cover the paused mail code too (docs/scope.md, FEATURE_EMAIL)
 process.env.FEATURE_EMAIL = '1';
+process.env.SMTP_URL ||= 'smtp://localhost:1025'; // Mailpit (compose profile `mail`)
 const MAILPIT = process.env.MAILPIT_URL ?? 'http://localhost:8025';
+// The paused mail (FEATURE_EMAIL) lands in Mailpit, which runs only with the compose profile
+// `mail` (D-116): the mail tests skip without it.
+const mailpitUp = await fetch(`${MAILPIT}/api/v1/info`).then((r) => r.ok, () => false);
+const itMail = it.skipIf(!mailpitUp);
 const name = `toolbar_dashtest_${process.pid}`;
 let admin: postgres.Sql | null = null;
 let client: postgres.Sql | null = null;
@@ -207,7 +212,7 @@ describe.skipIf(!reachable)('dashboard (integration)', () => {
     expect(log.items.filter((e) => [mine.id, theirs.id].includes(e.target?.id ?? ''))).toHaveLength(2);
   });
 
-  it('J-122, J-237: folder share invites by email, lists people, and makes the folder private', async () => {
+  itMail('J-122, J-237: folder share invites by email, lists people, and makes the folder private', async () => {
     const f = await createFolder(db, ws, dana.id, { name: 'Secret', private: false });
     const guest = `guest-${run}@guest${run}.test`;
     const s = await updateFolderShare(db, f, { id: dana.id, name: 'Dana Owner' }, { access: 'private', invite: [{ email: guest, role: 'viewer' }, { email: vera.email, role: 'viewer' }] });
@@ -426,7 +431,7 @@ describe.skipIf(!reachable)('dashboard (integration)', () => {
     }
   });
 
-  it('J-017, J-136: a recording through a link emails its owner unless they turned that email off', async () => {
+  itMail('J-017, J-136: a recording through a link emails its owner unless they turned that email off', async () => {
     const l = await createLink(db, ws, dana.id, { name: `Mail test ${run}` });
     const token = (await toLinks(db, [l]))[0]!.url.split('/rl/')[1]!;
     const made = await recorderCreate(db, token, { clientId: uuidv7(), kind: 'link', startedAt: Date.now() });

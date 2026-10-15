@@ -30,8 +30,9 @@ Node 24, pnpm 11.27 (`corepack enable` picks it up from `packageManager`; where 
 | 5432 | Postgres 18 |
 | 3900 | Garage S3 API |
 | 8080 | whisper.cpp server |
-| 8025 | Mailpit inbox UI (all dev mail lands here) |
-| 1025 | Mailpit SMTP |
+| 3311 | Mock OIDC provider (compose profile `dev`), as `http://oidc.localhost:3311` |
+| 8025 | Mailpit inbox UI (compose profile `mail`, only for the paused mail) |
+| 1025 | Mailpit SMTP (profile `mail`) |
 | 5173, 5174 | Lab app (user service `toolbar-lab`), second origin |
 | `:101`, `:120` | Xvfb displays for the area suites and the flows (`E2E_DISPLAY`); `:99` is the shared browser, never use it |
 | 9341, 9351 | CDP ports of the flows' browsers (the popup is reached over CDP) |
@@ -43,9 +44,18 @@ docker compose up --build          # or -d; first run builds the server image an
 curl -s localhost:3000/api/health  # {"ok":true,"checks":{"db":{"ok":true},"s3":{"ok":true},"whisper":...}}
 ```
 
-Open http://localhost:3000. Out of the box the server offers no sign-in method: the scope's sign-in is one OIDC provider (`OIDC_1_*`, docs/scope.md). For development, either start the mock provider (`docker compose --profile dev up -d oidc-mock server` with the `OIDC_1_*` values in `docs/parity/fix-round-1.md`), or turn on the dev-only password sign-in with `AUTH_DEV_PASSWORD=1 docker compose up -d server` and sign in with any email and a password of 8+ characters (the account is created on first sign-in, with a personal workspace). `scripts/e2e-all.sh` sets `AUTH_DEV_PASSWORD=1`.
+Open http://localhost:3000. Out of the box the server offers no sign-in method: sign-in is one OIDC provider that you configure (`docs/configuration.md`, "Sign-in"; D-114). For development, start the mock provider of the `dev` profile and point the server at it:
 
-Paused features (docs/scope.md) stay hidden unless their flag is set to 1: `FEATURE_EMAIL`, `FEATURE_TRACKERS`, `FEATURE_SLACK`, `FEATURE_CLI`, `FEATURE_AI`, `FEATURE_ADMIN_EXTRAS`. Area tests of a paused feature need its flag on the server; the viewer's chapter tests (J-096) also need `E2E_FEATURE_AI=1` in the test environment, and otherwise check that the chapters pill is hidden. The area suites sign in seeded `@toolbar.test` accounts, so the server they run against must not set `AUTH_ALLOWED_DOMAINS`.
+```sh
+OIDC_ISSUER=http://oidc.localhost:3311/toolbar OIDC_CLIENT_ID=toolbar OIDC_CLIENT_SECRET=dev \
+OIDC_PROVIDER_NAME="Dev SSO" docker compose --profile dev up -d
+```
+
+The login page then shows one "Sign in with Dev SSO" button. The mock's own page asks for a user name (it becomes the subject) and the ID token claims, for example `{"email": "you@example.test", "email_verified": true, "name": "You"}`; it signs whatever you give it, so it never belongs in a real deployment. Browsers resolve `*.localhost` to this machine and the server container reaches the same name through `host-gateway`, so both see one issuer (D-094). `ALLOWED_EMAIL_DOMAINS` limits who gets in; `test` admits every `*.test` address.
+
+The dev-only password sign-in stays available with `AUTH_DEV_PASSWORD=1`: sign in with any email and a password of 8+ characters (the account is created on first sign-in, with a personal workspace). The seeded accounts (`dana@toolbar.test`, `sam@toolbar.test`, password `toolbar-dev-password`) need it.
+
+Paused features (docs/scope.md) stay hidden unless their flag is set to 1: `FEATURE_EMAIL`, `FEATURE_TRACKERS`, `FEATURE_SLACK`, `FEATURE_CLI`, `FEATURE_AI`, `FEATURE_ADMIN_EXTRAS`. `/api/health` lists the ones that are on (`features`), and e2e tests of a paused feature read it and skip with "paused (docs/scope.md)" while the flag is off (`e2e/fixtures/features.ts`). Mail needs `FEATURE_EMAIL=1` and `SMTP_URL`; Mailpit comes with the `mail` profile: `FEATURE_EMAIL=1 SMTP_URL=smtp://mailpit:1025 docker compose --profile mail up -d`.
 
 Compose works with no `.env`: every variable has a dev default. For anything beyond localhost, run `scripts/gen-secrets.sh https://your.host` to write `.env` with random secrets (`.env.example` lists every variable). The server refuses to start on a non-localhost `PUBLIC_URL` with dev secrets. Sign-in rate limits (3 tries per 10 s per address) are on in the image; `AUTH_RATE_LIMIT=off` turns them off for an e2e run.
 
@@ -55,7 +65,7 @@ Compose works with no `.env`: every variable has a dev default. For anything bey
 
 ```sh
 pnpm install
-pnpm stack                      # docker compose up -d postgres garage mailpit whisper
+pnpm stack                      # docker compose --profile dev up -d postgres garage whisper oidc-mock
 docker compose stop server      # only if the compose server holds port 3000
 pnpm dev                        # server on :3000 (vite dev) and the extension watch build, in parallel
 pnpm dev:server                 # or one at a time
@@ -81,7 +91,7 @@ Production-style server without Docker: `pnpm --filter @toolbar/server build && 
 
 ```sh
 pnpm -r build      # every package: type checks, the server build, the release extension build
-pnpm -r test       # unit tests (vitest); the server's DB test runs when Postgres on :5432 answers, else skips
+pnpm -r test       # unit tests (vitest); the server's DB tests run when Postgres on :5432 answers, its mail tests when Mailpit does (profile `mail`), else skip
 pnpm -r check      # svelte-check / tsc
 pnpm e2e           # test build of the extension, then the area suites (needs compose server + lab)
 scripts/e2e-all.sh # every e2e suite on a fresh, seeded compose stack (see E2E below)
@@ -142,7 +152,7 @@ KEEP=1 scripts/e2e-all.sh                  # keep the running stack and its data
 
 The script does, in order:
 
-1. `docker compose down -v`, then `AUTH_RATE_LIMIT=off docker compose up --build -d`, and waits for `/api/health`. Rate limits are off because the suites sign in many test accounts from one address, and Better Auth allows 3 sign-ins per 10 s per address in production.
+1. `docker compose down -v`, then `docker compose --profile dev up --build -d` with the mock OIDC provider configured (`OIDC_ISSUER=http://oidc.localhost:3311/toolbar`, `OIDC_CLIENT_ID=toolbar`, `OIDC_CLIENT_SECRET=dev`), `ALLOWED_EMAIL_DOMAINS=test`, `AUTH_DEV_PASSWORD=1` (for the seeded accounts) and `AUTH_RATE_LIMIT=off`, and waits for `/api/health`. Rate limits are off because the suites sign in many test accounts from one address, and Better Auth allows 3 sign-ins per 10 s per address in production. `MAIL=1` adds the `mail` profile with `FEATURE_EMAIL=1`; `FEATURES="FEATURE_AI=1 ..."` turns on other paused features, whose tests otherwise skip.
 2. `pnpm --filter @toolbar/server db:seed` against the compose database (the server's defaults point at it). The seed prints a personal token; the script passes it as `TOOLBAR_E2E_TOKEN`, so `agent/cli-create.spec.ts` runs instead of skipping.
 3. Builds the release extension, the test extension and the CLI (`packages/cli/dist/open-toolbar.mjs`).
 4. Runs the area suites, then the flows. With `RUNS=n` it repeats steps 1, 2 and 4 n times. Logs go to `e2e/runs/area-N.log` and `e2e/runs/flows-N.log`; HTML reports to `e2e/playwright-report` and `e2e/playwright-report-flows`; flow screenshots to `e2e/flows-shots/`.
@@ -158,7 +168,7 @@ E2E_DISPLAY=:120 npx playwright test -c playwright.flows.config.ts d-desktop   #
 FLOWS_PICKER=fake npx playwright test -c playwright.flows.config.ts d-desktop e-recording  # the fallback path
 ```
 
-`e2e/global-setup.ts` starts Xvfb (and openbox) on `E2E_DISPLAY` when no X server owns it, and stops them at the end. Overrides: `E2E_DISPLAY`, `LAB_URL`, `SERVER_URL`, `MAILPIT_URL`, `E2E_EXT_BUILD` (area suites), `FLOWS_EXT_BUILD` (flows), `DATABASE_URL` (defaults to the compose one), `E2E_CALLBACK_HOST`. The flows write to `test-results-flows/`, so both suites can run side by side on different displays.
+`e2e/global-setup.ts` starts Xvfb (and openbox) on `E2E_DISPLAY` when no X server owns it, and stops them at the end. Overrides: `E2E_DISPLAY`, `LAB_URL`, `SERVER_URL`, `OIDC_MOCK_URL`, `MAILPIT_URL`, `E2E_EXT_BUILD` (area suites), `FLOWS_EXT_BUILD` (flows), `DATABASE_URL` (defaults to the compose one), `E2E_CALLBACK_HOST`. The flows write to `test-results-flows/`, so both suites can run side by side on different displays.
 
 Points that keep the runs deterministic:
 

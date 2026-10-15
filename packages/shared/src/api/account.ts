@@ -329,8 +329,12 @@ export const extBootstrapSchema = z.object({
     aiAvailable: z.boolean(),
   }),
   serverVersion: z.string(),
-  /** paused features the server turned on (docs/scope.md); absent means off. `ai`: FEATURE_AI (D-084) */
-  features: z.object({ ai: z.boolean() }).optional(),
+  /**
+   * Paused features the server turned on (docs/scope.md); absent means off. `ai`: FEATURE_AI
+   * (D-084); `trackers` and `slack`: FEATURE_TRACKERS and FEATURE_SLACK, the editor's destination
+   * picker (D-114).
+   */
+  features: z.object({ ai: z.boolean(), trackers: z.boolean().optional(), slack: z.boolean().optional() }).optional(),
   /** recording link to the server admin for the popup menu's report-a-problem item (J-177); env SUPPORT_RECORDING_LINK */
   supportRecordingLink: z.string().nullable().optional(),
   /** the server's instance branding (D-112); the extension shows it after sign-in */

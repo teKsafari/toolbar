@@ -36,6 +36,7 @@ import { frameAt, overview, spread, type FrameSize } from './frames.ts';
 import { REACTION_KEYS, setReaction } from './reactions.ts';
 import { publish } from '../viewer/comments.ts';
 import type { McpPrincipal } from './oauth.ts';
+import { authorSnapshot } from '../auth/author.ts';
 
 export type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
 export interface ToolResult {
@@ -645,10 +646,10 @@ const createComment = define({
       if (!p) fail('not_found', 'No such comment on this capture to reply to.');
       parentId = p!.parentId ?? p!.id;
     }
-    const [u] = await db.select({ name: user.name }).from(user).where(eq(user.id, principal.userId));
+    const u = await authorSnapshot(db, principal.userId);
     const [row] = await db
       .insert(comment)
-      .values({ recordingId: c.rec.id, parentId, authorUserId: principal.userId, authorName: u?.name ?? null, body: a.body, tMs: a.videoMs ?? null, viaAgent: principal.clientName ?? (principal.via === 'personal' ? 'an agent' : null) })
+      .values({ recordingId: c.rec.id, parentId, authorUserId: principal.userId, authorName: u.name, authorEmail: u.email, authorIssuer: u.issuer, authorSubject: u.subject, body: a.body, tMs: a.videoMs ?? null, viaAgent: principal.clientName ?? (principal.via === 'personal' ? 'an agent' : null) })
       .returning();
     publish(c.rec.id, { type: 'created', id: row!.id });
     return json({

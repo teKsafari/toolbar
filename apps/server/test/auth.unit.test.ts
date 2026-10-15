@@ -151,3 +151,29 @@ describe('bodyWorkspaceId (J-124: captures.create names its workspace in the bod
     expect(await authorize(route, { workspaceId: ws }, { user, apiToken: null }, new Headers(), async () => 'creator')).toBeNull();
   });
 });
+
+describe('paused routes (D-114)', () => {
+  const event = (method: string, path: string) =>
+    ({ url: new URL(`http://localhost:3000${path}`), request: new Request(`http://localhost:3000${path}`, { method }), locals: { user: null, session: null, apiToken: null } }) as never;
+  const ok = async () => new Response('handler');
+  it('a tracker route answers 404 while FEATURE_TRACKERS and FEATURE_SLACK are off, and reaches auth when on', async () => {
+    const { apiGate } = await import('../src/lib/server/auth/http.ts');
+    const path = '/api/v1/workspaces/019a0000-0000-7000-8000-0000000000a1/integrations';
+    delete process.env.FEATURE_TRACKERS;
+    delete process.env.FEATURE_SLACK;
+    const off = await apiGate({ event: event('GET', path), resolve: ok } as never);
+    expect(off.status).toBe(404);
+    process.env.FEATURE_TRACKERS = '1';
+    try {
+      const on = await apiGate({ event: event('GET', path), resolve: ok } as never);
+      expect(on.status).toBe(401); // the route exists again: signed out is refused by auth
+    } finally {
+      delete process.env.FEATURE_TRACKERS;
+    }
+  });
+  it('kept routes (webhooks) are not gated', async () => {
+    const { apiGate } = await import('../src/lib/server/auth/http.ts');
+    const r = await apiGate({ event: event('GET', '/api/v1/workspaces/019a0000-0000-7000-8000-0000000000a1/webhooks'), resolve: ok } as never);
+    expect(r.status).toBe(401);
+  });
+});

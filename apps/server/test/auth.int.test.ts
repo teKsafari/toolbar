@@ -13,7 +13,9 @@ import type { Db } from '../src/lib/server/db/index.ts';
 import { activeWorkspaceId, bootstrapNewUser, createWorkspace, ensureCanCreate, listWorkspaces, patchSettings, seatRole } from '../src/lib/server/auth/workspaces.ts';
 import { acceptInvite, createInvites, getInviteLink, resetInviteLink, resolveInvite } from '../src/lib/server/auth/invites.ts';
 import { exchangeCode, issueCode, PINNED_EXTENSION_ID } from '../src/lib/server/auth/ext.ts';
-import { resolveApiToken } from '../src/lib/server/tokens.ts';
+import { createApiToken, resolveApiToken } from '../src/lib/server/tokens.ts';
+import { authorSnapshot } from '../src/lib/server/auth/author.ts';
+import { env } from '../src/lib/server/env.ts';
 
 const base = process.env.DATABASE_URL ?? 'postgres://toolbar:toolbar@localhost:5432/toolbar';
 const name = `toolbar_authtest_${process.pid}`;
@@ -147,5 +149,23 @@ describe.skipIf(!reachable)('auth (integration)', () => {
     const code3 = await issueCode(db, { userId: u.id, codeChallenge: challenge, redirectUri: redirect });
     await db.update(schema.extAuthCode).set({ expiresAt: new Date(Date.now() - 1000) });
     expect(await exchangeCode(db, { code: code3, code_verifier: verifier, redirect_uri: redirect })).toEqual({ ok: false, code: 'expired' });
+  });
+
+  it('D-114: a token of an address the allowlist no longer admits stops working; authors carry issuer and subject', async () => {
+    const u = await mkUser('late@allow-int.test');
+    const { secret } = await createApiToken(db, { userId: u.id, kind: 'device', name: 'ext' });
+    expect((await resolveApiToken(db, secret))?.user.id).toBe(u.id);
+    env.auth.allowedDomains.push('elsewhere.test');
+    try {
+      expect(await resolveApiToken(db, secret)).toBeNull();
+      env.auth.allowedDomains.push('allow-int.test');
+      expect((await resolveApiToken(db, secret))?.user.id).toBe(u.id);
+    } finally {
+      env.auth.allowedDomains.length = 0;
+    }
+    // a password account is issued by this server; an OIDC account by the provider's issuer
+    expect(await authorSnapshot(db, u.id)).toMatchObject({ issuer: env.publicUrl, subject: u.id, email: u.email });
+    await db.insert(schema.account).values({ userId: u.id, providerId: 'github', accountId: 'gh-42' });
+    expect(await authorSnapshot(db, u.id)).toMatchObject({ issuer: 'github', subject: 'gh-42', name: 'late' });
   });
 });

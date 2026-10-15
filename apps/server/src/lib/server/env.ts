@@ -15,33 +15,52 @@ const flag = (name: string, fallback: boolean) => {
 };
 
 export interface OidcProviderEnv {
+  /** Better Auth's provider id; the callback is <PUBLIC_URL>/api/auth/callback/<providerId> */
   providerId: string;
+  /** the issuer URL, stored on every capture and comment as the author's `iss` */
+  issuer: string;
   discoveryUrl: string;
   clientId: string;
   clientSecret: string;
   scopes: string[];
+  /** button label: "Sign in with <name>" */
   name: string;
 }
 
-/** OIDC_1_ID, OIDC_1_NAME, OIDC_1_DISCOVERY_URL, OIDC_1_CLIENT_ID, OIDC_1_CLIENT_SECRET, OIDC_1_SCOPES; then OIDC_2_* ... */
-export function oidcProvidersFromEnv(): OidcProviderEnv[] {
-  const out: OidcProviderEnv[] = [];
-  for (let n = 1; n <= 9; n++) {
-    const p = `OIDC_${n}_`;
-    const providerId = read(p + 'ID');
-    const discoveryUrl = read(p + 'DISCOVERY_URL');
-    const clientId = read(p + 'CLIENT_ID');
-    if (!providerId || !discoveryUrl || !clientId) continue;
-    out.push({
-      providerId,
-      name: read(p + 'NAME', providerId),
-      discoveryUrl,
-      clientId,
-      clientSecret: read(p + 'CLIENT_SECRET'),
-      scopes: read(p + 'SCOPES', 'openid email profile').split(/[\s,]+/).filter(Boolean),
-    });
-  }
-  return out;
+const WELL_KNOWN = '/.well-known/openid-configuration';
+
+/**
+ * The one OIDC provider of docs/scope.md ("Sign-in", D-114): OIDC_ISSUER or OIDC_DISCOVERY_URL,
+ * OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_SCOPES, OIDC_PROVIDER_NAME, OIDC_PROVIDER_ID. Google
+ * Workspace: OIDC_ISSUER=https://accounts.google.com. The older OIDC_1_* names still work when
+ * OIDC_CLIENT_ID is unset. Null when no provider is configured.
+ */
+export function oidcProviderFromEnv(): OidcProviderEnv | null {
+  const legacy = !read('OIDC_CLIENT_ID') && !!read('OIDC_1_CLIENT_ID');
+  const v = (name: string, old: string, fallback = '') => (legacy ? read(`OIDC_1_${old}`, fallback) : read(`OIDC_${name}`, fallback));
+  const clientId = v('CLIENT_ID', 'CLIENT_ID');
+  let issuer = (legacy ? '' : read('OIDC_ISSUER')).replace(/\/+$/, '');
+  let discoveryUrl = v('DISCOVERY_URL', 'DISCOVERY_URL');
+  if (!discoveryUrl && issuer) discoveryUrl = issuer + WELL_KNOWN;
+  // OpenID Connect Discovery 1.0 section 4: the document lives at <issuer>/.well-known/openid-configuration
+  if (!issuer && discoveryUrl.endsWith(WELL_KNOWN)) issuer = discoveryUrl.slice(0, -WELL_KNOWN.length);
+  if (!clientId || !discoveryUrl) return null;
+  const host = (() => {
+    try {
+      return new URL(issuer || discoveryUrl).hostname;
+    } catch {
+      return '';
+    }
+  })();
+  return {
+    providerId: v('PROVIDER_ID', 'ID', 'oidc'),
+    issuer: issuer || discoveryUrl,
+    discoveryUrl,
+    clientId,
+    clientSecret: v('CLIENT_SECRET', 'CLIENT_SECRET'),
+    scopes: v('SCOPES', 'SCOPES', 'openid email profile').split(/[\s,]+/).filter(Boolean),
+    name: v('PROVIDER_NAME', 'NAME', host === 'accounts.google.com' ? 'Google' : 'SSO'),
+  };
 }
 
 export function loadEnv() {
@@ -88,7 +107,10 @@ export function loadEnv() {
         return flag('FEATURE_ADMIN_EXTRAS', false);
       },
     },
-    smtpUrl: read('SMTP_URL', 'smtp://localhost:1025'),
+    /** empty: no mail leaves the server (docs/scope.md: no SMTP); used only with FEATURE_EMAIL; read on use like it */
+    get smtpUrl() {
+      return read('SMTP_URL');
+    },
     /** empty: `<instance name> <noreply@<PUBLIC_URL host>>` (D-112) */
     mailFrom: read('MAIL_FROM'),
     transcribe: {
@@ -105,19 +127,21 @@ export function loadEnv() {
        * D-080). AUTH_DEV_PASSWORD=1 turns it on; the older AUTH_EMAIL_PASSWORD name still works.
        */
       emailPassword: flag('AUTH_DEV_PASSWORD', flag('AUTH_EMAIL_PASSWORD', false)),
-      /** work-email sign-in link by mail (J-217); paused with the rest of mail unless FEATURE_EMAIL is on */
-      magicLink: flag('AUTH_MAGIC_LINK', flag('FEATURE_EMAIL', false)),
       /**
-       * Email domains that may sign in, comma separated (docs/scope.md, "Sign-in"); empty lets any
-       * address in. Google's `hd` claim, when sent, must match too.
+       * Work-email sign-in link by mail (J-217): paused with the rest of mail, so it needs
+       * FEATURE_EMAIL; AUTH_MAGIC_LINK=0 keeps it off even then (D-114).
        */
-      allowedDomains: read('AUTH_ALLOWED_DOMAINS')
+      magicLink: flag('FEATURE_EMAIL', false) && flag('AUTH_MAGIC_LINK', true),
+      /**
+       * Email domains that may sign in and submit feedback, comma separated (docs/scope.md,
+       * "Sign-in"); empty lets any address in. Google's `hd` claim, when sent, must match too.
+       * AUTH_ALLOWED_DOMAINS is the older name.
+       */
+      allowedDomains: read('ALLOWED_EMAIL_DOMAINS', read('AUTH_ALLOWED_DOMAINS'))
         .split(/[\s,]+/)
         .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
         .filter(Boolean),
-      google: { clientId: read('GOOGLE_CLIENT_ID'), clientSecret: read('GOOGLE_CLIENT_SECRET') },
-      github: { clientId: read('GITHUB_CLIENT_ID'), clientSecret: read('GITHUB_CLIENT_SECRET') },
-      oidc: oidcProvidersFromEnv(),
+      oidc: oidcProviderFromEnv(),
       /**
        * Better Auth's per-address limits (3 sign-ins per 10 s). On by default in production; an
        * e2e run turns it off, because its many test accounts all sign in from one address.

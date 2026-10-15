@@ -3,7 +3,7 @@ import type { Health } from '@toolbar/shared';
 import { db } from './db/index.ts';
 import { s3Ping } from './s3.ts';
 import { whisperPing } from './transcribe/index.ts';
-import { env } from './env.ts';
+import { env, featureFlags } from './env.ts';
 
 async function timed(fn: () => Promise<unknown>, timeoutMs = 3000) {
   const t = performance.now();
@@ -24,5 +24,8 @@ export async function health(version: string): Promise<Health> {
   ]);
   const checks: Health['checks'] = { db: dbCheck, s3: s3Check };
   if (whisper) checks.whisper = whisper;
-  return { ok: dbCheck.ok && s3Check.ok, version, checks };
+  const features = Object.entries(featureFlags(env))
+    .filter(([, on]) => on)
+    .map(([k]) => k);
+  return { ok: dbCheck.ok && s3Check.ok, version, checks, features };
 }

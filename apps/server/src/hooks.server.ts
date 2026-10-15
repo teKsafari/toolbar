@@ -14,6 +14,7 @@ import { restIdentityOfMcpToken } from '#lib/server/mcp/oauth.ts';
 import { MCP_TOKEN_PREFIX } from '@toolbar/shared/areas/agent';
 import { getBrand } from '#lib/server/branding/index.ts';
 import { brandHead } from '#lib/server/branding/head.ts';
+import { domainAllowed } from '#lib/server/auth/allowlist.ts';
 
 export const init: ServerInit = async () => {
   const unsafe = assertSafeSecrets();
@@ -95,12 +96,18 @@ const authenticate: Handle = async ({ event, resolve }) => {
     }
   } else if (!building) {
     const s = await auth.api.getSession({ headers: event.request.headers });
-    if (s) {
+    // a session of an address the allowlist no longer admits counts as signed out (D-114)
+    if (s && domainAllowed(s.user.email)) {
       event.locals.user = s.user;
       event.locals.session = s.session;
     }
   }
-  return svelteKitHandler({ event, resolve, auth, building });
+  const res = await svelteKitHandler({ event, resolve, auth, building });
+  // A provider callback refused by the allowlist (D-114: unverified address, foreign `hd`) ends in
+  // a bare 403 from Better Auth; send the person back to the sign-in page, which names the reason.
+  if (res.status === 403 && event.url.pathname.startsWith('/api/auth/callback/'))
+    return new Response(null, { status: 303, headers: { location: `${env.publicUrl}/login?error=FORBIDDEN` } });
+  return res;
 };
 
 /**

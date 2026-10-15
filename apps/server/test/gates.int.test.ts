@@ -14,6 +14,10 @@ import type { RequestEvent } from '@sveltejs/kit';
 
 const base = process.env.DATABASE_URL ?? 'postgres://toolbar:toolbar@localhost:5432/toolbar';
 const MAILPIT = process.env.MAILPIT_URL ?? 'http://localhost:8025';
+// The paused mail (FEATURE_EMAIL) lands in Mailpit, which runs only with the compose profile
+// `mail` (D-116): the mail tests skip without it.
+const mailpitUp = await fetch(`${MAILPIT}/api/v1/info`).then((r) => r.ok, () => false);
+const itMail = it.skipIf(!mailpitUp);
 const name = `toolbar_gatestest_${process.pid}`;
 const run = Date.now().toString(36);
 
@@ -136,7 +140,7 @@ describe.skipIf(!reachable)('gates (integration)', () => {
     expect(await m.links.supportLinkUrl(m.db, '')).toBeNull();
   });
 
-  it('J-136: the first view by someone else emails the author once, and not when they turned it off', async () => {
+  itMail('J-136: the first view by someone else emails the author once, and not when they turned it off', async () => {
     const author = await mkUser('Fay Author');
     const viewer = await mkUser('Gus Viewer');
     const w = await m.ws.createWorkspace(m.db, { userId: author.id, email: author.email, name: 'Views', domainJoin: false });
@@ -173,7 +177,7 @@ describe.skipIf(!reachable)('gates (integration)', () => {
     expect(await mails(author.email, new RegExp(`Someone viewed "Fourth ${run}"`))).toHaveLength(1);
   });
 
-  it('J-136: mention emails skip a member who turned mentions off; the in-app notice is still stored', async () => {
+  itMail('J-136: mention emails skip a member who turned mentions off; the in-app notice is still stored', async () => {
     const owner = await mkUser('Hal Owner');
     const on = await mkUser('Ivy On');
     const off = await mkUser('Jo Off');
@@ -192,7 +196,7 @@ describe.skipIf(!reachable)('gates (integration)', () => {
     expect(notes.filter((n) => n.type === 'mention').map((n) => n.userId).sort()).toEqual([on.id, off.id].sort());
   });
 
-  it('J-136: the same-domain sign-up email goes only to admins who left it on', async () => {
+  itMail('J-136: the same-domain sign-up email goes only to admins who left it on', async () => {
     const domain = `corp${run}.example`;
     const a1 = await mkUser('Kim Admin', domain);
     const a2 = await mkUser('Lee Admin', domain);

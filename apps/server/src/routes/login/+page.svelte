@@ -1,6 +1,7 @@
 <script lang="ts">
-  // Sign-in and sign-up on one page (J-217): provider buttons, an or-divider, then work email.
-  // Continue mails a one-time link; "Use a password" swaps in a password field instead.
+  // Sign-in and sign-up on one page (J-217, D-114): one "Sign in with <provider>" button for the
+  // server's OIDC provider. The email forms below it show only in development (AUTH_DEV_PASSWORD)
+  // or with mail on (FEATURE_EMAIL, magic link).
   import { Button, Icon } from '@toolbar/ui';
   import { page } from '$app/state';
   import BrandMark from '#lib/components/BrandMark.svelte';
@@ -53,8 +54,8 @@
           <form method="POST" action="?/provider">
             <input type="hidden" name="provider" value={p.id} />
             <input type="hidden" name="next" value={data.next} />
-            <Button type="submit" size="lg" class="full" data-provider={p.id}>
-              Continue with {p.name}
+            <Button type="submit" size="lg" variant={opts.emailPassword || opts.magicLink ? undefined : 'primary'} class="full" data-provider={p.id}>
+              Sign in with {p.name}
             </Button>
           </form>
         {/each}
@@ -84,7 +85,7 @@
     {#if form?.message}<p class="err" role="alert">{form.message}</p>{/if}
     {#if data.error}<p class="err" role="alert">{errorText[data.error] ?? 'Sign-in did not finish. Try again.'}</p>{/if}
     {#if !opts.emailPassword && !opts.magicLink && !opts.providers.length}
-      <p class="err" data-testid="no-sign-in">No sign-in method is configured. Set the OIDC_1_* variables in .env (docs/scope.md, "Sign-in").</p>
+      <p class="err" data-testid="no-sign-in">No sign-in method is configured. Set OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET on the server (docs/configuration.md, "Sign-in").</p>
     {/if}
   {/if}
 </main>

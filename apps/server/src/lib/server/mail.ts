@@ -11,10 +11,19 @@ export function mailFrom(): string {
 
 let transport: ReturnType<typeof nodemailer.createTransport> | null = null;
 
-/** SMTP_URL, e.g. smtp://mailpit:1025 in compose. Mail goes to Mailpit on a clean machine. */
+let warned = false;
+
+/**
+ * SMTP_URL, e.g. smtp://mailpit:1025 with the compose `mail` profile. Mail is paused by owner
+ * scope unless FEATURE_EMAIL is on (D-079), and without SMTP_URL nothing leaves the server.
+ */
 export async function sendMail(to: string, subject: string, text: string, html?: string) {
-  // mail is paused by owner scope unless FEATURE_EMAIL is on (D-079): nothing leaves the server
   if (!env.features.email) return;
+  if (!env.smtpUrl) {
+    if (!warned) console.warn('[mail] FEATURE_EMAIL is on but SMTP_URL is empty: no mail is sent');
+    warned = true;
+    return;
+  }
   transport ??= nodemailer.createTransport(env.smtpUrl);
   await transport.sendMail({ from: mailFrom(), to, subject, text, html });
 }
