@@ -41,6 +41,7 @@ describe('schema round trip', () => {
     make('shot', { assetId: 'a', reason: 'user' }),
     make('annotation', { annotationId: 'n', op: 'create' }),
     make('marker', { type: 'mark' }),
+    make('stackmap', { ref: 'top.k1:3', frames: [{ fn: 'f', url: 'http://h/a.js', line: 1, col: 2, file: 'src/a.ts', srcLine: 3, srcCol: 1 }] }),
   ];
 
   it('has a sample for every kind', () => {

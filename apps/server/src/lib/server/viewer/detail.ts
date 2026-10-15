@@ -138,6 +138,7 @@ export async function captureDetail(ctx: ViewerCtx): Promise<CaptureDetail> {
       t: a.t ?? undefined,
       shapes: (a.shapes as Record<string, unknown>[]) ?? [],
       target: (a.target as CaptureDetail['annotations'][number]['target']) ?? undefined,
+      locator: (a.locator as CaptureDetail['annotations'][number]['locator']) ?? undefined,
       comment: a.comment ?? undefined,
       authorId: a.authorUserId,
       createdAt: a.createdAt.toISOString(),

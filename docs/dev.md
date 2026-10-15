@@ -170,6 +170,8 @@ FLOWS_PICKER=fake npx playwright test -c playwright.flows.config.ts d-desktop e-
 
 `e2e/global-setup.ts` starts Xvfb (and openbox) on `E2E_DISPLAY` when no X server owns it, and stops them at the end. Overrides: `E2E_DISPLAY`, `LAB_URL`, `SERVER_URL`, `OIDC_MOCK_URL`, `MAILPIT_URL`, `E2E_EXT_BUILD` (area suites), `FLOWS_EXT_BUILD` (flows), `DATABASE_URL` (defaults to the compose one), `E2E_CALLBACK_HOST`. The flows write to `test-results-flows/`, so both suites can run side by side on different displays.
 
+The locator suite (`e2e/tests/locator`, D-117) also uses two more builds of the lab, each skipped with a reason when absent: `LAB_DEV_URL` (default `http://localhost:5184`, `cd lab && npx vite dev --port 5184`) for `__svelte_meta`, and `LAB_MAPS_URL` (default `http://localhost:5186`, `cd lab && npx vite build --sourcemap && PORT=5186 node server.js`) for source-mapped stacks. Run that build in a worktree's `lab/`: it writes `lab/build`, and in the main checkout it would replace the build the `toolbar-lab` unit serves on :5173, where the first locator test expects no maps.
+
 Points that keep the runs deterministic:
 
 - Listeners the server must call (webhooks, the GitHub and Slack stand-ins) bind `0.0.0.0`. `e2e/fixtures/net.ts` gives the server `host.docker.internal` when a container publishes the server's port (compose maps it to the host gateway), else `127.0.0.1`; the browser keeps using `127.0.0.1`.

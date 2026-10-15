@@ -134,6 +134,8 @@ export const annotation = pgTable(
     t: bigint('t', { mode: 'number' }),
     shapes: jsonb('shapes').notNull().default(sql`'[]'::jsonb`),
     target: jsonb('target'),
+    /** locator packet (D-117): route files, element, dev source, mapped errors; aNN.locator.json */
+    locator: jsonb('locator'),
     comment: text('comment'),
     authorUserId: uuid('author_user_id').references(() => user.id, { onDelete: 'set null' }),
     createdAt: created(),

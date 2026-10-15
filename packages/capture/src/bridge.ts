@@ -4,13 +4,14 @@
 // both directions use the private MessagePort: MAIN sends events, ISOLATED sends commands
 // (MainCommand) and MAIN answers them (MainReply).
 import { BRIDGE_TAG } from '@toolbar/shared/constants';
+import type { LocateReply } from './locator-main.ts';
 
 type Msg = { [BRIDGE_TAG]: 'hello' | 'ready' };
 
 /** ISOLATED -> MAIN. */
 export type MainCommand = { cmd: 'metadata'; id: number };
 /** MAIN -> ISOLATED answers, told apart from events by `reply`. */
-export type MainReply = { reply: 'metadata'; id: number; value?: Record<string, unknown> | null; error?: string };
+export type MainReply = { reply: 'metadata'; id: number; value?: Record<string, unknown> | null; error?: string } | LocateReply;
 
 export function isMainReply(x: unknown): x is MainReply {
   return typeof x === 'object' && x !== null && typeof (x as MainReply).reply === 'string';

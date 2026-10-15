@@ -1218,6 +1218,11 @@ export class CaptureService {
     if (this.session.state === 'draft' && this.session.draftId === draftId) await this.apply({ type: 'DISCARD' });
   }
 
+  /** captureVisibleTab through the shared queue (two calls a second at most); locator crops use it (D-117). */
+  captureTab(windowId: number): Promise<string> {
+    return this.shots.run(() => browser.tabs.captureVisibleTab(windowId, { format: 'png' }));
+  }
+
   async ringInfo(tabId: number, sinceMs = 5 * 60_000, full = false) {
     await this.ring.flush();
     const slice = await this.ring.read(tabId, Date.now() - sinceMs);

@@ -158,7 +158,8 @@ How Part 2 derives its outputs from this schema with no capture change (`package
 | `caused_by` | overlapping open windows; confidence from timing and `ctx` |
 | `console.jsonl`, `network.jsonl`, `raw/network.har` | filter and map (`packages/shared/src/har.ts`) |
 | `keyframes/`, `outline/` | `shot` (reason keyframe) and `dom.rects` |
-| `annotations/a01.*` | `annotation` table plus assets plus `TargetRef` |
+| `annotations/a01.*` | `annotation` table plus assets plus `TargetRef`; `a01.locator.json` is the annotation's `locator` packet (D-117, `locatorFiles()`) |
+| mapped error stacks in `console.jsonl` | `stackmap` events (D-118), joined to their `error` or `console` event by `ref` |
 | `voice/` | `voice` stream plus `transcript` row |
 | `raw/rrweb-000.json.gz` | the rrweb stream chunks |
 
