@@ -34,7 +34,7 @@ export async function reviewOriginAllowedFor(db: Db, userId: string, origin: str
 
 export async function issueReviewCookie(db: Db, opts: { userId: string; origin: string; now?: number }, e = env): Promise<{ value: string; expiresAt: Date }> {
   const origin = normalizeOrigin(opts.origin);
-  if (!injectorEnabled(e) || !(await reviewOriginAllowedFor(db, opts.userId, origin, e))) throw new Error('origin_not_allowed');
+  if (!origin || !injectorEnabled(e) || !(await reviewOriginAllowedFor(db, opts.userId, origin, e))) throw new Error('origin_not_allowed');
   const now = opts.now ?? Date.now();
   const { secret } = await createApiToken(db, {
     userId: opts.userId,
