@@ -3,7 +3,7 @@
   // kind chips; hover shows a gutter triangle that seeks and arms a timestamped comment; a row
   // click expands it; the row at the current time is marked while the video plays.
   import { tick } from 'svelte';
-  import { filterConsole, fmtClock, fmtValue, fmtWallMs, presentConsoleChips, type ConsoleKindChip, type ConsoleViewRow } from '@toolbar/ui/viewer';
+  import { filterConsole, fmtClock, fmtValue, fmtWallMs, presentConsoleChips, stackFrames, type ConsoleKindChip, type ConsoleViewRow } from '@toolbar/ui/viewer';
   import VIcon from './VIcon.svelte';
   import Dropdown from './Dropdown.svelte';
   import EmptyState from './EmptyState.svelte';
@@ -41,10 +41,19 @@
   }
   function toggleRow(id: string) {
     const s = new Set(expanded);
-    if (s.has(id)) s.delete(id);
-    else s.add(id);
+    const opening = !s.has(id);
+    if (opening) s.add(id);
+    else s.delete(id);
     expanded = s;
+    // An opened row moves to the top of the list, so its frames are in view (J-056).
+    if (opening)
+      void tick().then(() => {
+        const row = list?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`);
+        if (row && list) list.scrollTo({ top: row.offsetTop - list.offsetTop, behavior: 'smooth' });
+      });
   }
+  /** Arguments worth their own block: objects and arrays. Strings and numbers are in the message already. */
+  const objectArgs = (r: ConsoleViewRow) => (r.args ?? []).filter((a) => typeof a === 'object' && a !== null && !['error', 'date', 'regexp', 'undefined', 'bigint', 'symbol', 'fn'].includes(String((a as Record<string, unknown>).$t ?? '')));
   const icon = (r: ConsoleViewRow) =>
     r.kind === 'navigation' ? 'external' : r.kind === 'click' ? 'select' : r.kind === 'input' ? 'text' : r.kind === 'media' ? 'record' : r.kind === 'network' ? 'network' : r.level === 'error' ? 'warning' : r.level === 'warn' ? 'warning' : 'info';
 
@@ -68,7 +77,7 @@
 {#if v.detail.source === 'recording-link' && !v.consoleRows.length}
   <EmptyState icon="console" title="No logs for recording-link captures yet" body="Recording links capture video only. Logs come with the extension, or when the recorder runs on your own domain." action={{ label: 'How to set it up', href: '/settings/integrations' }} />
 {:else}
-  <div class="vp-bar">
+  <div class="vp-bar cbar">
     <label class="vp-search"><VIcon name="search" size={14} /><input type="text" placeholder="Filter" bind:value={q} aria-label="Filter console" data-testid="console-filter" /></label>
     <Dropdown open={levelMenu} onclose={() => (levelMenu = false)}>
       {#snippet trigger()}
@@ -106,19 +115,22 @@
         data-row-index={i}
         role="listitem">
         <button type="button" class="vp-gutter" onclick={() => v.seek(r.at, { arm: true })} aria-label="Seek to {fmtClock(r.at)}" title="Play from here"><VIcon name="play" size={10} /></button>
+        <span class="vp-time" title={fmtWallMs(r.t, tz)}>{fmtClock(r.at)}</span>
         <button type="button" class="main" onclick={() => toggleRow(r.id)} aria-expanded={open}>
           <span class="ic"><VIcon name={icon(r) as never} size={13} /></span>
           <span class="msg" class:wrap={open}>{r.message}</span>
           {#if r.count > 1}<span class="count">{r.count}</span>{/if}
         </button>
-        <span class="vp-time" title={fmtWallMs(r.t, tz)}>{fmtClock(r.at)}</span>
         {#if open}
+          {@const frames = stackFrames(r.stack)}
           <div class="detail">
-            {#if r.args?.length}
-              {#each r.args as a, j (j)}<pre>{typeof a === 'object' && a !== null ? JSON.stringify(a, null, 2) : fmtValue(a)}</pre>{/each}
-            {/if}
-            {#if r.stack}<pre class="stack">{r.stack}</pre>{/if}
-            {#if r.source}<div class="src">{r.source.fn ?? 'anonymous'} at <a href={r.source.url} target="_blank" rel="noopener noreferrer">{r.source.url.split('/').pop()}:{r.source.line}:{r.source.col}</a></div>{/if}
+            {#each objectArgs(r) as a, j (j)}<pre>{fmtValue(a)}</pre>{/each}
+            {#if frames.length}
+              <ol class="frames" data-testid="stack-frames">
+                {#each frames as f, j (j)}<li><span class="fn">{f.fn ?? '(anonymous)'}</span> <a href={f.url} target="_blank" rel="noopener noreferrer" title={f.url}>{f.file}:{f.line}:{f.col}</a></li>{/each}
+              </ol>
+            {:else if r.stack}<pre class="stack">{r.stack}</pre>
+            {:else if r.source}<div class="src">{r.source.fn ?? 'anonymous'} at <a href={r.source.url} target="_blank" rel="noopener noreferrer">{r.source.url.split('/').pop()}:{r.source.line}:{r.source.col}</a></div>{/if}
             {#if r.kind === 'network' && r.rid}<button type="button" class="link" onclick={() => { v.selectedRid = r.rid!; v.reveal('network', r.rid!); }}>Open in network</button>{/if}
             {#if r.kind === 'click' && r.target}<pre>{r.target.selector}</pre>{/if}
           </div>
@@ -129,10 +141,13 @@
 {/if}
 
 <style>
+  /* One line at the default panel width (535 px at 1440): a narrower search and compact chips (J-055). */
+  .cbar .vp-search { flex: 1 1 80px; min-width: 80px; }
+  .cbar :global(.vp-chip) { padding: 0 7px; font-size: 11px; height: 24px; }
   .levels { display: flex; flex-direction: column; min-width: 150px; padding: 6px; border-radius: var(--nb-radius-md); background: var(--nb-surface); border: 1px solid var(--nb-border); box-shadow: var(--nb-shadow-md); }
   .lv { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 4px; cursor: pointer; font-size: var(--nb-text-md); }
   .lv:hover { background: var(--nb-surface-sunken); }
-  .cr { grid-template-columns: 18px minmax(0, 1fr) auto; }
+  .cr { grid-template-columns: 18px auto minmax(0, 1fr); }
   .main { all: unset; display: flex; align-items: flex-start; gap: 6px; min-width: 0; cursor: pointer; padding: 3px 0; }
   .ic { display: inline-flex; padding-top: 1px; color: var(--nb-text-faint); }
   .msg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -141,6 +156,10 @@
   .detail { grid-column: 2 / -1; padding: 0 0 6px 19px; display: flex; flex-direction: column; gap: 4px; }
   .detail pre { margin: 0; padding: 6px 8px; border-radius: 6px; background: var(--nb-surface-sunken); white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow: auto; }
   .stack { color: var(--nb-danger); }
+  .frames { list-style: none; margin: 0; padding: 0; }
+  .frames li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 18px; }
+  .frames .fn { color: var(--nb-text-muted); }
+  .frames a { color: var(--nb-accent-text); }
   .src { color: var(--nb-text-muted); }
   .link { all: unset; color: var(--nb-accent-text); cursor: pointer; text-decoration: underline; }
   .lvl-error .ic, .lvl-error .msg { color: var(--nb-danger); }

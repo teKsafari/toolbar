@@ -177,7 +177,12 @@ export const eventDataSchemas = {
     target: targetRefSchema.optional(),
   }),
   annotation: z.object({ annotationId: z.string(), op: z.enum(['create', 'update', 'delete']) }),
-  marker: z.object({ type: z.enum(['mark', 'voice.start', 'voice.end', 'pen', 'blur', 'screenshot']), label: z.string().optional() }),
+  marker: z.object({
+    type: z.enum(['mark', 'voice.start', 'voice.end', 'pen', 'blur', 'screenshot']),
+    label: z.string().optional(),
+    /** the selected area of an area screenshot, CSS px in the viewport (J-209) */
+    rect: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }).optional(),
+  }),
 } as const satisfies Record<(typeof EVENT_KINDS)[number], z.ZodType>;
 
 function envelope<K extends keyof typeof eventDataSchemas>(kind: K) {

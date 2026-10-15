@@ -100,6 +100,9 @@ function fmtTagged(v: Tagged): string {
       return `${String(v.type)}(${String(v.length)})`;
     case 'fn':
       return `f ${String(v.name || 'anonymous')}()`;
+    case 'date':
+    case 'regexp':
+      return String(v.value ?? '');
     case 'undefined':
       return 'undefined';
     case 'bigint':

@@ -60,6 +60,26 @@ export function topFrame(stack: string | undefined | null): ConsoleRow['source']
   return { fn: m[1] ?? null, url: m[2]!, line: Number(m[3]), col: Number(m[4]) };
 }
 
+/** Every frame of a stack as a call-site link, short file name included (J-056). */
+export function stackFrames(stack: string | undefined | null): { fn: string | null; url: string; file: string; line: number; col: number }[] {
+  if (!stack) return [];
+  const out: { fn: string | null; url: string; file: string; line: number; col: number }[] = [];
+  for (const line of stack.split('\n')) {
+    const m = line.match(FRAME_RE);
+    if (!m) continue;
+    const url = m[2]!;
+    let file = url;
+    try {
+      const u = new URL(url);
+      file = u.pathname.split('/').filter(Boolean).pop() || u.host;
+    } catch {
+      file = url.split('/').pop() || url;
+    }
+    out.push({ fn: m[1] ?? null, url, file, line: Number(m[3]), col: Number(m[4]) });
+  }
+  return out;
+}
+
 /** Pseudo tag for a click target, as in DevTools: <button data-testid="x">Text</button>. */
 export function describeTarget(t: TargetRef | undefined | null): string {
   if (!t) return 'element';
@@ -208,6 +228,8 @@ export function deriveNetwork(events: readonly CaptureEvent[], map: TimeMap): Ne
       const op = e.data.op;
       if (op === 'close') s.closed = true;
       if (op === 'error') s.error = true;
+      // The hook reports a socket at construction and again when it opens: one open frame (G3 bug 4).
+      if (op === 'open' && s.frames.some((f) => f.op === 'open')) continue;
       s.frames.push({
         at: map.toPlayer(e.t),
         t: e.t,
@@ -220,8 +242,18 @@ export function deriveNetwork(events: readonly CaptureEvent[], map: TimeMap): Ne
       });
     }
   }
+  // A WebSocket upgrade or an EventSource GET seen by webRequest is the stream the page hooks
+  // already list as one row with its frames; a second row for it is a duplicate (G3 bug 4).
+  const streamKey = (u: string) => u.replace(/^(?:ws|http)(s?):/i, 'x$1:');
+  const streamUrls = new Map<string, number[]>();
+  for (const st of streams.values()) {
+    const k = streamKey(st.url);
+    streamUrls.set(k, [...(streamUrls.get(k) ?? []), st.first.t]);
+  }
+  const isStreamSighting = (w: EventOf<'net.req'>) => (streamUrls.get(streamKey(w.data.url)) ?? []).some((t) => Math.abs(w.t - t) <= WEB_MATCH_LATE_MS);
   // merge webRequest sightings into page rows
   for (const w of webOnly) {
+    if (isStreamSighting(w)) continue;
     // The browser sees a request after the page's hook did, by a few ms on an idle machine and
     // by hundreds under load, so take the nearest unmatched page row from just before it.
     let twin: Acc | undefined;
@@ -256,6 +288,8 @@ export function deriveNetwork(events: readonly CaptureEvent[], map: TimeMap): Ne
     const end = timing?.end ?? res?.t ?? a.fail?.t ?? null;
     const startT = timing?.start ?? req.t;
     const body = res?.data.body;
+    const graphql = graphqlOf(req.data.body, body);
+    if (graphql && res?.data.graphqlErrors) graphql.hasErrors = true;
     rows.push({
       rid: req.data.rid,
       index: 0,
@@ -271,7 +305,7 @@ export function deriveNetwork(events: readonly CaptureEvent[], map: TimeMap): Ne
       statusText: res?.data.statusText ?? null,
       state,
       error: a.fail?.data.error ?? null,
-      errorMessage: failed ? (errorMessageOf(body) ?? a.fail?.data.error ?? null) : null,
+      errorMessage: failed || graphql?.hasErrors ? (errorMessageOf(body) ?? a.fail?.data.error ?? null) : null,
       type: typeOf(req.data, res?.data, req.data.url),
       initiator: req.data.initiator ?? null,
       source: a.webReq ? 'both' : req.data.source,
@@ -295,7 +329,7 @@ export function deriveNetwork(events: readonly CaptureEvent[], map: TimeMap): Ne
       responseBody: body ?? null,
       truncated: !!(res?.data.truncated || req.data.bodyTruncated),
       redacted: [...new Set(redacted)],
-      graphql: graphqlOf(req.data.body, body),
+      graphql,
       cors: /cors/i.test(a.fail?.data.error ?? ''),
       wsFrames: null,
       frames: [],
@@ -350,7 +384,9 @@ export function deriveNetwork(events: readonly CaptureEvent[], map: TimeMap): Ne
   return rows;
 }
 
-export const isFailed = (r: Pick<NetworkEntry, 'state' | 'status'>) => r.state === 'failed' || (r.status !== null && r.status >= 400);
+/** Failed: a network error, a 4xx or 5xx, or a GraphQL reply with errors at any status (J-064). */
+export const isFailed = (r: Pick<NetworkEntry, 'state' | 'status'> & { graphql?: NetworkEntry['graphql'] }) =>
+  r.state === 'failed' || (r.status !== null && r.status >= 400) || !!r.graphql?.hasErrors;
 
 // ---------- console ----------
 
@@ -368,7 +404,8 @@ export function deriveConsole(events: readonly CaptureEvent[], map: TimeMap, net
         if (!level) break;
         const first = e.data.args.find((a) => typeof a === 'object' && a !== null && (a as Record<string, unknown>).$t === 'error') as { stack?: string } | undefined;
         const stack = e.data.stack ?? first?.stack ?? null;
-        rows.push({ ...base(e), kind: 'console', level, message: fmtArgs(e.data.args), args: e.data.args, stack, source: topFrame(stack), count: e.data.count ?? 1 });
+        // data.count is console.count's counter, already in the message; it is not a repeat count (G3 bug 8)
+        rows.push({ ...base(e), kind: 'console', level, message: fmtArgs(e.data.args), args: e.data.args, stack, source: topFrame(stack), count: 1 });
         break;
       }
       case 'error': {
@@ -409,11 +446,15 @@ export function deriveConsole(events: readonly CaptureEvent[], map: TimeMap, net
       case 'shot':
         rows.push({ ...base(e), kind: 'media', level: 'info', message: 'Screenshot taken' });
         break;
+      case 'marker':
+        // the worker marks the moment a screenshot capture was taken: the console's last row (J-071)
+        if (e.data.type === 'screenshot') rows.push({ ...base(e), kind: 'media', level: 'info', message: e.data.label === 'area' ? 'Screenshot taken (area)' : 'Screenshot taken' });
+        break;
     }
   }
   for (const n of network ?? []) {
     if (!isFailed(n) || n.type === 'websocket' || n.type === 'eventsource') continue;
-    const what = n.status !== null ? `${n.status}${n.statusText ? ` (${n.statusText})` : ''}` : (n.error ?? 'failed');
+    const what = n.graphql?.hasErrors && (n.status ?? 0) < 400 ? `${n.graphql.operationName ? `${n.graphql.operationName}: ` : ''}GraphQL errors${n.errorMessage ? ` (${n.errorMessage})` : ''}` : n.status !== null ? `${n.status}${n.statusText ? ` (${n.statusText})` : ''}` : (n.error ?? 'failed');
     rows.push({
       id: `net:${n.rid}`,
       t: n.t,
@@ -441,7 +482,10 @@ export function deriveActions(events: readonly CaptureEvent[], map: TimeMap): Ac
   for (const e of events) {
     const base = { id: e.id, t: e.t, offsetMs: e.t - map.startedAt, at: map.toPlayer(e.t) };
     if (e.kind === 'nav') {
-      rows.push({ ...base, type: 'navigation', target: null, value: null, masked: false, key: null, url: e.data.url, cause: e.data.type });
+      // Frames load with their page; only the top document's navigations are steps (J-190).
+      if (e.ctx !== 'top') continue;
+      // A full load carries why it happened (reload, link, typed); SPA changes name their API (J-069).
+      rows.push({ ...base, type: 'navigation', target: null, value: null, masked: false, key: null, url: e.data.url, cause: e.data.type === 'load' ? (e.data.cause ?? 'load') : e.data.type });
     } else if (e.kind === 'user') {
       const d = e.data;
       if (d.type === 'scroll' || d.type === 'focus' || d.type === 'blur' || d.type === 'resize') continue;
@@ -449,7 +493,9 @@ export function deriveActions(events: readonly CaptureEvent[], map: TimeMap): Ac
         rows.push({ ...base, type: 'visibility', target: null, value: d.visible === false ? 'hidden' : 'visible', masked: false, key: null, url: null, cause: null });
         continue;
       }
-      rows.push({ ...base, type: d.type, target: d.target ?? null, value: d.value ?? null, masked: !!d.masked, key: d.key ?? null, url: null, cause: null });
+      // Key rows keep the whole chord, as the console does: "ctrl+R", not "R" (J-108).
+      const key = d.key ? [...(d.mods ?? []), d.key].join('+') : null;
+      rows.push({ ...base, type: d.type, target: d.target ?? null, value: d.value ?? null, masked: !!d.masked, key, url: null, cause: null });
     }
   }
   return rows;
@@ -482,8 +528,9 @@ export function deriveMarkers(consoleRows: readonly ConsoleViewRow[], network: r
   for (const m of merged) m.f();
   for (const e of events) {
     if (e.kind === 'marker') {
-      const kind = e.data.type === 'mark' ? (e.data.label === 'blur' ? 'blur' : e.data.label === 'pen' ? 'pen' : 'mark') : 'voice';
-      push(kind, map.toPlayer(e.t), e.data.label ?? kind, e.id, null);
+      if (e.data.type === 'screenshot') continue;
+      const kind = e.data.type === 'mark' ? (e.data.label === 'blur' ? 'blur' : e.data.label === 'pen' ? 'pen' : 'mark') : e.data.type === 'pen' || e.data.type === 'blur' ? e.data.type : 'voice';
+      push(kind, map.toPlayer(e.t), e.data.label ?? (kind === 'pen' ? 'Drawing' : kind === 'blur' ? 'Blur' : kind), e.id, null);
     } else if (e.kind === 'media' && (e.data.op === 'pause' || e.data.op === 'resume') && (e.data.stream === 'video' || e.data.stream === 'screen')) {
       push(e.data.op, map.toPlayer(e.t), e.data.op === 'pause' ? 'Video paused' : 'Video resumed', e.id, null);
     }

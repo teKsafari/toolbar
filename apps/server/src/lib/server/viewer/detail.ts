@@ -148,7 +148,8 @@ export async function captureDetail(ctx: ViewerCtx): Promise<CaptureDetail> {
     trim: null,
     linkedIssues: [],
     videoOffsetMs,
-    metadata: null,
+    // window.toolbar.setMetadata output stored at create (J-073)
+    metadata: rec.metadata && typeof rec.metadata === 'object' && !Array.isArray(rec.metadata) ? (rec.metadata as Record<string, unknown>) : null,
   };
 }
 

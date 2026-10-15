@@ -147,7 +147,7 @@
             onkeydown={(e) => { if (e.key === 'Enter') select(r); }}>
             <button type="button" class="vp-gutter g" onclick={(e) => { e.stopPropagation(); v.seek(r.at, { arm: true }); }} aria-label="Seek to {fmtClock(r.at)}" title="Play from here"><VIcon name="play" size={10} /></button>
             <span class="c-i" role="cell">{r.index + 1}</span>
-            <span class="c-name" role="cell" title={r.url}><VIcon name={typeIcon(r) as never} size={12} /><span class="ell">{r.path || r.url}</span></span>
+            <span class="c-name" role="cell" title={r.url}><VIcon name={typeIcon(r) as never} size={12} /><span class="ell">{r.path || r.url}{#if r.graphql?.operationName}{' '}<span class="op" data-testid="gql-op">{r.graphql.operationName}</span>{/if}</span></span>
             {#if !selected}
               <span class="c-m" role="cell">{r.method}</span>
               <span class="c-s" role="cell">{r.status ?? (r.state === 'pending' ? 'pending' : (r.error ?? 'failed'))}</span>
@@ -175,16 +175,19 @@
   .split { flex: 1; min-height: 0; display: flex; }
   .tablewrap { flex: 1; min-width: 0; overflow: auto; }
   .split.open .tablewrap { flex: 0 0 34%; max-width: 260px; border-right: 1px solid var(--nb-border); }
-  .table { min-width: 880px; }
+  /* All ten columns fit the default panel (535 px at 1440): fixed narrow columns, the name,
+     domain and waterfall share the rest, and every cell truncates (J-058, J-105). */
+  .table { min-width: 440px; }
   .table.narrow { min-width: 0; }
-  .hrow, .nrow { display: grid; grid-template-columns: 18px 34px minmax(140px, 2.4fr) 56px 64px minmax(80px, 1fr) 70px 46px 64px 64px minmax(90px, 1.2fr); align-items: center; }
-  .table.tabcol .hrow, .table.tabcol .nrow { grid-template-columns: 18px 34px minmax(140px, 2.4fr) 56px 64px minmax(80px, 1fr) 70px 46px 46px 64px 64px minmax(90px, 1.2fr); }
-  .table.narrow .hrow, .table.narrow .nrow { grid-template-columns: 18px 34px minmax(0, 1fr); }
+  .hrow, .nrow { display: grid; grid-template-columns: 14px 26px minmax(60px, 2.2fr) 46px 42px minmax(40px, 1fr) 38px 34px 50px 46px minmax(36px, 0.9fr); align-items: center; }
+  .table.tabcol .hrow, .table.tabcol .nrow { grid-template-columns: 14px 26px minmax(60px, 2.2fr) 46px 42px minmax(40px, 1fr) 38px 28px 34px 50px 46px minmax(36px, 0.9fr); }
+  .table.narrow .hrow, .table.narrow .nrow { grid-template-columns: 14px 26px minmax(0, 1fr); }
   .hrow { position: sticky; top: 0; z-index: 1; height: 26px; background: var(--nb-surface); border-bottom: 1px solid var(--nb-border-strong); padding: 0 10px 0 7px; }
   .hrow .h:first-child { grid-column: 2; }
-  .h { all: unset; display: inline-flex; align-items: center; gap: 2px; font: 600 var(--nb-text-xs) var(--nb-font-sans); color: var(--nb-text-muted); cursor: pointer; white-space: nowrap; }
-  .nrow { cursor: pointer; padding-top: 0; }
-  .nrow > span { overflow: hidden; white-space: nowrap; padding: 3px 4px 3px 0; }
+  .h { all: unset; display: inline-flex; align-items: center; gap: 2px; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 600 var(--nb-text-xs) var(--nb-font-sans); color: var(--nb-text-muted); cursor: pointer; white-space: nowrap; }
+  .nrow { cursor: pointer; padding-top: 0; min-height: 20px; }
+  .nrow > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 4px 1px 0; line-height: 18px; }
+  .nrow :global(.vp-gutter) { width: 14px; height: 20px; }
   .nrow.sel { background: var(--nb-accent-tint) !important; }
   .nrow.failed { background: var(--nb-danger-tint); color: var(--nb-danger); }
   .nrow.pending .c-s { color: var(--nb-text-faint); font-style: italic; }
@@ -192,8 +195,9 @@
   .c-name { display: flex; align-items: center; gap: 5px; min-width: 0; }
   .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .c-d { display: flex; min-width: 0; }
-  .c-w { position: relative; height: 22px; }
-  .wf { position: absolute; top: 8px; height: 6px; border-radius: 2px; background: var(--nb-accent); opacity: 0.75; }
+  .op { font-weight: 600; }
+  .c-w { position: relative; height: 20px; }
+  .wf { position: absolute; top: 7px; height: 6px; border-radius: 2px; background: var(--nb-accent); opacity: 0.75; }
   .wf.pend { background: repeating-linear-gradient(90deg, var(--nb-text-faint) 0 4px, transparent 4px 7px); }
   .failed .wf { background: var(--nb-danger); }
   .g { opacity: 0; }

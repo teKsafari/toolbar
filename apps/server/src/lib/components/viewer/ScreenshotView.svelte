@@ -13,6 +13,15 @@
   let which = $state<'crop' | 'full'>('crop');
   const shown = $derived(which === 'full' && full ? full : crop);
   let open = $state(false);
+  /** Where the selected area sits on the full viewport, in percent, from the capture's screenshot marker (J-209). */
+  const cropBox = $derived.by(() => {
+    const m = [...v.events].reverse().find((e) => e.kind === 'marker' && e.data.type === 'screenshot' && e.data.rect);
+    const r = m && m.kind === 'marker' ? m.data.rect : undefined;
+    const vw = v.detail.env?.viewport?.w;
+    const vh = v.detail.env?.viewport?.h;
+    if (!r || !vw || !vh) return null;
+    return { left: (r.x / vw) * 100, top: (r.y / vh) * 100, width: (r.w / vw) * 100, height: (r.h / vh) * 100 };
+  });
 
   function download() {
     const a = document.createElement('a');
@@ -35,7 +44,12 @@
   </div>
   <div class="scroll">
     <button type="button" class="imgbtn" onclick={() => (open = true)} aria-label="Open the image large">
-      <img src={shown.url} alt={v.detail.title || 'Screenshot'} width={shown.width ?? undefined} height={shown.height ?? undefined} data-testid="screenshot" data-which={which} />
+      <span class="imgwrap">
+        <img src={shown.url} alt={v.detail.title || 'Screenshot'} width={shown.width ?? undefined} height={shown.height ?? undefined} data-testid="screenshot" data-which={which} />
+        {#if which === 'full' && full && cropBox}
+          <span class="cropbox" style:left="{cropBox.left}%" style:top="{cropBox.top}%" style:width="{cropBox.width}%" style:height="{cropBox.height}%" data-testid="crop-box" aria-hidden="true"></span>
+        {/if}
+      </span>
     </button>
   </div>
   {#if full}
@@ -63,6 +77,8 @@
   .scroll { position: relative; z-index: 1; max-height: 70vh; overflow: auto; display: grid; place-items: start center; padding: 48px 16px 16px; }
   .imgbtn { all: unset; cursor: zoom-in; display: block; max-width: 100%; }
   .imgbtn:focus-visible { outline: 2px solid var(--nb-focus); }
+  .imgwrap { position: relative; display: block; }
+  .cropbox { position: absolute; box-sizing: border-box; border: 2px solid var(--nb-accent); border-radius: 2px; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.6); pointer-events: none; }
   .scroll img { display: block; max-width: 100%; height: auto; border-radius: 6px; box-shadow: var(--nb-shadow-md); }
   .switch { display: flex; justify-content: center; gap: 8px; padding: 8px 0 12px; }
   .switch button { all: unset; cursor: pointer; width: 80px; height: 52px; border-radius: 6px; overflow: hidden; border: 2px solid transparent; background: var(--nb-surface); }

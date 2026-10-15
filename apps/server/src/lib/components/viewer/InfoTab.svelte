@@ -5,6 +5,8 @@
   import VIcon from './VIcon.svelte';
   import Dropdown from './Dropdown.svelte';
   import { useViewer } from './viewer.svelte.ts';
+  import { copyText } from './api.ts';
+  import { toasts } from '@toolbar/ui';
 
   const v = useViewer();
   const env = $derived(v.detail.env);
@@ -22,6 +24,16 @@
     const parts = [c.effectiveType?.toUpperCase(), c.downlink != null ? `${c.downlink} Mbps` : null, c.rtt != null ? `${c.rtt} ms latency` : null].filter(Boolean);
     return parts.join(', ');
   });
+  /** Country of the capture (J-070, J-101): a region name from the ISO code the capture holds. */
+  const location = $derived.by(() => {
+    const cc = (env as { country?: string } | null)?.country;
+    if (!cc) return null;
+    try {
+      return `${new Intl.DisplayNames(['en'], { type: 'region' }).of(cc) ?? cc}`;
+    } catch {
+      return cc;
+    }
+  });
   const rows = $derived(
     [
       ['URL', v.detail.pageUrl ?? env?.url ?? null],
@@ -32,6 +44,7 @@
       ['Screen', env?.screen ? `${env.screen.w} x ${env.screen.h}` : null],
       ['Pixel ratio', env?.dpr != null ? String(env.dpr) : null],
       ['Language', env?.locale ?? null],
+      ['Location', location],
       ['Time zone', env?.tz ?? null],
       ['Network speed', speed],
       ['Incognito', env?.incognito == null ? null : env.incognito ? 'Yes' : 'No'],
@@ -39,6 +52,10 @@
       ['User agent', env?.ua ?? null],
     ].filter((r): r is [string, string] => !!r[1]),
   );
+  async function copySnippet() {
+    if (await copyText(snippet)) toasts.success('Snippet copied');
+    else toasts.error('Could not copy');
+  }
   const snippet = `window.toolbar?.setMetadata({\n  userId: 'u_123',\n  plan: 'team',\n});`;
 </script>
 
@@ -75,7 +92,10 @@
   {#if setup}
     <div class="setup">
       <p>Pages can attach their own fields to every capture. Call this from the page; the extension picks it up on the next capture.</p>
-      <pre>{snippet}</pre>
+      <div class="snip">
+        <pre>{snippet}</pre>
+        <button type="button" class="mini copy" onclick={copySnippet} data-testid="custom-logs-copy"><VIcon name="copy" size={12} />Copy</button>
+      </div>
     </div>
   {/if}
 </div>
@@ -96,4 +116,6 @@
   pre { margin: 0; padding: 6px 8px; border-radius: 6px; background: var(--nb-surface-sunken); font: var(--nb-text-sm) var(--nb-font-mono); white-space: pre-wrap; }
   .setup { margin-top: 12px; padding: 10px 12px; border-radius: var(--nb-radius-md); border: 1px solid var(--nb-border); font-size: var(--nb-text-md); }
   .setup p { margin: 0 0 8px; color: var(--nb-text-muted); }
+  .snip { position: relative; }
+  .snip .copy { position: absolute; top: 6px; right: 6px; background: var(--nb-surface); }
 </style>

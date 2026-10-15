@@ -4,6 +4,7 @@
   import { fmtBytes, fmtClock, fmtDuration, prettyBody, toCurl, type NetworkViewRow } from '@toolbar/ui/viewer';
   import { toasts } from '@toolbar/ui';
   import VIcon from './VIcon.svelte';
+  import BodyView from './BodyView.svelte';
   import { copyText } from './api.ts';
   import { agentNudge } from './actions.ts';
 
@@ -61,8 +62,12 @@
   const dirLabel = (f: { op: string; event: string | null }) => (f.op === 'send' ? 'sent' : isRecv(f.op) ? 'received' : f.op) + (f.event ? ` ${f.event}` : '');
   const frameText = (f: { binary: boolean; data: string | null; length: number | null; op: string }) =>
     f.binary ? `Binary frame, ${f.length != null ? fmtBytes(f.length) : 'size unknown'}` : (f.data ?? '');
-  const resp = $derived(prettyBody(entry.responseBody));
-  const payload = $derived(prettyBody(entry.requestBody));
+  /** Headers sorted by name, as DevTools lists them (J-059). */
+  const sorted = (hs: Record<string, string> | null | undefined) => Object.entries(hs ?? {}).sort(([a], [b]) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  const groups = $derived([
+    { id: 'response', title: 'Response headers', list: sorted(entry.responseHeaders) },
+    { id: 'request', title: 'Request headers', list: sorted(entry.requestHeaders) },
+  ]);
 
   async function copyCurl() {
     if (await copyText(toCurl(entry))) agentNudge('cURL copied');
@@ -87,31 +92,35 @@
   </div>
   <div class="body" data-testid="detail-body">
     {#if sub === 'headers'}
-      <h4>General</h4>
-      <dl>
-        <dt>URL</dt><dd>{entry.url}</dd>
-        <dt>Method</dt><dd>{entry.method}</dd>
-        <dt>Status</dt><dd><span class="dot {tone}"></span>{entry.status ?? entry.state}{entry.statusText ? ` ${entry.statusText}` : ''}{entry.error ? ` (${entry.error})` : ''}</dd>
-        <dt>Type</dt><dd>{entry.type}{entry.initiator ? `, ${entry.initiator}` : ''}</dd>
-        <dt>Seen by</dt><dd>{entry.source === 'both' ? 'page and browser' : entry.source === 'webRequest' ? 'browser' : 'page'}</dd>
-        {#if entry.size != null}<dt>Size</dt><dd>{fmtBytes(entry.size)}{entry.truncated ? ' (body cut)' : ''}</dd>{/if}
-      </dl>
-      {#each [['Response headers', entry.responseHeaders], ['Request headers', entry.requestHeaders]] as [title, hs] (title)}
-        {@const list = Object.entries((hs as Record<string, string>) ?? {})}
-        <h4>{title}</h4>
-        {#if list.length}
-          <dl>
-            {#each list as [k, val] (k)}
-              <dt>{k}</dt>
-              <dd>
-                {#if masked(k, val)}<span class="masked" data-testid="masked-{k.toLowerCase()}"><VIcon name="shield" size={12} />masked</span>{:else}{val}{/if}
-              </dd>
-            {/each}
-          </dl>
-        {:else}<p class="none">None captured</p>{/if}
+      <details open data-testid="hgroup-general">
+        <summary><VIcon name="chevron-down" size={11} class="chev" />General</summary>
+        <dl>
+          <dt>URL</dt><dd>{entry.url}</dd>
+          <dt>Method</dt><dd>{entry.method}</dd>
+          <dt>Status</dt><dd><span class="dot {tone}"></span>{entry.status ?? entry.state}{entry.statusText ? ` ${entry.statusText}` : ''}{entry.error ? ` (${entry.error})` : ''}{entry.graphql?.hasErrors ? ', GraphQL errors' : ''}</dd>
+          {#if entry.graphql?.operationName}<dt>Operation</dt><dd>{entry.graphql.operationName}</dd>{/if}
+          <dt>Type</dt><dd>{entry.type}{entry.initiator ? `, ${entry.initiator}` : ''}</dd>
+          <dt>Seen by</dt><dd>{entry.source === 'both' ? 'page and browser' : entry.source === 'webRequest' ? 'browser' : 'page'}</dd>
+          {#if entry.size != null}<dt>Size</dt><dd>{fmtBytes(entry.size)}{entry.truncated ? ' (body cut)' : ''}</dd>{/if}
+        </dl>
+      </details>
+      {#each groups as g (g.id)}
+        <details open data-testid="hgroup-{g.id}">
+          <summary><VIcon name="chevron-down" size={11} class="chev" />{g.title} <span class="n">{g.list.length}</span></summary>
+          {#if g.list.length}
+            <dl>
+              {#each g.list as [k, val] (k)}
+                <dt>{k}</dt>
+                <dd>
+                  {#if masked(k, val)}<span class="masked" data-testid="masked-{k.toLowerCase()}"><VIcon name="shield" size={12} />masked</span>{:else}{val}{/if}
+                </dd>
+              {/each}
+            </dl>
+          {:else}<p class="none">None captured</p>{/if}
+        </details>
       {/each}
     {:else if sub === 'payload'}
-      {#if entry.requestBody}<pre class:json={payload.json}>{payload.text}</pre>{:else}<p class="none">This request had no body.</p>{/if}
+      {#if entry.requestBody}<BodyView text={entry.requestBody} testid="payload-body" />{:else}<p class="none">This request had no body.</p>{/if}
     {:else if sub === 'response'}
       {#if stream}
         <div class="ffilter" data-testid="frame-filters">
@@ -125,14 +134,14 @@
         </div>
         {#if frameRe === 'bad'}<p class="none">That is not a valid regular expression.</p>{/if}
         <ol class="frames" data-testid="frames">
-          <li class="fhead" aria-hidden="true"><span>Time</span><span>Direction</span><span>Length</span><span>Data</span></li>
+          <li class="fhead" aria-hidden="true"><span>Time</span><span></span><span>Data</span><span>Length</span></li>
           {#each frameRows as { f, i } (i)}
             <li class="op-{f.op}" class:sel={frameSel === i} data-testid="frame">
               <button type="button" onclick={() => (frameSel = frameSel === i ? null : i)} aria-pressed={frameSel === i}>
                 <span class="t">{fmtClock(f.at)}</span>
-                <span class="op">{dirLabel(f)}</span>
+                <span class="op" title={dirLabel(f)} aria-label={dirLabel(f)}>{f.op === 'send' ? '\u2191' : isRecv(f.op) ? '\u2193' : '\u2022'}</span>
+                <code class:bin={f.binary} data-testid="frame-data">{f.event && !f.binary ? `${f.event}: ` : ''}{frameText(f)}</code>
                 <span class="len" data-testid="frame-length">{f.length != null ? fmtBytes(f.length) : ''}</span>
-                <code class:bin={f.binary} data-testid="frame-data">{frameText(f)}</code>
               </button>
             </li>
           {:else}
@@ -148,7 +157,7 @@
           </div>
         {/if}
       {:else if entry.responseBody}
-        <pre class:json={resp.json} data-testid="response-body">{resp.text}</pre>
+        <BodyView text={entry.responseBody} testid="response-body" />
       {:else}<p class="none">{entry.state === 'pending' ? 'No response arrived before the capture ended.' : 'No response body was captured.'}</p>{/if}
     {:else}
       <dl class="timing">
@@ -183,10 +192,16 @@
   .subs button { all: unset; padding: 7px 8px; font-size: var(--nb-text-md); color: var(--nb-text-muted); cursor: pointer; border-bottom: 2px solid transparent; }
   .subs button.on { color: var(--nb-text); border-bottom-color: var(--nb-accent); }
   .body { flex: 1; min-height: 0; overflow: auto; padding: 8px 12px 16px; font: var(--nb-text-sm) / 1.5 var(--nb-font-mono); }
+  details { margin-top: 6px; }
+  summary { display: flex; align-items: center; gap: 4px; padding: 3px 0; list-style: none; cursor: pointer; font: 600 var(--nb-text-xs) var(--nb-font-sans); color: var(--nb-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  summary::-webkit-details-marker { display: none; }
+  details:not([open]) summary :global(.chev) { transform: rotate(-90deg); }
+  summary .n { font-weight: 400; color: var(--nb-text-faint); }
   h4 { margin: 10px 0 4px; font: 600 var(--nb-text-xs) var(--nb-font-sans); color: var(--nb-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
   dl { display: grid; grid-template-columns: minmax(90px, max-content) 1fr; gap: 2px 12px; margin: 0; }
   dt { color: var(--nb-text-muted); }
-  dd { margin: 0; word-break: break-all; }
+  /* long values wrap at word boundaries, breaking inside a word only when nothing else fits */
+  dd { margin: 0; overflow-wrap: anywhere; word-break: normal; }
   .masked { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; border-radius: 999px; background: var(--nb-success-tint); color: var(--nb-success); font-family: var(--nb-font-sans); }
   pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
   .none { color: var(--nb-text-muted); font-family: var(--nb-font-sans); }
@@ -198,15 +213,17 @@
   .seg button { all: unset; padding: 3px 8px; font: var(--nb-text-sm) var(--nb-font-sans); color: var(--nb-text-muted); cursor: pointer; }
   .seg button.on { background: var(--nb-surface-sunken); color: var(--nb-text); }
   .count { color: var(--nb-text-faint); font-family: var(--nb-font-sans); }
-  .frames li > button, .frames .fhead { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 40px 76px 60px 1fr; gap: 8px; padding: 3px 0; cursor: pointer; }
+  .frames li > button, .frames .fhead { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 34px 12px minmax(0, 1fr) auto; gap: 6px; padding: 3px 0; cursor: pointer; }
   .frames .fhead { cursor: default; color: var(--nb-text-faint); font: 600 var(--nb-text-xs) var(--nb-font-sans); }
   .frames li { border-bottom: 1px solid var(--nb-border); }
   .frames li.sel { background: var(--nb-surface-sunken); }
   .frames .len { color: var(--nb-text-muted); text-align: right; }
-  .frames code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* the whole frame shows, wrapped (J-062) */
+  .frames code { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 7.5em; overflow: hidden; }
   .frames code.bin { color: var(--nb-text-muted); font-style: italic; }
   .fdetail { margin-top: 10px; border-top: 1px solid var(--nb-border); }
   .frames .t { color: var(--nb-text-faint); }
+  .frames .op { font-weight: 700; text-align: center; }
   .frames .op-send .op { color: var(--nb-accent-text); }
   .frames .op-recv .op, .frames .op-message .op { color: var(--nb-success); }
 </style>

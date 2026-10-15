@@ -18,6 +18,7 @@ export {
   presentConsoleChips,
   sortNetwork,
   targetAttributes,
+  stackFrames,
   topFrame,
 } from '@toolbar/shared/derive';
 export type { ActionRow, ActionViewRow, At, ConsoleKindChip, ConsoleViewRow, NetworkChip, NetworkSortKey, NetworkViewRow, WsFrameRow } from '@toolbar/shared/derive';
