@@ -1,7 +1,7 @@
 <script lang="ts">
   // Request detail pane (J-106, J-107, J-185): status dot, sub-tabs for headers, payload,
   // response (messages for sockets and event streams) and timing, copy as cURL, close.
-  import { fmtBytes, fmtClock, fmtDuration, prettyBody, toCurl, type NetworkViewRow } from '@toolbar/ui/viewer';
+  import { fmtBytes, fmtClock, fmtDuration, isFailed, prettyBody, toCurl, type NetworkViewRow } from '@toolbar/ui/viewer';
   import { toasts } from '@toolbar/ui';
   import VIcon from './VIcon.svelte';
   import BodyView from './BodyView.svelte';
@@ -17,7 +17,8 @@
   let { entry, sub = $bindable(), onclose }: Props = $props();
 
   const stream = $derived(entry.type === 'websocket' || entry.type === 'eventsource');
-  const tone = $derived(entry.state === 'pending' ? 'pend' : entry.state === 'failed' || (entry.status ?? 0) >= 400 ? 'bad' : (entry.status ?? 0) >= 300 ? 'warn' : 'ok');
+  // a GraphQL reply with errors is a failure at any status (J-064)
+  const tone = $derived(entry.state === 'pending' ? 'pend' : isFailed(entry) ? 'bad' : (entry.status ?? 0) >= 300 ? 'warn' : 'ok');
   const masked = (name: string, value: string) => entry.redacted.includes(name.toLowerCase()) || /\[redacted\]/i.test(value);
   const subs = $derived<{ id: Sub; label: string }[]>([
     { id: 'headers', label: 'Headers' },

@@ -2,6 +2,7 @@
 // URL points here, at /api/v1/recordings/:id/media/:name (members) or /s/:token/media/:name
 // (share links). Names: video, video-720 .. video-240, screenshot, full, thumb, voice, events,
 // rrweb-000.., transcript, or an asset id of the capture.
+import { RENDITION_HEIGHTS } from './ffmpeg.ts';
 import { and, eq } from 'drizzle-orm';
 import type { Db } from '../db/index.ts';
 import { asset, recordingChunk, recordingStream, transcript } from '../db/schema/index.ts';
@@ -162,10 +163,17 @@ function rangeNotSatisfiable() {
 }
 
 /** Quality menu entries (J-054): the original, then each rendition the ffmpeg job finished. */
+/**
+ * The quality menu (J-054): the original, then 720p down to 240p below the source height. A
+ * rendition the job has not finished yet is listed with `ready: false`, so the menu shows the
+ * full ladder from the first view and fills in as the encodes land.
+ */
 export function videoRenditions(rec: Pick<RecordingRow, 'renditions' | 'videoHeight'>, base: string) {
-  const done = ((rec.renditions as Rendition[] | null) ?? []).filter((r) => r.height !== null);
+  const done = new Set(((rec.renditions as Rendition[] | null) ?? []).filter((r) => r.height !== null).map((r) => r.height as number));
+  const src = rec.videoHeight ?? 0;
+  const planned = RENDITION_HEIGHTS.filter((h) => h < src || done.has(h));
   return [
-    { label: 'Original', height: rec.videoHeight ?? null, url: `${base}/video` },
-    ...done.map((r) => ({ label: `${r.height}p`, height: r.height, url: `${base}/video-${r.height}` })),
+    { label: 'Original', height: rec.videoHeight ?? null, url: `${base}/video`, ready: true },
+    ...planned.map((h) => ({ label: `${h}p`, height: h, url: `${base}/video-${h}`, ready: done.has(h) })),
   ];
 }

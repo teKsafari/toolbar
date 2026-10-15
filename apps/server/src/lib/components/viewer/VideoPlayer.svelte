@@ -274,7 +274,7 @@
         <div class="list" role="menu">
           <div class="head">Quality</div>
           {#each video.renditions as r (r.label)}
-            <button type="button" role="menuitem" class:sel={quality === r.label} onclick={() => setQuality(r.label, r.url)}>{r.label}</button>
+            <button type="button" role="menuitem" class:sel={quality === r.label} disabled={r.ready === false} title={r.ready === false ? 'Still being prepared' : undefined} onclick={() => setQuality(r.label, r.url)}>{r.label}{#if r.ready === false}<span class="prep"> preparing</span>{/if}</button>
           {/each}
           <button type="button" role="menuitem" class:sel={quality === 'Auto'} onclick={() => setQuality('Auto', video.url)}>Auto</button>
         </div>
@@ -339,6 +339,8 @@
   }
   .list button { all: unset; display: flex; gap: 10px; padding: 5px 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
   .list button:hover, .list .sel { background: #2c2a27; }
+  .list button:disabled { opacity: 0.55; cursor: default; background: none; }
+  .list .prep { color: #a7a39a; font-size: var(--nb-text-xs); }
   .list .sel { font-weight: 600; }
   .list .t { font-family: var(--nb-font-mono); color: #a9a499; }
   .list .head { padding: 4px 8px; color: #a9a499; font-size: var(--nb-text-xs); }

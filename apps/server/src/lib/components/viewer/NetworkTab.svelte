@@ -179,12 +179,12 @@
      domain and waterfall share the rest, and every cell truncates (J-058, J-105). */
   .table { min-width: 440px; }
   .table.narrow { min-width: 0; }
-  .hrow, .nrow { display: grid; grid-template-columns: 14px 26px minmax(60px, 2.2fr) 46px 42px minmax(40px, 1fr) 38px 34px 50px 46px minmax(36px, 0.9fr); align-items: center; }
-  .table.tabcol .hrow, .table.tabcol .nrow { grid-template-columns: 14px 26px minmax(60px, 2.2fr) 46px 42px minmax(40px, 1fr) 38px 28px 34px 50px 46px minmax(36px, 0.9fr); }
+  .hrow, .nrow { display: grid; grid-template-columns: 14px 24px minmax(80px, 3fr) 44px 40px minmax(36px, 0.8fr) 36px 34px 48px 46px minmax(36px, 0.8fr); align-items: center; }
+  .table.tabcol .hrow, .table.tabcol .nrow { grid-template-columns: 14px 24px minmax(80px, 3fr) 44px 40px minmax(36px, 0.8fr) 36px 28px 34px 48px 46px minmax(36px, 0.8fr); }
   .table.narrow .hrow, .table.narrow .nrow { grid-template-columns: 14px 26px minmax(0, 1fr); }
   .hrow { position: sticky; top: 0; z-index: 1; height: 26px; background: var(--nb-surface); border-bottom: 1px solid var(--nb-border-strong); padding: 0 10px 0 7px; }
   .hrow .h:first-child { grid-column: 2; }
-  .h { all: unset; display: inline-flex; align-items: center; gap: 2px; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 600 var(--nb-text-xs) var(--nb-font-sans); color: var(--nb-text-muted); cursor: pointer; white-space: nowrap; }
+  .h { all: unset; display: inline-flex; align-items: center; gap: 2px; min-width: 0; padding-right: 4px; overflow: hidden; text-overflow: ellipsis; font: 600 var(--nb-text-xs) var(--nb-font-sans); color: var(--nb-text-muted); cursor: pointer; white-space: nowrap; }
   .nrow { cursor: pointer; padding-top: 0; min-height: 20px; }
   .nrow > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 4px 1px 0; line-height: 18px; }
   .nrow :global(.vp-gutter) { width: 14px; height: 20px; }

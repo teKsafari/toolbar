@@ -565,6 +565,13 @@ async function viewerChecks(ev: Evidence, context: BrowserContext, id: string, c
       const out: Record<string, string[]> = {};
       let cur = '';
       for (const el of b.children) {
+        // collapsible groups (details/summary): the summary names the group, the list follows
+        if (el.tagName === 'DETAILS') {
+          const title = (el.querySelector('summary')?.textContent ?? '').trim();
+          const rows = [...el.querySelectorAll('dt')].map((dt) => `${dt.textContent?.trim()}: ${(dt.nextElementSibling?.textContent ?? '').trim().slice(0, 80)}`);
+          out[`${title}${(el as HTMLDetailsElement).open ? '' : ' (closed)'} [collapsible]`] = rows;
+          continue;
+        }
         if (el.tagName === 'H4') {
           cur = (el.textContent ?? '').trim();
           out[cur] = [];

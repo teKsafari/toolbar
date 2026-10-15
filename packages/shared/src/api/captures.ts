@@ -91,7 +91,13 @@ export const captureSummarySchema = recordingSummarySchema.extend({
 });
 export type CaptureSummary = z.infer<typeof captureSummarySchema>;
 
-export const renditionSchema = z.object({ label: z.string(), height: z.number().int().nullable(), url: z.string() });
+export const renditionSchema = z.object({
+  label: z.string(),
+  height: z.number().int().nullable(),
+  url: z.string(),
+  /** false while the server is still making this rendition after the capture became ready (J-054) */
+  ready: z.boolean().optional(),
+});
 
 /** Media URLs. All point at the Range-capable proxy (member or share route), never at S3. */
 export const captureMediaSchema = z.object({
