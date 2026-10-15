@@ -751,13 +751,14 @@ test('S7.1 settings pages, members, workspaces and sign-in', async () => {
       const tSubmit = Date.now();
       await p2.locator('input[type=submit], button[type=submit]').first().click();
       await p2.waitForURL((u) => u.origin === SERVER && !/\/api\/auth\//.test(u.pathname), { timeout: 20_000, waitUntil: 'commit' }).catch(() => undefined);
+      const landedMs = Date.now() - tSubmit;
       await sleep(500);
       const landed = p2.url().replace(SERVER, '');
       const me = await p2.evaluate(async () => (await fetch('/api/v1/me')).status);
-      const error = txt(await p2.locator('.err').first().textContent().catch(() => ''));
+      const error = (await p2.locator('.err').count()) ? txt(await p2.locator('.err').first().textContent()) : '';
       await p2.screenshot({ path: ev.file(`7-oidc-landed-${email.split('@')[1]}`) });
       await c2.close();
-      return { provider, clicksOnOurSide: 1, landed, signedIn: me === 200, error: error || null, submitToLandedMs: Date.now() - tSubmit, totalMs: Date.now() - t0 };
+      return { provider, clicksOnOurSide: 1, landed, signedIn: me === 200, error: error || null, submitToLandedMs: landedMs, providerClickToLandedMs: landedMs + (tSubmit - t0) };
     };
     const ssoAllowed = await oidc(`sso-${Date.now()}@example.com`);
     const ssoRefused = await oidc(`sso-${Date.now()}@elsewhere.test`);
