@@ -374,13 +374,27 @@ test('S5.1 share links and the logged-out viewer (N1)', async () => {
     await cap.getByTestId('share-caret').click();
     const pop = cap.getByTestId('share-popover');
     await pop.waitFor();
+    await pop.getByTestId('share-access').waitFor().catch(() => undefined); // the settings load after the popover opens
     const controls = await pop.locator('select, [role="radio"], [role="combobox"], [role="menuitemradio"], input, [aria-haspopup]').count();
     const accessLine = txt(await pop.getByTestId('share-access').textContent().catch(() => ''));
     const accessClickable = await pop.getByTestId('share-access').evaluate((e) => e.tagName === 'BUTTON' || !!e.querySelector('button, select')).catch(() => false);
     await cap.screenshot({ path: ev.file('3-access-line') });
+    // the General access select at the bottom of the popover (J-119): open it and pick members only
+    // (2 clicks: the popover caret was the first, the select and its option are the next)
+    let viaUi: Record<string, unknown> | null = null;
+    const sel = pop.getByTestId('share-access-select');
+    if (await sel.count()) {
+      await sel.selectOption('workspace');
+      await cap.locator('.nb-toast, [data-toast], [role="status"]').first().waitFor({ timeout: 5000 }).catch(() => undefined);
+      await sleep(400);
+      viaUi = { select: true, options: await sel.locator('option').allTextContents(), valueAfter: await sel.inputValue(), lineAfter: txt(await pop.getByTestId('share-access').textContent().catch(() => '')) };
+      await cap.screenshot({ path: ev.file('3-access-select') });
+    }
     await cap.keyboard.press('Escape');
-    // no control in the UI: the same change through the API the page would call (sharing.update)
-    const set = await api<{ access: string }>(context, 'PATCH', `/api/v1/recordings/${id}/share`, { access: 'workspace' });
+    // the server state the UI set (or, without a control, the API the page would call)
+    const set = viaUi
+      ? await api<{ access: string }>(context, 'GET', `/api/v1/recordings/${id}/share`)
+      : await api<{ access: string }>(context, 'PATCH', `/api/v1/recordings/${id}/share`, { access: 'workspace' });
     const c = await freshContext();
     const p = await c.newPage();
     const r = await p.goto(share.link.url);
@@ -400,7 +414,7 @@ test('S5.1 share links and the logged-out viewer (N1)', async () => {
     await p.waitForLoadState('networkidle').catch(() => undefined);
     const afterBack = { finalUrl: p.url().replace(SERVER, ''), status: r2?.status() ?? null };
     await c.close();
-    return { uiControls: controls, accessLine, accessLineIsControl: accessClickable, lineWhileMembers, setMembersOnly: { status: set.status, access: set.body?.access }, signedOutWhileMembersOnly: signedOut, setBack: { status: back.status, access: back.body?.access }, signedOutAfterBack: afterBack };
+    return { uiControls: controls, viaUi, accessLine, accessLineIsControl: accessClickable, lineWhileMembers, setMembersOnly: { status: set.status, access: set.body?.access }, signedOutWhileMembersOnly: signedOut, setBack: { status: back.status, access: back.body?.access }, signedOutAfterBack: afterBack };
   });
 
   // 4. the full link signed out: first contentful paint and load, three times
@@ -857,7 +871,8 @@ test('S5.3 folder sharing, invites and roles', async () => {
     await sleep(500);
     await page.screenshot({ path: ev.file('2-modal') });
     const email = dlg.getByLabel('Email address');
-    const inviteBtn = dlg.getByRole('button', { name: 'Invite', exact: true });
+    // "Invite" with mail on; "Copy invite link" while mail is paused (FEATURE_EMAIL off, J-123)
+    const inviteBtn = dlg.getByTestId('invite-submit');
     await email.fill('not-an-email');
     await sleep(200);
     const invalidDisabled = await inviteBtn.isDisabled();
@@ -894,11 +909,11 @@ test('S5.3 folder sharing, invites and roles', async () => {
     await p.screenshot({ path: ev.file('2-joined') });
     const after = await myWorkspaces(c);
     await c.close();
-    return { invalidDisabled, validEnabled, seatOptions: options, notes, linkRow, toast, pending: { role: pend.role }, join: j, creatorSeat: after.items.find((w) => w.id === ws)?.role ?? null, activeIsParity: after.activeId === ws, clicks: '1 (header Invite) + 1 (Invite), typing' };
+    return { invalidDisabled, validEnabled, seatOptions: options, notes, linkRow, toast, pending: { role: pend.role }, join: j, creatorSeat: after.items.find((w) => w.id === ws)?.role ?? null, activeIsParity: after.activeId === ws, submitLabel: txt(await inviteBtn.textContent().catch(() => '')), clicks: '1 (header Invite) + 1 (Invite), typing' };
   });
   ev.set('step2-header-invite-at-390', await (async () => {
     const p = await openUrl(context, `${SERVER}/`, { w: 390, h: 844 });
-    const r = { headerInviteVisible: await p.getByTestId('invite-button').isVisible(), fallback: 'members page, Add members' };
+    const r = { headerInviteVisible: (await p.getByTestId('invite-button').isVisible()) || (await p.getByTestId('invite-button-sm').isVisible()), iconOnly: await p.getByTestId('invite-button-sm').isVisible(), fallback: 'members page, Add members' };
     await p.close();
     return r;
   })());
@@ -907,6 +922,7 @@ test('S5.3 folder sharing, invites and roles', async () => {
     await shoot4(ev, '2-modal', ownerOpen(context, `${SERVER}/`), async (p) => {
       // under 520 px the header hides Invite; the members page's "Add members" opens the same modal
       if (await p.getByTestId('invite-button').isVisible()) await p.getByTestId('invite-button').click();
+      else if (await p.getByTestId('invite-button-sm').isVisible()) await p.getByTestId('invite-button-sm').click();
       else {
         await p.goto(`${SERVER}/settings/members`);
         await ready(p);
@@ -945,7 +961,7 @@ test('S5.3 folder sharing, invites and roles', async () => {
     await dlg.waitFor();
     await dlg.getByLabel('Email address').fill(VIEWER);
     await dlg.getByLabel('Seat').selectOption('viewer');
-    await dlg.getByRole('button', { name: 'Invite', exact: true }).click();
+    await dlg.getByTestId('invite-submit').click();
     await dlg.getByText(VIEWER).waitFor({ timeout: 10_000 });
     await dlg.getByRole('button', { name: 'Close' }).click();
     const pend = (await api<{ items: { id: string; email: string }[] }>(context, 'GET', `/api/v1/workspaces/${ws}/invites`)).body.items.find((i) => i.email === VIEWER);

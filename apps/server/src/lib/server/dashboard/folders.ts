@@ -170,6 +170,12 @@ export async function updateFolderShare(
       .where(and(eq(folderMember.folderId, f.id), u ? or(eq(folderMember.userId, u.id), sql`lower(${folderMember.email}) = ${email}`) : sql`lower(${folderMember.email}) = ${email}`));
     if (!existing.length) await db.insert(folderMember).values({ folderId: f.id, userId: u?.id ?? null, email, role: inv.role, invitedBy: actor.id });
     else if (u && !existing.some((x) => x.userId === u.id)) await db.update(folderMember).set({ userId: u.id }).where(eq(folderMember.id, existing[0]!.id));
+    // address-only rows left from before the account existed go once the account has its row
+    if (u && existing.length > 1) {
+      const keep = existing.find((x) => x.userId === u.id) ?? existing[0]!;
+      const extra = existing.filter((x) => x.id !== keep.id).map((x) => x.id);
+      if (extra.length) await db.delete(folderMember).where(inArray(folderMember.id, extra));
+    }
     // J-136: an existing account that turned off "shared with me" gets no email; new addresses always do.
     if (u && !(await emailAllowed(db, u.id, 'sharedWithMe'))) continue;
     const mail = folderInviteMail({ inviter: actor.name, folder: f.name, url: folderUrl(f), product: PRODUCT_NAME });
