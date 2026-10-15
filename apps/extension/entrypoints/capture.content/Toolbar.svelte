@@ -46,6 +46,15 @@
     }
   }
 
+  // The recorder starts once the page painted without the countdown veil (J-006): two frames
+  // after the starting state reached the DOM, the frame without the veil is on screen.
+  let clearedFor: string | null = null;
+  $effect(() => {
+    if (s.state !== 'starting' || clearedFor === s.recordingId) return;
+    const recordingId = (clearedFor = s.recordingId);
+    requestAnimationFrame(() => requestAnimationFrame(() => void send('countdown.cleared', { recordingId })));
+  });
+
   function setTool(tool: 'pen' | 'blur' | null) {
     ui.tool = tool;
     void send('recording.tool', { tool });

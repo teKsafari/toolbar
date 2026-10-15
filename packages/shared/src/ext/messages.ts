@@ -88,6 +88,8 @@ export interface BgRequestMap
   'countdown.pause': { req: {}; res: {} };
   'countdown.resume': { req: {}; res: {} };
   'countdown.cancel': { req: {}; res: {} };
+  /** the page painted without the countdown veil (J-006): the recorder may start */
+  'countdown.cleared': { req: { recordingId: string }; res: {} };
   'recording.stop': { req: {}; res: { session: CaptureSession } };
   'recording.pause': { req: {}; res: {} };
   'recording.resume': { req: {}; res: {} };

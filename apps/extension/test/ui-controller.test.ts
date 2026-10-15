@@ -77,7 +77,14 @@ describe('ui controller', () => {
       setCaptureDriver(d);
       const r = await send({ type: 'capture', mode: 'video', tabId, recordMode: 'tab' });
       expect(r).toMatchObject({ session: { state: 'countdown' } });
-      await vi.advanceTimersByTimeAsync(3300); // the 3 s count, then one repaint before the media starts
+      await vi.advanceTimersByTimeAsync(3050); // the 3 s count
+      const starting = await getSession();
+      expect(starting.state).toBe('starting');
+      // the media waits for the page's word that the veil is gone (J-006)
+      await vi.advanceTimersByTimeAsync(300);
+      expect((await getSession()).state).toBe('starting');
+      await send({ type: 'countdown.cleared', recordingId: (starting as { recordingId: string }).recordingId });
+      await vi.advanceTimersByTimeAsync(100);
       expect((await getSession()).state).toBe('recording');
       await send({ type: 'recording.tool', tool: 'blur' });
       expect((await getSession()) as { pausedAt: number | null }).toMatchObject({ pausedAt: expect.any(Number) });
@@ -86,6 +93,19 @@ describe('ui controller', () => {
       await send({ type: 'recording.stop' });
       expect((await getSession()).state).toBe('draft');
       expect(d.calls).toEqual(['start', 'pause', 'resume', 'stop']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('starts the media without the page after a timeout (J-006)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'] });
+    try {
+      setCaptureDriver(driver());
+      await send({ type: 'capture', mode: 'video', tabId, recordMode: 'tab' });
+      await vi.advanceTimersByTimeAsync(3000 + 700 + 100);
+      expect((await getSession()).state).toBe('recording');
+      await send({ type: 'recording.stop' });
     } finally {
       vi.useRealTimers();
     }

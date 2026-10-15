@@ -349,13 +349,34 @@ function runCountdown(leftMs: number) {
   }, 250);
 }
 
+/** The page's word that it painted without the veil, for the recording it names (J-006). */
+let veilCleared: { recordingId: string; resolve: () => void } | null = null;
+/** No word from the page (a background tab paints nothing): start anyway after this long. */
+const VEIL_ACK_TIMEOUT_MS = 700;
+/** After the page painted, the tab capture still needs a moment to deliver that frame. */
+const VEIL_SETTLE_MS = 80;
+
 async function countdownDone() {
   clearCountdown();
   extras.countdownLeftMs = 0;
+  const before = session;
+  const recordingId = before.state === 'countdown' ? before.recordingId : null;
+  // The page drops the veil on the starting state. The recorder waits until the page says it
+  // painted without it, so the video never opens on the veil or the countdown card (J-006): the
+  // tab stream was taken at the click and holds its last frame. A fixed wait was not enough
+  // when the worker or the page ran late.
+  const t0 = Date.now();
+  const cleared = new Promise<'ack' | 'timeout'>((resolve) => {
+    veilCleared = recordingId ? { recordingId, resolve: () => resolve('ack') } : null;
+    setTimeout(() => resolve('timeout'), VEIL_ACK_TIMEOUT_MS);
+  });
   const s = await dispatch({ type: 'COUNTDOWN_DONE' });
-  // the page drops the veil on this state; give it a frame to repaint, so the video does not
-  // open on the veil (the tab stream was taken at the click and holds its last frame)
-  if (s.state === 'starting') await new Promise((r) => setTimeout(r, 120));
+  if (s.state === 'starting') {
+    const how = await cleared;
+    stats.veil.push(`${how} ${Date.now() - t0}ms`);
+    await new Promise((r) => setTimeout(r, VEIL_SETTLE_MS));
+  }
+  veilCleared = null;
   if (session.state === 'starting') await beginMedia();
 }
 
@@ -672,6 +693,14 @@ const handlers: Handlers = {
     await cancelLive();
     return {};
   },
+  'countdown.cleared': async ({ recordingId }) => {
+    const v = veilCleared;
+    if (v && v.recordingId === recordingId) {
+      veilCleared = null;
+      v.resolve();
+    }
+    return {};
+  },
 
   'recording.stop': async () => ({ session: await stopRecording() }),
   'recording.pause': async () => {
@@ -877,6 +906,8 @@ const stats = {
   settingsPushed: 0,
   icon: 'default' as 'default' | 'camera',
   commands: [] as string[],
+  /** how each recording start learned the veil was gone (J-006): ack or timeout, and after how long */
+  veil: [] as string[],
 };
 
 const stubs = new Map<string, unknown>();
