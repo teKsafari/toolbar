@@ -143,9 +143,16 @@ export async function createHost(draftId: string): Promise<EditorHost> {
     putBlob: (blob) => putBlob(blob),
     deleteBlob: async (id) => void (await deleteBlob(id)),
     async create(req) {
-      // the editor opens the capture tab itself once the link is copied (openCapture)
-      const r = await send({ type: 'editor.create', draftId, finalize: req.finalize, flatBlobId: req.flatBlobId, flatFullBlobId: req.flatFullBlobId, openTab: false });
-      return { recordingId: r.recordingId, shareUrl: r.shareUrl, issueError: r.issueError, issueUrl: r.issue?.url ?? null };
+      // first feedback at the keypress (J-086): the page shows a progress toast until close
+      post({ type: 'creating' });
+      try {
+        // the editor opens the capture tab itself once the link is copied (openCapture)
+        const r = await send({ type: 'editor.create', draftId, finalize: req.finalize, flatBlobId: req.flatBlobId, flatFullBlobId: req.flatFullBlobId, openTab: false });
+        return { recordingId: r.recordingId, shareUrl: r.shareUrl, issueError: r.issueError, issueUrl: r.issue?.url ?? null };
+      } catch (e) {
+        post({ type: 'create-failed' });
+        throw e;
+      }
     },
     discard: async () => void (await send({ type: 'draft.discard', draftId })),
     saveForLater: async () => void (await send({ type: 'draft.saveForLater', draftId })),

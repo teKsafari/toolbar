@@ -41,6 +41,12 @@ export function installEditorHost(container: HTMLElement): EditorHostHandle {
   let frame: HTMLIFrameElement | null = null;
   let draftId: string | null = null;
   let toaster: ReturnType<typeof mount> | null = null;
+  /** the progress toast of a create in flight (J-086) */
+  let creating: number | null = null;
+  const doneCreating = () => {
+    if (creating !== null) toasts.dismiss(creating);
+    creating = null;
+  };
 
   const ensureToaster = () => {
     if (toaster || container.querySelector('.nb-toaster')) return;
@@ -75,7 +81,16 @@ export function installEditorHost(container: HTMLElement): EditorHostHandle {
     const m = e.data;
     if (m.type === 'ready') {
       frame.focus();
+    } else if (m.type === 'creating') {
+      ensureToaster();
+      // the toaster sits above the editor frame (z-index 2147483646) while the editor is open
+      for (const el of container.querySelectorAll<HTMLElement>('.nb-toaster')) el.style.zIndex = '2147483647';
+      doneCreating();
+      creating = toasts.loading('Making the link...');
+    } else if (m.type === 'create-failed') {
+      doneCreating();
     } else if (m.type === 'close') {
+      doneCreating();
       const id = draftId;
       close();
       ensureToaster();

@@ -236,6 +236,9 @@ export type EditorFrameMessage =
   | { [EDITOR_FRAME_TAG]: true; type: 'ready' }
   | { [EDITOR_FRAME_TAG]: true; type: 'close'; reason: 'created' | 'discarded' | 'saved'; /** created: whether the link reached the clipboard */ copied?: boolean; /** created: whether the capture page opened (J-089) */ opened?: boolean; /** created: the tracker refused the issue; the capture is saved (J-140) */ issueError?: string | null }
   | { [EDITOR_FRAME_TAG]: true; type: 'escape-pressed' }
+  /** create started (J-086): the host shows a progress toast at once; create-failed takes it away */
+  | { [EDITOR_FRAME_TAG]: true; type: 'creating' }
+  | { [EDITOR_FRAME_TAG]: true; type: 'create-failed' }
   | { [EDITOR_FRAME_TAG]: true; type: 'size'; w: number; h: number };
 
 export function isEditorFrameMessage(x: unknown): x is EditorFrameMessage {
