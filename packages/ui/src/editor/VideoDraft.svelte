@@ -282,7 +282,7 @@
           title="{m.label}{m.count > 1 ? ` (+${m.count - 1})` : ''} at {clock(m.ms)}"
           aria-label="{m.label} at {clock(m.ms)}"
           data-testid="trim-marker"
-          data-kind={m.kind}
+          data-marker={m.kind}
           onclick={() => seek(m.ms)}>
           {#if m.kind === 'pen'}<EdIcon name="pen" size={10} />{:else if markerText(m)}{markerText(m)}{/if}
         </button>

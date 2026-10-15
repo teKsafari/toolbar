@@ -1,6 +1,7 @@
 // Drafts: IndexedDB access (any extension context) and the service worker's draft.* and editor.*
 // requests (J-086, J-088, J-218, J-219, J-083). The capture area writes new drafts with
 // saveDraft() and opens the editor with openDraftInTab().
+import { ensureContent } from '../registration';
 import { browser } from 'wxt/browser';
 import { TEST_HOOKS } from '../flags';
 import { DEFAULT_SERVER_URL } from '@toolbar/shared/constants';
@@ -391,6 +392,8 @@ async function sendToTab(tabId: number, cmd: ContentCommand) {
 
 /** Show the editor for a draft in a tab (fresh capture or reopen from the Drafts list). */
 export async function openDraftInTab(tabId: number, draftId: string) {
+  // after a restart the tab's old script is gone (J-218): give it a live one before asking
+  await ensureContent(tabId).catch(() => false);
   await sendToTab(tabId, { type: 'ui.editor-open', draftId });
 }
 

@@ -1219,7 +1219,20 @@ test('S1.6 microphone and the recording cap', async () => {
     await sleep(600);
     const micBack = (await shadowOne(page, 'data-nb-mic'))?.attrs['data-nb-mic'];
     // a second microphone: look for any device control on the bar or the popup
-    const deviceControls = (await shadowQuery(page, 'data-nb-mic-device')).length + (await shadowQuery(page, 'data-nb-mic-menu')).length;
+    const deviceControls = (await shadowQuery(page, 'data-nb-mic-device')).length + (await shadowQuery(page, 'data-nb-mic-menu')).length + (await shadowQuery(page, 'data-nb-mic-pick')).length;
+    // the bar's microphone picker (J-211): open it, list the devices, pick one, the recording goes on
+    let deviceSwitch: Record<string, unknown> | null = null;
+    if ((await shadowQuery(page, 'data-nb-mic-pick')).length) {
+      await xclickShadow(page, 'data-nb-mic-pick');
+      await sleep(800);
+      const devices = await shadowQuery(page, 'data-nb-mic-device');
+      if (devices.length) {
+        await xclickShadow(page, 'data-nb-mic-device');
+        await sleep(1000);
+      }
+      deviceSwitch = { menu: true, devices: devices.length, micAfterSwitch: (await shadowOne(page, 'data-nb-mic'))?.attrs['data-nb-mic'] ?? null, stillRecording: (await shadowQuery(page, 'data-nb-stop')).length > 0 };
+      ev.set('step2-device-switch (J-211)', deviceSwitch);
+    }
     await sleep(2000);
     await xclickShadow(page, 'data-nb-stop');
     const f = await editorFrame(page, 60_000);

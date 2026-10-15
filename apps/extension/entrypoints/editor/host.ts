@@ -6,6 +6,7 @@ import { EDITOR_FRAME_TAG, type BgRequestMap, type BgRequestOf, type BgRequestTy
 import { parseNdjson, type AttachmentInfo, type DraftMarker, type EditorData, type EditorHost } from '@toolbar/ui/editor';
 import { buildTimeMap, deriveConsole, deriveMarkers, deriveNetwork } from '@toolbar/shared/derive';
 import type { CaptureEvent } from '@toolbar/shared';
+import { fromNdjson } from '@toolbar/shared/events';
 import { deleteBlob, getBlob, getDraft, openDb, putBlob, serverUrl } from '../../lib/bg/drafts';
 
 async function send<K extends BgRequestType>(req: BgRequestOf<K>): Promise<BgRequestMap[K]['res']> {
@@ -109,7 +110,7 @@ export async function createHost(draftId: string): Promise<EditorHost> {
       if (draft.kind !== 'screenshot' && eventsBlobId) {
         try {
           const b = await getBlob(eventsBlobId);
-          const events = b ? (parseNdjson(await b.blob.text()) as unknown as CaptureEvent[]) : [];
+          const events = b ? (fromNdjson(await b.blob.text()) as CaptureEvent[]) : [];
           const map = buildTimeMap(events, extra.startedAt ?? null, !!videoUrl);
           const network = deriveNetwork(events, map);
           markers = deriveMarkers(deriveConsole(events, map, network), network, events, map)

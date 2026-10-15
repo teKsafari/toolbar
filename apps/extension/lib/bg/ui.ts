@@ -269,7 +269,8 @@ async function onSessionChange(prev: CaptureSession, next: CaptureSession) {
     // a draft whose tab is gone (closed while recording or stopping) has nowhere to open its
     // editor; it goes to the Drafts list instead of holding the session (J-035, J-218)
     const alive = await browser.tabs.get(next.tabId).catch(() => null);
-    if (alive) void sendToTab(next.tabId, { type: 'ui.editor-open', draftId: next.draftId });
+    // a tab whose script went with a restart gets a live one first (J-218)
+    if (alive) void ensureContent(next.tabId).catch(() => false).then(() => sendToTab(next.tabId, { type: 'ui.editor-open', draftId: next.draftId }));
     else void dispatch({ type: 'SAVE_FOR_LATER' });
   }
 
@@ -352,7 +353,10 @@ async function countdownDone() {
   clearCountdown();
   extras.countdownLeftMs = 0;
   const s = await dispatch({ type: 'COUNTDOWN_DONE' });
-  if (s.state === 'starting') await beginMedia();
+  // the page drops the veil on this state; give it a frame to repaint, so the video does not
+  // open on the veil (the tab stream was taken at the click and holds its last frame)
+  if (s.state === 'starting') await new Promise((r) => setTimeout(r, 120));
+  if (session.state === 'starting') await beginMedia();
 }
 
 // ---------------------------------------------------------------- recording cap (J-013)
