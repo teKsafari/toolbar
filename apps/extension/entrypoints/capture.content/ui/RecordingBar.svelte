@@ -90,6 +90,26 @@
     if (!r.ok) toasts.error(errorText(r));
   }
 
+  // Microphone picker (J-211): the chevron beside the mic lists the microphones the extension
+  // can use; a pick switches the voice source without stopping the recording.
+  let micMenu: { id: string; label: string }[] | null = $state(null);
+  let micCurrent: string | null = $state(null);
+  async function openMicMenu() {
+    if (micMenu) {
+      micMenu = null;
+      return;
+    }
+    const r = await send('recording.micDevices', {});
+    if (!r.ok) return toasts.error(errorText(r));
+    micCurrent = r.current;
+    micMenu = r.devices;
+  }
+  async function pickMic(id: string) {
+    micMenu = null;
+    const r = await send('recording.mic', { deviceId: id, muted: false });
+    if (!r.ok) toasts.error(errorText(r));
+  }
+
   const micTip = $derived(
     mic === 'denied'
       ? 'Microphone permission is missing'
@@ -192,6 +212,22 @@
     >
       <Icon name={mic === 'on' ? 'mic' : mic === 'denied' ? 'mic-denied' : 'mic-off'} size={16} />
     </button>
+    {#if mic !== 'denied' && mic !== 'off'}
+      <button class="nb-micpick" class:open={!!micMenu} type="button" data-tip="Choose microphone" aria-label="Choose microphone" aria-haspopup="menu" aria-expanded={!!micMenu} data-nb-mic-pick onclick={openMicMenu}>
+        <Icon name="chevron-down" size={12} />
+      </button>
+    {/if}
+    {#if micMenu}
+      <div class="nb-micmenu" role="menu" data-nb-mic-menu>
+        {#each micMenu as d (d.id)}
+          <button type="button" role="menuitemradio" aria-checked={d.id === micCurrent} class:sel={d.id === micCurrent} data-nb-mic-device={d.id} onclick={() => pickMic(d.id)}>
+            <span class="nb-check">{#if d.id === micCurrent}<Icon name="check" size={14} />{/if}</span>{d.label}
+          </button>
+        {:else}
+          <span class="nb-micnone">No other microphone found</span>
+        {/each}
+      </div>
+    {/if}
     <span class="nb-sep"></span>
     <button class="nb-b" type="button" data-tip="Draw" aria-label="Draw on the page" data-nb-tool="pen" onclick={() => ontool('pen')}>
       <Icon name="pen" size={16} />
@@ -208,7 +244,7 @@
     left: 50%;
     bottom: 70px;
     translate: -50% 0;
-    height: 40px;
+    height: 46px;
     min-width: 120px;
     box-sizing: border-box;
     padding: 0 6px;
@@ -224,6 +260,61 @@
     user-select: none;
     animation: nb-rise var(--nb-dur-med) var(--nb-ease-out);
   }
+  .nb-micpick {
+    all: unset;
+    width: 14px;
+    height: 36px;
+    margin-left: -4px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    color: var(--nb-on-chrome-muted);
+    cursor: pointer;
+  }
+  .nb-micpick:hover,
+  .nb-micpick.open {
+    color: var(--nb-on-chrome);
+    background: var(--nb-chrome-2);
+  }
+  .nb-micmenu {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    translate: -50% 0;
+    min-width: 220px;
+    max-width: 320px;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--nb-radius-md);
+    background: var(--nb-chrome);
+    color: var(--nb-on-chrome);
+    box-shadow: var(--nb-shadow-lg);
+  }
+  .nb-micmenu button {
+    all: unset;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .nb-micmenu button:hover {
+    background: var(--nb-chrome-2);
+  }
+  .nb-check {
+    width: 14px;
+    display: inline-grid;
+    place-items: center;
+  }
+  .nb-micnone {
+    padding: 7px 8px;
+    color: var(--nb-on-chrome-muted);
+  }
   .nb-bar.placed {
     bottom: auto;
     translate: none;
@@ -237,8 +328,8 @@
     all: unset;
     position: relative;
     box-sizing: border-box;
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     display: grid;
     place-items: center;
     border-radius: 50%;

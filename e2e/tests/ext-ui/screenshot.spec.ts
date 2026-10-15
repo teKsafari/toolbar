@@ -103,7 +103,7 @@ test('J-026: Escape leaves screenshot mode; the popup shows a red exit row with 
   const exit = popup.locator('[data-row="exit-screenshot"]');
   await expect(exit).toHaveAttribute('data-tone', 'danger');
   await expect(popup.locator('[data-row="record"]')).toHaveAttribute('aria-disabled', 'true');
-  await expect(popup.locator('[data-row="link"]')).toHaveAttribute('aria-disabled', 'true');
+  await expect(popup.locator('[data-row="link"]')).toHaveAttribute('aria-disabled', 'false');
   await popup.locator('[data-row-main="exit-screenshot"]').click();
   await expect.poll(async () => (await session(sw)).state).toBe('idle');
   await page.close();

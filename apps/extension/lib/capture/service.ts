@@ -116,6 +116,8 @@ export class CaptureService {
   /** recording id -> media start time and offscreen facts */
   private media = new Map<string, { t: number; mime: string; width: number; height: number; mic: MicState }>();
   private undoWebRequest: (() => void) | null = null;
+  /** video size measured when the tab stream was taken, so the start after the countdown skips a page round trip */
+  private heldSize = new Map<string, { w: number; h: number }>();
   /** Stop to editor budget; e2e lowers it to exercise the timeout path (J-034). */
   stopTimeoutMs = STOP_TIMEOUT_MS;
 
@@ -545,7 +547,7 @@ export class CaptureService {
     const png = await dataUrlToBlob(dataUrl);
     const full = await cropImage(png, null, innerWidth, { cssPixels: true });
     const crop = rect && rect.w > 2 && rect.h > 2 ? await cropImage(png, rect, innerWidth, { cssPixels: true }) : null;
-    this.emit(tabId, 'marker', { type: 'screenshot', label: crop ? 'area' : 'viewport' }, t);
+    this.emit(tabId, 'marker', { type: 'screenshot', label: crop ? 'area' : 'viewport', ...(crop && rect ? { rect: { x: rect.x, y: rect.y, w: rect.w, h: rect.h } } : {}) }, t);
     const [env, metadata, auth] = await Promise.all([this.envFor(tabId), this.metadataFor(tabId), getAuth()]);
     await this.flushTabs([tabId]);
     const lastEnd = (await getPrivate<Record<number, number>>(CAPTURE_KEYS.lastCaptureEnd, {}))[tabId] ?? 0;
@@ -618,7 +620,10 @@ export class CaptureService {
     const dpr = geo?.dpr ?? 1;
     const w = Math.round((geo?.viewport.w ?? tab.width ?? 1280) * dpr);
     const h = Math.round((geo?.viewport.h ?? tab.height ?? 720) * dpr);
-    const r = await this.offscreen({ to: 'offscreen', type: 'hold-tab', streamId, w, h });
+    this.heldSize.set(streamId, { w, h });
+    const settings = await this.settingsNow();
+    const mic = settings.mic && ((await getStore('micGranted')) ?? false);
+    const r = await this.offscreen({ to: 'offscreen', type: 'hold-tab', streamId, w, h, mic, ...(settings.micDeviceId ? { micDeviceId: settings.micDeviceId } : {}) });
     if (!r?.ok) throw new CaptureError('permission_denied', r?.message ?? 'Could not capture this tab');
     return streamId;
   }
@@ -726,11 +731,17 @@ export class CaptureService {
     const upload: UploadAuth = pend?.upload ?? { serverUrl: '', token: '' };
     try {
       if (s.mode === 'tab') {
-        const tab = await browser.tabs.get(s.tabId);
-        const geo = await this.geometry(s.tabId);
-        const dpr = geo?.dpr ?? 1;
-        const w = Math.round((geo?.viewport.w ?? tab.width ?? 1280) * dpr);
-        const h = Math.round((geo?.viewport.h ?? tab.height ?? 720) * dpr);
+        const known = pend?.streamId ? this.heldSize.get(pend.streamId) : undefined;
+        if (pend?.streamId) this.heldSize.delete(pend.streamId);
+        let w = known?.w ?? 0;
+        let h = known?.h ?? 0;
+        if (!known) {
+          const tab = await browser.tabs.get(s.tabId);
+          const geo = await this.geometry(s.tabId);
+          const dpr = geo?.dpr ?? 1;
+          w = Math.round((geo?.viewport.w ?? tab.width ?? 1280) * dpr);
+          h = Math.round((geo?.viewport.h ?? tab.height ?? 720) * dpr);
+        }
         // the stream itself was taken at the gesture (holdTab); the offscreen document uses it
         const streamId: string = pend?.streamId ?? (await (browser.tabCapture as unknown as typeof Browser.tabCapture).getMediaStreamId({ targetTabId: s.tabId }));
         const r = await this.offscreen<{ ok: boolean; message?: string }>({ to: 'offscreen', type: 'record-tab', streamId, recordingId: s.recordingId, w, h, mic, ...(settings.micDeviceId ? { micDeviceId: settings.micDeviceId } : {}), upload });
@@ -1033,8 +1044,12 @@ export class CaptureService {
 
   // ---------- microphone grant (J-014, J-200) ----------
 
+  /** A pill click asked to turn the mic on and is waiting for the one-time grant. */
+  private micWantedOn = false;
+
   async requestMic(): Promise<boolean> {
     if (await getStore('micGranted')) return true;
+    this.micWantedOn = true;
     const granted = new Promise<boolean>((resolve) => {
       this.micWaiters.push(resolve);
       setTimeout(() => resolve(false), 120_000);
@@ -1049,7 +1064,13 @@ export class CaptureService {
     if (!granted || deviceCount === 0) {
       // no device or blocked: the pill shows off
       if (s.mic) await setStore('settings', { ...s, mic: false });
+    } else if (this.micWantedOn && !s.mic) {
+      // The grant tab took the focus and Chrome closed the popup before it could turn the mic
+      // on, so the worker finishes the click the user made: the pill reads on (J-014).
+      await setStore('settings', { ...s, mic: true });
+      this.settings = null;
     }
+    this.micWantedOn = false;
     for (const w of this.micWaiters.splice(0)) w(granted);
   }
 
@@ -1095,6 +1116,16 @@ export class CaptureService {
     const events = slice.events.filter((e) => e.t >= start - 1000);
     const durationMs = now - start;
     const draftKey = uuidv7();
+    // A still of the page as it is now: the drafts list and the dashboard card show it, since a
+    // DOM replay has no video frame to take one from (J-158).
+    let thumb: Blob | null = null;
+    try {
+      const geo = await this.geometry(id);
+      const shot = await dataUrlToBlob(await this.shots.run(() => browser.tabs.captureVisibleTab(tab.windowId, { format: 'png' })));
+      thumb = (await cropImage(shot, null, geo?.viewport.w ?? tab.width ?? 1280, { cssPixels: true })).blob;
+    } catch {
+      thumb = null; // not the active tab, or a page that refuses captures: no still
+    }
     let replaySegmentBlobIds: string[] = [];
     if (this.replay.tabs[id]?.video) {
       const r = await this.offscreen<{ ok: boolean; blobIds?: string[] }>({ to: 'offscreen', type: 'replay-video-flush', tabId: id, recordingId: draftKey, upload: { serverUrl: '', token: '' } });
@@ -1111,6 +1142,7 @@ export class CaptureService {
       workspaceId: auth?.activeWorkspaceId ?? null,
       events,
       rrweb: slice.rrweb,
+      thumb,
       env,
       metadata,
       extra: { trim: { startMs: Math.max(0, Math.round(durationMs) - 30_000), endMs: Math.max(1, Math.round(durationMs)) }, replaySegmentBlobIds, tabIds: [id], incognito: tab.incognito },

@@ -49,6 +49,8 @@ export interface NewDraftInput {
   events: CaptureEvent[];
   rrweb?: unknown[];
   screenshot?: Blob | null;
+  /** a still of the page for the drafts list and the capture card, for drafts with no image of their own (J-158) */
+  thumb?: Blob | null;
   full?: Blob | null;
   crop?: Rect | null;
   env?: EnvInfo | null;
@@ -71,6 +73,7 @@ export async function createDraft(input: NewDraftInput): Promise<Draft> {
   const rrwebBlobId = input.rrweb?.length ? await putBlob(`rrweb-${id}`, new Blob([toNdjson(input.rrweb)], { type: 'application/x-ndjson' })) : null;
   const screenshotBlobId = input.screenshot ? await putBlob(`shot-${id}`, input.screenshot) : null;
   const fullBlobId = input.full ? await putBlob(`full-${id}`, input.full) : null;
+  const thumbBlobId = screenshotBlobId ?? (input.thumb ? await putBlob(`thumb-${id}`, input.thumb) : null);
   const draft: Draft = {
     id,
     kind: input.kind,
@@ -81,7 +84,7 @@ export async function createDraft(input: NewDraftInput): Promise<Draft> {
     pageTitle: input.pageTitle,
     title: '',
     durationMs: input.durationMs,
-    thumbBlobId: screenshotBlobId,
+    thumbBlobId,
     recordingId: input.recordingId ?? null,
     status: 'open',
     clientId,

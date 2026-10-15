@@ -418,12 +418,23 @@ async function startRecording(tabId: number, mode: RecordMode) {
   const opts: StartRecordingOptions = { tabId, mode, recordingId: uuidv7(), mic: settings.mic, micDeviceId: settings.micDeviceId };
   extras.capMs = await loadCap();
   extras.tool = null;
-  try {
-    await driver.prepareRecording?.(opts);
-  } catch (e) {
-    await toastError(tabId, e);
-    throw e;
-  }
+  // The preparation (tab stream at the gesture, the server's capture row, env) runs while the
+  // countdown counts, so the count starts at the click and the first live frame follows the
+  // count sooner (J-027, J-195). The stream id is still asked for now, at the gesture.
+  const prep = (driver.prepareRecording?.(opts) ?? Promise.resolve()).then(
+    () => true,
+    async (e: unknown) => {
+      if (pendingStart?.recordingId === opts.recordingId) {
+        pendingStart = null;
+        clearCountdown();
+        await dispatch({ type: 'CANCEL' });
+        await updateActionIcon(session);
+        await toastError(tabId, e);
+      }
+      return false;
+    },
+  );
+  pendingPrep = prep;
   pendingStart = opts;
   extras.countdownLeftMs = COUNTDOWN_FROM * 1000;
   const s = await dispatch({ type: 'START_RECORDING', tabId, mode, recordingId: opts.recordingId, now: Date.now() });
@@ -436,10 +447,14 @@ async function startRecording(tabId: number, mode: RecordMode) {
 }
 
 let pendingStart: StartRecordingOptions | null = null;
+/** The preparation of the pending start; resolves false when it failed (the start is then cancelled). */
+let pendingPrep: Promise<boolean> = Promise.resolve(true);
 
 async function beginMedia() {
   const s = session;
   if (s.state !== 'starting' || !pendingStart || pendingStart.recordingId !== s.recordingId) return;
+  if (!(await pendingPrep)) return;
+  if (session.state !== 'starting' || pendingStart?.recordingId !== s.recordingId) return;
   try {
     const { mic } = await driver.startRecording(pendingStart);
     await dispatch({ type: 'MEDIA_STARTED', recordingId: s.recordingId, now: Date.now(), mic });
@@ -457,6 +472,7 @@ async function cancelLive() {
   const s = session;
   clearCountdown();
   if (s.state === 'countdown' || s.state === 'starting') {
+    await pendingPrep.catch(() => false); // let the preparation finish, so its stream and row are cleaned up
     await driver.cancelRecording?.(s.recordingId).catch(() => undefined);
     return dispatch({ type: 'CANCEL' });
   }
@@ -669,7 +685,13 @@ const handlers: Handlers = {
     if (s.mic === 'denied') throw new BgFailure('permission_denied', 'Microphone permission is missing');
     const mic = await driver.setMic(s.recordingId, req);
     await dispatch({ type: 'MIC', mic });
+    // a microphone picked during a recording is the one the next recording starts with (J-211)
+    if (req.deviceId) await saveSettings({ micDeviceId: req.deviceId });
     return { mic };
+  },
+  'recording.micDevices': async () => {
+    const r = (await browser.runtime.sendMessage({ to: 'offscreen', type: 'mic-devices' }).catch(() => null)) as { ok?: boolean; devices?: { id: string; label: string }[]; current?: string | null } | null;
+    return { devices: r?.devices ?? [], current: r?.current ?? null };
   },
   'recording.mark': async (req) => {
     const s = session;
@@ -751,6 +773,13 @@ const handlers: Handlers = {
 
   'ext.restart': async () => {
     await browser.storage.local.set({ [REOPEN_KEY]: Date.now() });
+    // The old content scripts outlive the reload: close every open editor first, so none stays
+    // over a page as an orphan frame (J-218). The draft itself stays in Drafts.
+    const tabs = await browser.tabs.query({}).catch(() => [] as { id?: number }[]);
+    await Promise.race([
+      Promise.all(tabs.map((t) => (t.id != null && t.id >= 0 ? browser.tabs.sendMessage(t.id, { type: 'ui.editor-close' }).catch(() => undefined) : undefined))),
+      new Promise((r) => setTimeout(r, 400)),
+    ]);
     setTimeout(() => browser.runtime.reload(), 50);
     return {};
   },
@@ -778,6 +807,7 @@ const handlers: Handlers = {
 async function recoverAfterWake() {
   const s = session;
   if (s.state === 'countdown' || s.state === 'starting') {
+    await pendingPrep.catch(() => false); // let the preparation finish, so its stream and row are cleaned up
     await driver.cancelRecording?.(s.recordingId).catch(() => undefined);
     await dispatch({ type: 'CANCEL' });
   } else if (s.state === 'recording') {

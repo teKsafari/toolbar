@@ -26,7 +26,9 @@
   .nb-veil {
     position: fixed;
     inset: 0;
-    background: rgb(18 18 17 / 0.5);
+    background: rgb(18 18 17 / 0.45);
+    /* the page blurs under the veil, so the card reads as the one thing to look at (J-027) */
+    backdrop-filter: blur(4px);
     display: grid;
     place-items: center;
     pointer-events: auto;
@@ -37,8 +39,10 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    padding: 16px 24px;
+    gap: 8px;
+    min-width: 340px;
+    box-sizing: border-box;
+    padding: 24px 32px;
     border-radius: var(--nb-radius-xl);
     background: var(--nb-chrome);
     color: var(--nb-on-chrome);

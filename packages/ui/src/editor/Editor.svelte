@@ -95,7 +95,10 @@
         trim = new TrimState(d.draft.durationMs ?? 0, d.draft.trim);
       }
       data = d;
-      void loadBootstrap(d.draft.workspaceId ?? p.lastWorkspaceId, d);
+      // A fresh draft carries the browser's active workspace; the workspace and folder picked for
+      // the last capture win over it, so the remembered folder applies (J-081).
+      const freshDraft = !d.draft.reopenedAt && !d.draft.title;
+      void loadBootstrap(freshDraft && p.lastWorkspaceId ? p.lastWorkspaceId : (d.draft.workspaceId ?? p.lastWorkspaceId), d);
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     }
@@ -507,6 +510,7 @@
             fallbackDurationMs={data.draft.durationMs}
             replayEvents={data.replayEvents ?? null}
             startedAt={data.startedAt ?? null}
+            markers={data.markers ?? []}
             onthumb={thumb}
             placeholder={kind === 'replay' ? 'Nothing was recorded for this replay' : 'No video in this draft'}
           />

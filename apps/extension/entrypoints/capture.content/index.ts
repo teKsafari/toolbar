@@ -17,6 +17,17 @@ import './style.css';
  */
 /** Events posted on this frame's port; the worker waits for this many after a flush. */
 let sentEvents = 0;
+/** Removes this script's UI; set once the shadow root is mounted. */
+let teardown: () => void = () => {};
+
+/** The extension was reloaded or removed: this script is an orphan and its UI must go (J-218). */
+function contextGone(): boolean {
+  try {
+    return !browser.runtime?.id;
+  } catch {
+    return true;
+  }
+}
 
 function portTransport(): Transport {
   let port: ReturnType<typeof browser.runtime.connect> | null = null;
@@ -26,8 +37,13 @@ function portTransport(): Transport {
     port.onMessage.addListener((c: PortCommand) => handlers.forEach((h) => h(c as Command)));
     port.onDisconnect.addListener(() => {
       port = null;
-      // The worker restarted or the extension reloaded: reconnect so commands (ring, attach) resume.
+      if (contextGone()) {
+        teardown();
+        return;
+      }
+      // The worker restarted: reconnect so commands (ring, attach) resume.
       setTimeout(() => {
+        if (contextGone()) return teardown();
         if (!port) {
           try {
             connect();
@@ -153,5 +169,13 @@ export default defineContentScript({
       onRemove: (app) => app && unmount(app),
     });
     ui.mount();
+    teardown = () => {
+      try {
+        ui.remove();
+      } catch {
+        /* already gone */
+      }
+    };
+    ctx.onInvalidated(teardown);
   },
 });

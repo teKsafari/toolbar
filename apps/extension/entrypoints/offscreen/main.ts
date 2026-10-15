@@ -84,7 +84,7 @@ function onChunk(rec: Recording, name: StreamName, blob: Blob, t0: number) {
 }
 
 /** Tab streams taken at the gesture, by stream id, until the countdown ends (hold-tab). */
-const held = new Map<string, { media: MediaStream; audio: AudioContext; timer: ReturnType<typeof setTimeout> }>();
+const held = new Map<string, { media: MediaStream; audio: AudioContext; timer: ReturnType<typeof setTimeout>; mic: Promise<MediaStream | null> | null; micDeviceId?: string }>();
 
 async function releaseHeld(streamId: string) {
   const h = held.get(streamId);
@@ -92,6 +92,7 @@ async function releaseHeld(streamId: string) {
   held.delete(streamId);
   clearTimeout(h.timer);
   for (const t of h.media.getTracks()) t.stop();
+  void h.mic?.then((m) => m?.getTracks().forEach((t) => t.stop()));
   await h.audio.close().catch(() => undefined);
 }
 
@@ -113,7 +114,7 @@ async function openMic(deviceId?: string): Promise<MediaStream | null> {
 }
 
 /** Builds recorders for a captured video stream plus optional mic, and starts them. */
-async function startRecording(id: string, media: MediaStream, opts: { mic: boolean; micDeviceId?: string; upload: UploadAuth | null; playBack: boolean }): Promise<Recording> {
+async function startRecording(id: string, media: MediaStream, opts: { mic: boolean; micDeviceId?: string; upload: UploadAuth | null; playBack: boolean; warmMic?: Promise<MediaStream | null> | null }): Promise<Recording> {
   const audio = new AudioContext();
   const mix = audio.createMediaStreamDestination();
   let hasAudio = false;
@@ -129,7 +130,7 @@ async function startRecording(id: string, media: MediaStream, opts: { mic: boole
   let voice: MediaRecorder | null = null;
   let micState: MicState = 'off';
   if (opts.mic) {
-    micStream = await openMic(opts.micDeviceId);
+    micStream = (await opts.warmMic) ?? (await openMic(opts.micDeviceId));
     if (micStream) {
       micGain = audio.createGain();
       micSource = audio.createMediaStreamSource(micStream);
@@ -327,7 +328,7 @@ async function handle(msg: OffscreenRequest): Promise<unknown> {
       if (media.getAudioTracks().length) audio.createMediaStreamSource(media).connect(audio.destination);
       // a countdown that is never finished or cancelled must not keep the tab captured
       const timer = setTimeout(() => void releaseHeld(msg.streamId), 600_000);
-      held.set(msg.streamId, { media, audio, timer });
+      held.set(msg.streamId, { media, audio, timer, mic: msg.mic ? openMic(msg.micDeviceId) : null, micDeviceId: msg.micDeviceId });
       return { ok: true };
     }
     case 'release-tab':
@@ -341,7 +342,10 @@ async function handle(msg: OffscreenRequest): Promise<unknown> {
         await h.audio.close().catch(() => undefined);
       }
       const media = h?.media ?? (await openTab(msg.streamId, msg.w, msg.h));
-      const rec = await startRecording(msg.recordingId, media, { mic: msg.mic, micDeviceId: msg.micDeviceId, upload: msg.upload, playBack: true });
+      // a microphone warmed at the gesture is used when it is the one asked for now
+      const warm = h?.mic && msg.mic && h.micDeviceId === msg.micDeviceId ? h.mic : null;
+      if (h?.mic && !warm) void h.mic.then((m) => m?.getTracks().forEach((t) => t.stop()));
+      const rec = await startRecording(msg.recordingId, media, { mic: msg.mic, micDeviceId: msg.micDeviceId, upload: msg.upload, playBack: true, warmMic: warm });
       return { ok: true, t: rec.startedAt, mic: rec.micState };
     }
     case 'record-screen': {
@@ -379,6 +383,14 @@ async function handle(msg: OffscreenRequest): Promise<unknown> {
         r.pausedAt = null;
       }
       return { ok: true };
+    }
+    case 'mic-devices': {
+      // the extension's own grant gives labels here; the page cannot list them (J-211)
+      const all = await navigator.mediaDevices.enumerateDevices().catch(() => [] as MediaDeviceInfo[]);
+      const devices = all.filter((d) => d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'communications').map((d, i) => ({ id: d.deviceId, label: d.label || `Microphone ${i + 1}` }));
+      const r = msg.recordingId ? recordings.get(msg.recordingId) : [...recordings.values()][0];
+      const current = r?.micStream?.getAudioTracks()[0]?.getSettings().deviceId ?? null;
+      return { ok: true, devices, current };
     }
     case 'mic': {
       const r = recordings.get(msg.recordingId);

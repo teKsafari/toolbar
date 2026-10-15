@@ -1,10 +1,10 @@
 <script lang="ts">
   // Live pen during a recording (J-030): strokes drawn on an SVG layer over the page, smoothed
-  // with perfect-freehand, each fading out a few seconds after the pointer lifts, like a laser
-  // pointer. Strokes are part of the tab video; a pen marker goes on the timeline.
+  // with perfect-freehand. The strokes stay while you keep drawing and all fade out together
+  // shortly after the last one ends, like a laser pointer. Strokes are part of the tab video; a pen marker goes on the timeline.
   import { onMount } from 'svelte';
   import { getStroke } from 'perfect-freehand';
-  import { LIVE_STROKE_FADE_MS } from '@toolbar/shared/areas/ext-ui';
+  import { LIVE_STROKE_FADE_MS, LIVE_STROKE_FADE_OUT_MS } from '@toolbar/shared/areas/ext-ui';
   import { setGuard } from './guard';
   import { send } from './send';
 
@@ -37,11 +37,24 @@
     return `M ${d[0]} Q ${d.slice(1).join(' ')} Z`;
   }
 
-  function fade(s: Stroke) {
-    setTimeout(() => {
-      const live = strokes.find((x) => x.id === s.id);
-      if (live) live.fading = true;
-      setTimeout(() => (strokes = strokes.filter((x) => x.id !== s.id)), 600);
+  let fadeTimer: ReturnType<typeof setTimeout> | null = null;
+  /** A new stroke holds the others on screen. */
+  function holdFade() {
+    if (fadeTimer) clearTimeout(fadeTimer);
+    fadeTimer = null;
+  }
+  /** After the last stroke ends, every stroke on screen fades out at once. */
+  function fade(_s?: Stroke) {
+    holdFade();
+    fadeTimer = setTimeout(() => {
+      fadeTimer = null;
+      const gone = new Set<number>();
+      for (const x of strokes) {
+        if (x === drawing) continue;
+        x.fading = true;
+        gone.add(x.id);
+      }
+      setTimeout(() => (strokes = strokes.filter((x) => !gone.has(x.id))), LIVE_STROKE_FADE_OUT_MS);
     }, LIVE_STROKE_FADE_MS);
   }
 
@@ -55,6 +68,7 @@
     }
     const p = e as PointerEvent;
     if (e.type === 'pointerdown' && p.button === 0) {
+      holdFade();
       drawing = { id: nextId++, color, points: [[p.clientX, p.clientY, p.pressure || 0.5]], fading: false };
       strokes.push(drawing);
       drawing = strokes[strokes.length - 1]!;
@@ -110,7 +124,7 @@
     cursor: crosshair;
   }
   path {
-    transition: opacity 0.6s ease-out;
+    transition: opacity 0.4s ease-out;
   }
   path.fading {
     opacity: 0;

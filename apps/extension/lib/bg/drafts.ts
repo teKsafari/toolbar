@@ -290,6 +290,11 @@ export async function createFromDraft(args: CreateArgs): Promise<{ recordingId: 
         finalize.fullScreenshotAssetId = full ? await uploadAsset(full.blob, 'screenshot', recordingId) : null;
       }
     }
+    // a replay without video has no frame for the server to take a card image from: send the still (J-158)
+    if (d.kind === 'replay' && d.thumbBlobId && !d.videoBlobId && !(d.replaySegmentBlobIds ?? []).length) {
+      const t = await getBlob(d.thumbBlobId);
+      if (t) await uploadAsset(t.blob, 'thumb', recordingId).catch(() => undefined);
+    }
     const attachmentIds: string[] = [];
     for (const id of d.attachmentBlobIds ?? []) {
       const b = await getBlob(id);

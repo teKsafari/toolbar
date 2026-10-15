@@ -10,13 +10,15 @@ export type ScreenshotDelay = (typeof SCREENSHOT_DELAYS)[number];
 export const DRAG_THRESHOLD_PX = 4;
 
 /** Cursor hint offset from the pointer (J-025). */
-export const CURSOR_PILL_OFFSET = { x: 5, y: 20 } as const;
+export const CURSOR_PILL_OFFSET = { x: 5, y: 5 } as const;
 
 /** Pre-roll countdown length in seconds (J-027). */
 export const COUNTDOWN_FROM = 3;
 
-/** Live pen strokes fade after this many ms (J-030). */
-export const LIVE_STROKE_FADE_MS = 2500;
+/** Live pen strokes all fade together this many ms after the last stroke ends (J-030). */
+export const LIVE_STROKE_FADE_MS = 1800;
+/** Length of that fade in ms (J-030). */
+export const LIVE_STROKE_FADE_OUT_MS = 400;
 
 /** Twelve live-pen colours, red first and preselected (J-030). Our own hues. */
 export const LIVE_PEN_COLORS = [

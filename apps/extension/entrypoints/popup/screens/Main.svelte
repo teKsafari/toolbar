@@ -86,7 +86,6 @@
     tone={arming ? 'danger' : 'default'}
     disabled={!actions.includes(arming ? 'exit-screenshot' : 'screenshot')}
     command="screenshot-mode"
-    hideOptions={arming}
     onclick={screenshot}
   >
     {#snippet options()}

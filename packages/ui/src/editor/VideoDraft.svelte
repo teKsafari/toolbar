@@ -7,6 +7,7 @@
   import { clock, spellDuration, type TrimState } from './trim.svelte.ts';
   import { ReplayDriver, type parseNdjson } from './replay.ts';
 
+  import type { DraftMarker } from './types.ts';
   interface Props {
     src: string | null;
     trim: TrimState;
@@ -19,8 +20,12 @@
     replayEvents?: ReturnType<typeof parseNdjson> | null;
     /** epoch ms of draft time 0, to line the replay up with the trim range */
     startedAt?: number | null;
+    /** errors, failed requests and pen marks above the track, so you can see where to cut (J-009, J-085) */
+    markers?: DraftMarker[];
   }
-  let { src, trim, fallbackDurationMs = null, onthumb, placeholder = 'No video in this draft', replayEvents = null, startedAt = null }: Props = $props();
+  let { src, trim, fallbackDurationMs = null, onthumb, placeholder = 'No video in this draft', replayEvents = null, startedAt = null, markers = [] }: Props = $props();
+  const shownMarkers = $derived(trim.durationMs ? markers.filter((m) => m.ms <= trim.durationMs + 250) : []);
+  const markerText = (m: DraftMarker) => (m.kind === 'net-fail' ? (m.status ? String(m.status) : 'fail') : m.kind === 'error' ? 'err' : '');
 
   let replayStage: HTMLDivElement | undefined = $state();
   let driver: ReplayDriver | null = null;
@@ -181,6 +186,9 @@
   function gripDown(which: 'start' | 'end', e: PointerEvent) {
     e.preventDefault();
     e.stopPropagation();
+    // preventDefault keeps the focus where it was (the title field), which would keep Ctrl+Z for
+    // text editing; the grip takes it, so the chords undo and redo trims (J-085).
+    (e.currentTarget as HTMLElement).focus({ preventScroll: true });
     video?.pause();
     if (driver && playing) toggle();
     dragging = which;
@@ -200,6 +208,7 @@
   }
   function trackDown(e: PointerEvent) {
     if (e.button !== 0) return;
+    track?.focus({ preventScroll: true });
     seek(msAt(e.clientX));
   }
   function gripKey(which: 'start' | 'end', e: KeyboardEvent) {
@@ -264,6 +273,21 @@
   </div>
 
   <div class="nb-vd-bar">
+    <div class="nb-vd-marks" data-testid="trim-markers">
+      {#each shownMarkers as m, i (i)}
+        <button
+          type="button"
+          class="nb-vd-mark k-{m.kind}"
+          style="left:{pct(Math.min(m.ms, trim.durationMs))}%"
+          title="{m.label}{m.count > 1 ? ` (+${m.count - 1})` : ''} at {clock(m.ms)}"
+          aria-label="{m.label} at {clock(m.ms)}"
+          data-testid="trim-marker"
+          data-kind={m.kind}
+          onclick={() => seek(m.ms)}>
+          {#if m.kind === 'pen'}<EdIcon name="pen" size={10} />{:else if markerText(m)}{markerText(m)}{/if}
+        </button>
+      {/each}
+    </div>
     <div
       class="nb-vd-track"
       bind:this={track}
@@ -410,6 +434,45 @@
   .nb-vd-bar {
     flex: none;
     padding: 0 6px;
+  }
+  .nb-vd-marks {
+    position: relative;
+    height: 16px;
+    margin-bottom: 3px;
+  }
+  .nb-vd-mark {
+    all: unset;
+    position: absolute;
+    bottom: 0;
+    transform: translateX(-50%);
+    min-width: 10px;
+    height: 14px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font: 600 9px / 1 var(--nb-font-mono);
+    color: #fff;
+    background: var(--nb-danger);
+    cursor: pointer;
+    box-shadow: 0 0 0 1.5px var(--nb-surface);
+  }
+  .nb-vd-mark.k-pen,
+  .nb-vd-mark.k-mark {
+    background: var(--nb-accent);
+    color: var(--nb-on-accent);
+  }
+  .nb-vd-mark.k-voice,
+  .nb-vd-mark.k-blur {
+    background: var(--nb-text-muted);
+    width: 10px;
+    padding: 0;
+  }
+  .nb-vd-mark:focus-visible {
+    outline: 2px solid var(--nb-focus);
+    outline-offset: 1px;
   }
   .nb-vd-track {
     position: relative;

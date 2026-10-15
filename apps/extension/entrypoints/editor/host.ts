@@ -3,7 +3,9 @@
 // to tabs goes through the worker.
 import { browser } from 'wxt/browser';
 import { EDITOR_FRAME_TAG, type BgRequestMap, type BgRequestOf, type BgRequestType, type BgResult, type EditorFrameMessage, type UploadRow } from '@toolbar/shared/ext';
-import { parseNdjson, type AttachmentInfo, type EditorData, type EditorHost } from '@toolbar/ui/editor';
+import { parseNdjson, type AttachmentInfo, type DraftMarker, type EditorData, type EditorHost } from '@toolbar/ui/editor';
+import { buildTimeMap, deriveConsole, deriveMarkers, deriveNetwork } from '@toolbar/shared/derive';
+import type { CaptureEvent } from '@toolbar/shared';
 import { deleteBlob, getBlob, getDraft, openDb, putBlob, serverUrl } from '../../lib/bg/drafts';
 
 async function send<K extends BgRequestType>(req: BgRequestOf<K>): Promise<BgRequestMap[K]['res']> {
@@ -100,6 +102,23 @@ export async function createHost(draftId: string): Promise<EditorHost> {
         const b = await getBlob(extra.rrwebBlobId);
         if (b) replayEvents = parseNdjson(await b.blob.text());
       }
+      // Markers for the trim track (J-009, J-085): the same errors, failed requests and pen marks
+      // the capture page's seek bar will show, on the draft's clock.
+      let markers: DraftMarker[] = [];
+      const eventsBlobId = (draft as typeof draft & { eventsBlobId?: string | null }).eventsBlobId;
+      if (draft.kind !== 'screenshot' && eventsBlobId) {
+        try {
+          const b = await getBlob(eventsBlobId);
+          const events = b ? (parseNdjson(await b.blob.text()) as unknown as CaptureEvent[]) : [];
+          const map = buildTimeMap(events, extra.startedAt ?? null, !!videoUrl);
+          const network = deriveNetwork(events, map);
+          markers = deriveMarkers(deriveConsole(events, map, network), network, events, map)
+            .filter((m) => m.kind !== 'pause' && m.kind !== 'resume')
+            .map((m) => ({ ms: Math.max(0, m.at), kind: m.kind as DraftMarker['kind'], label: m.label, status: m.status, count: m.count }));
+        } catch {
+          markers = [];
+        }
+      }
       const attachments: AttachmentInfo[] = [];
       for (const id of draft.attachmentBlobIds ?? []) {
         const b = await getBlob(id);
@@ -112,6 +131,7 @@ export async function createHost(draftId: string): Promise<EditorHost> {
         videoUrl,
         replayEvents,
         startedAt: extra.startedAt ?? null,
+        markers,
         attachments,
       };
     },

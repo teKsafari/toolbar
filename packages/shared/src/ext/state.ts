@@ -172,7 +172,8 @@ export function popupActions(s: CaptureSession, replay: ReplayState): PopupActio
     case 'idle':
       return replay.enabled ? ['screenshot', 'record', 'replay', 'link'] : ['screenshot', 'record', 'link'];
     case 'arming-screenshot':
-      return ['exit-screenshot'];
+      // the recording link stays usable while screenshot mode is armed (J-026)
+      return ['exit-screenshot', 'link'];
     case 'countdown':
     case 'starting':
     case 'recording':

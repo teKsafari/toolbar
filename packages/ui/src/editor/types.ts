@@ -24,7 +24,19 @@ export interface EditorData {
   replayEvents?: { type: number; timestamp: number; data?: unknown }[] | null;
   /** epoch ms of draft time 0 (the capture area's `startedAt`); trim ranges count from here */
   startedAt?: number | null;
+  /** errors, failed requests and pen marks on the draft clock, drawn above the trim track (J-009, J-085) */
+  markers?: DraftMarker[];
   attachments: AttachmentInfo[];
+}
+
+export interface DraftMarker {
+  /** ms on the draft clock (the trim track's scale) */
+  ms: number;
+  kind: 'error' | 'net-fail' | 'pen' | 'blur' | 'mark' | 'voice' | 'pause' | 'resume';
+  label: string;
+  /** HTTP status of a failed request, shown on its badge */
+  status: number | null;
+  count: number;
 }
 
 export type DraftPatch = Partial<Omit<Draft, 'id' | 'kind' | 'createdAt'>>;

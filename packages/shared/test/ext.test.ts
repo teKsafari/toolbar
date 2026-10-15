@@ -46,7 +46,7 @@ describe('capture session state machine', () => {
 
   it('toggles screenshot mode and ignores events that do not apply', () => {
     const armed = run(IDLE, { type: 'ARM_SCREENSHOT', tabId: 1, delaySec: 0, now: 0 });
-    expect(popupActions(armed, DEFAULT_REPLAY)).toEqual(['exit-screenshot']);
+    expect(popupActions(armed, DEFAULT_REPLAY)).toEqual(['exit-screenshot', 'link']);
     expect(run(armed, { type: 'ARM_SCREENSHOT', tabId: 1, delaySec: 0, now: 1 })).toBe(IDLE);
     expect(run(armed, { type: 'SHOT_TAKEN', draftId: 'd' }).state).toBe('draft');
     expect(transition(IDLE, { type: 'STOP', now: 0 })).toBe(IDLE);

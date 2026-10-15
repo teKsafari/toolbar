@@ -92,6 +92,8 @@ export interface BgRequestMap
   'recording.pause': { req: {}; res: {} };
   'recording.resume': { req: {}; res: {} };
   'recording.mic': { req: { muted?: boolean; deviceId?: string }; res: { mic: MicState } };
+  /** microphones the extension can record from, and the one in use, for the bar's device menu (J-211) */
+  'recording.micDevices': { req: {}; res: { devices: { id: string; label: string }[]; current: string | null } };
   /** pen stroke, blur toggle or user mark, kept as a marker event (J-030, J-031) */
   'recording.mark': { req: { kind: 'pen' | 'blur' | 'mark'; label?: string }; res: {} };
   'replay.trigger': { req: { tabId?: number }; res: { draftId: string } };
@@ -201,7 +203,8 @@ export interface UploadAuth {
 export type OffscreenRequest =
   | { to: 'offscreen'; type: 'record-tab'; streamId: string; recordingId: string; w: number; h: number; mic: boolean; micDeviceId?: string; upload: UploadAuth }
   /** Take the tab stream at the gesture: a stream id expires seconds after it is issued. */
-  | { to: 'offscreen'; type: 'hold-tab'; streamId: string; w: number; h: number }
+  /** `mic`: open the microphone now too, so it is warm when the countdown ends (J-027) */
+  | { to: 'offscreen'; type: 'hold-tab'; streamId: string; w: number; h: number; mic?: boolean; micDeviceId?: string }
   | { to: 'offscreen'; type: 'release-tab'; streamId: string }
   | { to: 'offscreen'; type: 'record-screen'; recordingId: string; surface: 'screen' | 'desktop'; mic: boolean; micDeviceId?: string; upload: UploadAuth }
   | { to: 'offscreen'; type: 'pause'; recordingId: string }
@@ -214,6 +217,7 @@ export type OffscreenRequest =
   /** upload the kept segments of a tab into a replay recording */
   | { to: 'offscreen'; type: 'replay-video-flush'; tabId: number; recordingId: string; upload: UploadAuth }
   | { to: 'offscreen'; type: 'clipboard'; text: string }
+  | { to: 'offscreen'; type: 'mic-devices'; recordingId?: string }
   | { to: 'offscreen'; type: 'ping' };
 
 export type OffscreenEvent =

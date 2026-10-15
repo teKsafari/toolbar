@@ -129,14 +129,14 @@
     position: fixed;
     pointer-events: none;
     white-space: nowrap;
-    padding: 0 12px;
-    height: 32px;
+    padding: 0 16px;
+    height: 36px;
     display: flex;
     align-items: center;
     border-radius: var(--nb-radius-pill);
     background: rgb(26 25 24 / 0.62);
     color: #fff;
-    font: var(--nb-weight-medium) var(--nb-text-md) / 1 var(--nb-font-sans);
+    font: var(--nb-weight-medium) var(--nb-text-base) / 1 var(--nb-font-sans);
     backdrop-filter: blur(4px);
   }
   .nb-shot-size {
