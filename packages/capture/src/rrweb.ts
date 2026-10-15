@@ -6,6 +6,9 @@ import { LIMITS } from '@toolbar/shared/constants';
 import type { MaskingPreset } from '@toolbar/shared/events';
 import { UI_HOST_TAG } from '@toolbar/shared/constants';
 
+/** Elements the production preset never records (PLAN "Privacy": block media). */
+export const PRODUCTION_BLOCKED = 'img, picture, video, audio, canvas, object, embed, iframe, svg image';
+
 /** rrweb event type of a full snapshot (EventType.FullSnapshot). */
 export const RRWEB_FULL_SNAPSHOT = 2;
 export const RRWEB_META = 4;
@@ -53,7 +56,8 @@ export function createRrwebRecorder(send: (batch: unknown[], full: boolean) => v
               timer ??= setTimeout(flush, flushMs);
             },
             checkoutEveryNms: LIMITS.rrwebCheckoutMs,
-            blockSelector: UI_HOST_TAG,
+            // production preset (D-125): media is blocked, rrweb records a placeholder of the same size
+            blockSelector: preset === 'production' ? `${UI_HOST_TAG}, ${PRODUCTION_BLOCKED}` : UI_HOST_TAG,
             maskAllInputs: preset === 'production',
             maskInputOptions: { password: true, email: true, tel: true },
             maskTextSelector: preset === 'production' ? '*' : undefined,

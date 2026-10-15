@@ -38,6 +38,7 @@ import {
   type ContentCommand,
   type MicState,
   type PopupContext,
+  type SiteAccess,
   type RecordMode,
   type ReplayState,
   type SessionEvent,
@@ -49,6 +50,8 @@ import { COUNTDOWN_FROM, DEFAULT_REPLAY_BLOCKED_SITES, isReplayBlocked, isRestri
 import type { Rect } from '@toolbar/shared/events';
 import { TEST_HOOKS } from '../flags';
 import { ensureContent } from '../registration';
+import { inScope, presetFor, scope } from '../scope';
+import { matchPatternOf } from '@toolbar/shared/projects';
 
 // ---------------------------------------------------------------- errors
 
@@ -422,6 +425,19 @@ async function refreshBootstrap() {
 
 // ---------------------------------------------------------------- flows
 
+/** What the popup shows about host access on the tab's page (D-126). */
+async function siteAccess(url: string | null): Promise<SiteAccess> {
+  const sc = await scope();
+  const p = presetFor(sc, url).project;
+  return {
+    project: p ? { id: p.id, name: p.name, maskingPreset: p.maskingPreset } : null,
+    allowed: inScope(sc, url),
+    missing: sc.missing.map(matchPatternOf),
+    projectCount: sc.projects.length,
+    allSites: sc.mode === 'all',
+  };
+}
+
 async function settingsFor(tabId: number) {
   const tab = await browser.tabs.get(tabId).catch(() => null);
   if (!tab || isRestrictedUrl(tab.url)) throw new BgFailure('restricted_page', 'Open a normal web page first');
@@ -623,6 +639,7 @@ const handlers: Handlers = {
       recordMode: isServerPage && settings.recordMode === 'tab' ? 'desktop' : settings.recordMode,
       heavy: !!ring?.heavy && tabId != null,
       replayBlocked: url ? isReplayBlocked(url, settings.replayBlockedSites) : false,
+      site: await siteAccess(url),
     };
     stats.popupOpens++;
     return { context };
@@ -636,7 +653,17 @@ const handlers: Handlers = {
       await openPopup('link');
       return { session };
     }
-    await settingsFor(tabId);
+    const tab = await settingsFor(tabId);
+    // D-126: page captures run only on granted project origins; desktop recordings anywhere
+    const pageCapture = !(req.mode === 'video' && (req.recordMode ?? (await getSettings()).recordMode) !== 'tab');
+    if (pageCapture && !inScope(await scope(), tab.url)) {
+      const sc = await scope();
+      const p = presetFor(sc, tab.url).project;
+      throw new BgFailure(
+        'permission_denied',
+        p ? `Allow access to ${p.name} first: open the extension menu and click Allow.` : 'This site is not in any of your projects. A workspace admin can add it under Settings, Projects.',
+      );
+    }
     // a tab opened before install or update has no in-page UI yet
     await ensureContent(tabId);
     // a finished error (failed start, stop or upload) never blocks the next capture (J-196)

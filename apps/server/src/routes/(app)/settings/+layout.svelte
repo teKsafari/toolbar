@@ -17,6 +17,7 @@
       items: [
         ['workspace', 'General'],
         ['members', 'Members'],
+        ['projects', 'Projects'],
         ['privacy', 'Privacy and data'],
         ...(isAdmin && f.adminExtras ? [['audit', 'Audit log']] : []),
       ],

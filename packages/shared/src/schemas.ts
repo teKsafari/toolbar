@@ -93,6 +93,7 @@ export const eventDataSchemas = {
     headers: headersSchema.optional(),
     body: z.string().optional(),
     bodyTruncated: z.boolean().optional(),
+    bodyOmitted: z.literal('masking').optional(),
     initiator: z
       .enum(['fetch', 'xhr', 'beacon', 'document', 'script', 'image', 'other', 'stylesheet', 'font', 'media', 'websocket', 'eventsource', 'subdocument', 'ping'])
       .optional(),
@@ -109,6 +110,7 @@ export const eventDataSchemas = {
     headers: headersSchema.optional(),
     body: z.string().optional(),
     truncated: z.boolean().optional(),
+    bodyOmitted: z.literal('masking').optional(),
     contentType: z.string().optional(),
     encodedSize: z.number().optional(),
     timing: z
@@ -126,6 +128,7 @@ export const eventDataSchemas = {
     url: z.string().optional(),
     data: z.string().optional(),
     truncated: z.boolean().optional(),
+    bodyOmitted: z.literal('masking').optional(),
     code: z.number().optional(),
     reason: z.string().optional(),
     binary: z.boolean().optional(),
@@ -138,6 +141,7 @@ export const eventDataSchemas = {
     url: z.string().optional(),
     event: z.string().optional(),
     data: z.string().optional(),
+    bodyOmitted: z.literal('masking').optional(),
     lastEventId: z.string().optional(),
   }),
   user: z.object({

@@ -7,6 +7,7 @@ import { workspaceSchema } from './workspaces.ts';
 import { folderSchema } from './folders.ts';
 import { integrationSchema } from './integrations.ts';
 import { brandingSchema } from './branding.ts';
+import { projectScopeSchema } from './projects.ts';
 
 // ---------- me ----------
 
@@ -339,6 +340,11 @@ export const extBootstrapSchema = z.object({
   supportRecordingLink: z.string().nullable().optional(),
   /** the server's instance branding (D-112); the extension shows it after sign-in */
   branding: brandingSchema.optional(),
+  /**
+   * Projects of every workspace the user belongs to (D-123). The extension asks for host access
+   * to their origins and runs its capture scripts there only.
+   */
+  projects: z.array(projectScopeSchema).optional(),
 });
 export type ExtBootstrap = z.infer<typeof extBootstrapSchema>;
 

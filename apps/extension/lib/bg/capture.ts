@@ -159,6 +159,8 @@ export function setupCapture(): CaptureService {
   browser.tabs.onUpdated.addListener((tabId, info) => void svc.onTabUpdated(tabId, info.status));
   browser.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes[STORAGE.settings.key]) void svc.onSettingsChanged();
+    // D-125: a project's preset changed, or the person signed out
+    if (area === 'local' && (changes[STORAGE.bootstrap.key] || changes[STORAGE.auth.key])) void svc.reconfigurePorts();
   });
   browser.alarms?.onAlarm.addListener((a) => {
     if (svc.isDrainAlarm(a.name)) void svc.drainAll().catch(() => {});

@@ -3,6 +3,7 @@
 // tests share them. Owned by the capture area.
 import type { CaptureEvent, Headers } from './events.ts';
 import { REDACT_HEADER_RE } from './constants.ts';
+import { bodyAllowed, OPEN_BODY_POLICY, type BodyPolicy } from './projects.ts';
 
 /** Placeholder for a removed header or body value. */
 export const REDACTED = '[redacted]';
@@ -217,4 +218,51 @@ function scrubSerialized(v: import('./events.ts').Serialized, depth = 0): import
     return out;
   }
   return v;
+}
+
+/**
+ * Redaction plus the project's body policy (PLAN "Privacy", D-123). Response events carry only
+ * the request id, so the redactor remembers each request's decision. `pageUrl` is read on each
+ * event, since single-page apps change it.
+ */
+export function createRedactor(getPolicy: () => BodyPolicy = () => OPEN_BODY_POLICY, pageUrl: () => string | undefined = () => undefined) {
+  const dropped = new Map<string, true>();
+  const streams = new Map<string, true>();
+  const remember = (rid: string) => {
+    dropped.set(rid, true);
+    if (dropped.size > 2000) dropped.delete(dropped.keys().next().value!);
+  };
+  return (raw: CaptureEvent): CaptureEvent => {
+    const e = redactEvent(raw);
+    const policy = getPolicy();
+    if (policy.preset === 'none') return e;
+    switch (e.kind) {
+      case 'net.req': {
+        if (bodyAllowed(policy, e.data.url, pageUrl())) return e;
+        remember(e.data.rid);
+        const { body: _b, bodyTruncated: _t, ...rest } = e.data;
+        return { ...e, data: { ...rest, bodyOmitted: 'masking' } };
+      }
+      case 'net.res': {
+        if (!dropped.has(e.data.rid)) return e;
+        const { body: _b, truncated: _t, ...rest } = e.data;
+        return { ...e, data: { ...rest, bodyOmitted: 'masking' } };
+      }
+      case 'ws':
+      case 'sse': {
+        // frames after `open` carry only the stream id: reuse the decision made on its URL
+        const key = `${e.kind}:${e.data.sid}`;
+        if (e.data.url) {
+          if (bodyAllowed(policy, e.data.url, pageUrl())) streams.set(key, true);
+          else streams.delete(key);
+          if (streams.size > 500) streams.delete(streams.keys().next().value!);
+        }
+        if (e.data.data === undefined || streams.has(key)) return e;
+        const { data: _d, ...rest } = e.data;
+        return { ...e, data: { ...rest, bodyOmitted: 'masking' } } as CaptureEvent;
+      }
+      default:
+        return e;
+    }
+  };
 }
