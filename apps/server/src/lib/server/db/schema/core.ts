@@ -50,6 +50,8 @@ export const folderAccess = pgTable('folder_access', {
     .primaryKey()
     .references(() => folder.id, { onDelete: 'cascade' }),
   private: boolean('private').notNull().default(false),
+  /** anyone signed in on this server who has the folder link sees it as a viewer (J-122) */
+  anyoneWithLink: boolean('anyone_with_link').notNull().default(false),
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });
 

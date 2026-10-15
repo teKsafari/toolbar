@@ -850,8 +850,32 @@ test('S5.3 folder sharing, invites and roles', async () => {
     await sleep(800);
     const invited = { toast: await toastText(page), people: await pop.locator('[data-testid="folder-people"] li').evaluateAll((els) => els.map((e) => (e.textContent ?? '').replace(/\s+/g, ' ').trim())) };
     await page.screenshot({ path: ev.file('1-invited') });
+    // general access "Anyone with the link" (J-122): someone signed in on this server who is in
+    // neither the workspace nor the list opens the folder and a capture in it from the link
+    await pop.getByTestId('folder-access').selectOption('anyone');
+    await sleep(800);
+    await page.screenshot({ path: ev.file('1-anyone') });
+    const outsider = `g5-anyone-${Date.now()}@example.com`;
+    const oc = await freshContext();
+    const op = await oc.newPage();
+    await op.goto(`${SERVER}/login`);
+    await webSignIn(op, outsider);
+    const folderCaps = (await api<{ items: { id: string }[] }>(context, 'GET', `/api/v1/recordings?folderId=${folderId}&limit=5`)).body.items ?? [];
+    const anyone: Record<string, unknown> = {
+      folderPage: (await op.goto(`${SERVER}/f/${folderId}`))?.status() ?? null,
+      folderUrl: op.url().replace(SERVER, ''),
+      capturePage: folderCaps[0] ? ((await op.goto(`${SERVER}/c/${folderCaps[0].id}`))?.status() ?? null) : 'no capture in the folder',
+      apiList: (await api<{ items: unknown[] }>(oc, 'GET', `/api/v1/recordings?folderId=${folderId}&limit=5`)).status,
+    };
+    await op.screenshot({ path: ev.file('1-anyone-outsider') });
+    await pop.getByTestId('folder-access').selectOption('workspace');
+    await sleep(600);
+    anyone.afterBackToWorkspace = (await op.goto(`${SERVER}/f/${folderId}`))?.status() ?? null;
+    // the throwaway account deletes itself (Settings, Profile, delete account) through the API
+    await api(oc, 'DELETE', '/api/v1/me', { confirm: 'DELETE' }).catch(() => undefined);
+    await oc.close();
     await page.keyboard.press('Escape');
-    return { box, parts, copied, invited, clicks: { open: 1, invite: '1 (role) + 1 (Invite), typing' } };
+    return { box, parts, copied, invited, anyone, clicks: { open: 1, invite: '1 (role) + 1 (Invite), typing', access: '1 (select) + 1 (option)' } };
   });
   ev.set(
     'step1-popover-shots-overflow',

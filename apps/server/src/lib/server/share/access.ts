@@ -103,7 +103,10 @@ export async function folderGuestRole(db: Db, userId: string, folderId: string |
     .from(folderMember)
     .where(and(eq(folderMember.folderId, folderId), eq(folderMember.userId, userId)))
     .limit(1);
-  return m ? (m.role === 'creator' ? 'creator' : 'viewer') : null;
+  if (m) return m.role === 'creator' ? 'creator' : 'viewer';
+  // a folder open to anyone with the link: every signed-in person on this server views it
+  const [a] = await db.select({ open: folderAccess.anyoneWithLink }).from(folderAccess).where(eq(folderAccess.folderId, folderId)).limit(1);
+  return a?.open ? 'viewer' : null;
 }
 
 /**

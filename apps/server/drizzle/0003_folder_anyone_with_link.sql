@@ -1,0 +1,1 @@
+ALTER TABLE "folder_access" ADD COLUMN "anyone_with_link" boolean DEFAULT false NOT NULL;

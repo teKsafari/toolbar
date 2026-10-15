@@ -146,20 +146,22 @@ export async function folderShare(db: Db, f: FolderRow): Promise<FolderShare> {
   if (f.createdBy) add(f.createdBy, 'admin', false);
   for (const a of admins) add(a, 'admin', false);
   for (const i of invited) add(i.userId, i.role, i.userId === null, i.email);
-  return { url: folderUrl(f), access: acc?.private ? 'private' : 'workspace', people: out };
+  return { url: folderUrl(f), access: acc?.private ? 'private' : acc?.anyoneWithLink ? 'anyone' : 'workspace', people: out };
 }
 
 export async function updateFolderShare(
   db: Db,
   f: FolderRow,
   actor: { id: string; name: string },
-  body: { access?: 'workspace' | 'private'; invite?: { email: string; role: 'viewer' | 'creator' }[]; remove?: string[] },
+  body: { access?: 'anyone' | 'workspace' | 'private'; invite?: { email: string; role: 'viewer' | 'creator' }[]; remove?: string[] },
 ) {
-  if (body.access)
+  if (body.access) {
+    const set = { private: body.access === 'private', anyoneWithLink: body.access === 'anyone' };
     await db
       .insert(folderAccess)
-      .values({ folderId: f.id, private: body.access === 'private' })
-      .onConflictDoUpdate({ target: folderAccess.folderId, set: { private: body.access === 'private', updatedAt: new Date() } });
+      .values({ folderId: f.id, ...set })
+      .onConflictDoUpdate({ target: folderAccess.folderId, set: { ...set, updatedAt: new Date() } });
+  }
   for (const inv of body.invite ?? []) {
     const email = inv.email.toLowerCase();
     const [u] = await db.select({ id: user.id }).from(user).where(sql`lower(${user.email}) = ${email}`);

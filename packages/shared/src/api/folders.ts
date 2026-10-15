@@ -104,8 +104,11 @@ export const deleteFolder = defineRoute({
 
 export const folderShareSchema = z.object({
   url: z.string(),
-  /** general access of the folder: workspace members, or only the people listed */
-  access: z.enum(['workspace', 'private']),
+  /**
+   * General access of the folder: anyone signed in on this server who has the link (as a viewer),
+   * workspace members, or only the people listed (J-122)
+   */
+  access: z.enum(['anyone', 'workspace', 'private']),
   people: z.array(z.object({ person: personSchema, role: z.enum(['viewer', 'creator', 'admin']), pending: z.boolean() })),
 });
 
@@ -131,7 +134,7 @@ export const updateFolderShare = defineRoute({
   scope: 'write',
   params: folderParams,
   body: z.object({
-    access: z.enum(['workspace', 'private']).optional(),
+    access: z.enum(['anyone', 'workspace', 'private']).optional(),
     invite: z.array(z.object({ email: emailSchema, role: z.enum(['viewer', 'creator']) })).max(20).optional(),
     remove: z.array(idSchema).optional(),
   }),

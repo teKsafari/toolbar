@@ -1,6 +1,7 @@
 <script lang="ts">
   // J-122: folder share popover: copy the folder link, invite by email with a role, who has
-  // access with roles, and general access (workspace members or only the people listed).
+  // access with roles, and general access (anyone signed in who has the link, workspace members,
+  // or only the people listed).
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
   import { Button, Popover, toasts } from '@toolbar/ui';
@@ -47,7 +48,7 @@
     }
   }
 
-  async function setAccess(access: 'workspace' | 'private') {
+  async function setAccess(access: 'anyone' | 'workspace' | 'private') {
     try {
       share = await api<Share>('folders.updateShare', { params: { id: folderId }, body: { access } });
       await invalidateAll(); // the lock icon in the sidebar and the title
@@ -104,8 +105,9 @@
         </ul>
         <div class="label">General access</div>
         <div class="ga">
-          <DIcon name={share.access === 'private' ? 'lock' : 'users'} size={18} />
-          <select value={share.access} disabled={!canEdit} onchange={(e) => setAccess((e.currentTarget as HTMLSelectElement).value as 'workspace' | 'private')} aria-label="General access" data-testid="folder-access">
+          <DIcon name={share.access === 'private' ? 'lock' : share.access === 'anyone' ? 'link' : 'users'} size={18} />
+          <select value={share.access} disabled={!canEdit} onchange={(e) => setAccess((e.currentTarget as HTMLSelectElement).value as 'anyone' | 'workspace' | 'private')} aria-label="General access" data-testid="folder-access">
+            <option value="anyone">Anyone with the link</option>
             <option value="workspace">Everyone in the workspace</option>
             <option value="private">Only people listed</option>
           </select>
