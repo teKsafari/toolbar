@@ -19,6 +19,7 @@
     access_denied: 'This server only lets in addresses of its allowed email domains.',
     unable_to_create_user: 'This server only lets in addresses of its allowed email domains.',
     FORBIDDEN: 'This server only lets in addresses of its allowed email domains.',
+    unable_to_create_session: 'This server only lets in addresses of its allowed email domains.',
   };
 </script>
 

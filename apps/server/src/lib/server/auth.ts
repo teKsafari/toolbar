@@ -91,6 +91,8 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: 'pg', schema }),
   advanced: { database: { generateId: () => uuidv7() } },
   rateLimit: { enabled: env.auth.rateLimit },
+  // errors of a provider round trip land on the sign-in page, which names them (J-217)
+  onAPIError: { errorURL: `${env.publicUrl}/login` },
   trustedOrigins: [env.publicUrl, ...env.extensionIds.map((id) => `chrome-extension://${id}`)],
   emailAndPassword: { enabled: env.auth.emailPassword, autoSignIn: true, minPasswordLength: 8 },
   user: { additionalFields: { activeWorkspaceId: { type: 'string', required: false, input: false } } },
@@ -102,10 +104,9 @@ export const auth = betterAuth({
       // X-06, J-125: join a workspace by email domain, or get a personal workspace as owner.
       create: {
         // only addresses of the allowed domains get an account (AUTH_ALLOWED_DOMAINS, docs/scope.md)
-        before: async (u) => {
-          if (!domainAllowed(u.email)) throw new APIError('FORBIDDEN', { message: DOMAIN_REFUSED });
-          return { data: u };
-        },
+        // returning false stops the sign-up; a provider callback then sends the person back to
+        // the sign-in page with error=unable_to_create_user, which explains the allowlist
+        before: async (u) => (domainAllowed(u.email) ? { data: u } : false),
         after: async (u) => {
           await bootstrapNewUser(db, u);
           await claimFolderInvites(db, u.id, u.email); // J-122: folder invites sent before the account existed
@@ -124,7 +125,7 @@ export const auth = betterAuth({
         before: async (s) => {
           if (!env.auth.allowedDomains.length) return { data: s };
           const [u] = await db.select({ email: schema.user.email }).from(schema.user).where(eq(schema.user.id, s.userId)).limit(1);
-          if (u && !domainAllowed(u.email)) throw new APIError('FORBIDDEN', { message: DOMAIN_REFUSED });
+          if (u && !domainAllowed(u.email)) return false;
           return { data: s };
         },
         after: async (s) => {

@@ -581,7 +581,7 @@ test('S7.1 settings pages, members, workspaces and sign-in', async () => {
     await menu.getByRole('menuitem', { name: /Create or join/ }).click();
     await page.waitForURL(/\/workspaces\/new/);
     await ready(page);
-    const avatarText = async () => txt(await page.locator('.avatar').first().textContent().catch(() => ''));
+    const avatarText = async () => txt(await page.locator('.namerow > :first-child, .avatar').first().textContent().catch(() => ''));
     const next = page.getByRole('button', { name: 'Next' });
     const empty = { avatar: await avatarText(), nextDisabled: await next.isDisabled(), domainJoin: await page.locator('input[name="domainJoin"]').isChecked(), domainJoinLabel: txt(await page.locator('label.check').textContent()), heading: txt(await page.locator('h1').textContent()), invites: await page.locator('section.invites li').count() };
     await page.screenshot({ path: ev.file('5-form-empty') });
@@ -729,7 +729,39 @@ test('S7.1 settings pages, members, workspaces and sign-in', async () => {
       return { heading: txt(await p.locator('h1').first().textContent().catch(() => '')), text: txt(await p.locator('main').textContent()).slice(0, 300) };
     })();
     await c.close();
-    return { ...out, passwordPath, signup, magicLinkMailpit: 'skipped (scope: FEATURE_EMAIL)' };
+    // the scope's sign-in (docs/scope.md): one OIDC button against the dev profile's mock provider,
+    // limited by the email-domain allowlist (the server runs with AUTH_ALLOWED_DOMAINS=example.com)
+    const oidc = async (email: string) => {
+      const c2 = await freshContext();
+      const p2 = await c2.newPage();
+      await p2.goto(`${SERVER}/login`);
+      await ready(p2);
+      const btn = p2.locator('[data-provider]').first();
+      if (!(await btn.count())) {
+        await c2.close();
+        return { provider: null };
+      }
+      const provider = txt(await btn.textContent());
+      const t0 = Date.now();
+      await btn.click();
+      await p2.waitForURL(/\/authorize/, { timeout: 15_000 });
+      await p2.screenshot({ path: ev.file(`7-oidc-provider-${email.split('@')[1]}`) });
+      await p2.locator('input[name=username]').fill(email);
+      await p2.locator('textarea[name=claims]').fill(JSON.stringify({ email, email_verified: true, name: 'Sso Person' }));
+      const tSubmit = Date.now();
+      await p2.locator('input[type=submit], button[type=submit]').first().click();
+      await p2.waitForURL((u) => u.origin === SERVER && !/\/api\/auth\//.test(u.pathname), { timeout: 20_000, waitUntil: 'commit' }).catch(() => undefined);
+      await sleep(500);
+      const landed = p2.url().replace(SERVER, '');
+      const me = await p2.evaluate(async () => (await fetch('/api/v1/me')).status);
+      const error = txt(await p2.locator('.err').first().textContent().catch(() => ''));
+      await p2.screenshot({ path: ev.file(`7-oidc-landed-${email.split('@')[1]}`) });
+      await c2.close();
+      return { provider, clicksOnOurSide: 1, landed, signedIn: me === 200, error: error || null, submitToLandedMs: Date.now() - tSubmit, totalMs: Date.now() - t0 };
+    };
+    const ssoAllowed = await oidc(`sso-${Date.now()}@example.com`);
+    const ssoRefused = await oidc(`sso-${Date.now()}@elsewhere.test`);
+    return { ...out, passwordPath, signup, sso: { allowedDomain: ssoAllowed, refusedDomain: ssoRefused, load: load() }, magicLinkMailpit: 'skipped (scope: FEATURE_EMAIL)' };
   });
   ev.set('step7-shots', await shoot4(ev, '7-login', anonOpen('/login')));
 
