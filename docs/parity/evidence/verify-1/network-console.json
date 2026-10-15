@@ -1,0 +1,774 @@
+{
+  "1440-light": {
+    "dataTheme": null,
+    "bodyBg": "rgb(247, 246, 242)",
+    "chapterPill": 0,
+    "chapterText": false,
+    "net": [
+      {
+        "col": "index",
+        "label": "#",
+        "hx": 911,
+        "hw": 24,
+        "cells": [
+          911,
+          911,
+          911
+        ],
+        "clipped": false,
+        "textW": 7
+      },
+      {
+        "col": "name",
+        "label": "Name",
+        "hx": 935,
+        "hw": 110,
+        "cells": [
+          935,
+          935,
+          935
+        ],
+        "clipped": false,
+        "textW": 32
+      },
+      {
+        "col": "method",
+        "label": "Method",
+        "hx": 1045,
+        "hw": 46,
+        "cells": [
+          1045,
+          1045,
+          1045
+        ],
+        "clipped": false,
+        "textW": 42
+      },
+      {
+        "col": "status",
+        "label": "Status",
+        "hx": 1091,
+        "hw": 42,
+        "cells": [
+          1091,
+          1091,
+          1091
+        ],
+        "clipped": false,
+        "textW": 34
+      },
+      {
+        "col": "domain",
+        "label": "Domain",
+        "hx": 1133,
+        "hw": 50,
+        "cells": [
+          1133,
+          1133,
+          1133
+        ],
+        "clipped": false,
+        "textW": 42
+      },
+      {
+        "col": "type",
+        "label": "Type",
+        "hx": 1183,
+        "hw": 40,
+        "cells": [
+          1183,
+          1183,
+          1183
+        ],
+        "clipped": false,
+        "textW": 25
+      },
+      {
+        "col": "frame",
+        "label": "Frame",
+        "hx": 1223,
+        "hw": 38,
+        "cells": [
+          1223,
+          1223,
+          1223
+        ],
+        "clipped": false,
+        "textW": 34
+      },
+      {
+        "col": "size",
+        "label": "Size",
+        "hx": 1261,
+        "hw": 48,
+        "cells": [
+          1261,
+          1261,
+          1261
+        ],
+        "clipped": false,
+        "textW": 21
+      },
+      {
+        "col": "time",
+        "label": "Time",
+        "hx": 1309,
+        "hw": 48,
+        "cells": [
+          1309,
+          1309,
+          1309
+        ],
+        "clipped": false,
+        "textW": 26
+      },
+      {
+        "col": "waterfall",
+        "label": "Waterfall",
+        "hx": 1357,
+        "hw": 56,
+        "cells": [
+          1357,
+          1357,
+          1357
+        ],
+        "clipped": false,
+        "textW": 49
+      }
+    ],
+    "netMax": 0,
+    "netClipped": [],
+    "netOverflow": 0,
+    "consoleRows": 57,
+    "opened": [
+      {
+        "before": "0:29 info: object {user: {id: 7, roles: [\"admin\", \"editor\"]}, at: 2026-10-15T16:25:39.761Z}",
+        "after": "0:29\ninfo: object {user: {id: 7, roles: [\"admin\", \"editor\"]}, at: 2026-10-15T16:25:39.761Z}\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2410\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2410",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:29 warn: deprecated call [\"a\", \"b\", \"c\"]",
+        "after": "0:29\nwarn: deprecated call [\"a\", \"b\", \"c\"]\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2490\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2490",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:29 debug: nested {a: {b: {c: {d: \"deep\"}}}}",
+        "after": "0:29\ndebug: nested {a: {b: {c: {d: \"deep\"}}}}\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2603\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2603",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:29 [{id: 1, name: \"one\"}, {id: 2, name: \"two\"}]",
+        "after": "0:29\n[{id: 1, name: \"one\"}, {id: 2, name: \"two\"}]\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2657\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2657",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:54 Typed \"Ada Lovelace\" into input[name=Name]",
+        "after": "0:54\nTyped \"Ada Lovelace\" into input[name=Name]",
+        "wire": false,
+        "frames": []
+      },
+      {
+        "before": "0:59 Typed masked text into textarea[name=Notes]",
+        "after": "0:59\nTyped masked text into textarea[name=Notes]",
+        "wire": false,
+        "frames": []
+      }
+    ],
+    "consoleOverflow": 0
+  },
+  "1440-dark": {
+    "dataTheme": null,
+    "bodyBg": "rgb(18, 18, 17)",
+    "chapterPill": 0,
+    "chapterText": false,
+    "net": [
+      {
+        "col": "index",
+        "label": "#",
+        "hx": 911,
+        "hw": 24,
+        "cells": [
+          911,
+          911,
+          911
+        ],
+        "clipped": false,
+        "textW": 7
+      },
+      {
+        "col": "name",
+        "label": "Name",
+        "hx": 935,
+        "hw": 110,
+        "cells": [
+          935,
+          935,
+          935
+        ],
+        "clipped": false,
+        "textW": 32
+      },
+      {
+        "col": "method",
+        "label": "Method",
+        "hx": 1045,
+        "hw": 46,
+        "cells": [
+          1045,
+          1045,
+          1045
+        ],
+        "clipped": false,
+        "textW": 42
+      },
+      {
+        "col": "status",
+        "label": "Status",
+        "hx": 1091,
+        "hw": 42,
+        "cells": [
+          1091,
+          1091,
+          1091
+        ],
+        "clipped": false,
+        "textW": 34
+      },
+      {
+        "col": "domain",
+        "label": "Domain",
+        "hx": 1133,
+        "hw": 50,
+        "cells": [
+          1133,
+          1133,
+          1133
+        ],
+        "clipped": false,
+        "textW": 42
+      },
+      {
+        "col": "type",
+        "label": "Type",
+        "hx": 1183,
+        "hw": 40,
+        "cells": [
+          1183,
+          1183,
+          1183
+        ],
+        "clipped": false,
+        "textW": 25
+      },
+      {
+        "col": "frame",
+        "label": "Frame",
+        "hx": 1223,
+        "hw": 38,
+        "cells": [
+          1223,
+          1223,
+          1223
+        ],
+        "clipped": false,
+        "textW": 34
+      },
+      {
+        "col": "size",
+        "label": "Size",
+        "hx": 1261,
+        "hw": 48,
+        "cells": [
+          1261,
+          1261,
+          1261
+        ],
+        "clipped": false,
+        "textW": 21
+      },
+      {
+        "col": "time",
+        "label": "Time",
+        "hx": 1309,
+        "hw": 48,
+        "cells": [
+          1309,
+          1309,
+          1309
+        ],
+        "clipped": false,
+        "textW": 26
+      },
+      {
+        "col": "waterfall",
+        "label": "Waterfall",
+        "hx": 1357,
+        "hw": 56,
+        "cells": [
+          1357,
+          1357,
+          1357
+        ],
+        "clipped": false,
+        "textW": 49
+      }
+    ],
+    "netMax": 0,
+    "netClipped": [],
+    "netOverflow": 0,
+    "consoleRows": 57,
+    "opened": [
+      {
+        "before": "0:29 info: object {user: {id: 7, roles: [\"admin\", \"editor\"]}, at: 2026-10-15T16:25:39.761Z}",
+        "after": "0:29\ninfo: object {user: {id: 7, roles: [\"admin\", \"editor\"]}, at: 2026-10-15T16:25:39.761Z}\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2410\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2410",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:29 warn: deprecated call [\"a\", \"b\", \"c\"]",
+        "after": "0:29\nwarn: deprecated call [\"a\", \"b\", \"c\"]\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2490\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2490",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:29 debug: nested {a: {b: {c: {d: \"deep\"}}}}",
+        "after": "0:29\ndebug: nested {a: {b: {c: {d: \"deep\"}}}}\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2603\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2603",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:29 [{id: 1, name: \"one\"}, {id: 2, name: \"two\"}]",
+        "after": "0:29\n[{id: 1, name: \"one\"}, {id: 2, name: \"two\"}]\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2657\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2657",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:54 Typed \"Ada Lovelace\" into input[name=Name]",
+        "after": "0:54\nTyped \"Ada Lovelace\" into input[name=Name]",
+        "wire": false,
+        "frames": []
+      },
+      {
+        "before": "0:59 Typed masked text into textarea[name=Notes]",
+        "after": "0:59\nTyped masked text into textarea[name=Notes]",
+        "wire": false,
+        "frames": []
+      }
+    ],
+    "consoleOverflow": 0
+  },
+  "390-light": {
+    "dataTheme": null,
+    "bodyBg": "rgb(247, 246, 242)",
+    "chapterPill": 0,
+    "chapterText": false,
+    "net": [
+      {
+        "col": "index",
+        "label": "#",
+        "hx": 22,
+        "hw": 24,
+        "cells": [
+          22,
+          22,
+          22
+        ],
+        "clipped": false,
+        "textW": 7
+      },
+      {
+        "col": "name",
+        "label": "Name",
+        "hx": 46,
+        "hw": 81,
+        "cells": [
+          46,
+          46,
+          46
+        ],
+        "clipped": false,
+        "textW": 32
+      },
+      {
+        "col": "method",
+        "label": "Method",
+        "hx": 127,
+        "hw": 46,
+        "cells": [
+          127,
+          127,
+          127
+        ],
+        "clipped": false,
+        "textW": 42
+      },
+      {
+        "col": "status",
+        "label": "Status",
+        "hx": 173,
+        "hw": 42,
+        "cells": [
+          173,
+          173,
+          173
+        ],
+        "clipped": false,
+        "textW": 34
+      },
+      {
+        "col": "domain",
+        "label": "Domain",
+        "hx": 215,
+        "hw": 50,
+        "cells": [
+          215,
+          215,
+          215
+        ],
+        "clipped": false,
+        "textW": 42
+      },
+      {
+        "col": "type",
+        "label": "Type",
+        "hx": 265,
+        "hw": 40,
+        "cells": [
+          265,
+          265,
+          265
+        ],
+        "clipped": false,
+        "textW": 25
+      },
+      {
+        "col": "frame",
+        "label": "Frame",
+        "hx": 305,
+        "hw": 38,
+        "cells": [
+          305,
+          305,
+          305
+        ],
+        "clipped": false,
+        "textW": 34
+      },
+      {
+        "col": "size",
+        "label": "Size",
+        "hx": 343,
+        "hw": 48,
+        "cells": [
+          343,
+          343,
+          343
+        ],
+        "clipped": false,
+        "textW": 21
+      },
+      {
+        "col": "time",
+        "label": "Time",
+        "hx": 391,
+        "hw": 48,
+        "cells": [
+          391,
+          391,
+          391
+        ],
+        "clipped": false,
+        "textW": 26
+      },
+      {
+        "col": "waterfall",
+        "label": "Waterfall",
+        "hx": 439,
+        "hw": 56,
+        "cells": [
+          439,
+          439,
+          439
+        ],
+        "clipped": false,
+        "textW": 49
+      }
+    ],
+    "netMax": 0,
+    "netClipped": [],
+    "netOverflow": 0,
+    "consoleRows": 57,
+    "opened": [
+      {
+        "before": "0:29 info: object {user: {id: 7, roles: [\"admin\", \"editor\"]}, at: 2026-10-15T16:25:39.761Z}",
+        "after": "0:29\ninfo: object {user: {id: 7, roles: [\"admin\", \"editor\"]}, at: 2026-10-15T16:25:39.761Z}\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2410\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2410",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:29 warn: deprecated call [\"a\", \"b\", \"c\"]",
+        "after": "0:29\nwarn: deprecated call [\"a\", \"b\", \"c\"]\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2490\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2490",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:29 debug: nested {a: {b: {c: {d: \"deep\"}}}}",
+        "after": "0:29\ndebug: nested {a: {b: {c: {d: \"deep\"}}}}\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2603\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2603",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:29 [{id: 1, name: \"one\"}, {id: 2, name: \"two\"}]",
+        "after": "0:29\n[{id: 1, name: \"one\"}, {id: 2, name: \"two\"}]\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2657\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2657",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:54 Typed \"Ada Lovelace\" into input[name=Name]",
+        "after": "0:54\nTyped \"Ada Lovelace\" into input[name=Name]",
+        "wire": false,
+        "frames": []
+      },
+      {
+        "before": "0:59 Typed masked text into textarea[name=Notes]",
+        "after": "0:59\nTyped masked text into textarea[name=Notes]",
+        "wire": false,
+        "frames": []
+      }
+    ],
+    "consoleOverflow": 0
+  },
+  "390-dark": {
+    "dataTheme": null,
+    "bodyBg": "rgb(18, 18, 17)",
+    "chapterPill": 0,
+    "chapterText": false,
+    "net": [
+      {
+        "col": "index",
+        "label": "#",
+        "hx": 22,
+        "hw": 24,
+        "cells": [
+          22,
+          22,
+          22
+        ],
+        "clipped": false,
+        "textW": 7
+      },
+      {
+        "col": "name",
+        "label": "Name",
+        "hx": 46,
+        "hw": 81,
+        "cells": [
+          46,
+          46,
+          46
+        ],
+        "clipped": false,
+        "textW": 32
+      },
+      {
+        "col": "method",
+        "label": "Method",
+        "hx": 127,
+        "hw": 46,
+        "cells": [
+          127,
+          127,
+          127
+        ],
+        "clipped": false,
+        "textW": 42
+      },
+      {
+        "col": "status",
+        "label": "Status",
+        "hx": 173,
+        "hw": 42,
+        "cells": [
+          173,
+          173,
+          173
+        ],
+        "clipped": false,
+        "textW": 34
+      },
+      {
+        "col": "domain",
+        "label": "Domain",
+        "hx": 215,
+        "hw": 50,
+        "cells": [
+          215,
+          215,
+          215
+        ],
+        "clipped": false,
+        "textW": 42
+      },
+      {
+        "col": "type",
+        "label": "Type",
+        "hx": 265,
+        "hw": 40,
+        "cells": [
+          265,
+          265,
+          265
+        ],
+        "clipped": false,
+        "textW": 25
+      },
+      {
+        "col": "frame",
+        "label": "Frame",
+        "hx": 305,
+        "hw": 38,
+        "cells": [
+          305,
+          305,
+          305
+        ],
+        "clipped": false,
+        "textW": 34
+      },
+      {
+        "col": "size",
+        "label": "Size",
+        "hx": 343,
+        "hw": 48,
+        "cells": [
+          343,
+          343,
+          343
+        ],
+        "clipped": false,
+        "textW": 21
+      },
+      {
+        "col": "time",
+        "label": "Time",
+        "hx": 391,
+        "hw": 48,
+        "cells": [
+          391,
+          391,
+          391
+        ],
+        "clipped": false,
+        "textW": 26
+      },
+      {
+        "col": "waterfall",
+        "label": "Waterfall",
+        "hx": 439,
+        "hw": 56,
+        "cells": [
+          439,
+          439,
+          439
+        ],
+        "clipped": false,
+        "textW": 49
+      }
+    ],
+    "netMax": 0,
+    "netClipped": [],
+    "netOverflow": 0,
+    "consoleRows": 57,
+    "opened": [
+      {
+        "before": "0:29 info: object {user: {id: 7, roles: [\"admin\", \"editor\"]}, at: 2026-10-15T16:25:39.761Z}",
+        "after": "0:29\ninfo: object {user: {id: 7, roles: [\"admin\", \"editor\"]}, at: 2026-10-15T16:25:39.761Z}\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2410\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2410",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:29 warn: deprecated call [\"a\", \"b\", \"c\"]",
+        "after": "0:29\nwarn: deprecated call [\"a\", \"b\", \"c\"]\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2490\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2490",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:29 debug: nested {a: {b: {c: {d: \"deep\"}}}}",
+        "after": "0:29\ndebug: nested {a: {b: {c: {d: \"deep\"}}}}\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2603\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2603",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:29 [{id: 1, name: \"one\"}, {id: 2, name: \"two\"}]",
+        "after": "0:29\n[{id: 1, name: \"one\"}, {id: 2, name: \"two\"}]\nHTMLButtonElement.O @ 2.DulX4mly.js:1:2657\nHTMLDivElement.ur @ CDHttRas.js:1:23744",
+        "wire": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2657",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      {
+        "before": "0:54 Typed \"Ada Lovelace\" into input[name=Name]",
+        "after": "0:54\nTyped \"Ada Lovelace\" into input[name=Name]",
+        "wire": false,
+        "frames": []
+      },
+      {
+        "before": "0:59 Typed masked text into textarea[name=Notes]",
+        "after": "0:59\nTyped masked text into textarea[name=Notes]",
+        "wire": false,
+        "frames": []
+      }
+    ],
+    "consoleOverflow": 0
+  }
+}

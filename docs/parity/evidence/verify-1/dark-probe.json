@@ -1,0 +1,268 @@
+{
+  "J-090 capture 1440-light": {
+    "min": 3.83,
+    "under3": [],
+    "n": 90,
+    "overflow": 0,
+    "bg": "rgb(247, 246, 242)"
+  },
+  "J-118 popover 1440-light": {
+    "opened": true,
+    "min": 3.83,
+    "under3": [],
+    "n": 95,
+    "overflow": 0,
+    "bg": "rgb(247, 246, 242)"
+  },
+  "J-099 lightbox 1440-light": {
+    "dialog": 1,
+    "min": 3.93,
+    "under3": [],
+    "n": 29,
+    "overflow": 0,
+    "bg": "rgb(247, 246, 242)"
+  },
+  "J-124/J-173 members 1440-light": {
+    "min": 4.06,
+    "under3": [],
+    "n": 45,
+    "overflow": 0,
+    "bg": "rgb(247, 246, 242)"
+  },
+  "paused /settings/audit 1440-light": {
+    "status": 404,
+    "url": "http://localhost:3000/settings/audit"
+  },
+  "paused /settings/integrations 1440-light": {
+    "status": 404,
+    "url": "http://localhost:3000/settings/integrations"
+  },
+  "paused /settings/cli 1440-light": {
+    "status": 404,
+    "url": "http://localhost:3000/settings/cli"
+  },
+  "share": {
+    "status": 201,
+    "keys": [
+      "id",
+      "url",
+      "access",
+      "devtools",
+      "createdAt",
+      "createdBy",
+      "expiresAt",
+      "revokedAt",
+      "lastUsedAt"
+    ]
+  },
+  "J-121 signed-out 1440-light": {
+    "min": 3.83,
+    "under3": [],
+    "n": 91,
+    "overflow": 0,
+    "bg": "rgb(247, 246, 242)"
+  },
+  "J-121 signed-out console 1440-light": {
+    "min": 3.83,
+    "under3": [],
+    "n": 91,
+    "overflow": 0,
+    "bg": "rgb(247, 246, 242)"
+  },
+  "J-121 signed-out network 1440-light": {
+    "min": 3.83,
+    "under3": [],
+    "n": 197,
+    "overflow": 0,
+    "bg": "rgb(247, 246, 242)"
+  },
+  "J-090 capture 1440-dark": {
+    "min": 3.07,
+    "under3": [],
+    "n": 91,
+    "overflow": 0,
+    "bg": "rgb(18, 18, 17)"
+  },
+  "J-118 popover 1440-dark": {
+    "opened": true,
+    "min": 3.07,
+    "under3": [],
+    "n": 96,
+    "overflow": 0,
+    "bg": "rgb(18, 18, 17)"
+  },
+  "J-099 lightbox 1440-dark": {
+    "dialog": 1,
+    "min": 3.15,
+    "under3": [],
+    "n": 29,
+    "overflow": 0,
+    "bg": "rgb(18, 18, 17)"
+  },
+  "J-124/J-173 members 1440-dark": {
+    "min": 3.62,
+    "under3": [],
+    "n": 45,
+    "overflow": 0,
+    "bg": "rgb(18, 18, 17)"
+  },
+  "paused /settings/audit 1440-dark": {
+    "status": 404,
+    "url": "http://localhost:3000/settings/audit"
+  },
+  "paused /settings/integrations 1440-dark": {
+    "status": 404,
+    "url": "http://localhost:3000/settings/integrations"
+  },
+  "paused /settings/cli 1440-dark": {
+    "status": 404,
+    "url": "http://localhost:3000/settings/cli"
+  },
+  "J-121 signed-out 1440-dark": {
+    "min": 3.07,
+    "under3": [],
+    "n": 91,
+    "overflow": 0,
+    "bg": "rgb(18, 18, 17)"
+  },
+  "J-121 signed-out console 1440-dark": {
+    "min": 3.07,
+    "under3": [],
+    "n": 91,
+    "overflow": 0,
+    "bg": "rgb(18, 18, 17)"
+  },
+  "J-121 signed-out network 1440-dark": {
+    "min": 3.32,
+    "under3": [],
+    "n": 197,
+    "overflow": 0,
+    "bg": "rgb(18, 18, 17)"
+  },
+  "J-090 capture 390-light": {
+    "min": 3.91,
+    "under3": [],
+    "n": 23,
+    "overflow": 0,
+    "bg": "rgb(247, 246, 242)"
+  },
+  "J-118 popover 390-light": {
+    "opened": true,
+    "min": 3.91,
+    "under3": [],
+    "n": 28,
+    "overflow": 0,
+    "bg": "rgb(247, 246, 242)"
+  },
+  "J-099 lightbox 390-light": {
+    "dialog": 1,
+    "min": 4.06,
+    "under3": [],
+    "n": 13,
+    "overflow": 0,
+    "bg": "rgb(247, 246, 242)"
+  },
+  "J-124/J-173 members 390-light": {
+    "min": 4.06,
+    "under3": [],
+    "n": 43,
+    "overflow": -15,
+    "bg": "rgb(247, 246, 242)"
+  },
+  "paused /settings/audit 390-light": {
+    "status": 404,
+    "url": "http://localhost:3000/settings/audit"
+  },
+  "paused /settings/integrations 390-light": {
+    "status": 404,
+    "url": "http://localhost:3000/settings/integrations"
+  },
+  "paused /settings/cli 390-light": {
+    "status": 404,
+    "url": "http://localhost:3000/settings/cli"
+  },
+  "J-121 signed-out 390-light": {
+    "min": 3.91,
+    "under3": [],
+    "n": 23,
+    "overflow": 0,
+    "bg": "rgb(247, 246, 242)"
+  },
+  "J-121 signed-out console 390-light": {
+    "min": 3.83,
+    "under3": [],
+    "n": 66,
+    "overflow": 0,
+    "bg": "rgb(247, 246, 242)"
+  },
+  "J-121 signed-out network 390-light": {
+    "min": 3.83,
+    "under3": [],
+    "n": 182,
+    "overflow": 0,
+    "bg": "rgb(247, 246, 242)"
+  },
+  "J-090 capture 390-dark": {
+    "min": 3.91,
+    "under3": [],
+    "n": 23,
+    "overflow": 0,
+    "bg": "rgb(18, 18, 17)"
+  },
+  "J-118 popover 390-dark": {
+    "opened": true,
+    "min": 3.91,
+    "under3": [],
+    "n": 28,
+    "overflow": 0,
+    "bg": "rgb(18, 18, 17)"
+  },
+  "J-099 lightbox 390-dark": {
+    "dialog": 1,
+    "min": 4.27,
+    "under3": [],
+    "n": 13,
+    "overflow": 0,
+    "bg": "rgb(18, 18, 17)"
+  },
+  "J-124/J-173 members 390-dark": {
+    "min": 3.62,
+    "under3": [],
+    "n": 43,
+    "overflow": -15,
+    "bg": "rgb(18, 18, 17)"
+  },
+  "paused /settings/audit 390-dark": {
+    "status": 404,
+    "url": "http://localhost:3000/settings/audit"
+  },
+  "paused /settings/integrations 390-dark": {
+    "status": 404,
+    "url": "http://localhost:3000/settings/integrations"
+  },
+  "paused /settings/cli 390-dark": {
+    "status": 404,
+    "url": "http://localhost:3000/settings/cli"
+  },
+  "J-121 signed-out 390-dark": {
+    "min": 3.91,
+    "under3": [],
+    "n": 23,
+    "overflow": 0,
+    "bg": "rgb(18, 18, 17)"
+  },
+  "J-121 signed-out console 390-dark": {
+    "min": 3.07,
+    "under3": [],
+    "n": 66,
+    "overflow": 0,
+    "bg": "rgb(18, 18, 17)"
+  },
+  "J-121 signed-out network 390-dark": {
+    "min": 3.32,
+    "under3": [],
+    "n": 182,
+    "overflow": 0,
+    "bg": "rgb(18, 18, 17)"
+  }
+}
