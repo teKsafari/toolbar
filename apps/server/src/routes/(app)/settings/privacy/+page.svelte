@@ -81,7 +81,8 @@
   {/if}
 </Section>
 
-<Section title="Retention" description="How long this workspace keeps captures." testid="retention-section">
+<Section title={data.features.adminExtras ? 'Retention' : 'Deleting captures'} description={data.features.adminExtras ? 'How long this workspace keeps captures.' : 'What happens when a capture or an account is deleted.'} testid="retention-section">
+  {#if data.features.adminExtras}
   <Field label="Delete captures automatically" hint={admin ? 'Older captures are deleted with their media, every hour.' : 'Set by a workspace admin.'}>
     <select disabled={!admin} value={data.ws.settings.autoDeleteDays === null ? '' : String(data.ws.settings.autoDeleteDays)} onchange={(e) => retention((e.currentTarget as HTMLSelectElement).value)} data-testid="retention-select">
       <option value="">Never</option>
@@ -92,6 +93,7 @@
       <option value="365">After a year</option>
     </select>
   </Field>
+  {/if}
   <p class="muted small">Deleting a capture removes it from lists, search and its links at once; its media is erased from storage within minutes. To erase everything of yours, <a href="/settings/profile">delete your account</a>.</p>
 </Section>
 

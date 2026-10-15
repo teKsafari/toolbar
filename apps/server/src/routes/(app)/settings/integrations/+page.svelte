@@ -25,7 +25,9 @@
     { id: 'cli', name: 'Command line', text: 'Read captures, logs and frames from a terminal or an agent skill.', icon: 'code', href: '/settings/cli' },
   ];
   let q = $state('');
-  const shown = $derived(tiles.filter((t) => !q.trim() || `${t.name} ${t.text}`.toLowerCase().includes(q.trim().toLowerCase())));
+  // paused features (docs/scope.md): trackers, Slack and the CLI show only with their flag on
+  const flagOn = (t: Tile) => (t.kind === 'github' || t.kind === 'gitlab' ? data.features.trackers : t.kind === 'slack' ? data.features.slack : t.id === 'cli' ? data.features.cli : true);
+  const shown = $derived(tiles.filter((t) => flagOn(t) && (!q.trim() || `${t.name} ${t.text}`.toLowerCase().includes(q.trim().toLowerCase()))));
   const connected = (k: Kind) => data.items.filter((i) => i.type === k);
 
   // connect dialog

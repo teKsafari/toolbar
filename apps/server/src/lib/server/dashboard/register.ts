@@ -28,7 +28,8 @@ export function registerDashboard() {
     'auto-delete',
     async () => {
       try {
-        await autoDelete(db);
+        // retention is paused (FEATURE_ADMIN_EXTRAS off): a limit set earlier deletes nothing
+        if (env.features.adminExtras) await autoDelete(db);
       } finally {
         await scheduleNext(db, 'auto-delete', 60 * 60_000);
       }

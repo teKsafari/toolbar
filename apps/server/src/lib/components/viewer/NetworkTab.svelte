@@ -97,7 +97,7 @@
 <svelte:window onkeydown={onKey} />
 
 {#if v.detail.source === 'recording-link' && !v.network.length}
-  <EmptyState icon="network" title="No network logs for recording-link captures yet" body="Requests are recorded by the extension, or when the recorder runs on your own domain." action={{ label: 'How to set it up', href: '/settings/integrations' }} />
+  <EmptyState icon="network" title="No network logs for recording-link captures yet" body="Requests are recorded by the extension, or when the recorder runs on your own domain." action={{ label: 'How to set it up', href: '/settings/sdk' }} />
 {:else if v.eventsLoaded && !v.network.length}
   <EmptyState icon="network" title="Not a single request. This page kept to itself." testid="network-empty" />
 {:else}

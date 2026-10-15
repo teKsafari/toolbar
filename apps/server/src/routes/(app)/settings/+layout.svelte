@@ -2,12 +2,15 @@
   // J-171: settings have their own layout: a back link and a left nav in three groups,
   // workspace, apps and tools, account. Content sits in a centred column of sections.
   // Shared nav (docs/parallel.md): auth owns browsers and tokens, agent owns mcp and cli.
+  // Pages of paused features (docs/scope.md: audit log, integrations, CLI, notification mail)
+  // show only when their flag is on.
   import { page } from '$app/state';
   import DIcon from '#lib/components/dashboard/DIcon.svelte';
   import { shell } from '#lib/components/dashboard/shell.svelte.ts';
 
   let { data, children } = $props();
   const isAdmin = $derived(data.activeWorkspace?.role === 'admin');
+  const f = $derived(data.features);
   const groups = $derived([
     {
       label: 'Workspace',
@@ -15,16 +18,16 @@
         ['workspace', 'General'],
         ['members', 'Members'],
         ['privacy', 'Privacy and data'],
-        ...(isAdmin ? [['audit', 'Audit log']] : []),
+        ...(isAdmin && f.adminExtras ? [['audit', 'Audit log']] : []),
       ],
     },
     {
       label: 'Apps and tools',
       items: [
-        ['integrations', 'Integrations'],
+        ...(f.trackers || f.slack ? [['integrations', 'Integrations']] : []),
         ['sdk', 'SDK'],
         ['mcp', 'MCP'],
-        ['cli', 'CLI'],
+        ...(f.cli ? [['cli', 'CLI']] : []),
         ...(isAdmin ? [['webhooks', 'Webhooks']] : []),
         ['api', 'API'],
       ],
@@ -33,7 +36,7 @@
       label: 'Account',
       items: [
         ['profile', 'Profile'],
-        ['notifications', 'Notifications'],
+        ...(f.email ? [['notifications', 'Notifications']] : []),
         ['tokens', 'API tokens'],
         ['browsers', 'Connected browsers'],
       ],

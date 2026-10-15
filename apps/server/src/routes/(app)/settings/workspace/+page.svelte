@@ -1,7 +1,9 @@
 <script lang="ts">
   // J-172 workspace general settings: logo (hover to upload) and name; access (sign-in providers,
   // default link access J-120, join by email domain J-125); data (AI switch J-156, auto-delete
-  // J-178, audit log). Settings save at once with no toast, and nothing is plan-gated.
+  // J-178, audit log). Settings save at once with no toast, and nothing is plan-gated. The data
+  // section holds paused features only (docs/scope.md: FEATURE_AI, FEATURE_ADMIN_EXTRAS), so it
+  // shows only when one of those flags is on.
   import { invalidateAll } from '$app/navigation';
   import { toasts } from '@toolbar/ui';
   import type { WorkspaceSettings } from '@toolbar/shared/api';
@@ -15,6 +17,7 @@
   let { data } = $props();
   const ws = $derived(data.ws);
   const admin = $derived(ws.role === 'admin');
+  const f = $derived(data.features);
   // svelte-ignore state_referenced_locally
   // svelte-ignore state_referenced_locally
   let s = $state<WorkspaceSettings>(structuredClone(data.ws.settings));
@@ -106,10 +109,14 @@
   {/if}
 </Section>
 
-<Section title="Data" description="AI features, how long captures are kept, and the record of changes." docs={HELP_LINKS.docs}>
+{#if f.ai || f.adminExtras}
+<Section title="Data" description={f.ai && f.adminExtras ? 'AI features, how long captures are kept, and the record of changes.' : f.ai ? 'AI features.' : 'How long captures are kept, and the record of changes.'} docs={HELP_LINKS.docs}>
+  {#if f.ai}
   <Field label="AI titles, chapters and summaries" hint="Off: nobody in this workspace gets AI suggestions, chapters or analysis.">
     <Switch label="AI features" disabled={!admin} checked={s.aiEnabled} onchange={(v) => patch({ aiEnabled: v })} testid="ws-ai" />
   </Field>
+  {/if}
+  {#if f.adminExtras}
   <Field label="Delete captures automatically" hint="Captures older than this are deleted with their media, every hour.">
     <select disabled={!admin} value={s.autoDeleteDays === null ? '' : String(s.autoDeleteDays)} onchange={(e) => { const v = (e.currentTarget as HTMLSelectElement).value; void patch({ autoDeleteDays: v ? Number(v) : null }); }} data-testid="ws-auto-delete">
       {#each autoDeleteOptions as [v, l] (l)}<option value={v === null ? '' : String(v)}>{l}</option>{/each}
@@ -118,7 +125,9 @@
   <Field label="Audit log" hint="Captures made, deleted and shared, member and role changes, apps connected.">
     {#if admin}<a href="/settings/audit" data-testid="ws-audit-link">Open the audit log</a>{:else}<span class="muted">Admins only</span>{/if}
   </Field>
+  {/if}
 </Section>
+{/if}
 
 
 <style>

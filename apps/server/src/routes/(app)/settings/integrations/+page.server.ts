@@ -1,9 +1,12 @@
 import { error } from '@sveltejs/kit';
+import { env } from '#lib/server/env.ts';
+import { requireFeature } from '#lib/server/paused.ts';
 import { db } from '#lib/server/db/index.ts';
 import { listIntegrations } from '#lib/server/integrations/index.ts';
 import { listHooks } from '#lib/server/webhooks/index.ts';
 
 export const load = async ({ parent, locals }) => {
+  requireFeature(env.features.trackers || env.features.slack);
   const { activeWorkspaceId, activeWorkspace } = await parent();
   if (!activeWorkspaceId || !locals.user) error(404, 'No workspace');
   const admin = activeWorkspace?.role === 'admin';

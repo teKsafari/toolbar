@@ -75,7 +75,7 @@
 </script>
 
 {#if v.detail.source === 'recording-link' && !v.consoleRows.length}
-  <EmptyState icon="console" title="No logs for recording-link captures yet" body="Recording links capture video only. Logs come with the extension, or when the recorder runs on your own domain." action={{ label: 'How to set it up', href: '/settings/integrations' }} />
+  <EmptyState icon="console" title="No logs for recording-link captures yet" body="Recording links capture video only. Logs come with the extension, or when the recorder runs on your own domain." action={{ label: 'How to set it up', href: '/settings/sdk' }} />
 {:else}
   <div class="vp-bar cbar">
     <label class="vp-search"><VIcon name="search" size={14} /><input type="text" placeholder="Filter" bind:value={q} aria-label="Filter console" data-testid="console-filter" /></label>
