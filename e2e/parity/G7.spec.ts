@@ -414,6 +414,14 @@ test('S7.1 settings pages, members, workspaces and sign-in', async () => {
       sql(`delete from organization where id='${id}'`);
     }
     out.removedEarlierParity2 = old.length;
+    // rig hygiene: the sso-* accounts that earlier step 7 runs signed in, with their solo workspaces
+    const ssoLike = `(u.email like 'sso-%@example.com' or u.email like 'sso-%@elsewhere.test')`;
+    out.removedSsoWorkspaces = Number(
+      sql(
+        `with d as (delete from organization o where exists (select 1 from member m join "user" u on u.id=m.user_id where m.organization_id=o.id and ${ssoLike}) and not exists (select 1 from member m join "user" u on u.id=m.user_id where m.organization_id=o.id and not ${ssoLike}) returning 1) select count(*) from d`,
+      )[0],
+    );
+    out.removedSsoAccounts = Number(sql(`with d as (delete from "user" u where ${ssoLike} returning 1) select count(*) from d`)[0]);
     out.members = (await api<{ items: { role: string; person: { email: string } }[] }>(context, 'GET', `/api/v1/workspaces/${ws}/members`)).body.items.map((m) => `${m.person.email} ${m.role}`);
     return out;
   });
@@ -766,6 +774,44 @@ test('S7.1 settings pages, members, workspaces and sign-in', async () => {
     return { ...out, passwordPath, signup, sso: { allowedDomain: ssoAllowed, refusedDomain: ssoRefused, load: load() }, magicLinkMailpit: 'skipped (scope: FEATURE_EMAIL)' };
   });
   ev.set('step7-shots', await shoot4(ev, '7-login', anonOpen('/login')));
+
+  // 7b. the default deployment (J-217): the rig server above runs with AUTH_DEV_PASSWORD=1 for
+  // its test accounts. PARITY_DEFAULT_SERVERS lists servers started from the same image with
+  // compose defaults (no AUTH_DEV_PASSWORD), with and without the scope's OIDC values.
+  for (const base of (process.env.PARITY_DEFAULT_SERVERS ?? '').split(',').filter(Boolean)) {
+    await probe(ev, `step7-default-deployment ${base} (J-217)`, async () => {
+      const c = await freshContext();
+      const p = await c.newPage();
+      await p.goto(`${base}/login`);
+      await p.waitForLoadState('networkidle');
+      const tag = new URL(base).port;
+      await p.screenshot({ path: ev.file(`7-default-${tag}-login`) });
+      const out: Record<string, unknown> = {
+        providers: (await p.locator('[data-provider]').allTextContents()).map(txt),
+        inputs: await p.locator('main input:not([type="hidden"])').evaluateAll((els) => els.map((e) => (e as HTMLInputElement).type)),
+        passwordToggle: await p.getByRole('button', { name: 'Use a password instead' }).count(),
+        text: txt(await p.locator('main').textContent()).slice(0, 300),
+        passwordApi: (await p.request.post(`${base}/api/auth/sign-in/email`, { data: { email: 'nobody@example.com', password: 'not a real password' }, headers: { origin: base }, failOnStatusCode: false })).status(),
+      };
+      const btn = p.locator('[data-provider]').first();
+      if (await btn.count()) {
+        const email = `sso-${Date.now()}@example.com`;
+        const t0 = Date.now();
+        await btn.click();
+        await p.waitForURL(/\/authorize/, { timeout: 15_000 });
+        await p.locator('input[name=username]').fill(email);
+        await p.locator('textarea[name=claims]').fill(JSON.stringify({ email, email_verified: true, name: 'Sso Person' }));
+        await p.locator('input[type=submit], button[type=submit]').first().click();
+        await p.waitForURL((u) => u.origin === base && !/\/api\/auth\//.test(u.pathname), { timeout: 20_000, waitUntil: 'commit' }).catch(() => undefined);
+        const ms = Date.now() - t0;
+        await sleep(500);
+        out.sso = { email, landed: p.url().replace(base, ''), signedIn: (await p.evaluate(async () => (await fetch('/api/v1/me')).status)) === 200, providerClickToLandedMs: ms, load: load() };
+        await p.screenshot({ path: ev.file(`7-default-${tag}-landed`) });
+      }
+      await c.close();
+      return out;
+    });
+  }
 
   ev.set('clicks-to-pages', clicksTo);
   await page.close().catch(() => undefined);

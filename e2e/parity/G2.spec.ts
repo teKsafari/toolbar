@@ -303,9 +303,11 @@ async function editorToasts(f: Frame) {
   return f.locator('.nb-toast').evaluateAll((els) => els.map((e) => (e.textContent ?? '').replace(/\s+/g, ' ').trim()));
 }
 
-async function pageToasts(page: Page) {
-  // toasts carry data-kind (success, error, info) in the in-page UI's closed shadow root
-  return (await shadowQuery(page, 'data-kind')).filter((n) => n.visible && (n.attrs.class ?? '').includes('nb-toast')).map((n) => n.text.replace(/\s+/g, ' '));
+async function pageToasts(page: Page, kind?: string) {
+  // toasts carry data-kind (success, error, info, loading) in the in-page UI's closed shadow root
+  return (await shadowQuery(page, 'data-kind'))
+    .filter((n) => n.visible && (n.attrs.class ?? '').includes('nb-toast') && (!kind || n.attrs['data-kind'] === kind))
+    .map((n) => n.text.replace(/\s+/g, ' '));
 }
 
 /** The lab layout in viewport pixels; the screenshot is the viewport at 1x, so image pixels too. */
@@ -719,10 +721,18 @@ test('S2.1 annotated screenshot to a link', async () => {
   xkey('ctrl+Return');
   let pageAt = 0;
   void newPage.then(() => (pageAt = Date.now()));
+  // first feedback (J-086): the first toast of any kind, polled from the keypress on
+  const firstToastP = until(async () => ((await pageToasts(page)).join(' ') || null), 10_000, 30)
+    .then((r) => {
+      ev.xshot('21-first-toast', FULL); // the X screen as it is right then: editor and toast
+      return r;
+    })
+    .catch(() => null);
   const linkSeen = await until(async () => (/\/s\//.test(clipboard()) ? clipboard() : ''), 60_000, 40);
   const capPage = await newPage;
+  const firstToast = await firstToastP;
   // 21. the toast; Ctrl+Enter to the link and to the background tab; the tab sits right of the source
-  const toast = await until(async () => ((await pageToasts(page)).join(' ') || null), 10_000, 50).catch(() => null);
+  const toast = await until(async () => ((await pageToasts(page, 'success')).join(' ') || null), 10_000, 50).catch(() => null);
   ev.xshot('21-toast', FULL);
   const toastGone = toast ? await until(async () => !(await pageToasts(page)).length, 20_000, 200).catch(() => null) : null;
   const tabsAfter = await tabsOf(sw);
@@ -732,6 +742,8 @@ test('S2.1 annotated screenshot to a link', async () => {
     load: c20.load,
     reliable: c20.reliable,
     link: linkSeen.value,
+    firstToast: firstToast?.value ?? null,
+    firstToastAfterMs: firstToast ? firstToast.at - t20 : null,
     toast: toast?.value ?? null,
     toastSeenAfterMs: toast ? toast.at - t20 : null,
     toastShownMs: toast && toastGone ? toastGone.at - toast.at : null,

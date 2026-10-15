@@ -73,6 +73,14 @@ async function getRig(): Promise<Launched> {
   rig = { ...(await launchNib()), signedIn: false };
   const { lab, popup } = await signIn(rig.context, EMAIL);
   await popup.close().catch(() => undefined);
+  // rig hygiene: the shared parity account starts with instant replay off, as a new account
+  // does; an earlier S1.4 that stopped before its step 6 leaves it on (server and extension)
+  await api(rig.context, 'PATCH', '/api/v1/me/settings', { extension: { instantReplay: false } });
+  await (await rig.sw()).evaluate(async () => {
+    const k = 'nib:settings';
+    const cur = ((await chrome.storage.local.get(k))[k] ?? {}) as Record<string, unknown>;
+    await chrome.storage.local.set({ [k]: { ...cur, instantReplay: false } });
+  });
   void lab; // keep one tab: closing the last one closes the window
   for (const p of rig.context.pages()) if (p.url().startsWith(SERVER)) await p.close().catch(() => undefined);
   rig.signedIn = true;
@@ -1018,6 +1026,11 @@ test('S1.5 recording link from the popup', async () => {
     const items = Array.isArray(list.body) ? list.body : list.body?.items ?? [];
     ws = items[0]?.id;
   }
+  // rig hygiene: links named "parity link ..." from earlier runs go, so each run leaves three
+  const oldLinks = await api<{ items?: { id: string; name: string }[] }>(context, 'GET', `/api/v1/workspaces/${ws}/recording-links`);
+  let removed = 0;
+  for (const l of oldLinks.body?.items ?? []) if (/^parity link( \d+)?$/.test(l.name) && (await api(context, 'DELETE', `/api/v1/recording-links/${l.id}`)).status < 300) removed++;
+  ev.set('setup-old-parity-links-removed', removed);
   const folders = await api<{ items?: { id: string; name: string }[] } | { id: string; name: string }[]>(context, 'GET', `/api/v1/workspaces/${ws}/folders`);
   const fl = Array.isArray(folders.body) ? folders.body : folders.body?.items ?? [];
   if (!fl.some((f) => f.name === 'parity')) {

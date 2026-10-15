@@ -756,6 +756,7 @@ test('S8.1 MCP, markdown and copy for AI (N1)', async () => {
     fs.writeFileSync(path.join(MD_DIR, 'N1-share-accept.md'), scrub(accept));
     fs.writeFileSync(path.join(MD_DIR, 'N1-share-suffix.md'), scrub(suffix));
     fs.writeFileSync(path.join(MD_DIR, 'N1-share-head.txt'), scrub(head.replace(/^(set-cookie|date):.*$/gim, '$1: <omitted>')));
+    fs.writeFileSync(path.join(MD_DIR, 'N1-share-head-accept-md.txt'), scrub(headOnlyMd.replace(/^(set-cookie|date):.*$/gim, '$1: <omitted>')));
     const front = accept.match(/^---\n([\s\S]*?)\n---/);
     return {
       sameForBoth: accept === suffix,
@@ -764,14 +765,15 @@ test('S8.1 MCP, markdown and copy for AI (N1)', async () => {
       headings: accept.split('\n').filter((l) => /^#{1,3} /.test(l)),
       countsLine: accept.split('\n').find((l) => /console|network|error/i.test(l) && /\d/.test(l) && !l.startsWith('#'))?.slice(0, 300) ?? null,
       mentionsMcp: /mcp/i.test(accept),
-      mentionsCli: /\bnib\b|cli/i.test(accept),
+      mentionsCli: /\bnib (get|console|network|frames)\b|\bCLI\b/.test(accept),
+      mentionsHttpApi: /HTTP API/.test(accept),
       contentTypeMd: headMd.match(/^content-type:.*$/im)?.[0] ?? null,
       varyMd: headMd.match(/^vary:.*$/im)?.[0] ?? null,
       headRequestWithAcceptMd: headOnlyMd.match(/^content-type:.*$/im)?.[0] ?? null,
       linkHeader: head.match(/^link:.*$/im)?.[0]?.split(tokenPart).join('<share-token>') ?? null,
       htmlContentType: head.match(/^content-type:.*$/im)?.[0] ?? null,
       unknownToken: unknown.slice(-200),
-      files: ['docs/parity/evidence/G8/N1-share-accept.md', 'docs/parity/evidence/G8/N1-share-suffix.md', 'docs/parity/evidence/G8/N1-share-head.txt'],
+      files: ['docs/parity/evidence/G8/N1-share-accept.md', 'docs/parity/evidence/G8/N1-share-suffix.md', 'docs/parity/evidence/G8/N1-share-head.txt', 'docs/parity/evidence/G8/N1-share-head-accept-md.txt'],
     };
   });
 
@@ -801,7 +803,8 @@ test('S8.1 MCP, markdown and copy for AI (N1)', async () => {
   await probe(ev, 'step8-agent-after-remove', () => Promise.resolve(agent(ev, '8', scratch, `Use the nib MCP tools to fetch the details of ${n1Link}. Answer with only a JSON object: {"ok": bool, "what_happened": string}`)));
   ev.set('step8-shots', await shoot4(ev, '8-mcp-page-after', ownerOpen(context, '/settings/mcp'), settingsDrawer));
 
-  // 9. a 30-day read-only CLI token: shown once with its prefix; a write with it is refused
+  // 9. a 30-day token with the defaults (MCP and HTTP API read only; the CLI is paused): shown
+  // once with its prefix; reads work on MCP and REST, writes are refused on both
   await probe(ev, 'step9-token (J-148)', async () => {
     const p = await openUrl(context, '/settings/tokens');
     await p.getByRole('button', { name: 'Create token' }).click();
@@ -815,7 +818,7 @@ test('S8.1 MCP, markdown and copy for AI (N1)', async () => {
       mcp: await dlg.locator('input[name="mcp"]:checked').getAttribute('value'),
       fields: (await dlg.locator('label, legend').allTextContents()).map(txt),
     };
-    const name = `parity G8 cli read ${Date.now().toString(36)}`;
+    const name = `parity G8 read ${Date.now().toString(36)}`;
     await dlg.getByLabel('Name').fill(name);
     await dlg.getByRole('button', { name: 'Create' }).click();
     const secretBox = p.getByTestId('token-secret');
@@ -828,10 +831,11 @@ test('S8.1 MCP, markdown and copy for AI (N1)', async () => {
     await ready(p);
     const shownAfterReload = (await p.getByTestId('token-secret').count()) > 0 || (await p.locator('body').textContent())!.includes(secret);
     const prefix = secret.slice(0, 7);
-    // what the CLI would send: the cli surface header; a read and a write
-    const read = await tool(secret, 'get_capture', { capture: n1Link }, { 'x-nib-client': 'cli' });
-    const write = await tool(secret, 'create_comment', { capture: n1Link, body: 'parity token write' }, { 'x-nib-client': 'cli' });
+    // an agent over MCP: a read and a write; then the HTTP API: a read and a write
+    const read = await tool(secret, 'get_capture', { capture: n1Link });
+    const write = await tool(secret, 'create_comment', { capture: n1Link, body: 'parity token write' });
     const viaMcp = await rpc(secret, 'tools/list');
+    const restRead = await fetch(`${SERVER}/api/v1/recordings/${n1}`, { headers: { authorization: `Bearer ${secret}` } });
     const restWrite = await fetch(`${SERVER}/api/v1/recordings/${n1}`, { method: 'PATCH', headers: { authorization: `Bearer ${secret}`, 'content-type': 'application/json' }, body: JSON.stringify({ title: 'parity token write' }) });
     const titleAfter = (await api<{ title: string }>(context, 'GET', `/api/v1/recordings/${n1}`)).body.title;
     // clean up: revoke it
@@ -843,12 +847,13 @@ test('S8.1 MCP, markdown and copy for AI (N1)', async () => {
       defaults,
       shownOnce: { prefix, length: secret.length, shownAfterReload },
       listRow: listRow.replace(secret, '<secret>'),
-      cliRead: { status: read.status, isError: read.isError, error: read.error, ok: !!read.json },
-      cliWrite: { status: write.status, isError: write.isError, error: write.error, text: write.text.slice(0, 200) },
+      mcpRead: { status: read.status, isError: read.isError, error: read.error, ok: !!read.json },
+      mcpWrite: { status: write.status, isError: write.isError, error: write.error, text: write.text.slice(0, 200) },
       mcpSurface: { status: viaMcp.status, error: viaMcp.body?.error?.message ?? null },
+      restRead: { status: restRead.status },
       restWrite: { status: restWrite.status, titleUnchanged: titleAfter === n1Title },
       revoked,
-      clicks: 'Create token, Create = 2 (name typed; defaults are 30 days and CLI read only)',
+      clicks: 'Create token, Create = 2 (name typed; defaults are 30 days, MCP and HTTP API read only)',
     };
   });
   ev.set('step9-shots', await shoot4(ev, '9-tokens-page', ownerOpen(context, '/settings/tokens'), settingsDrawer));
