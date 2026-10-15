@@ -202,7 +202,10 @@
     ann?.commitText();
     creating = true;
     clearTimeout(saveTimer);
-    const tid = toasts.loading('Creating your link');
+    // one progress toast (J-086): the page's when the host shows it, else the editor's own
+    const outside = host.progress;
+    outside?.start();
+    const tid = outside ? null : toasts.loading('Creating your link');
     try {
       await host.update(snapshotPatch()).catch(() => {});
       const { flat, full } = await flatten();
@@ -226,7 +229,7 @@
       const o = await host.openCapture?.(res, data.draft.tabId).catch(() => undefined);
       // J-089: the extension setting may keep the capture page closed
       const opened = !o || o.opened;
-      toasts.update(tid, { kind: 'success', message: `${copied ? 'Link copied.' : 'Capture created.'}${opened ? ' The capture opened in a new tab.' : ''}` });
+      if (tid !== null) toasts.update(tid, { kind: 'success', message: `${copied ? 'Link copied.' : 'Capture created.'}${opened ? ' The capture opened in a new tab.' : ''}` });
       if (res.issueError) toasts.error(`The capture is saved, but filing the issue failed: ${res.issueError}`);
       void host.savePrefs({
         lastFolderId: folderId,
@@ -235,7 +238,10 @@
       });
       host.close('created', { copied, opened, issueError: res.issueError });
     } catch (e) {
-      toasts.update(tid, { kind: 'error', message: e instanceof Error ? e.message : 'Could not create the capture', duration: 6000 });
+      const message = e instanceof Error ? e.message : 'Could not create the capture';
+      outside?.fail();
+      if (tid !== null) toasts.update(tid, { kind: 'error', message, duration: 6000 });
+      else toasts.error(message, { duration: 6000 });
       creating = false;
     }
   }

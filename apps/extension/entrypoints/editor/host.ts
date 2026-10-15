@@ -143,17 +143,14 @@ export async function createHost(draftId: string): Promise<EditorHost> {
     putBlob: (blob) => putBlob(blob),
     deleteBlob: async (id) => void (await deleteBlob(id)),
     async create(req) {
-      // first feedback at the keypress (J-086): the page shows a progress toast until close
-      post({ type: 'creating' });
-      try {
-        // the editor opens the capture tab itself once the link is copied (openCapture)
-        const r = await send({ type: 'editor.create', draftId, finalize: req.finalize, flatBlobId: req.flatBlobId, flatFullBlobId: req.flatFullBlobId, openTab: false });
-        return { recordingId: r.recordingId, shareUrl: r.shareUrl, issueError: r.issueError, issueUrl: r.issue?.url ?? null };
-      } catch (e) {
-        post({ type: 'create-failed' });
-        throw e;
-      }
+      // the editor opens the capture tab itself once the link is copied (openCapture)
+      const r = await send({ type: 'editor.create', draftId, finalize: req.finalize, flatBlobId: req.flatBlobId, flatFullBlobId: req.flatFullBlobId, openTab: false });
+      return { recordingId: r.recordingId, shareUrl: r.shareUrl, issueError: r.issueError, issueUrl: r.issue?.url ?? null };
     },
+    // first feedback at the keypress (J-086): in the in-page frame the page shows the one progress
+    // toast and turns it into the done toast after the frame closes; a tab of its own keeps the
+    // editor's toast
+    progress: window.parent !== window ? { start: () => post({ type: 'creating' }), fail: () => post({ type: 'create-failed' }) } : undefined,
     discard: async () => void (await send({ type: 'draft.discard', draftId })),
     saveForLater: async () => void (await send({ type: 'draft.saveForLater', draftId })),
     ai: async () => {

@@ -64,6 +64,11 @@ export interface EditorHost {
   putBlob(blob: Blob): Promise<string>;
   deleteBlob(id: string): Promise<void>;
   create(req: CreateRequest): Promise<CreateResult>;
+  /**
+   * The page around the editor shows create progress (J-086): start at the keypress, fail when
+   * create throws. With it the editor shows no progress toast of its own, so one toast shows.
+   */
+  progress?: { start(): void; fail(): void };
   discard(): Promise<void>;
   saveForLater(): Promise<void>;
   ai(): Promise<{ ai: AiDraftText | null; reason: AiUnavailableReason | null }>;
