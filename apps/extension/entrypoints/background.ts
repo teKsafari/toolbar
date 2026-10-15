@@ -16,6 +16,7 @@ import { registerDraftHandlers } from '../lib/bg/drafts';
 import { registerDashboard } from '../lib/bg/dashboard';
 import { registerTrace } from '../lib/bg/trace';
 import { registerLocator } from '../lib/bg/locator';
+import { registerReview } from '../lib/bg/review';
 
 export default defineBackground(() => {
   void migrateStorage();
@@ -37,6 +38,7 @@ export default defineBackground(() => {
   const capture = setupCapture();
   registerTrace(capture);
   registerLocator(capture);
+  registerReview(capture);
   browser.runtime.onStartup.addListener(() => void syncRegistration().catch(() => undefined));
 
   browser.runtime.onConnect.addListener((port) => {

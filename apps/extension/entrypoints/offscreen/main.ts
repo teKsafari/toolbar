@@ -329,6 +329,46 @@ function copyText(text: string): boolean {
   return ok;
 }
 
+// ---------- reviewer toolbar voice notes (Part 2) ----------
+
+/** One voice note at a time, microphone only; the blob goes to IndexedDB at stop. */
+let note: { rec: MediaRecorder; stream: MediaStream; parts: Blob[]; startedAt: number; mime: string } | null = null;
+
+async function startNote(deviceId?: string): Promise<{ ok: boolean; error?: string; message?: string }> {
+  if (note) return { ok: true };
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: deviceId ? { deviceId: { exact: deviceId } } : true, video: false });
+  } catch (e) {
+    const name = e instanceof DOMException ? e.name : '';
+    return { ok: false, error: name === 'NotAllowedError' || name === 'SecurityError' ? 'permission_denied' : 'no_microphone', message: e instanceof Error ? e.message : String(e) };
+  }
+  const mime = pickMime(false);
+  const rec = new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 48_000 });
+  const n = { rec, stream, parts: [] as Blob[], startedAt: Date.now(), mime };
+  rec.ondataavailable = (ev) => {
+    if (ev.data.size) n.parts.push(ev.data);
+  };
+  rec.start(TIMESLICE_MS);
+  note = n;
+  return { ok: true };
+}
+
+async function stopNote(cancel: boolean): Promise<{ ok: boolean; blobId?: string; durationMs?: number; mime?: string }> {
+  const n = note;
+  note = null;
+  if (!n) return { ok: true };
+  const stopped = new Promise<void>((r) => (n.rec.onstop = () => r()));
+  if (n.rec.state !== 'inactive') n.rec.stop();
+  await Promise.race([stopped, new Promise((r) => setTimeout(r, 2000))]);
+  for (const t of n.stream.getTracks()) t.stop();
+  const durationMs = Date.now() - n.startedAt;
+  if (cancel || !n.parts.length) return { ok: true, durationMs };
+  const blob = new Blob(n.parts, { type: n.mime.split(';')[0] });
+  const blobId = await putBlob(`note-${crypto.randomUUID()}`, blob);
+  return { ok: true, blobId, durationMs, mime: blob.type };
+}
+
 // ---------- requests ----------
 
 type Reply = (r: unknown) => void;
@@ -445,6 +485,10 @@ async function handle(msg: OffscreenRequest): Promise<unknown> {
       return { ok: true, ...(await saveReplaySegments(msg.tabId, msg.recordingId)) };
     case 'clipboard':
       return { ok: copyText(msg.text) };
+    case 'note-start':
+      return startNote(msg.deviceId);
+    case 'note-stop':
+      return stopNote(!!msg.cancel);
   }
 }
 

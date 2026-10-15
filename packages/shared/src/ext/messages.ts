@@ -35,6 +35,7 @@ import type { DashboardBgRequests, DashboardContentCommand } from './areas/dashb
 import type { AgentBgRequests, AgentContentCommand } from './areas/agent.ts';
 import type { TraceBgRequests } from './areas/trace.ts';
 import type { LocatorBgRequests, LocatorContentCommand } from './areas/locator.ts';
+import type { ReviewerBgRequests, ReviewerContentCommand } from './areas/reviewer.ts';
 
 export const CAPTURE_PORT = 'capture';
 /** postMessage tag between the editor iframe and its content-script host. */
@@ -182,7 +183,8 @@ export type ContentCommand =
   | ViewerContentCommand
   | DashboardContentCommand
   | AgentContentCommand
-  | LocatorContentCommand;
+  | LocatorContentCommand
+  | ReviewerContentCommand;
 
 /** Reply to page.geometry. */
 export interface PageGeometry {
@@ -226,6 +228,9 @@ export type OffscreenRequest =
   | { to: 'offscreen'; type: 'replay-video-flush'; tabId: number; recordingId: string; upload: UploadAuth }
   | { to: 'offscreen'; type: 'clipboard'; text: string }
   | { to: 'offscreen'; type: 'mic-devices'; recordingId?: string }
+  /** reviewer toolbar voice note: microphone only, kept in IndexedDB `blobs` at stop */
+  | { to: 'offscreen'; type: 'note-start'; deviceId?: string }
+  | { to: 'offscreen'; type: 'note-stop'; cancel?: boolean }
   | { to: 'offscreen'; type: 'ping' };
 
 export type OffscreenEvent =
@@ -260,3 +265,7 @@ export function isOffscreenRequest(x: unknown): x is OffscreenRequest {
 export function isOffscreenEvent(x: unknown): x is OffscreenEvent {
   return typeof x === 'object' && x !== null && (x as { from?: unknown }).from === 'offscreen';
 }
+
+// Part 2 reviewer toolbar (ext/areas/reviewer.ts), merged by declaration so the base list above
+// stays as the areas left it.
+export interface BgRequestMap extends ReviewerBgRequests {}

@@ -8,3 +8,4 @@ export * from './integrations.ts';
 export * from './core.ts';
 export * from './agent.ts';
 export * from './projects.ts';
+export * from './feedback.ts';

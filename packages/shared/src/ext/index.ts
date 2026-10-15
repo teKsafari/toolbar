@@ -6,3 +6,4 @@ export * from './storage.ts';
 export type * from './areas/ext-ui.ts';
 export type * from './areas/trace.ts';
 export type * from './areas/locator.ts';
+export type * from './areas/reviewer.ts';

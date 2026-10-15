@@ -17,7 +17,7 @@ export const recording = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
     folderId: uuid('folder_id').references(() => folder.id, { onDelete: 'set null' }),
-    kind: text('kind', { enum: ['screenshot', 'video', 'replay', 'screen', 'link', 'trace'] }).notNull(),
+    kind: text('kind', { enum: ['screenshot', 'video', 'replay', 'screen', 'link', 'trace', 'feedback'] }).notNull(),
     status: text('status', { enum: ['uploading', 'processing', 'ready', 'failed'] })
       .notNull()
       .default('uploading'),
@@ -113,7 +113,7 @@ export const asset = pgTable(
     id: id(),
     recordingId: uuid('recording_id').references(() => recording.id, { onDelete: 'cascade' }),
     kind: text('kind', {
-      enum: ['screenshot', 'crop', 'annotation', 'keyframe', 'thumb', 'attachment', 'comment', 'avatar', 'logo', 'voice'],
+      enum: ['screenshot', 'crop', 'annotation', 'keyframe', 'thumb', 'attachment', 'comment', 'avatar', 'logo', 'voice', 'feedback', 'voice-note'],
     }).notNull(),
     s3Key: text('s3_key').notNull(),
     contentType: text('content_type').notNull(),

@@ -1,6 +1,6 @@
 <script lang="ts">
   // In-page UI root (ext-ui): screenshot mode, countdown veil, recording bar, live pen and blur,
-  // toasts. It is a view of the worker's capture session for this tab (ui/state.svelte.ts);
+  // the Part 2 reviewer toolbar (review/), toasts. It is a view of the worker's capture session for this tab (ui/state.svelte.ts);
   // the editor (editor area) mounts on its own from ui.editor-open.
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
@@ -16,6 +16,7 @@
   import RecordingBar from './ui/RecordingBar.svelte';
   import LiveDraw from './ui/LiveDraw.svelte';
   import LiveBlur from './ui/LiveBlur.svelte';
+  import Review from './review/Review.svelte';
   import { applyAccent, brand, loadBrand } from '../../lib/brand.svelte';
 
   let root: HTMLDivElement | undefined = $state();
@@ -134,6 +135,8 @@
       }}
     />
   {/if}
+  <!-- Part 2 reviewer toolbar: steps aside while a Jam-style capture owns the page -->
+  <Review blocked={s.state !== 'idle'} />
   <Toaster />
 </div>
 

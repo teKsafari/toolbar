@@ -3,7 +3,7 @@
 // Works in the service worker, the offscreen document and extension pages (fetch only).
 import { ROUTES, buildPath } from '@toolbar/shared/api';
 import { HEADERS } from '@toolbar/shared/constants';
-import type { StreamName } from '@toolbar/shared';
+import type { RecordingKind, StreamName } from '@toolbar/shared';
 
 export interface UploadAuthLike {
   serverUrl: string;
@@ -62,7 +62,7 @@ async function call<T>(auth: UploadAuthLike, name: RouteName, params: Record<str
 
 export interface CreateCaptureInput {
   clientId: string;
-  kind: 'screenshot' | 'video' | 'replay' | 'screen' | 'link' | 'trace';
+  kind: RecordingKind;
   workspaceId: string;
   folderId?: string;
   page: { url: string; title: string };

@@ -29,7 +29,7 @@ export type CaptureSource = (typeof CAPTURE_SOURCES)[number];
  * either one carries the annotations flattened in (J-051). `voice` is a voice note for a comment
  * (WebM/Opus or another audio type); attached to a comment, it gets a transcript (D-087).
  */
-export const UPLOAD_ASSET_KINDS = [...ASSET_KINDS, 'attachment', 'comment', 'avatar', 'logo', 'voice'] as const;
+export const UPLOAD_ASSET_KINDS = [...ASSET_KINDS, 'attachment', 'comment', 'avatar', 'logo', 'voice', 'feedback', 'voice-note'] as const;
 export type UploadAssetKind = (typeof UPLOAD_ASSET_KINDS)[number];
 
 export const MAX_ASSET_BYTES = 200 * 1024 * 1024;
