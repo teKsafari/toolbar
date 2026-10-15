@@ -1,5 +1,14 @@
 # Scope (owner, 2026-10-14)
 
+## This is not a product
+
+open-toolbar is open-source software (MIT) that you self-host. Nobody sells it, and nothing in it exists to sell, retain or manage customers. Leave out anything that only makes sense for a commercial product: plans, quotas, upsells, engagement mail, AI features, data-retention policies, audit logs. When a Jam feature exists to run a business rather than to record feedback or hand it to an agent, pause it.
+
+## Name and pitch
+
+- Name: **open-toolbar** (inspired by the Vercel Toolbar). Default logo: a filled rectangle. Admins can set their own name and logo (D-074, `docs/research/branding.md`).
+- Pitch, for the README (to be polished in our own words): evolve rough software by giving it detailed feedback: session recordings, DOM screenshots, annotations, voice notes, console and network traces. All of it is reachable over MCP, an HTTP API and webhooks. Let your agent learn from many pieces of feedback to distil what the product is meant to be, and document it. Open source, MIT, self-hosted.
+
 Read this before building, testing or comparing anything. It overrides the Jam catalogue where they conflict (D-078 to D-082).
 
 ## What the product is
@@ -22,9 +31,18 @@ Paused features stay in the repository behind feature flags that default to off.
 | Slack incoming webhook | part of J-137, J-139 | `FEATURE_SLACK` |
 | Command-line tool (`nib`/`toolbar` CLI) and its settings page | J-155, J-244, J-245, J-246, J-247 | `FEATURE_CLI` |
 | Every notification email: first view, shared with me, recording link used, same-domain join, mention, invite mails | J-136, mail parts of J-122, J-123, J-125, J-135 | `FEATURE_EMAIL` |
+| AI features: AI title and repro steps, ghost title, AI chapters and the chapters menu, workspace AI switch and quotas | J-075, J-083, J-096, J-156, J-230 | \`FEATURE_AI\` |
+| Data-retention settings and audit logs | parts of J-172 | \`FEATURE_ADMIN_EXTRAS\` |
 | Sign-in with Google or GitHub social buttons, magic link, email and password | J-217 (provider list) | `AUTH_DEV_PASSWORD` (dev and tests only) |
 
 Kept: in-app @mentions (no mail), invites by link, joining by allowed email domain, webhooks (J-142).
+
+## Transcription
+
+Voice notes are transcribed on the server behind the \`Transcriber\` interface. Two providers:
+
+- Local whisper.cpp (default, CPU, no key, no data leaves the server).
+- A hosted, economical OpenAI-compatible speech-to-text model, chosen for quality per cost (not the most expensive model), enabled by setting an API key. It is better at multilingual audio (Swahili for Nuru) and faster than CPU whisper, but it has limits on file size, length and cost that the docs must state; long audio is split into chunks. Research: \`docs/research/transcription.md\`.
 
 ## Sign-in
 

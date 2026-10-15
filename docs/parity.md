@@ -70,7 +70,7 @@ One row per P0 and P1 catalogue ID (73 P0, 106 P1). The scenarios that fill each
 | J-079 | editor | P0 | - | - | - | paused | docs/scope.md (owner) |
 | J-080 | editor | P1 | | | | | |
 | J-081 | editor | P1 | | | | | |
-| J-083 | editor | P1 | | | | | |
+| J-083 | editor | P1 | - | - | - | paused | docs/scope.md (owner) |
 | J-084 | editor | P0 | | | | | |
 | J-085 | editor | P0 | | | | | |
 | J-086 | editor | P0 | | | | | |
@@ -174,7 +174,7 @@ One row per P0 and P1 catalogue ID (73 P0, 106 P1). The scenarios that fill each
 | J-227 | server-core | P1 | | | | | |
 | J-228 | dashboard | P1 | | | | | |
 | J-229 | viewer | P1 | | | | | |
-| J-230 | editor | P1 | | | | | |
+| J-230 | editor | P1 | - | - | - | paused | docs/scope.md (owner) |
 | J-238 | ext-ui | P1 | | | | | |
 | J-239 | ext-ui | P1 | | | | | |
 | J-240 | editor | P1 | | | | | |
