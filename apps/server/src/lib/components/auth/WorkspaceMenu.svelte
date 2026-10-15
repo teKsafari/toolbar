@@ -25,6 +25,7 @@
   }
 </script>
 
+<div class="wsm">
 <Popover bind:open label="Workspace menu" placement="bottom-start">
   {#snippet trigger({ toggle, open, id })}
     <button class="ws" onclick={toggle} aria-expanded={open} aria-controls={id} aria-haspopup="menu" data-testid="workspace-menu">
@@ -62,16 +63,23 @@
     </div>
   {/snippet}
 </Popover>
+</div>
 
 <style>
+  /* The trigger and its menu take the sidebar's width. A fixed 226 px trigger overflowed the
+     sidebar once its scrollbar appeared, and the 260 px menu stuck out past it; the sidebar
+     scrolls, so either one gave it a horizontal scrollbar. */
+  .wsm { flex: 1; min-width: 0; }
+  .wsm > :global(.nb-pop-root) { display: flex; width: 100%; }
+  .wsm :global(.nb-pop) { right: 0; min-width: 0; }
   .ws {
-    all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 8px; width: 226px; padding: 6px 8px;
+    all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 6px 8px;
     border-radius: var(--nb-radius-md); cursor: pointer; font-weight: var(--nb-weight-semibold);
   }
   .ws:hover { background: var(--nb-surface-sunken); }
   .ws:focus-visible { outline: 2px solid var(--nb-focus); }
   .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .menu { display: flex; flex-direction: column; gap: 1px; width: 260px; }
+  .menu { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
   .current { display: flex; align-items: center; gap: 10px; padding: 6px 8px 10px; }
   .col { display: flex; flex-direction: column; flex: 1; min-width: 0; }
   .title { font-weight: var(--nb-weight-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
