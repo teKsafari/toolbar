@@ -1,12 +1,13 @@
 // Markdown summary of a shared capture for plain fetches (J-153): `GET /s/<token>.md`, or
 // `GET /s/<token>` with `Accept: text/markdown`. Front matter, signal counts, comments, and
-// pointers to the MCP server and the CLI. Same access rules as the share page.
+// pointers to the MCP server, the HTTP API and (when not paused) the CLI. Same access rules as the
+// share page.
 import { shareMarkdown, signalsOf } from '@toolbar/shared/derive';
 import { db } from '../db/index.ts';
 import { env } from '../env.ts';
 import { findShare } from '../share/tokens.ts';
 import { seatOf } from '../share/access.ts';
-import { briefOf, CLI_NAME, mcpUrl, preparedOf, screenshotAssets } from './data.ts';
+import { agentPointers, briefOf, preparedOf, screenshotAssets } from './data.ts';
 
 const TEXT = { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'private, no-store' };
 
@@ -38,7 +39,7 @@ export async function shareMarkdownResponse(token: string, userId: string | null
   const imageUrl = shots.main ? `${url}/media/screenshot` : rec.thumbKey ? `${url}/media/thumb` : null;
   const brief = await briefOf(db, rec, { url, imageUrl });
   const p = link.devtools ? await preparedOf(db, rec) : null;
-  const body = shareMarkdown(brief, p ? signalsOf(p) : null, { mcpUrl: mcpUrl(), cli: CLI_NAME });
+  const body = shareMarkdown(brief, p ? signalsOf(p) : null, agentPointers());
   return new Response(body, {
     headers: {
       'content-type': 'text/markdown; charset=utf-8',

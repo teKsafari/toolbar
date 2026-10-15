@@ -14,6 +14,8 @@ export const captureBriefSchema = z.object({
   prompts: agentPromptsSchema,
   /** copy-for-AI text: summary, errors, failed requests and steps as markdown */
   markdown: z.string(),
+  /** CLI binary name for the terminal hint; null while the CLI is paused (FEATURE_CLI off) */
+  cli: z.string().nullable().optional(),
 });
 export type AgentBrief = z.infer<typeof captureBriefSchema>;
 

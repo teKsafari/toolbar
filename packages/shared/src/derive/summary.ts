@@ -103,8 +103,10 @@ function commentLines(cs: BriefComment[], indent = ''): string[] {
 export interface Pointers {
   /** MCP server URL, e.g. https://nib.example/mcp */
   mcpUrl: string;
-  /** name of the CLI binary */
-  cli: string;
+  /** base of the HTTP API, e.g. https://nib.example/api/v1; omitted: no API line */
+  apiUrl?: string | null;
+  /** name of the CLI binary; null or omitted while the CLI is paused (docs/scope.md, FEATURE_CLI) */
+  cli?: string | null;
 }
 
 /** Markdown for `curl <share url>.md` or `Accept: text/markdown` (J-153). About 1 KB plus comments. */
@@ -142,9 +144,11 @@ export function shareMarkdown(b: CaptureBrief, s: Signals | null, ptr: Pointers)
     `This page is a short summary. The full console, network (with headers and bodies), user events, frames and transcript are available to coding agents:`,
     '',
     `- MCP server: ${ptr.mcpUrl} (call \`get_capture\` with this capture's URL first)`,
-    `- CLI: \`${ptr.cli} get ${b.url}\`, then \`${ptr.cli} console\`, \`${ptr.cli} network\` and \`${ptr.cli} frames\``,
-    '',
   );
+  if (ptr.apiUrl)
+    body.push(`- HTTP API: \`GET ${ptr.apiUrl}/recordings/${b.id}/console\`, then \`/network\`, \`/actions\` and \`/frames\`, with a personal token (Settings, API tokens)`);
+  if (ptr.cli) body.push(`- CLI: \`${ptr.cli} get ${b.url}\`, then \`${ptr.cli} console\`, \`${ptr.cli} network\` and \`${ptr.cli} frames\``);
+  body.push('');
   return fm.join('\n') + '\n' + body.join('\n');
 }
 

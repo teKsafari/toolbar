@@ -16,6 +16,9 @@ import { parseVtt } from '../transcribe/index.ts';
 export const memberUrlOf = (id: string) => `${env.publicUrl}/c/${id}`;
 export const mcpUrl = () => `${env.publicUrl}/mcp`;
 export const CLI_NAME = 'nib';
+export const apiUrl = () => `${env.publicUrl}/api/v1`;
+/** Where agents can read a capture: MCP, the HTTP API, and the CLI only while FEATURE_CLI is on (docs/scope.md). */
+export const agentPointers = () => ({ mcpUrl: mcpUrl(), apiUrl: apiUrl(), cli: env.features.cli ? CLI_NAME : null });
 
 // ---------- events ----------
 

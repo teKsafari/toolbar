@@ -89,7 +89,7 @@
         <span class="muted">No MCP in your tool? Copy everything as markdown.</span>
         <CopyForAi {captureId} {shareToken} size="sm" variant="ghost" />
       </div>
-      <p class="muted small">Terminal agents can also run <code>nib get {brief.captureUrl}</code> (Settings, CLI).</p>
+      {#if brief.cli}<p class="muted small">Terminal agents can also run <code>{brief.cli} get {brief.captureUrl}</code> (Settings, CLI).</p>{/if}
     </section>
   {/if}
 </div>

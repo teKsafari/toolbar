@@ -201,7 +201,7 @@ describe('derive: summaries', () => {
   });
 
   it('writes the share markdown with front matter, signals, comments and pointers (J-153)', () => {
-    const md = shareMarkdown(brief(), s, { mcpUrl: 'http://nib.test/mcp', cli: 'nib' });
+    const md = shareMarkdown(brief(), s, { mcpUrl: 'http://nib.test/mcp', apiUrl: 'http://nib.test/api/v1', cli: 'nib' });
     expect(md.startsWith('---\ntitle: "Submit does nothing"\n')).toBe(true);
     expect(md).toContain('browser: "Chrome 141"');
     expect(md).toContain('Signals: 1 console error, 1 failed request, 1 with a 5xx status, 1 request never answered, 2 interactions.');
@@ -210,6 +210,15 @@ describe('derive: summaries', () => {
     expect(md).toContain('  - **Dana**');
     expect(md).toContain('http://nib.test/mcp');
     expect(md).toContain('`nib get http://nib.test/s/tok`');
+    expect(md).toContain(`- HTTP API: \`GET http://nib.test/api/v1/recordings/${brief().id}/console\``);
+  });
+
+  it('leaves the paused CLI out of the share markdown when no CLI is named (J-153, docs/scope.md)', () => {
+    const md = shareMarkdown(brief(), s, { mcpUrl: 'http://nib.test/mcp', apiUrl: 'http://nib.test/api/v1', cli: null });
+    expect(md).toContain('- MCP server: http://nib.test/mcp');
+    expect(md).toContain('- HTTP API:');
+    expect(md).not.toMatch(/\bnib (get|console|network|frames)\b/);
+    expect(md).not.toContain('CLI');
   });
 
   it('ranks the next calls in the guide (J-149)', () => {

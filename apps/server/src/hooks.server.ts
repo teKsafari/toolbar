@@ -51,10 +51,17 @@ const securityHeaders: Handle = async ({ event, resolve }) => {
 /** /s/<token> with nothing after it (the share page). */
 const SHARE_PAGE = /^\/s\/([A-Za-z0-9_-]{16,64})\/?$/;
 
-/** agent area (J-153): `Accept: text/markdown` on a share URL gets the markdown summary. */
+/**
+ * agent area (J-153): `Accept: text/markdown` on a share URL gets the markdown summary. HEAD gets
+ * the same status and headers as GET (content-type text/markdown) with no body.
+ */
 const shareMarkdown: Handle = async ({ event, resolve }) => {
-  const m = event.request.method === 'GET' ? SHARE_PAGE.exec(event.url.pathname) : null;
-  if (m && wantsMarkdown(event.request.headers.get('accept'))) return shareMarkdownResponse(m[1]!, event.locals.user?.id ?? null);
+  const method = event.request.method;
+  const m = method === 'GET' || method === 'HEAD' ? SHARE_PAGE.exec(event.url.pathname) : null;
+  if (m && wantsMarkdown(event.request.headers.get('accept'))) {
+    const res = await shareMarkdownResponse(m[1]!, event.locals.user?.id ?? null);
+    return method === 'HEAD' ? new Response(null, { status: res.status, headers: res.headers }) : res;
+  }
   return resolve(event);
 };
 
