@@ -1,6 +1,6 @@
 # Branding: rename Nib to toolbar, and let admins set the name and logo
 
-Status: research for D-074 (owner decision, 2026-10-14). Nothing here is built yet; implement after gate 2. Written 2026-10-14 against commit `42b3f05`.
+Status: built on 2026-10-15 (D-111 to D-113, user docs in `docs/branding.md`); the name is open-toolbar (D-083), so read "toolbar" below as open-toolbar for display text and slugs. Research for D-074 (owner decision, 2026-10-14). Written 2026-10-14 against commit `42b3f05`.
 
 Owner request: the product is called "toolbar". The default logo is a plain filled rectangle. People who self-host, and the admins of an instance, set the app name and the logo themselves.
 

@@ -23,10 +23,13 @@
   const lock = (v: string) => `Set by ${v} on the server`;
 
   async function done(next: AdminBranding) {
+    const headChanged = next.branding.accent !== a.branding.accent || next.branding.logo.light !== a.branding.logo.light;
     a = next;
     name = next.branding.name;
     accent = next.branding.accent;
     await invalidateAll();
+    // the favicons and accent tokens live in the server-written <head>: load it again
+    if (headChanged) location.reload();
   }
 
   async function put(body: { name?: string | null; accent?: string | null }) {
@@ -123,7 +126,7 @@
   h1 { margin-bottom: 8px; }
   .note { margin: 0 0 16px; max-width: 60ch; }
   input[type='text'] { width: 220px; }
-  .hex { width: 90px; font-family: var(--nb-font-mono); }
+  input.hex { width: 96px; font-family: var(--nb-font-mono); }
   input[type='color'] { width: 36px; height: 30px; padding: 0; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-md); background: none; }
   .btn { padding: 5px 12px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-md); background: var(--nb-surface); color: var(--nb-text); cursor: pointer; }
   .btn:disabled { opacity: 0.55; cursor: default; }
