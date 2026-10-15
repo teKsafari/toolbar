@@ -1,6 +1,6 @@
 package main
 
-// Reviewer cookie (D-117 in docs/decisions.md; format in apps/injector/README.md). The open-toolbar
+// Reviewer cookie (D-123 in docs/decisions.md; format in apps/injector/README.md). The open-toolbar
 // server issues it for one project origin; this proxy only checks it, offline, with the shared
 // INJECTOR_SECRET:
 //

@@ -1,4 +1,4 @@
-// Upload client of the page bundle (D-117). It calls the server through the injector's relay on
+// Upload client of the page bundle (D-124). It calls the server through the injector's relay on
 // the app's own origin (/__toolbar/api/...), which adds the reviewer's bearer token; the page never
 // holds a credential. It uses the fetch saved before the capture hooks were installed, so its
 // own requests stay out of the reviewer's network log.
@@ -68,7 +68,7 @@ export function createPageClient(nativeFetch: typeof fetch, base = RELAY) {
 
   return {
     bootstrap: () => call<Bootstrap>('ext.bootstrap', {}),
-    createCapture: (body: { clientId: string; kind: 'replay'; workspaceId: string; page: { url: string; title: string }; startedAt: number; env?: unknown; source: 'injector'; durationMs?: number }) =>
+    createCapture: (body: { clientId: string; kind: 'replay' | 'trace'; workspaceId: string; page: { url: string; title: string }; startedAt: number; env?: unknown; source: 'injector'; durationMs?: number }) =>
       call<{ id: string; shareUrl: string }>('captures.create', {}, { json: body }),
     putChunk: async (id: string, stream: PageStream, seq: number, gz: Blob, t0: number, t1: number, keepalive = false) => {
       const headers: Record<string, string> = {

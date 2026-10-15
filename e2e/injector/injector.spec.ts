@@ -1,4 +1,4 @@
-// The injector in front of the lab app, in a browser without the extension (D-117,
+// The injector in front of the lab app, in a browser without the extension (D-123,
 // PLAN "Zero integration", delivery 2). Run by apps/injector/test/run.sh.
 //
 // 1. Without the reviewer cookie the lab comes back byte for byte, toolbar-free.
@@ -8,6 +8,7 @@
 //    error and its console lines reach the server, with a DOM replay.
 // 4. A trace spans two pages of the lab and keeps a comment made on the way.
 // 5. x-review-skip turns injection off; streamed HTML and the lab's WebSocket pass through.
+// 6. Behind a strict nonce-only CSP the toolbar loads with the reused nonce and renders styled.
 import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
 import { mockProviderLogin } from '../fixtures/oidc.ts';
 
@@ -155,6 +156,11 @@ test('a trace spans two pages and keeps the comment made on the way', async ({ p
   expect(net.items.some((n) => n.url.includes('/api/ok?q=works'))).toBe(true);
   const rows = (await (await api.get(`${SERVER}/api/v1/recordings/${cap.id}/console`)).json()) as { items: { kind: string; message: string; url: string | null }[] };
   expect(rows.items.some((r) => r.message.includes('injector-e2e on the second page'))).toBe(true);
+  const detail = (await (await api.get(`${SERVER}/api/v1/recordings/${cap.id}`)).json()) as { kind: string; source: string };
+  expect(detail).toMatchObject({ kind: 'trace', source: 'injector' });
+  // the server derives interaction spans from the page bundle's events as for the extension's traces
+  const spans = (await (await api.get(`${SERVER}/api/v1/recordings/${cap.id}/spans`)).json()) as { items: { outcome: string }[] };
+  expect(spans.items.some((sp) => sp.outcome === 'changed')).toBe(true);
   // the trace began mid-page on /, so the load of /form is its navigation row
   expect(rows.items.some((r) => r.kind === 'navigation' && `${r.message} ${r.url ?? ''}`.includes('/form'))).toBe(true);
 });
@@ -200,4 +206,37 @@ test('x-review-skip, streamed HTML and WebSockets', async ({ page, browser }) =>
   await page.waitForURL(`${INJECTOR}/`);
   await expect(page.getByTestId('works')).toBeVisible();
   await expect(page.locator('toolbar-root')).toHaveCount(0);
+});
+
+test('a strict nonce CSP: the toolbar runs with the reused nonce and renders without inline styles', async ({ browser }) => {
+  // The CSP app sits behind the same injector on another host (apps/injector/test/docker-compose.yml).
+  // The server only signs cookies for INJECTOR_ORIGINS, so this test signs one itself with the
+  // shared secret; it checks injection and rendering, not uploads.
+  const secret = process.env.INJECTOR_SECRET;
+  test.skip(!secret, 'needs INJECTOR_SECRET (apps/injector/test/run.sh passes it)');
+  const origin = `http://csp.localhost:${new URL(INJECTOR).port}`;
+  const { createHmac } = await import('node:crypto');
+  const part = Buffer.from(JSON.stringify({ v: 1, o: origin, u: 'csp-test', x: Math.floor(Date.now() / 1000) + 600, k: 'tb_dev_not_used' })).toString('base64url');
+  const value = `tbr1.${part}.${createHmac('sha256', secret!).update(`tbr1.${part}`).digest('base64url')}`;
+  const ctx = await browser.newContext();
+  await ctx.addCookies([{ name: 'tb_review', value, url: origin }]);
+  const page = await ctx.newPage();
+  const violations: string[] = [];
+  page.on('console', (m) => {
+    if (/Content Security Policy/i.test(m.text())) violations.push(m.text());
+  });
+  const res = await page.goto(`${origin}/`);
+  expect(res!.headers()['x-toolbar-injected']).toBe('1');
+  const html = await res!.text();
+  expect(html).toContain('data-open-toolbar=""></script>');
+  expect(html).toMatch(/<script src="\/__toolbar\/toolbar\.js\?v=[0-9a-f]+" nonce="c3BlY2lhbA=="/);
+  await expect(toolbar(page)).toBeVisible();
+  // the app's own nonce script still runs, its un-nonced inline script is still blocked
+  expect(await page.evaluate(() => [(window as { appRan?: boolean }).appRan, (window as { inlineRan?: boolean }).inlineRan])).toEqual([true, undefined]);
+  // the bar is styled (constructed stylesheet), not an unstyled stack of buttons
+  const radius = await toolbar(page).evaluate((el) => getComputedStyle(el).borderRadius);
+  expect(radius).toBe('999px');
+  // the only CSP report is the app's own blocked inline script
+  expect(violations.filter((v) => !/inline script/i.test(v))).toEqual([]);
+  await ctx.close();
 });

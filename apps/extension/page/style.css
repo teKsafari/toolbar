@@ -1,4 +1,4 @@
-/* In-page toolbar of the injector bundle (D-117). Adopted into the shadow root as a constructed
+/* In-page toolbar of the injector bundle (D-124). Adopted into the shadow root as a constructed
    stylesheet, so a page CSP without 'unsafe-inline' styles still lets it apply. */
 :host {
   all: initial !important;

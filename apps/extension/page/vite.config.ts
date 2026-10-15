@@ -1,4 +1,4 @@
-// Page bundle for the injector (D-117): one classic script, apps/extension/.output/page/toolbar.js,
+// Page bundle for the injector (D-124): one classic script, apps/extension/.output/page/toolbar.js,
 // built from the extension's capture packages. `pnpm --filter @toolbar/extension build:page`.
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig } from 'vite';

@@ -1,4 +1,4 @@
-// /review/start?origin=<app origin>&next=<path> (D-117): the injector's /__toolbar/login sends
+// /review/start?origin=<app origin>&next=<path> (D-123): the injector's /__toolbar/login sends
 // reviewers here. Signed out: to /login and back. Signed in: a confirm button; its POST mints the
 // reviewer cookie and the page posts it to <origin>/__toolbar/session, which sets it on the app.
 import { error, fail, redirect } from '@sveltejs/kit';

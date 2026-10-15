@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Confirm, then hand the signed reviewer cookie to the app's injector (D-117). The hand-off is a
+  // Confirm, then hand the signed reviewer cookie to the app's injector (D-123). The hand-off is a
   // form post, so the cookie value never sits in a URL, a log or a Referer.
   import { Button } from '@toolbar/ui';
   import { page } from '$app/state';

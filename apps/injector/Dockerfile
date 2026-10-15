@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# The injector (D-117): Go reverse proxy plus the page bundle it serves under /__toolbar/.
+# The injector (D-123): Go reverse proxy plus the page bundle it serves under /__toolbar/.
 # Build context: the repo root (docker build -f apps/injector/Dockerfile .).
 
 # 1. The page bundle, built from the extension's capture code.

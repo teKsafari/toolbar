@@ -1,8 +1,9 @@
-// The page bundle's side of capture (D-117): a Transport for @toolbar/capture that keeps the last
+// The page bundle's side of capture (D-124): a Transport for @toolbar/capture that keeps the last
 // 60 seconds of events and DOM replay in memory (comments without a trace attach them), and,
 // while a trace runs, streams both to the server in gzip NDJSON chunks every two seconds. A trace
-// survives navigations within the tab: its id and chunk counters live in sessionStorage, and
-// each new page attaches to it with a fresh rrweb full snapshot.
+// is a capture of kind `trace` (D-117), so the server derives its interaction spans as it does
+// for the extension's traces. It survives navigations within the tab: its id and chunk counters
+// live in sessionStorage, and each new page attaches to it with a fresh rrweb full snapshot.
 import type { Command, Transport } from '@toolbar/capture/transport';
 import type { CaptureEvent, TargetRef } from '@toolbar/shared';
 import { gzipText, ndjson, type PageClient, type PageStream } from './upload.ts';
@@ -212,7 +213,7 @@ export class PageSession implements Transport {
     const startedAt = this.now();
     const created = await this.opts.client.createCapture({
       clientId: uuid(),
-      kind: 'replay',
+      kind: 'trace',
       workspaceId: await this.opts.workspaceId(),
       page: { url: location.href, title: document.title },
       startedAt,

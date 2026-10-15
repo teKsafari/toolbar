@@ -93,3 +93,15 @@ Paused features stay in the code behind flags that default to off (docs/scope.md
 | `FEATURE_EMAIL` | Every notification and invite mail (see Mail) |
 | `FEATURE_AI` | AI titles and steps, chapters, the workspace AI switch |
 | `FEATURE_ADMIN_EXTRAS` | Data retention (auto-delete) and the audit log |
+
+## Injector
+
+The injector (`apps/injector/README.md`, D-123) adds the toolbar to apps behind it for signed-in reviewers, with no extension and no change to the app. The server issues the reviewer cookies it accepts.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `INJECTOR_SECRET` | empty | HMAC key shared with the injector container, at least 32 characters (`openssl rand -base64 48`). Empty or shorter: `/review/start` answers 404 and no cookie is issued. Set the same value on both. |
+| `INJECTOR_ORIGINS` | empty | The app origins behind the injector, comma separated, for example `https://nuru.example.org`. The server signs cookies for these origins only. |
+| `INJECTOR_COOKIE_DAYS` | `7` | How long a reviewer cookie and its device token last, 1 to 90 days. Each sign-in on a site makes a device token named "Review on <host>" under Settings, Connected browsers; revoking it ends the reviewer's uploads at once and the injection when the cookie expires. |
+
+Reviewers start at `https://<app host>/__toolbar/login`. The injector's own variables (`INJECTOR_UPSTREAMS`, `TOOLBAR_SERVER_URL`, `TOOLBAR_PUBLIC_URL` and others) and the Coolify setup are in `apps/injector/README.md`.

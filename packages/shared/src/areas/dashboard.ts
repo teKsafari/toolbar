@@ -24,7 +24,7 @@ export const SOURCE_LABELS: Record<CaptureSource, string> = {
   'recording-link': 'Recording link',
   upload: 'Upload',
   cli: 'CLI',
-  /** the in-page toolbar the injector adds (D-117) */
+  /** the in-page toolbar the injector adds (D-123) */
   injector: 'Toolbar on the site',
 };
 

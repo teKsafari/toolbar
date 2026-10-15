@@ -7,7 +7,8 @@ How to run each part of the repo on this machine or a fresh one. The product is 
 | Path | Package | What it is |
 |---|---|---|
 | `apps/server` | `@toolbar/server` | SvelteKit 3 app (adapter-node): dashboard, share pages, `/api/v1`, Better Auth, job worker |
-| `apps/extension` | `@toolbar/extension` | WXT + Svelte 5 MV3 extension |
+| `apps/extension` | `@toolbar/extension` | WXT + Svelte 5 MV3 extension; `page/` is the injector's page bundle (`build:page`) |
+| `apps/injector` | `@toolbar/injector` | Go reverse proxy that injects the page bundle for signed-in reviewers (D-123); its `package.json` wraps `go build`, `go vet` and `go test`, so `pnpm -r` needs Go 1.26 |
 | `packages/shared` | `@toolbar/shared` | Event envelope and kinds, zod schemas, constants, ids; `/api` endpoint contracts and route table; `/ext` extension messaging, session state machine, storage keys |
 | `packages/capture` | `@toolbar/capture` | Page-side capture: `Transport`, MAIN/ISOLATED bridge, hook installers |
 | `packages/ui` | `@toolbar/ui` | Design tokens, icons, Svelte primitives (Button, Icon, Popover, Toaster) |
@@ -35,6 +36,7 @@ Node 24, pnpm 11.27 (`corepack enable` picks it up from `packageManager`; where 
 | 8025 | Mailpit inbox UI (compose profile `mail`, only for the paused mail) |
 | 1025 | Mailpit SMTP (profile `mail`) |
 | 5173, 5174 | Lab app (user service `toolbar-lab`), second origin |
+| 3506 | Injector compose test (`apps/injector/test/run.sh`): the injector in front of the lab, and `csp.localhost:3506` for its strict-CSP page |
 | `:101`, `:120` | Xvfb displays for the area suites and the flows (`E2E_DISPLAY`); `:99` is the shared browser, never use it |
 | 9341, 9351 | CDP ports of the flows' browsers (the popup is reached over CDP) |
 
@@ -133,6 +135,16 @@ WXT's own browser runner is off (`webExt.disabled`), because this VM has no disp
 How the pieces connect: the service worker registers `content-scripts/capture-main.js` (MAIN world) and `content-scripts/capture.js` (ISOLATED) for `<all_urls>` at `document_start`. The MAIN script installs the page hooks from `@toolbar/capture` and relays events over a private `MessageChannel`; the isolated script forwards them to the worker on the `capture` port and, in the top frame, mounts `<toolbar-root>` with the Svelte UI in a shadow root.
 
 The signing key's private half is `.secrets/extension-key.pem` (git-ignored). Keep a copy outside this machine; a new key means a new extension id.
+
+## The injector
+
+```sh
+cd apps/injector && go test -race ./...      # unit tests: streaming injection, chunk boundaries, nonce, gzip, errors, cookie, relay
+pnpm --filter @toolbar/extension build:page  # the page bundle, apps/extension/.output/page/toolbar.js
+apps/injector/test/run.sh                    # compose test: builds the image, runs e2e/injector in a browser without the extension
+```
+
+`run.sh` reads the repo root `.env`. The server it talks to (default http://localhost:3306, `SERVER_URL`) needs `INJECTOR_SECRET`, `INJECTOR_ORIGINS=http://localhost:3506` and the mock OIDC provider; the injector container reaches it as `host.docker.internal`, which the dev server's Vite config allows. See `apps/injector/README.md`.
 
 ## E2E
 

@@ -58,7 +58,7 @@ export interface Transport {
 }
 ```
 
-The extension implements it with `chrome.runtime` ports. The Part 2 injector, which serves `/__toolbar/` on the app's own origin, implements it with `fetch` against the server. The Part 2 CLI review browser reuses the extension build.
+The extension implements it with `chrome.runtime` ports. The Part 2 injector (`apps/injector`, D-123), which serves `/__toolbar/` on the app's own origin, implements it with `fetch` through its relay to the server (`apps/extension/page/session.ts`, section 11a). The Part 2 CLI review browser reuses the extension build.
 
 ## 3. Server: one SvelteKit app
 
@@ -350,6 +350,14 @@ The goal: on "Instant replay", produce the last N minutes (setting, default 2, m
 - **On trigger.** The service worker creates a recording (`kind: 'replay'`), reads the ring for that tab, slices from the cut point, and uploads it as normal `events` and `rrweb` chunks. The offscreen document uploads the retained segments, and the server concats them with ffmpeg. The ring keeps running.
 - **Part 2 reuse.** "Comment without a trace" reads the last 60 s of `console` errors, `error` and failed `net.*` from the same ring, so this needs no extra capture code.
 - **Cost control.** The ring only runs where instant replay is enabled (Part 1: the setting, with Jam's default as observed; Part 2: project origins only). Experiment 1 in Part 2 measures the rrweb rate per minute.
+
+## 11a. The injector (`apps/injector`, D-123, D-124)
+
+Delivery 2 of PLAN "Zero integration": a Go reverse proxy between Traefik and chosen apps. Traefik sends it only `/__toolbar/` and requests that carry the reviewer cookie (`deploy/injector/traefik-open-toolbar-injector.yml`); everyone else reaches the app directly.
+
+- **Reviewer cookie.** `/review/start?origin=` on the server mints a device token for one origin in `INJECTOR_ORIGINS` and signs `tbr1.<payload>.<HMAC-SHA256>` with `INJECTOR_SECRET`; a form post hands it to `<origin>/__toolbar/session`, which sets it HttpOnly and SameSite=Lax. The injector checks it offline and strips it from every request to the app.
+- **Injection.** For a reviewer's page load the injector asks for `Accept-Encoding: identity` and no conditional headers, streams the body through the `x/net/html` tokenizer and writes each token's raw bytes, adding `<script src="/__toolbar/toolbar.js?v=..." nonce=...>` after `<head>` (the nonce from the enforced CSP's script directive). Anything that is not plain HTML, or any error, passes through unchanged.
+- **Page bundle.** `apps/extension/page/` builds one classic script from `@toolbar/capture`: MAIN hooks and the isolated recorder in the page's realm, joined by the usual bridge, with `PageSession` as the Transport. It keeps a 60 s ring for comments and streams traces (kind `trace`) through `/__toolbar/api/v1/*`, which the injector relays to the server with the device token as bearer. The UI is a shadow-root bar styled by a constructed stylesheet.
 
 ## 12. Viewer and synced replay (`@toolbar/ui/viewer`)
 

@@ -1,4 +1,4 @@
-// Reviewer cookie for the injector (PLAN "Zero integration", delivery 2; D-117). The server signs
+// Reviewer cookie for the injector (PLAN "Zero integration", delivery 2; D-123). The server signs
 // it for one app origin after sign-in; the injector (apps/injector) checks it offline with the
 // shared INJECTOR_SECRET, injects the toolbar for its holder, and relays the page bundle's upload
 // calls here with the device token inside as a bearer. Format, shared with apps/injector/cookie.go

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-// The injector's page bundle (D-117): its route paths match the server's route table, the
+// The injector's page bundle (D-124): its route paths match the server's route table, the
 // one-minute ring keeps a replayable window, and comments and traces upload as the server expects.
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';
@@ -104,6 +104,7 @@ describe('page session', () => {
     const s = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}), now: () => now });
     await s.startTrace();
     expect(JSON.parse(sessionStorage.getItem('tb:page-trace')!).id).toBe('rec-1');
+    expect(calls[0]!.args[0]).toMatchObject({ kind: 'trace', source: 'injector', startedAt: 1_000 });
     s.send([ev(1_100)]);
     s.sendRrweb([rr(4, 1_100), rr(2, 1_100)], true);
     await s.flushTrace(false);
