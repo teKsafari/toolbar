@@ -16,7 +16,7 @@ export const recording = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
     folderId: uuid('folder_id').references(() => folder.id, { onDelete: 'set null' }),
-    kind: text('kind', { enum: ['screenshot', 'video', 'replay', 'screen', 'link'] }).notNull(),
+    kind: text('kind', { enum: ['screenshot', 'video', 'replay', 'screen', 'link', 'trace'] }).notNull(),
     status: text('status', { enum: ['uploading', 'processing', 'ready', 'failed'] })
       .notNull()
       .default('uploading'),

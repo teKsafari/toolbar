@@ -34,7 +34,7 @@
     if (r.ok) store.drafts = store.drafts.filter((d) => d.id !== id);
     else error = errorText(r);
   }
-  const kindIcon = { screenshot: 'screenshot', video: 'record', replay: 'replay', screen: 'monitor', link: 'link' } as const;
+  const kindIcon = { screenshot: 'screenshot', video: 'record', replay: 'replay', screen: 'monitor', link: 'link', trace: 'eye' } as const;
 </script>
 
 <div data-screen="drafts">

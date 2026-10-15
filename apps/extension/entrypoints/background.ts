@@ -12,6 +12,7 @@ import { setupCapture } from '../lib/bg/capture';
 import { registerUi } from '../lib/bg/ui';
 import { registerDraftHandlers } from '../lib/bg/drafts';
 import { registerDashboard } from '../lib/bg/dashboard';
+import { registerTrace } from '../lib/bg/trace';
 
 export default defineBackground(() => {
   void migrateStorage();
@@ -28,7 +29,7 @@ export default defineBackground(() => {
   });
   registerDraftHandlers();
   browser.runtime.onInstalled.addListener(() => void registerCaptureScripts().then(injectIntoOpenTabs, () => undefined));
-  setupCapture();
+  registerTrace(setupCapture());
   browser.runtime.onStartup.addListener(() => void registerCaptureScripts());
 
   browser.runtime.onConnect.addListener((port) => {

@@ -126,6 +126,10 @@ export class CaptureService {
   /** driver mode: the session's recording id -> the id the media and uploads use (server id when known) */
   private mediaIds: Record<string, string> = {};
   private startWaiters = new Map<string, { resolve: (mic: MicState) => void; reject: (e: unknown) => void }>();
+  /** Listeners on every event the worker takes in (Part 2 traces, lib/bg/trace.ts). */
+  private taps = new Set<(batch: CaptureEvent[]) => void>();
+  /** Tabs a trace holds: attached like a recording, and kept whole in the ring. */
+  private traceHolds = new Map<number, { id: string; t0: number }>();
 
   constructor(opts: CaptureServiceOptions = {}) {
     this.opts = opts;
@@ -244,6 +248,38 @@ export class CaptureService {
     void this.configurePort(info);
   }
 
+  // ---------- traces (Part 2, lib/bg/trace.ts) ----------
+
+  /** Calls `fn` with each batch of events the worker takes in (stamped with their tab). */
+  onEvents(fn: (batch: CaptureEvent[]) => void): () => void {
+    this.taps.add(fn);
+    return () => this.taps.delete(fn);
+  }
+
+  private tap(batch: CaptureEvent[]) {
+    for (const fn of this.taps) {
+      try {
+        fn(batch);
+      } catch {
+        /* a listener's failure stays its own */
+      }
+    }
+  }
+
+  /** A trace starts in a tab: its pages record rrweb and canvas samples, and its ring is kept whole. */
+  attachTrace(tabId: number, id: string, t0: number) {
+    this.traceHolds.set(tabId, { id, t0 });
+    for (const p of this.ports) if (p.tabId === tabId) this.postPort(p, { type: 'attach', recordingId: id, t0 });
+  }
+
+  /** The trace ends: pages flush and stop the trace-only recording. */
+  detachTrace(tabId: number) {
+    const h = this.traceHolds.get(tabId);
+    if (!h) return;
+    this.traceHolds.delete(tabId);
+    for (const p of this.ports) if (p.tabId === tabId) this.postPort(p, { type: 'detach', recordingId: h.id });
+  }
+
   private postPort(p: PortInfo, c: PortCommand) {
     try {
       p.port.postMessage(c);
@@ -257,6 +293,8 @@ export class CaptureService {
     const s = await this.settingsNow();
     this.postPort(p, { type: 'config', captureUserEvents: s.captureUserEvents, maskingPreset: 'staging' });
     if (this.ringWanted(p.tabId, p.url)) this.postPort(p, { type: 'ring', enabled: true, minutes: this.replay.minutes });
+    const held = this.traceHolds.get(p.tabId);
+    if (held) this.postPort(p, { type: 'attach', recordingId: held.id, t0: held.t0 });
     const rec = this.activeRecording();
     if (rec && rec.tabs.includes(p.tabId)) {
       this.postPort(p, { type: 'attach', recordingId: rec.recordingId, t0: rec.startedAt });
@@ -286,6 +324,7 @@ export class CaptureService {
         this.stats.events += batch.length;
         for (const e of batch) this.stats.byKind[e.kind] = (this.stats.byKind[e.kind] ?? 0) + 1;
         this.ring.appendEvents(p.tabId, batch);
+        if (this.taps.size) this.tap(batch);
         return;
       }
       case 'rrweb':
@@ -367,6 +406,7 @@ export class CaptureService {
     const out = { ...redactEvent(e as CaptureEvent), tab: tabId } as CaptureEvent;
     this.stats.byKind[kind] = (this.stats.byKind[kind] ?? 0) + 1;
     this.ring.appendEvents(tabId, [out]);
+    if (this.taps.size) this.tap([out]);
   }
 
   startWebRequest() {
@@ -387,6 +427,8 @@ export class CaptureService {
     for (const tabId of await this.ring.tabs()) {
       let keepFrom = now - minutes * 60_000;
       if (rec?.tabs.includes(tabId)) keepFrom = Math.min(keepFrom, rec.startedAt - 1000);
+      const held = this.traceHolds.get(tabId);
+      if (held) keepFrom = Math.min(keepFrom, held.t0 - 1000);
       await this.ring.prune(tabId, keepFrom);
     }
   }
@@ -405,6 +447,8 @@ export class CaptureService {
   }
 
   async onTabRemoved(tabId: number) {
+    // a traced tab's ring stays until the trace has read it (lib/bg/trace.ts purges it then)
+    if (this.traceHolds.has(tabId)) return;
     await this.ring.purgeTab(tabId);
   }
 
@@ -482,7 +526,7 @@ export class CaptureService {
   }
 
   /** Page env (from the content script) plus what only the worker knows. */
-  private async envFor(tabId: number): Promise<EnvInfo | null> {
+  async envFor(tabId: number): Promise<EnvInfo | null> {
     const r = (await this.sendContent(tabId, { type: 'capture.env' })) as { env?: EnvInfo | null } | undefined;
     const tab = await browser.tabs.get(tabId).catch(() => null);
     const base = r?.env ?? null;

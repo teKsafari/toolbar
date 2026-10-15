@@ -11,6 +11,7 @@ How to run each part of the repo on this machine or a fresh one. The product is 
 | `packages/shared` | `@toolbar/shared` | Event envelope and kinds, zod schemas, constants, ids; `/api` endpoint contracts and route table; `/ext` extension messaging, session state machine, storage keys |
 | `packages/capture` | `@toolbar/capture` | Page-side capture: `Transport`, MAIN/ISOLATED bridge, hook installers |
 | `packages/ui` | `@toolbar/ui` | Design tokens, icons, Svelte primitives (Button, Icon, Popover, Toaster) |
+| `packages/trace` | `@toolbar/trace` | Part 2 traces: the span engine (outcomes, `causedBy`), keyframe planner and dHash, SvelteKit and Next.js request names; runs in the extension worker and on the server (D-117 to D-122) |
 | `e2e` | `@toolbar/e2e` | Playwright 1.63.0 suite that loads the unpacked extension |
 | `lab` | (own project) | The capture test target; not in the workspace, own lockfile |
 

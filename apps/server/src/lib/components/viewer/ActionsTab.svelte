@@ -46,6 +46,11 @@
         return 'Click on';
     }
   }
+  // traces: each action's outcome (packages/trace), the quiet failures first in the count line
+  const OUTCOME_ORDER = ['dead', 'stuck', 'silent', 'error', 'changed'] as const;
+  const counts = $derived(OUTCOME_ORDER.map((o) => [o, v.spans.filter((s) => s.outcome === o).length] as const).filter(([, n]) => n > 0));
+  const outcomeText = (o: string, silent?: string) => (o === 'silent' && silent ? `silent ${silent}` : o);
+
   function toggle(id: string) {
     const s = new Set(open);
     if (s.has(id)) s.delete(id);
@@ -60,6 +65,11 @@
 {#if v.eventsLoaded && !v.actions.some((r) => r.type !== 'navigation')}
   <EmptyState icon="select" title="Nobody clicked a thing. A very calm session." testid="actions-empty" />
 {/if}
+{#if counts.length}
+  <div class="trace-sum" data-testid="trace-outcomes">
+    {#each counts as [o, n] (o)}<span class="oc oc-{o}">{n} {o}</span>{/each}
+  </div>
+{/if}
 {#if v.actions.length}
   <div class="vp-list" bind:this={list} role="list" data-testid="actions-list">
     {#each v.actions as r, i (r.id)}
@@ -70,6 +80,10 @@
         <div class="main">
           <span class="ic"><VIcon name={(r.type === 'navigation' ? 'external' : r.type === 'input' || r.type === 'key' ? 'text' : 'select') as never} size={13} /></span>
           <span class="msg" title={r.type === 'navigation' ? r.url : undefined}>{text(r)}{#if r.target && r.type !== 'navigation' && r.type !== 'key'}{' '}<span class="tag">{describeTarget(r.target)}</span>{/if}</span>
+          {#if v.spanByEvent.get(r.id)}
+            {@const sp = v.spanByEvent.get(r.id)!}
+            <span class="oc oc-{sp.outcome}" title={sp.summary} data-testid="span-outcome" data-outcome={sp.outcome}>{outcomeText(sp.outcome, sp.silent)}</span>
+          {/if}
           {#if attrs.length > 1 && r.type !== 'key'}
             <button type="button" class="attr" onclick={() => toggle(r.id)} aria-expanded={open.has(r.id)} data-testid="attr-chip">{open.has(r.id) ? 'less' : `+${attrs.length}`}</button>
           {/if}
@@ -95,5 +109,10 @@
   .attrs { grid-column: 2 / -1; display: grid; grid-template-columns: max-content 1fr; gap: 1px 10px; margin: 0 0 6px 19px; padding: 6px 8px; border-radius: 6px; background: var(--nb-surface-sunken); }
   .attrs dt { color: var(--nb-text-muted); }
   .attrs dd { margin: 0; word-break: break-all; }
+  .trace-sum { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px 4px; }
+  .oc { flex: none; font: 500 10px/16px var(--nb-font-sans); padding: 0 6px; border-radius: 999px; background: var(--nb-surface-sunken); color: var(--nb-text-muted); white-space: nowrap; }
+  .oc-changed { background: var(--nb-success-tint); color: var(--nb-success); }
+  .oc-error, .oc-stuck { background: var(--nb-danger-tint); color: var(--nb-danger); }
+  .oc-dead, .oc-silent { background: var(--nb-warning-tint); color: var(--nb-warning); }
   .banner { display: flex; gap: 8px; align-items: center; margin: 8px; padding: 8px 10px; border-radius: var(--nb-radius-md); background: var(--nb-info-tint); color: var(--nb-text); font-size: var(--nb-text-md); }
 </style>
