@@ -64,6 +64,28 @@
 		console.time('timer');
 		console.timeEnd('timer');
 	}
+
+	async function graphql() {
+		const res = await fetch('/api/graphql', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ operationName: 'GetCart', query: 'query GetCart { cart { id } }' })
+		});
+		await res.json();
+	}
+
+	async function withAuth() {
+		document.cookie = 'lab_session=cookie-secret-value; path=/';
+		await fetch('/api/ok?q=auth', {
+			headers: { Authorization: 'Bearer header-secret-value', 'X-Api-Key': 'apikey-secret' }
+		});
+	}
+
+	function metadata() {
+		const sdk = (window as unknown as { toolbar?: { setMetadata?: (fn: () => unknown) => void } }).toolbar;
+		sdk?.setMetadata?.(() => ({ plan: 'parity', seats: 3 }));
+		console.log(sdk?.setMetadata ? 'metadata set' : 'metadata SDK not present');
+	}
 </script>
 
 <h1>Buttons</h1>
@@ -78,6 +100,9 @@
 		<button data-testid="hidden-500" onclick={hiddenFailure}>Submit order (hidden 500)</button>
 		<button data-testid="throws" onclick={throws}>Show profile (throws)</button>
 		<button data-testid="rejects" onclick={rejects}>Refresh (unhandled rejection)</button>
+		<button data-testid="graphql" onclick={graphql}>Load cart (GraphQL)</button>
+		<button data-testid="auth" onclick={withAuth}>Call with auth</button>
+		<button data-testid="metadata" onclick={metadata}>Set metadata</button>
 	</div>
 </section>
 
