@@ -113,6 +113,18 @@ async function openMic(deviceId?: string): Promise<MediaStream | null> {
   }
 }
 
+/**
+ * The extension's microphone permission (J-200): 'granted', 'denied' or 'prompt' (never asked).
+ * Unknown when the Permissions API cannot tell; then nothing is claimed missing.
+ */
+async function micPermission(): Promise<PermissionState | 'unknown'> {
+  try {
+    return (await navigator.permissions.query({ name: 'microphone' as PermissionName })).state;
+  } catch {
+    return 'unknown';
+  }
+}
+
 /** Builds recorders for a captured video stream plus optional mic, and starts them. */
 async function startRecording(id: string, media: MediaStream, opts: { mic: boolean; micDeviceId?: string; upload: UploadAuth | null; playBack: boolean; warmMic?: Promise<MediaStream | null> | null }): Promise<Recording> {
   const audio = new AudioContext();
@@ -142,6 +154,11 @@ async function startRecording(id: string, media: MediaStream, opts: { mic: boole
       hasAudio = true;
       micState = 'on';
     } else micState = 'denied';
+  } else {
+    // mic off and the extension never got (or lost) the permission: the bar shows the struck
+    // through mic with the missing-permission tip, as Jam's does, not a plain off (J-200)
+    const perm = await micPermission();
+    if (perm === 'prompt' || perm === 'denied') micState = 'denied';
   }
   const tracks = [...media.getVideoTracks(), ...(hasAudio ? mix.stream.getAudioTracks() : [])];
   const video = new MediaRecorder(new MediaStream(tracks), { mimeType: pickMime(true), videoBitsPerSecond: 2_500_000 });
