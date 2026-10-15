@@ -1,4 +1,4 @@
-// Reviewer sign-in for apps behind the injector (D-128). /review/start asks the signed-in person
+// Reviewer sign-in for apps behind the injector (D-130). /review/start asks the signed-in person
 // to confirm, then mints a device token for that app origin (listed under connected browsers, so
 // it can be revoked) and signs it into a cookie value that the browser posts to the injector's
 // /__toolbar/session on the app's own origin.

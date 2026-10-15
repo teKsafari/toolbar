@@ -5,3 +5,4 @@ export * from './state.ts';
 export * from './storage.ts';
 export type * from './areas/ext-ui.ts';
 export type * from './areas/trace.ts';
+export type * from './areas/locator.ts';

@@ -1,4 +1,4 @@
-# Coolify: the open-toolbar injector as a Docker Compose resource (apps/injector/README.md, D-128).
+# Coolify: the open-toolbar injector as a Docker Compose resource (apps/injector/README.md, D-130).
 #
 # 1. Create a Docker Compose resource from this file (repository build context: the repo root),
 #    and turn on "Connect to Predefined Network" so the container joins the `coolify` network,

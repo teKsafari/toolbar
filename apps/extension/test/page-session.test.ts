@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-// The injector's page bundle (D-129): its route paths match the server's route table, the
+// The injector's page bundle (D-131): its route paths match the server's route table, the
 // one-minute ring keeps a replayable window, and comments and traces upload as the server expects.
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';

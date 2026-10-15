@@ -1,6 +1,6 @@
 # Status: the injector (Part 2, step 4, PLAN "Zero integration" delivery 2)
 
-Branch `p4/injector`. Decisions D-128 (proxy, cookie, Coolify routing) and D-129 (page bundle).
+Branch `p4/injector`. Decisions D-130 (proxy, cookie, Coolify routing) and D-131 (page bundle).
 
 ## What is built
 
@@ -29,8 +29,9 @@ Branch `p4/injector`. Decisions D-128 (proxy, cookie, Coolify routing) and D-129
 - The flows and parity suites were not rerun on this branch. The extension's code is unchanged apart from its build script (which now also builds the page bundle into `.output/page`) and a type union; the server gained a route, a source value (the dashboard's source filter lists one more option) and a dev-server `allowedHosts` entry.
 - The project path (no `INJECTOR_ORIGINS`, a project origin instead) is covered by `apps/server/test/projects.int.test.ts`, not by the compose test, which uses `INJECTOR_ORIGINS`. The production preset in the page bundle was not exercised end to end.
 - The page bundle does not reuse the reviewer UI of `p4/reviewer-ui` (not merged when this branch was made): text highlights, drawings, element screenshots and voice notes are extension-only. Its Comment is element plus text.
+- Page comments carry the element's `TargetRef` as the annotation target, not a locator packet (D-128, merged from `p4/locator` at the end of this work): the packet is built by the extension's worker and isolated script, and the page bundle does not build it yet. Mapped error stacks (D-129) are also the worker's; page captures have raw stacks.
 - No screenshots or keyframes from the page bundle (a page cannot capture its own pixels without a prompt); the DOM replay covers them. Iframes are not captured.
 - The bundle shares the page realm: app scripts could call the upload relay as the reviewer while the page is open (limited to the upload routes). Page console calls show `toolbar.js` as their source in the browser's devtools.
 - A trace can lose up to two seconds before a navigation when the last chunk exceeds the 64 KB keepalive budget.
 - `pnpm -r build` and `test` now need Go 1.26 for `@toolbar/injector`.
-- Decision numbers D-128 and D-129 follow main's last row (D-127) at the time of the final merge; `p4/reviewer-ui` numbered its rows from D-117, so its merge will need to renumber.
+- Decision numbers D-130 and D-131 follow main's last row (D-129) at the time of the final merge; `p4/reviewer-ui` numbered its rows from D-117, so its merge will need to renumber.

@@ -1,6 +1,6 @@
 # Injector
 
-A small Go reverse proxy that adds the open-toolbar to an app's pages without any change to the app (PLAN "Zero integration", delivery 2; D-128). It sits between Traefik and the apps you choose. For a signed-in reviewer it adds one script tag to the `<head>` of each HTML page. Everyone else gets the app's response untouched.
+A small Go reverse proxy that adds the open-toolbar to an app's pages without any change to the app (PLAN "Zero integration", delivery 2; D-130). It sits between Traefik and the apps you choose. For a signed-in reviewer it adds one script tag to the `<head>` of each HTML page. Everyone else gets the app's response untouched.
 
 ## What it does
 
@@ -48,7 +48,7 @@ Sign-in, step by step:
 3. The server page names the site and the account; "Open app.example with the toolbar" mints the token and signs the cookie for that origin only. The origin must be in the server's `INJECTOR_ORIGINS`, or, while that list is empty, an origin of a project (Settings, Projects) in one of the person's workspaces.
 4. The page posts the value to `https://app.example/__toolbar/session`; the injector sets the cookie and sends the browser to `next`.
 
-## The page bundle (D-129)
+## The page bundle (D-131)
 
 `apps/extension/page/` (`pnpm --filter @toolbar/extension build:page`, output `apps/extension/.output/page/toolbar.js`, about 63 KB gzipped). It runs the same capture code as the extension: the MAIN-world hooks and the isolated-world recorder of `@toolbar/capture`, both in the page's realm and joined by their usual bridge, with `PageSession` as the `Transport`. It keeps the last 60 seconds of console, errors, network, user events and DOM replay in memory. The UI is a small bar at the bottom of the page:
 

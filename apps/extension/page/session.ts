@@ -1,4 +1,4 @@
-// The page bundle's side of capture (D-129): a Transport for @toolbar/capture that keeps the last
+// The page bundle's side of capture (D-131): a Transport for @toolbar/capture that keeps the last
 // 60 seconds of events and DOM replay in memory (comments without a trace attach them), and,
 // while a trace runs, streams both to the server in gzip NDJSON chunks every two seconds. A trace
 // is a capture of kind `trace` (D-117), so the server derives its interaction spans as it does

@@ -301,16 +301,22 @@ export async function finalizeCapture(
   await db.delete(annotation).where(eq(annotation.recordingId, rec.id));
   if (body.annotations.length) {
     await db.insert(annotation).values(
-      body.annotations.map((a) => ({
-        id: a.id && UUID.test(a.id) ? a.id : uuidv7(),
-        recordingId: rec.id,
-        assetId: a.assetId && UUID.test(a.assetId) ? a.assetId : null,
-        t: a.t ?? null,
-        shapes: a.shapes,
-        target: a.target ?? null,
-        comment: a.comment ?? null,
-        authorUserId: caller.userId,
-      })),
+      body.annotations.map((a) => {
+        const assetId = a.assetId && UUID.test(a.assetId) ? a.assetId : null;
+        // D-128: the crop of a locator is the annotation's own asset
+        const locator = a.locator ? { ...a.locator, ...(a.locator.crop && assetId ? { crop: { ...a.locator.crop, assetId } } : {}) } : null;
+        return {
+          id: a.id && UUID.test(a.id) ? a.id : uuidv7(),
+          recordingId: rec.id,
+          assetId,
+          t: a.t ?? null,
+          shapes: a.shapes,
+          target: a.target ?? null,
+          locator,
+          comment: a.comment ?? null,
+          authorUserId: caller.userId,
+        };
+      }),
     );
   }
 

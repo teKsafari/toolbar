@@ -58,7 +58,7 @@ export interface Transport {
 }
 ```
 
-The extension implements it with `chrome.runtime` ports. The Part 2 injector (`apps/injector`, D-128), which serves `/__toolbar/` on the app's own origin, implements it with `fetch` through its relay to the server (`apps/extension/page/session.ts`, section 11a). The Part 2 CLI review browser reuses the extension build.
+The extension implements it with `chrome.runtime` ports. The Part 2 injector (`apps/injector`, D-130), which serves `/__toolbar/` on the app's own origin, implements it with `fetch` through its relay to the server (`apps/extension/page/session.ts`, section 11a). The Part 2 CLI review browser reuses the extension build.
 
 ## 3. Server: one SvelteKit app
 
@@ -158,7 +158,8 @@ How Part 2 derives its outputs from this schema with no capture change (`package
 | `caused_by` | overlapping open windows; confidence from timing and `ctx` |
 | `console.jsonl`, `network.jsonl`, `raw/network.har` | filter and map (`packages/shared/src/har.ts`) |
 | `keyframes/`, `outline/` | `shot` (reason keyframe) and `dom.rects` |
-| `annotations/a01.*` | `annotation` table plus assets plus `TargetRef` |
+| `annotations/a01.*` | `annotation` table plus assets plus `TargetRef`; `a01.locator.json` is the annotation's `locator` packet (D-128, `locatorFiles()`) |
+| mapped error stacks in `console.jsonl` | `stackmap` events (D-129), joined to their `error` or `console` event by `ref` |
 | `voice/` | `voice` stream plus `transcript` row |
 | `raw/rrweb-000.json.gz` | the rrweb stream chunks |
 
@@ -351,7 +352,7 @@ The goal: on "Instant replay", produce the last N minutes (setting, default 2, m
 - **Part 2 reuse.** "Comment without a trace" reads the last 60 s of `console` errors, `error` and failed `net.*` from the same ring, so this needs no extra capture code.
 - **Cost control.** The ring only runs where instant replay is enabled (Part 1: the setting, with Jam's default as observed; Part 2: project origins only). Experiment 1 in Part 2 measures the rrweb rate per minute.
 
-## 11a. The injector (`apps/injector`, D-128, D-129)
+## 11a. The injector (`apps/injector`, D-130, D-131)
 
 Delivery 2 of PLAN "Zero integration": a Go reverse proxy between Traefik and chosen apps. Traefik sends it only `/__toolbar/` and requests that carry the reviewer cookie (`deploy/injector/traefik-open-toolbar-injector.yml`); everyone else reaches the app directly.
 

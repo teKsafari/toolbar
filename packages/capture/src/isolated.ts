@@ -12,6 +12,8 @@ import type { Command, Transport } from './transport.ts';
 import { recordUserEvents } from './user-events.ts';
 import { watchPageWeight } from './page-weight.ts';
 import { watchCanvases } from './canvas-sample.ts';
+import { createLocateMain, dispatchLocate, locateInPage, type LocateRequest, type PageLocator } from './locator.ts';
+import type { LocateReply } from './locator-main.ts';
 
 export interface StartIsolatedOptions {
   transport: Transport;
@@ -43,6 +45,8 @@ export interface IsolatedHandle {
   metadata(timeoutMs?: number): Promise<{ value?: Record<string, unknown> | null; error?: string }>;
   /** Current env info for this document. */
   env(): Promise<EventDataMap['env']>;
+  /** The page's part of a locator packet (D-128): target, Svelte dev location, SvelteKit entries. */
+  locate(req: LocateRequest): Promise<PageLocator>;
   readonly ctx: string;
 }
 
@@ -228,10 +232,14 @@ export function startIsolatedWorld({ transport, win = window as Window & typeof 
         }, timeoutMs);
         waiting.set(id, (r) => {
           clearTimeout(t);
-          resolve({ value: r.value, error: r.error });
+          resolve(r.reply === 'metadata' ? { value: r.value, error: r.error } : { error: 'bad_reply' });
         });
       });
     },
     env: envOnce,
+    locate(req) {
+      const locateMain = createLocateMain({ send: dispatchLocate }, waiting as Map<number, (r: LocateReply) => void>, () => ++replyId);
+      return locateInPage(req, { preset, win, locateMain });
+    },
   };
 }

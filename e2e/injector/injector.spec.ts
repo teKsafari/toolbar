@@ -1,4 +1,4 @@
-// The injector in front of the lab app, in a browser without the extension (D-128,
+// The injector in front of the lab app, in a browser without the extension (D-130,
 // PLAN "Zero integration", delivery 2). Run by apps/injector/test/run.sh.
 //
 // 1. Without the reviewer cookie the lab comes back byte for byte, toolbar-free.

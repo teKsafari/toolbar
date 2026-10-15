@@ -34,6 +34,7 @@ import type { ViewerBgRequests, ViewerContentCommand } from './areas/viewer.ts';
 import type { DashboardBgRequests, DashboardContentCommand } from './areas/dashboard.ts';
 import type { AgentBgRequests, AgentContentCommand } from './areas/agent.ts';
 import type { TraceBgRequests } from './areas/trace.ts';
+import type { LocatorBgRequests, LocatorContentCommand } from './areas/locator.ts';
 
 export const CAPTURE_PORT = 'capture';
 /** postMessage tag between the editor iframe and its content-script host. */
@@ -79,7 +80,8 @@ export interface BgRequestMap
     ViewerBgRequests,
     DashboardBgRequests,
     AgentBgRequests,
-    TraceBgRequests {
+    TraceBgRequests,
+    LocatorBgRequests {
   /** debug and e2e: counters */
   status: { req: {}; res: { stats: unknown } };
   'session.get': { req: {}; res: { session: CaptureSession; replay: ReplayState; tabId: number | null; restricted: boolean } };
@@ -179,7 +181,8 @@ export type ContentCommand =
   | EditorContentCommand
   | ViewerContentCommand
   | DashboardContentCommand
-  | AgentContentCommand;
+  | AgentContentCommand
+  | LocatorContentCommand;
 
 /** Reply to page.geometry. */
 export interface PageGeometry {

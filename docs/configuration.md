@@ -96,7 +96,7 @@ Paused features stay in the code behind flags that default to off (docs/scope.md
 
 ## Injector
 
-The injector (`apps/injector/README.md`, D-128) adds the toolbar to apps behind it for signed-in reviewers, with no extension and no change to the app. The server issues the reviewer cookies it accepts.
+The injector (`apps/injector/README.md`, D-130) adds the toolbar to apps behind it for signed-in reviewers, with no extension and no change to the app. The server issues the reviewer cookies it accepts.
 
 | Variable | Default | Purpose |
 |---|---|---|

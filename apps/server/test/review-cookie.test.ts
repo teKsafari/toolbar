@@ -1,4 +1,4 @@
-// Reviewer cookie for the injector (D-128): the TypeScript signer and the Go verifier
+// Reviewer cookie for the injector (D-130): the TypeScript signer and the Go verifier
 // (apps/injector/cookie.go) agree byte for byte on a shared vector.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
