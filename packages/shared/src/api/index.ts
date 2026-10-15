@@ -20,4 +20,5 @@ export * from './areas/dashboard.ts';
 export * from './areas/agent.ts';
 export * from './areas/trace.ts';
 export * from './areas/reviewer.ts';
+export * from './areas/handoff.ts';
 export type * from './dto.ts';

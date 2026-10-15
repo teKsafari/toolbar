@@ -1,13 +1,12 @@
-// Markdown summary of a shared capture for plain fetches (J-153): `GET /s/<token>.md`, or
-// `GET /s/<token>` with `Accept: text/markdown`. Front matter, signal counts, comments, and
-// pointers to the MCP server, the HTTP API and (when not paused) the CLI. Same access rules as the
-// share page.
-import { shareMarkdown, signalsOf } from '@toolbar/shared/derive';
+// Markdown page of a shared capture for plain fetches (J-153, changed by the PLAN's "Hand-off to
+// the agent"): `GET /s/<token>.md`, or `GET /s/<token>` with `Accept: text/markdown`. Its first
+// line is the command that pulls the feedback folder; then a summary only (no comment bodies,
+// logs or images: those need a personal token). Same access rules as the share page.
 import { db } from '../db/index.ts';
 import { env } from '../env.ts';
 import { findShare } from '../share/tokens.ts';
 import { seatOf } from '../share/access.ts';
-import { agentPointers, briefOf, preparedOf, screenshotAssets } from './data.ts';
+import { sharePageOf } from '../handoff/summary.ts';
 
 const TEXT = { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'private, no-store' };
 
@@ -35,11 +34,9 @@ export async function shareMarkdownResponse(token: string, userId: string | null
     if (!seat) return new Response(userId ? 'Not found\n' : 'Sign in to see this capture.\n', { status: userId ? 404 : 401, headers: TEXT });
   }
   const url = `${env.publicUrl}/s/${token}`;
-  const shots = await screenshotAssets(db, rec.id);
-  const imageUrl = shots.main ? `${url}/media/screenshot` : rec.thumbKey ? `${url}/media/thumb` : null;
-  const brief = await briefOf(db, rec, { url, imageUrl });
-  const p = link.devtools ? await preparedOf(db, rec) : null;
-  const body = shareMarkdown(brief, p ? signalsOf(p) : null, agentPointers());
+  // Part 2 (PLAN "Hand-off to the agent"): the pull command first, then a summary only; the
+  // reviewer's words, timeline, images and logs are in the folder, which needs a personal token.
+  const body = await sharePageOf(db, rec, url, link.devtools);
   return new Response(body, {
     headers: {
       'content-type': 'text/markdown; charset=utf-8',

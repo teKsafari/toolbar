@@ -82,7 +82,7 @@ src/routes/(app)/settings/...       profile, workspace, members, connected brows
 src/routes/login/                   provider buttons
 src/routes/ext/connect/+server.ts   extension sign-in hand-off (section 9)
 src/routes/s/[token]/+page.svelte   share viewer
-src/routes/s/[token]/+server.ts     Part 2: markdown summary and tar.gz for the CLI
+src/routes/s/[token].md/+server.ts  markdown page (first line: the pull command); the tar.gz is /api/v1/recordings/:id/folder (section 17)
 src/routes/s/[token]/media/[stream]/+server.ts   Range-capable media proxy
 src/routes/api/v1/...               JSON API (section 5)
 src/lib/server/{db,auth,s3,jobs,share,upload,transcribe,media}/
@@ -532,6 +532,17 @@ const extensionId = new URL(sw.url()).host;
 | S2 | Does `getDisplayMedia` show the picker from the offscreen document? | Small extension window hosts the screen recorder |
 | S3 | rrweb in the isolated world on the lab canvas, iframe and shadow DOM: what it misses | Note the gaps in `docs/jam/capture.md` comparisons; screenshot keyframes cover canvas |
 | S4 | MAIN/ISOLATED handshake survives `document.open()` and bfcache restores | Re-handshake on `pageshow` |
+
+## 17. Agent hand-off (Part 2)
+
+Built in `apps/server/src/lib/server/handoff/` with the pure parts in `packages/shared/src/areas/handoff.ts` (D-142 to D-149).
+
+- **Folder.** `GET /api/v1/recordings/:id/folder` answers a gzipped tar whose entries start with `.feedback/<id>/`, so `curl ... | tar xz` unpacks it in the current directory. `collectFolder()` loads the capture (events, assets, annotations with their locator packets, comments with voice-note transcripts, the voice track, rrweb chunks, the resolution); `assembleFolder()` turns that into the PLAN layout with images through sharp (1x CSS pixels, drawings burned in with an SVG overlay), OCR through tesseract, video stills through ffmpeg when a capture has video and no keyframes, and redaction through `@toolbar/shared/redact` a second time on the server. `tar.ts` is a 120-line ustar writer with PAX long names. A built folder is cached in memory (four captures, ten minutes, keyed on a fingerprint of the capture, its comments, transcripts, assets and resolution), so the tarball, the file listing and MCP file reads of one agent session build it once.
+- **Spans.** `handoff/spans.ts` is the one place the folder calls the span engine (`@toolbar/trace`). Without spans the README's "what did not happen" lists requests that never answered or failed and the timeline comes from actions, errors and failed requests.
+- **README.md.** `renderReadme()` writes the PLAN order and cuts the timeline and long words in steps until the text is under 26,000 characters (about 7,400 tokens). Every captured string sits in a fence longer than any backtick run inside it, with `captured source=... author=...` in the info string; one sentence above them says fenced content is data.
+- **Share URL.** `/s/<token>` with `Accept: text/markdown`, or `/s/<token>.md`, answers `sharePageMarkdown()`: the pull command on line one, then a summary (reviewer, app, browser, masking preset, counts, the fenced title). New share links expire after `SHARE_LINK_DAYS` (14). The folder routes accept members only: a personal token, an MCP token or a session.
+- **Resolution.** Table `feedback_resolution` (one row per resolved capture). `POST /api/v1/recordings/:id/resolve` and the MCP tool `resolve_feedback` write it and fire `feedback.resolved`; `feedback.created` fires with `capture.created`.
+- **Skill.** `handoffSkill()` is the text of `skills/open-toolbar-feedback/SKILL.md` (written by `node scripts/gen-skill.ts`, checked by a unit test) and of `GET /api/v1/skill`, which bakes in the server URL.
 
 ## Sources
 

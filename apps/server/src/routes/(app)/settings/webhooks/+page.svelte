@@ -26,7 +26,7 @@
   let logLoading = $state(false);
   let removing = $state<Hook | null>(null);
   const valid = $derived(/^https?:\/\/\S+$/.test(url.trim()) && events.length > 0);
-  const label: Record<string, string> = { 'capture.created': 'Capture created', 'capture.deleted': 'Capture deleted', 'comment.created': 'Comment added' };
+  const label: Record<string, string> = { 'capture.created': 'Capture created', 'capture.deleted': 'Capture deleted', 'comment.created': 'Comment added', 'feedback.created': 'Feedback ready for an agent', 'feedback.resolved': 'Feedback resolved' };
 
   async function add(e: Event) {
     e.preventDefault();

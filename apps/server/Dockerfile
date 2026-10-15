@@ -15,9 +15,10 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm --filter @toolbar/server deploy --prod --legacy /out
 
 FROM node:24-bookworm-slim AS runtime
-# ffmpeg remuxes MediaRecorder WebM and makes thumbnails (architecture section 5).
+# ffmpeg remuxes MediaRecorder WebM and makes thumbnails (architecture section 5); tesseract reads
+# canvas regions for the feedback folder's text/ (OCR_LANGS picks eng, swa or both).
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
+ && apt-get install -y --no-install-recommends ffmpeg ca-certificates tesseract-ocr tesseract-ocr-eng tesseract-ocr-swa \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /out/package.json ./package.json

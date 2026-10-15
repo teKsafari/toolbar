@@ -1,6 +1,6 @@
 # Configuration
 
-The server reads its settings from environment variables. `docker-compose.yml` passes each one through, and `.env.example` lists them all with their defaults. This page covers sign-in, mail, transcription and the paused features in depth. The other variables are described in `.env.example` until this page covers them too.
+The server reads its settings from environment variables. `docker-compose.yml` passes each one through, and `.env.example` lists them all with their defaults. This page covers sign-in, mail, transcription, the agent hand-off and the paused features in depth. The other variables are described in `.env.example` until this page covers them too.
 
 ## Sign-in
 
@@ -142,6 +142,18 @@ Measured on FLEURS read speech (`docs/research/transcription.md`; lower is bette
 | `local`, whisper.cpp `small` | 38.2% (drops sentences) | 69.2% | 80.1% words, 38.4% characters |
 
 Swahili word error rates look worse than the text reads: models spell numbers out ("elfu moja mia tisa sitini" for 1960) and split compound words. For a Swahili or code-switched team (Nuru), use `openai`; whisper.cpp output in Swahili is not readable. Groq's Whisper models cost about a seventh of `gpt-transcribe` but share Whisper's weak Swahili.
+
+## Agent hand-off
+
+A coding agent gets a piece of feedback as a folder: `curl -fsSL -H "Authorization: Bearer $TOOLBAR_TOKEN" "<server>/api/v1/recordings/<id>/folder" | tar xz` writes `.feedback/<id>/` (README.md first, then feedback.json, spans.jsonl, annotations, keyframes, outline, OCR text, voice, console, network and raw files). A share URL fetched with `Accept: text/markdown`, or with `.md` added, answers a short page whose first line is that command. The folder needs a personal token of a workspace member (Settings, API tokens); a share link reaches the summary only. The same folder is on the MCP server (`get_feedback_folder`, `get_feedback_file`, `resolve_feedback`), and `<server>/api/v1/skill` hands out the Agent Skill (`skills/open-toolbar-feedback/SKILL.md` in the repo).
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SHARE_LINK_DAYS` | `14` | Days a new share link stays live. A link can be revoked at any time from the share dialog. `0` makes new links never expire (Part 1 behaviour). Links made before a change keep their expiry. Example: `SHARE_LINK_DAYS=30`. Change it when reviewers need links that outlive two weeks. |
+| `OCR_BIN` | `tesseract` | The OCR program that reads canvas regions (terminals, editors and charts drawn on a `<canvas>`) into the folder's `text/`, labeled as OCR. The server image installs tesseract. `off` skips OCR, for example on a small machine where the CPU cost matters. |
+| `OCR_LANGS` | `eng` | tesseract languages, `+` separated. The image ships English and Swahili: `OCR_LANGS=eng+swa` reads both, at about twice the CPU time. |
+
+Webhooks (Settings, Webhooks) gain two events: `feedback.created` fires with `capture.created` and carries `data.feedback` (`folderUrl`, `pullCommand`, `skillUrl`); `feedback.resolved` fires when someone, or an agent through the API or MCP, marks the feedback resolved, with the note, the commit and who did it in `data.feedback.resolution`.
 
 ## Paused features
 
