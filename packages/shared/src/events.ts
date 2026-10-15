@@ -8,7 +8,7 @@ export const SCHEMA_VERSION = 1 as const;
 
 export interface Envelope<K extends string, D> {
   v: typeof SCHEMA_VERSION;
-  /** `${ctx}:${seq}`, unique within a recording. */
+  /** `${ctx}:${seq}`, or `${ctx}.${doc}:${seq}` for page contexts, unique within a recording. */
   id: string;
   /** Capture context: frame id ("top", "f3"), "sw" (service worker), "off" (offscreen). */
   ctx: string;
@@ -331,6 +331,8 @@ export interface AnnotationRef {
 export interface Marker {
   type: 'mark' | 'voice.start' | 'voice.end' | 'pen' | 'blur' | 'screenshot';
   label?: string;
+  /** the selected area of an area screenshot, CSS px in the viewport (J-209) */
+  rect?: { x: number; y: number; w: number; h: number };
 }
 
 export interface EventDataMap {
@@ -376,13 +378,23 @@ export const EVENT_KINDS = [
 export type CaptureEvent = { [K in EventKind]: Envelope<K, EventDataMap[K]> }[EventKind];
 export type EventOf<K extends EventKind> = Envelope<K, EventDataMap[K]>;
 
-/** Builds envelopes for one context with a monotonic seq. */
-export function createEmitter(ctx: string, now: () => Ms = defaultNow) {
+/**
+ * Builds envelopes for one context with a monotonic seq. A page context restarts its seq on
+ * every document load, so page emitters pass `doc` (a per-document token) to keep ids unique
+ * across navigations within one recording.
+ */
+export function createEmitter(ctx: string, now: () => Ms = defaultNow, doc?: string) {
   let seq = 0;
+  const prefix = doc ? `${ctx}.${doc}` : ctx;
   return function make<K extends EventKind>(kind: K, data: EventDataMap[K]): EventOf<K> {
     const s = seq++;
-    return { v: SCHEMA_VERSION, id: `${ctx}:${s}`, ctx, seq: s, t: now(), kind, data };
+    return { v: SCHEMA_VERSION, id: `${prefix}:${s}`, ctx, seq: s, t: now(), kind, data };
   };
+}
+
+/** A token for the current document: its time origin in base 36 (one value per page load). */
+export function documentToken(): string {
+  return typeof performance !== 'undefined' ? Math.round(performance.timeOrigin).toString(36) : Date.now().toString(36);
 }
 
 function defaultNow(): Ms {

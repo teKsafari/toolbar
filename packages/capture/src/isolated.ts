@@ -1,7 +1,7 @@
 // ISOLATED world entry, run at document_start in every frame. Receives page events over the
 // bridge, records user events, DOM summaries, env info and (on demand) rrweb, applies redaction
 // before anything leaves the page, and hands batches to a Transport.
-import { createEmitter, type CaptureEvent, type EventKind, type EventDataMap, type MaskingPreset } from '@toolbar/shared/events';
+import { createEmitter, documentToken, type CaptureEvent, type EventKind, type EventDataMap, type MaskingPreset } from '@toolbar/shared/events';
 import { redactEvent } from '@toolbar/shared/redact';
 import { acceptMainBridge, isMainReply, type MainReply } from './bridge.ts';
 import { observeDom } from './dom-summary.ts';
@@ -46,7 +46,7 @@ export function startIsolatedWorld({ transport, win = window as Window & typeof 
     }
   })();
   const ctx = top ? 'top-i' : `f${Math.random().toString(36).slice(2, 7)}-i`;
-  const make = createEmitter(ctx);
+  const make = createEmitter(ctx, undefined, documentToken());
   let preset: MaskingPreset = 'staging';
   let pending: CaptureEvent[] = [];
   let timer: ReturnType<typeof setTimeout> | null = null;

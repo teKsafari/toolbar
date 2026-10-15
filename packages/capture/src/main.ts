@@ -1,6 +1,6 @@
 // MAIN world entry, run at document_start. Installs the page hooks and relays events
 // to the isolated world over the private MessageChannel.
-import { createEmitter, type CaptureEvent } from '@toolbar/shared/events';
+import { createEmitter, documentToken, type CaptureEvent } from '@toolbar/shared/events';
 import { createMainBridge } from './bridge.ts';
 import { DEFAULT_HOOKS } from './hooks/index.ts';
 import { navCause } from './hooks/history.ts';
@@ -59,7 +59,7 @@ export function startMainWorld(opts: StartMainOptions = {}) {
     }
   }
   const send = post;
-  const make = createEmitter(ctx);
+  const make = createEmitter(ctx, undefined, documentToken());
   const emit: Emit = (kind, data) => send(make(kind, data as never) as CaptureEvent);
 
   const hooks = opts.hooks ?? DEFAULT_HOOKS;

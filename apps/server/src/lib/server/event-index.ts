@@ -11,12 +11,17 @@ export function sortEvents(events: CaptureEvent[]): CaptureEvent[] {
   return [...events].sort((a, b) => a.t - b.t || (a.ctx < b.ctx ? -1 : a.ctx > b.ctx ? 1 : 0) || a.seq - b.seq);
 }
 
-/** Drop repeats of the same `ctx:seq` (a chunk retried after a lost response). */
+/**
+ * Drop repeats of one event (a chunk retried after a lost response). A page context restarts its
+ * seq on each document load, so `ctx:seq` alone is not unique across a navigation (G3 bug 1:
+ * clicks, typing and nav rows after a navigation were dropped as repeats); the id, kind and time
+ * together are.
+ */
 export function dedupeEvents(events: CaptureEvent[]): CaptureEvent[] {
   const seen = new Set<string>();
   const out: CaptureEvent[] = [];
   for (const e of events) {
-    const k = `${e.ctx}:${e.seq}:${e.kind}`;
+    const k = `${e.id}|${e.kind}|${e.t}`;
     if (seen.has(k)) continue;
     seen.add(k);
     out.push(e);
@@ -90,7 +95,8 @@ export function computeEventIndex(events: CaptureEvent[], startedAt: number): Ev
         done.set(e.data.rid, e.data.status);
         const c = statusClass(e.data.status);
         byClass[c] = (byClass[c] ?? 0) + 1;
-        if (e.data.status >= 400) {
+        // a GraphQL reply with errors failed too, whatever its status (J-064, J-072)
+        if (e.data.status >= 400 || e.data.graphqlErrors) {
           failed.add(e.data.rid);
           const r = reqs.get(e.data.rid);
           raw.push({ kind: 'net-fail', offsetMs: off(e.t), label: `${r?.method ?? ''} ${r ? pathOf(r.url) : ''}`.trim(), ref: e.id, status: e.data.status });
@@ -124,6 +130,11 @@ export function computeEventIndex(events: CaptureEvent[], startedAt: number): Ev
         if (e.data.op === 'create') raw.push({ kind: 'pen', offsetMs: off(e.t), label: 'Drawing', ref: e.data.annotationId, status: null });
         break;
       case 'marker':
+        if (e.data.type === 'screenshot' || e.data.type === 'blur') break;
+        if (e.data.type === 'pen') {
+          raw.push({ kind: 'pen', offsetMs: off(e.t), label: e.data.label ?? 'Drawing', ref: e.id, status: null });
+          break;
+        }
         raw.push({
           kind: e.data.type === 'mark' ? 'mark' : 'voice',
           offsetMs: off(e.t),

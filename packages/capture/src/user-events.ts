@@ -153,21 +153,22 @@ export function recordUserEvents(opts: UserEventOptions): UserEventRecorder {
     }, 300);
   };
 
+  // Tab visibility is a fact about the tab, so only the top document reports it: a frame that
+  // unloads on a SPA change, or a page that unloads on a navigation, is not the tab going hidden
+  // (G3 bug 7, J-190).
+  const reportsVisibility = !opts.frame || opts.frame === 'top';
   let visible = doc.visibilityState !== 'hidden';
   const onVisibility = () => {
     const v = doc.visibilityState !== 'hidden';
     if (v === visible) return;
     visible = v;
     if (!v) for (const el of [...dirty]) commit(el);
-    opts.emit({ type: 'visibility', visible: v });
+    if (reportsVisibility) opts.emit({ type: 'visibility', visible: v });
     if (!v) opts.onHide?.();
   };
   const onPageHide = () => {
     for (const el of [...dirty]) commit(el);
-    if (visible) {
-      visible = false;
-      opts.emit({ type: 'visibility', visible: false });
-    }
+    visible = false;
     opts.onHide?.();
   };
 

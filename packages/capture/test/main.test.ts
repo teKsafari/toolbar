@@ -21,7 +21,7 @@ describe('startMainWorld', () => {
     const { boot, stop } = startMainWorld({ win, post: (e) => out.push(e), hooks: { probe } });
     expect(calls).toBe(1);
     expect(boot).toMatchObject({ ctx: 'top', readyState: 'loading', hooks: ['probe'], failed: [] });
-    expect(out[0]).toMatchObject({ v: 1, id: 'top:0', kind: 'marker' });
+    expect(out[0]).toMatchObject({ v: 1, ctx: 'top', seq: 0, kind: 'marker' });
     expect((win as unknown as Record<symbol, unknown>)[BOOT_MARKER]).toBe(boot);
 
     startMainWorld({ win, post: (e) => out.push(e), hooks: { probe } });
