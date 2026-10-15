@@ -518,7 +518,7 @@ const extensionId = new URL(sw.url()).host;
 
 ## 17. Agent hand-off (Part 2)
 
-Built in `apps/server/src/lib/server/handoff/` with the pure parts in `packages/shared/src/areas/handoff.ts` (D-HO1 to D-HO6).
+Built in `apps/server/src/lib/server/handoff/` with the pure parts in `packages/shared/src/areas/handoff.ts` (D-117 to D-124).
 
 - **Folder.** `GET /api/v1/recordings/:id/folder` answers a gzipped tar whose entries start with `.feedback/<id>/`, so `curl ... | tar xz` unpacks it in the current directory. `collectFolder()` loads the capture (events, assets, annotations with their locator packets, comments with voice-note transcripts, the voice track, rrweb chunks, the resolution); `assembleFolder()` turns that into the PLAN layout with images through sharp (1x CSS pixels, drawings burned in with an SVG overlay), OCR through tesseract, video stills through ffmpeg when a capture has video and no keyframes, and redaction through `@toolbar/shared/redact` a second time on the server. `tar.ts` is a 120-line ustar writer with PAX long names. A built folder is cached in memory (four captures, ten minutes, keyed on a fingerprint of the capture, its comments, transcripts, assets and resolution), so the tarball, the file listing and MCP file reads of one agent session build it once.
 - **Spans.** `handoff/spans.ts` is the one place the folder calls the span engine (`@toolbar/trace`). Without spans the README's "what did not happen" lists requests that never answered or failed and the timeline comes from actions, errors and failed requests.
