@@ -8,7 +8,9 @@ services:
     build: { context: ., dockerfile: apps/server/Dockerfile }
     ports: ["${PORT:-3000}:3000"]
     # webhooks and integrations may point at a service on the host (and the e2e suite's listeners do)
-    extra_hosts: ["host.docker.internal:host-gateway"]
+    # oidc.localhost: the dev mock OIDC server (profile dev). Browsers resolve *.localhost to this
+    # machine, the server reaches it through the host, so both see the same issuer URL.
+    extra_hosts: ["host.docker.internal:host-gateway", "oidc.localhost:host-gateway"]
     environment:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
       ORIGIN: ${PUBLIC_URL:-http://localhost:3000}
@@ -41,6 +43,9 @@ services:
       OIDC_1_CLIENT_ID: ${OIDC_1_CLIENT_ID:-}
       OIDC_1_CLIENT_SECRET: ${OIDC_1_CLIENT_SECRET:-}
       OIDC_1_SCOPES: ${OIDC_1_SCOPES:-}
+      AUTH_ALLOWED_DOMAINS: ${AUTH_ALLOWED_DOMAINS:-}
+      AUTH_MAGIC_LINK: ${AUTH_MAGIC_LINK:-}
+      FEATURE_EMAIL: ${FEATURE_EMAIL:-}
       WORKER: ${WORKER:-1}
       MIGRATE_ON_START: ${MIGRATE_ON_START:-1}
       AI_PROVIDER: ${AI_PROVIDER:-none}
@@ -106,6 +111,18 @@ services:
   mailpit:
     image: axllent/mailpit:v1.31.5
     ports: ["${MAILPIT_UI_PORT:-8025}:8025", "${SMTP_PORT:-1025}:1025"]
+    restart: unless-stopped
+
+  # Development and e2e sign-in (docs/scope.md, "Sign-in"): a mock OpenID Connect provider.
+  #   docker compose --profile dev up -d
+  #   OIDC_1_ID=company OIDC_1_NAME="Company SSO" OIDC_1_CLIENT_ID=toolbar OIDC_1_CLIENT_SECRET=dev \
+  #   OIDC_1_DISCOVERY_URL=http://oidc.localhost:3311/company/.well-known/openid-configuration docker compose up -d server
+  oidc-mock:
+    image: ghcr.io/navikt/mock-oauth2-server:2.1.10
+    profiles: [dev]
+    environment:
+      JSON_CONFIG: '{"interactiveLogin":true}'
+    ports: ["${OIDC_MOCK_PORT:-3311}:8080"]
     restart: unless-stopped
 
 volumes:

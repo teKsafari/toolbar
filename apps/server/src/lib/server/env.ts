@@ -61,6 +61,13 @@ export function loadEnv() {
       /** Key prefix inside the bucket, e.g. "capture/" for an area worktree (docs/parallel.md). */
       keyPrefix: read('S3_KEY_PREFIX'),
     },
+    /** Paused features (docs/scope.md): off unless the flag is set. */
+    features: {
+      /** every notification and invite mail (FEATURE_EMAIL, D-079); read on use, so tests can turn it on */
+      get email() {
+        return flag('FEATURE_EMAIL', false);
+      },
+    },
     smtpUrl: read('SMTP_URL', 'smtp://localhost:1025'),
     mailFrom: read('MAIL_FROM', 'Nib <nib@localhost>'),
     transcribe: {
@@ -73,8 +80,16 @@ export function loadEnv() {
     extensionIds: read('EXTENSION_IDS').split(/[\s,]+/).filter(Boolean),
     auth: {
       emailPassword: flag('AUTH_EMAIL_PASSWORD', true),
-      /** work-email sign-in link by mail (J-217) */
-      magicLink: flag('AUTH_MAGIC_LINK', true),
+      /** work-email sign-in link by mail (J-217); paused with the rest of mail unless FEATURE_EMAIL is on */
+      magicLink: flag('AUTH_MAGIC_LINK', flag('FEATURE_EMAIL', false)),
+      /**
+       * Email domains that may sign in, comma separated (docs/scope.md, "Sign-in"); empty lets any
+       * address in. Google's `hd` claim, when sent, must match too.
+       */
+      allowedDomains: read('AUTH_ALLOWED_DOMAINS')
+        .split(/[\s,]+/)
+        .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
+        .filter(Boolean),
       google: { clientId: read('GOOGLE_CLIENT_ID'), clientSecret: read('GOOGLE_CLIENT_SECRET') },
       github: { clientId: read('GITHUB_CLIENT_ID'), clientSecret: read('GITHUB_CLIENT_SECRET') },
       oidc: oidcProvidersFromEnv(),

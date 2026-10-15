@@ -2,6 +2,7 @@
   // J-122: folder share popover: copy the folder link, invite by email with a role, who has
   // access with roles, and general access (workspace members or only the people listed).
   import { invalidateAll } from '$app/navigation';
+  import { page } from '$app/state';
   import { Button, Popover, toasts } from '@toolbar/ui';
   import type { z } from 'zod';
   import type { folderShareSchema } from '@toolbar/shared/api';
@@ -16,6 +17,8 @@
   let email = $state('');
   let role = $state<'viewer' | 'creator'>('viewer');
   let busy = $state(false);
+  // mail is paused unless FEATURE_EMAIL is on: adding someone sends nothing (J-123)
+  const mailOn = $derived(!!(page.data as { features?: { email?: boolean } }).features?.email);
   const valid = $derived(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()));
 
   async function load() {
@@ -35,7 +38,7 @@
     busy = true;
     try {
       share = await api<Share>('folders.updateShare', { params: { id: folderId }, body: { invite: [{ email: email.trim(), role }] } });
-      toasts.success(`Invited ${email.trim()}`);
+      toasts.success(mailOn ? `Invited ${email.trim()}` : `Added ${email.trim()}. They see this folder when they sign in.`);
       email = '';
     } catch (err) {
       toasts.error(errMsg(err));
@@ -80,7 +83,7 @@
             <option value="viewer">Viewer</option>
             <option value="creator">Creator</option>
           </select>
-          <Button type="submit" variant="primary" size="sm" disabled={!valid} loading={busy} data-testid="folder-invite">Invite</Button>
+          <Button type="submit" variant="primary" size="sm" disabled={!valid} loading={busy} data-testid="folder-invite">{mailOn ? 'Invite' : 'Add'}</Button>
         </form>
       {/if}
       <div class="label">People with access</div>

@@ -31,6 +31,8 @@ import { seatOf } from '../src/lib/server/share/access.ts';
 import { ApiError } from '../src/lib/server/share/http.ts';
 
 const base = process.env.DATABASE_URL ?? 'postgres://toolbar:toolbar@localhost:5432/toolbar';
+// these tests cover the paused mail code too (docs/scope.md, FEATURE_EMAIL)
+process.env.FEATURE_EMAIL = '1';
 const MAILPIT = process.env.MAILPIT_URL ?? 'http://localhost:8025';
 const name = `toolbar_dashtest_${process.pid}`;
 let admin: postgres.Sql | null = null;

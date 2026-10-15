@@ -8,6 +8,7 @@ import { SHARE_TOKEN_HEADER, roleAtLeast, seatRoleOf, type ErrorCode, type SeatR
 import { db } from '#lib/server/db/index.ts';
 import { member, recording, shareLink } from '#lib/server/db/schema/index.ts';
 import { hashToken } from '#lib/server/tokens.ts';
+import { folderGuestRole } from '#lib/server/share/access.ts';
 
 export type RecordingRow = typeof recording.$inferSelect;
 export type ShareLinkRow = typeof shareLink.$inferSelect;
@@ -111,7 +112,9 @@ export async function viewerAccess(
   if (!rec) fail(404, 'not_found', 'Capture not found');
   const r = rec!;
   const user = event.locals.user;
-  const role = user ? await roleIn(user.id, r.organizationId) : null;
+  let role = user ? await roleIn(user.id, r.organizationId) : null;
+  // a folder guest sees the folder's captures as a viewer (J-122)
+  if (!role && user && !r.private && (await folderGuestRole(db, user.id, r.folderId))) role = 'viewer';
   const token = opts.token ?? event.request.headers.get(SHARE_TOKEN_HEADER);
   let share: ViewerCtx['share'] = null;
   if (token) {

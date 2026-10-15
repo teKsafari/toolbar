@@ -1,11 +1,11 @@
 // Folders (J-162 to J-166) and folder sharing (J-122, writes the J-237 tables server-core reads).
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { PRODUCT_NAME } from '@toolbar/shared';
 import type { z } from 'zod';
 import { roleAtLeast, type Folder, type SeatRole, type folderShareSchema } from '@toolbar/shared/api';
 import type { Db } from '../db/index.ts';
 import { folder, folderAccess, folderMember, member, recording, user } from '../db/schema/index.ts';
-import { visibleCapturesWhere, visibleFoldersWhere, seatOf } from '../share/access.ts';
+import { folderGuestRole, visibleCapturesWhere, visibleFoldersWhere, seatOf } from '../share/access.ts';
 import { fail } from '../share/http.ts';
 import { sendMail } from '../mail.ts';
 import { env } from '../env.ts';
@@ -80,15 +80,20 @@ export async function createFolder(db: Db, workspaceId: string, userId: string, 
 export async function folderFor(db: Db, idOrShort: string, userId: string, need: SeatRole = 'viewer') {
   const f = await findFolder(db, idOrShort);
   if (!f) fail('not_found', 'No such folder');
-  const seat = await seatOf(db, userId, f.organizationId);
-  if (!seat) fail('not_found', 'No such folder');
+  let seat = await seatOf(db, userId, f.organizationId);
+  if (!seat) {
+    // folder guests (J-122): a viewer of this folder only
+    if (!(await folderGuestRole(db, userId, f.id))) fail('not_found', 'No such folder');
+    if (!roleAtLeast('viewer', need)) fail('forbidden', `This needs the ${need} seat or higher`);
+    return { f, seat: 'viewer' as SeatRole, guest: true };
+  }
   const vis = visibleFoldersWhere(userId, seat);
   if (vis) {
     const [ok] = await db.select({ id: folder.id }).from(folder).where(and(eq(folder.id, f.id), vis));
     if (!ok) fail('not_found', 'No such folder');
   }
   if (!roleAtLeast(seat, need)) fail('forbidden', `This needs the ${need} seat or higher`);
-  return { f, seat };
+  return { f, seat, guest: false };
 }
 
 export async function updateFolder(db: Db, f: FolderRow, body: { name?: string; private?: boolean; parentId?: string | null }) {
@@ -158,11 +163,13 @@ export async function updateFolderShare(
   for (const inv of body.invite ?? []) {
     const email = inv.email.toLowerCase();
     const [u] = await db.select({ id: user.id }).from(user).where(sql`lower(${user.email}) = ${email}`);
+    // one row per person: an earlier invite to the address, made before the account existed, is the same person (J-122)
     const existing = await db
-      .select({ id: folderMember.id })
+      .select({ id: folderMember.id, userId: folderMember.userId })
       .from(folderMember)
-      .where(and(eq(folderMember.folderId, f.id), u ? eq(folderMember.userId, u.id) : eq(folderMember.email, email)));
+      .where(and(eq(folderMember.folderId, f.id), u ? or(eq(folderMember.userId, u.id), sql`lower(${folderMember.email}) = ${email}`) : sql`lower(${folderMember.email}) = ${email}`));
     if (!existing.length) await db.insert(folderMember).values({ folderId: f.id, userId: u?.id ?? null, email, role: inv.role, invitedBy: actor.id });
+    else if (u && !existing.some((x) => x.userId === u.id)) await db.update(folderMember).set({ userId: u.id }).where(eq(folderMember.id, existing[0]!.id));
     // J-136: an existing account that turned off "shared with me" gets no email; new addresses always do.
     if (u && !(await emailAllowed(db, u.id, 'sharedWithMe'))) continue;
     const mail = folderInviteMail({ inviter: actor.name, folder: f.name, url: folderUrl(f), product: PRODUCT_NAME });

@@ -19,6 +19,18 @@ import * as schema from './db/schema/index.ts';
 import { env } from './env.ts';
 import { sendMail } from './mail.ts';
 import { bootstrapNewUser, joinByDomain } from './auth/workspaces.ts';
+import { claimFolderInvites } from './share/access.ts';
+import { eq } from 'drizzle-orm';
+import { APIError } from 'better-auth/api';
+
+const DOMAIN_REFUSED = 'This server only lets in addresses of its allowed email domains.';
+/** Is this address on the email-domain allowlist? An empty list lets everyone in. */
+export function domainAllowed(email: string | null | undefined): boolean {
+  const list = env.auth.allowedDomains;
+  if (!list.length) return true;
+  const domain = (email ?? '').toLowerCase().split('@')[1] ?? '';
+  return list.some((d) => domain === d || domain.endsWith(`.${d}`));
+}
 
 const ORG_PATHS = [
   'accept-invitation', 'add-team-member', 'cancel-invitation', 'check-slug', 'create', 'create-role', 'create-team',
@@ -59,6 +71,12 @@ const plugins = [
       clientSecret: p.clientSecret,
       scopes: p.scopes,
       pkce: true,
+      // Google Workspace sends `hd`, the hosted domain: it must be on the allowlist too (docs/scope.md)
+      mapProfileToUser: (profile: Record<string, unknown>) => {
+        const hd = typeof profile.hd === 'string' ? profile.hd.toLowerCase() : null;
+        if (hd && env.auth.allowedDomains.length && !env.auth.allowedDomains.includes(hd)) throw new APIError('FORBIDDEN', { message: DOMAIN_REFUSED });
+        return {};
+      },
     })),
   }),
   // Must stay last: it copies Set-Cookie headers onto SvelteKit's cookies.
@@ -82,11 +100,37 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       // X-06, J-125: join a workspace by email domain, or get a personal workspace as owner.
-      create: { after: async (u) => void (await bootstrapNewUser(db, u)) },
+      create: {
+        // only addresses of the allowed domains get an account (AUTH_ALLOWED_DOMAINS, docs/scope.md)
+        before: async (u) => {
+          if (!domainAllowed(u.email)) throw new APIError('FORBIDDEN', { message: DOMAIN_REFUSED });
+          return { data: u };
+        },
+        after: async (u) => {
+          await bootstrapNewUser(db, u);
+          await claimFolderInvites(db, u.id, u.email); // J-122: folder invites sent before the account existed
+        },
+      },
       // An address verified later (magic link on a password account) can still join by domain.
       // Only on a verification request, so a profile edit never re-adds someone an admin removed.
       update: {
         after: async (u, ctx) => void (u.emailVerified && /verify/.test(ctx?.path ?? '') ? await joinByDomain(db, u) : undefined),
+      },
+    },
+    session: {
+      // each sign-in ties folder invites made to the address since the last one (J-122)
+      create: {
+        // an account made before the allowlist changed cannot sign in from a refused domain
+        before: async (s) => {
+          if (!env.auth.allowedDomains.length) return { data: s };
+          const [u] = await db.select({ email: schema.user.email }).from(schema.user).where(eq(schema.user.id, s.userId)).limit(1);
+          if (u && !domainAllowed(u.email)) throw new APIError('FORBIDDEN', { message: DOMAIN_REFUSED });
+          return { data: s };
+        },
+        after: async (s) => {
+          const [u] = await db.select({ email: schema.user.email }).from(schema.user).where(eq(schema.user.id, s.userId)).limit(1);
+          await claimFolderInvites(db, s.userId, u?.email).catch(() => undefined);
+        },
       },
     },
   },

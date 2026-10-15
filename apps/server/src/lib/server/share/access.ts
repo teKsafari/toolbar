@@ -92,6 +92,41 @@ export async function seatOf(db: Db, userId: string, organizationId: string): Pr
   return m ? seatRoleOf(m.role) : null;
 }
 
+/**
+ * A folder guest (J-122): someone invited to a folder who holds no seat in its workspace. They
+ * see that folder and its captures as a viewer, nothing else of the workspace.
+ */
+export async function folderGuestRole(db: Db, userId: string, folderId: string | null): Promise<'viewer' | 'creator' | null> {
+  if (!folderId) return null;
+  const [m] = await db
+    .select({ role: folderMember.role })
+    .from(folderMember)
+    .where(and(eq(folderMember.folderId, folderId), eq(folderMember.userId, userId)))
+    .limit(1);
+  return m ? (m.role === 'creator' ? 'creator' : 'viewer') : null;
+}
+
+/**
+ * Invites sent to an address before it had an account carry no user id. At sign-in they are
+ * tied to the account, and a second invite of the same person collapses into one row (J-122).
+ */
+export async function claimFolderInvites(db: Db, userId: string, email: string | null | undefined) {
+  if (!email) return;
+  const pending = await db
+    .select({ id: folderMember.id, folderId: folderMember.folderId })
+    .from(folderMember)
+    .where(and(isNull(folderMember.userId), sql`lower(${folderMember.email}) = ${email.toLowerCase()}`));
+  for (const p of pending) {
+    const [has] = await db
+      .select({ id: folderMember.id })
+      .from(folderMember)
+      .where(and(eq(folderMember.folderId, p.folderId), eq(folderMember.userId, userId)))
+      .limit(1);
+    if (has) await db.delete(folderMember).where(eq(folderMember.id, p.id));
+    else await db.update(folderMember).set({ userId }).where(eq(folderMember.id, p.id));
+  }
+}
+
 export async function folderPrivacyOf(db: Db, folderId: string | null): Promise<FolderPrivacy | null> {
   if (!folderId) return null;
   const [f] = await db
@@ -118,7 +153,9 @@ export async function captureAccess(
   const [rec] = await db.select().from(recording).where(eq(recording.id, id)).limit(1);
   if (!rec) fail('not_found', 'No such capture');
   const userId = event.locals.user?.id ?? null;
-  const seat = userId ? await seatOf(db, userId, rec.organizationId) : null;
+  let seat = userId ? await seatOf(db, userId, rec.organizationId) : null;
+  // a folder guest sees the folder's captures as a viewer (J-122)
+  if (!seat && userId && !rec.private && (await folderGuestRole(db, userId, rec.folderId))) seat = 'viewer';
   const folderPrivacy = seat ? await folderPrivacyOf(db, rec.folderId) : null;
 
   const upl = need.mode === 'upload' ? uploadTokenFrom(event.request.headers.get('authorization')) : null;

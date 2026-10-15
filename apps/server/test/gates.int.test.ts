@@ -70,6 +70,7 @@ describe.skipIf(!reachable)('gates (integration)', () => {
     url.pathname = `/${name}`;
     process.env.DATABASE_URL = url.toString();
     process.env.SMTP_URL ??= 'smtp://localhost:1025';
+    process.env.FEATURE_EMAIL = '1'; // these gates cover the paused mail code (docs/scope.md)
     execFileSync('node', ['scripts/migrate.ts'], { cwd: new URL('..', import.meta.url).pathname, env: { ...process.env }, stdio: 'ignore' });
     execFileSync('pnpm', ['exec', 'drizzle-kit', 'push', '--force'], { cwd: new URL('..', import.meta.url).pathname, env: { ...process.env }, stdio: 'ignore' });
     m = {

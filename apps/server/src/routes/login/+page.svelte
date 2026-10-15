@@ -16,6 +16,9 @@
   const errorText: Record<string, string> = {
     INVALID_TOKEN: 'That sign-in link was already used or has expired. Ask for a new one.',
     EXPIRED_TOKEN: 'That sign-in link has expired. Ask for a new one.',
+    access_denied: 'This server only lets in addresses of its allowed email domains.',
+    unable_to_create_user: 'This server only lets in addresses of its allowed email domains.',
+    FORBIDDEN: 'This server only lets in addresses of its allowed email domains.',
   };
 </script>
 

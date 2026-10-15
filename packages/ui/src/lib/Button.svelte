@@ -82,6 +82,8 @@
   .nb-icon-only.nb-lg { width: var(--nb-control-lg); padding: 0; }
 
   .nb-primary { background: var(--nb-accent); color: var(--nb-on-accent); }
+  /* a faded accent fill made the label unreadable in dark mode (G7 bug 8): a quiet neutral fill instead */
+  .nb-primary:disabled { opacity: 1; background: var(--nb-surface-sunken); color: var(--nb-text-muted); }
   .nb-primary:hover:not(:disabled) { background: var(--nb-accent-hover); }
   .nb-secondary { background: var(--nb-surface); color: var(--nb-text); border-color: var(--nb-border-strong); }
   .nb-secondary:hover:not(:disabled) { background: var(--nb-surface-sunken); }
