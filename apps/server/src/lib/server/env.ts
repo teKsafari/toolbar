@@ -39,10 +39,11 @@ const WELL_KNOWN = '/.well-known/openid-configuration';
  */
 export function oidcProviderFromEnv(): OidcProviderEnv | null {
   const legacy = !read('OIDC_CLIENT_ID') && !!read('OIDC_1_CLIENT_ID');
-  const v = (name: string, old: string, fallback = '') => (legacy ? read(`OIDC_1_${old}`, fallback) : read(`OIDC_${name}`, fallback));
-  const clientId = v('CLIENT_ID', 'CLIENT_ID');
+  // full names on both sides, so docs/configuration.md's drift test finds them in the code
+  const v = (name: string, old: string, fallback = '') => (legacy ? read(old, fallback) : read(name, fallback));
+  const clientId = v('OIDC_CLIENT_ID', 'OIDC_1_CLIENT_ID');
   let issuer = (legacy ? '' : read('OIDC_ISSUER')).replace(/\/+$/, '');
-  let discoveryUrl = v('DISCOVERY_URL', 'DISCOVERY_URL');
+  let discoveryUrl = v('OIDC_DISCOVERY_URL', 'OIDC_1_DISCOVERY_URL');
   if (!discoveryUrl && issuer) discoveryUrl = issuer + WELL_KNOWN;
   // OpenID Connect Discovery 1.0 section 4: the document lives at <issuer>/.well-known/openid-configuration
   if (!issuer && discoveryUrl.endsWith(WELL_KNOWN)) issuer = discoveryUrl.slice(0, -WELL_KNOWN.length);
@@ -55,13 +56,13 @@ export function oidcProviderFromEnv(): OidcProviderEnv | null {
     }
   })();
   return {
-    providerId: v('PROVIDER_ID', 'ID', 'oidc'),
+    providerId: v('OIDC_PROVIDER_ID', 'OIDC_1_ID', 'oidc'),
     issuer: issuer || discoveryUrl,
     discoveryUrl,
     clientId,
-    clientSecret: v('CLIENT_SECRET', 'CLIENT_SECRET'),
-    scopes: v('SCOPES', 'SCOPES', 'openid email profile').split(/[\s,]+/).filter(Boolean),
-    name: v('PROVIDER_NAME', 'NAME', host === 'accounts.google.com' ? 'Google' : 'SSO'),
+    clientSecret: v('OIDC_CLIENT_SECRET', 'OIDC_1_CLIENT_SECRET'),
+    scopes: v('OIDC_SCOPES', 'OIDC_1_SCOPES', 'openid email profile').split(/[\s,]+/).filter(Boolean),
+    name: v('OIDC_PROVIDER_NAME', 'OIDC_1_NAME', host === 'accounts.google.com' ? 'Google' : 'SSO'),
   };
 }
 
@@ -71,7 +72,8 @@ export function loadEnv() {
     publicUrl,
     nodeEnv: read('NODE_ENV', 'development'),
     databaseUrl: read('DATABASE_URL', 'postgres://toolbar:toolbar@localhost:5432/toolbar'),
-    authSecret: read('BETTER_AUTH_SECRET', DEV_SECRET),
+    /** BETTER_AUTH_SECRET, or AUTH_SECRET as a shorter alias (docs/configuration.md) */
+    authSecret: read('BETTER_AUTH_SECRET', read('AUTH_SECRET', DEV_SECRET)),
     s3: {
       endpoint: read('S3_ENDPOINT', 'http://localhost:3900'),
       region: read('S3_REGION', 'garage'),
@@ -173,7 +175,6 @@ export function loadEnv() {
       .filter(Boolean),
     worker: flag('WORKER', true),
     migrateOnStart: flag('MIGRATE_ON_START', true),
-    testMode: flag('TEST_MODE', false),
   };
 }
 
@@ -195,12 +196,19 @@ export const env: Env = loadEnv();
 
 const isLocal = (u: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(u);
 
-/** Refuse to run on a public URL with a dev default secret (architecture section 13). */
+/**
+ * Refuse to run on a public URL with a dev default secret (architecture section 13, D-151). The
+ * auth secret always counts. The S3 keys count only when browsers reach the bucket
+ * (S3_PUBLIC_URL set): otherwise Garage listens on the compose network and loopback alone, so its
+ * dev keys are not a required value of a basic deployment.
+ */
 export function assertSafeSecrets(e: Env = env): string[] {
   if (isLocal(e.publicUrl)) return [];
   const bad: string[] = [];
   if (e.authSecret === DEV_SECRET) bad.push('BETTER_AUTH_SECRET');
-  if (e.s3.accessKeyId === DEV_S3_KEY) bad.push('S3_ACCESS_KEY_ID');
-  if (e.s3.secretAccessKey === DEV_S3_SECRET) bad.push('S3_SECRET_ACCESS_KEY');
+  if (e.s3.publicUrl) {
+    if (e.s3.accessKeyId === DEV_S3_KEY) bad.push('S3_ACCESS_KEY_ID');
+    if (e.s3.secretAccessKey === DEV_S3_SECRET) bad.push('S3_SECRET_ACCESS_KEY');
+  }
   return bad;
 }

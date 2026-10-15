@@ -37,8 +37,8 @@ pnpm --filter @toolbar/cli build >/dev/null || exit 1
 # behind, and some area tests count what a workspace holds.
 fresh() {
   step "stack"
-  if [ "${KEEP:-0}" != 1 ]; then docker compose --profile dev --profile mail down -v || exit 1; fi
-  local profiles=(--profile dev) mail=()
+  if [ "${KEEP:-0}" != 1 ]; then docker compose --profile dev --profile mail --profile whisper down -v || exit 1; fi
+  local profiles=(--profile dev --profile whisper) mail=()
   if [ "${MAIL:-0}" = 1 ]; then profiles+=(--profile mail); mail=(FEATURE_EMAIL=1 SMTP_URL=smtp://mailpit:1025); fi
   # shellcheck disable=SC2086
   env "${mail[@]}" ${FEATURES:-} \

@@ -15,7 +15,7 @@
     "dev": "pnpm --parallel --filter @toolbar/server --filter @toolbar/extension dev",
     "dev:server": "pnpm --filter @toolbar/server dev",
     "dev:extension": "pnpm --filter @toolbar/extension dev",
-    "stack": "docker compose --profile dev up -d postgres garage whisper oidc-mock",
+    "stack": "docker compose --profile dev --profile whisper up -d postgres garage whisper oidc-mock",
     "e2e": "pnpm --filter @toolbar/extension build:test && pnpm --filter @toolbar/e2e e2e"
   },
   "devDependencies": {

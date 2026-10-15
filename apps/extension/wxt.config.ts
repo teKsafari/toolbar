@@ -18,6 +18,18 @@ const testHooks = process.env.WXT_TEST_HOOKS === '1';
 export const MANIFEST_KEY =
   'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtNg37Vl/0bFbNV9otDQqWsKWtLal5T1CQbwaL2ThxXVFciM48JAQh+kbMjYe9fn1ghRiJxsZZJsl+pqde/H2465YOO7BKIOl3dEFCVwfScZg2LttOmKUTJSfRgrTxk6TPZoj1VBBmuICkQxoavGPluHZgcCI+uzV1qvQxgcYDbRrJ/dTtyiYL2rWFAKuXiX3jV9Ndx9JGYjx2N1wcKKPrOsw3phPGhHKJVmoHvSTz49f5v2hL1+36gEfEI+IyTQVcJDePXTTG81H6MeH+gB5dqyphwls5qJV5q0lWhHqyDvOeLaUhWy9LEfWNR1SlPTLjGYikWZZfPE4YKTbrC3aLQIDAQAB';
 
+/**
+ * The public key a build pins its id with (docs/extension-release.md). WXT_MANIFEST_KEY replaces
+ * the repository's key, for example with the Chrome Web Store item's public key (Developer
+ * Dashboard, Package, "View public key"), so unpacked builds get the store item's id.
+ */
+const manifestKey = (process.env.WXT_MANIFEST_KEY ?? '').replace(/-----[^-]+-----|\s/g, '') || MANIFEST_KEY;
+
+/** Firefox add-on id (browser_specific_settings.gecko.id); AMO signs an add-on under it. */
+export const GECKO_ID = process.env.WXT_GECKO_ID || 'open-toolbar@self-hosted';
+/** Chrome-only permissions Firefox does not know: tab and screen video, offscreen documents. */
+const CHROME_ONLY_PERMISSIONS = ['tabCapture', 'offscreen', 'desktopCapture'];
+
 const commands = Object.fromEntries(
   Object.entries(COMMANDS).map(([name, c]) => [
     name,
@@ -63,13 +75,15 @@ export default defineConfig({
   outDirTemplate: testHooks ? `{{browser}}-mv{{manifestVersion}}-test${process.env.WXT_OUT_SUFFIX ?? ''}` : undefined,
   // The VM has no display for WXT's own browser runner, and the shared browser belongs to another agent.
   webExt: { disabled: true },
+  // the Firefox build sets data_collection_permissions in build:manifestGenerated below
+  suppressWarnings: { firefoxDataCollection: true },
   // Port 3000 belongs to the server; WXT's HMR server takes 3001. Area worktrees set
   // WXT_DEV_PORT=320<i> (docs/parallel.md).
   dev: { server: { port: devPort, origin: `http://localhost:${devPort}` } },
   manifest: {
     name: testHooks ? `${appName} (test)` : appName,
     description: 'Capture bugs with console, network, user actions, screenshots, video and voice.',
-    key: MANIFEST_KEY,
+    key: manifestKey,
     minimum_chrome_version: '116',
     // D-126: the server only; project origins are optional and granted from a click
     host_permissions: testHooks ? ['<all_urls>'] : [serverPattern()],
@@ -95,14 +109,26 @@ export default defineConfig({
   }),
   hooks: {
     // WXT takes the popup's <title> (the %APP_NAME% placeholder) for the action title
-    'build:manifestGenerated': (_wxt, manifest) => {
+    'build:manifestGenerated': (wxt, manifest) => {
       if (manifest.action) manifest.action.default_title = appName;
+      if (manifest.browser_action) manifest.browser_action.default_title = appName;
       // D-126: WXT adds the matches of runtime-registered scripts to host_permissions; set them
       // here, after it. The server-page script runs on the build's server only (a server chosen on
       // the options page gets it at runtime, lib/bg/scope.ts).
       manifest.host_permissions = testHooks ? ['<all_urls>'] : [serverPattern()];
       manifest.optional_host_permissions = OPTIONAL_HOSTS;
       for (const cs of manifest.content_scripts ?? []) if (cs.js?.some((f) => f.includes('toolbar-web'))) cs.matches = [serverPattern()];
+      // Firefox (docs/extension-release.md): no Chrome key or version floor, an add-on id instead,
+      // and without the Chrome-only permissions (recording is Chrome-only)
+      if (wxt.config.browser === 'firefox') {
+        delete manifest.key;
+        delete manifest.minimum_chrome_version;
+        manifest.permissions = (manifest.permissions ?? []).filter((p) => !CHROME_ONLY_PERMISSIONS.includes(p));
+        // Mozilla's data-collection consent (required for new AMO listings): the extension sends page
+        // content and activity, which the reviewer captures, to the server they sign in to
+        const gecko = { id: GECKO_ID, strict_min_version: '128.0', data_collection_permissions: { required: ['websiteActivity', 'websiteContent'] } };
+        manifest.browser_specific_settings = { gecko } as typeof manifest.browser_specific_settings;
+      }
     },
     // WXT_APP_ICON: the rendered icons replace public/icon/*.png in this build's output only
     'build:publicAssets': async (_wxt, files) => {

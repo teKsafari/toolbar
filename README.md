@@ -4,15 +4,18 @@ Give rough software detailed feedback and let your coding agent turn it into fix
 
 Open source (MIT) and self-hosted. Admins set the instance's name, logo and accent colour (`APP_NAME`, `APP_LOGO_URL`, `APP_ACCENT`, or Settings > Server); see `docs/branding.md`.
 
-## Start
+## Self-host
 
 ```sh
-docker compose up --build -d       # server on :3000, Postgres, Garage S3, whisper.cpp
+scripts/gen-secrets.sh https://feedback.example.com   # writes .env with PUBLIC_URL and random secrets
+$EDITOR .env                                          # OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, ALLOWED_EMAIL_DOMAINS
+docker compose up -d --build                          # server on :3000, Postgres, Garage S3, whisper.cpp
 curl -s localhost:3000/api/health
-pnpm install && pnpm --filter @toolbar/extension build   # then load apps/extension/.output/chrome-mv3 unpacked
 ```
 
-Sign-in goes through one OIDC provider that you configure (`docs/dev.md` explains the mock provider and the dev-only password sign-in).
+Put a TLS proxy in front of port 3000. On Coolify, deploy `docker-compose.coolify.yml` from this repository; Coolify generates the secrets and asks for the four sign-in values. `docs/configuration.md` documents every variable.
+
+The extension: `scripts/release-extension.sh` writes versioned zips to `dist/` (load the `-chrome.zip` unpacked, or upload the `-chrome-webstore.zip` as an unlisted Chrome Web Store item); see `docs/extension-release.md`. For development, `docs/dev.md` explains the mock OIDC provider and the dev-only password sign-in.
 
 The extension installs with access to your server only and adds nothing to the apps you review. A workspace admin lists each app under Settings > Projects with its origins and a masking preset (staging or production). After sign-in, open the extension's popup on one of those apps and click Allow: the extension records there and on your other project origins, and nowhere else.
 
@@ -28,6 +31,8 @@ You get `.feedback/<id>/`. The agent reads `README.md` first: who reported what,
 
 ## Docs
 
+- `docs/configuration.md`: every environment variable, the basic deployment and Coolify
+- `docs/extension-release.md`: extension zips, the Chrome Web Store item and its id, Firefox
 - `docs/dev.md`: running each part, ports, builds, tests and the e2e suites
 - `docs/branding.md`: instance name, logo, accent colour and the branded extension build
 - `docs/configuration.md`: every setting, sign-in and the agent hand-off

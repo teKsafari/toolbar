@@ -1,0 +1,53 @@
+# Builds the browser extension zips on a version tag and attaches them to a GitHub release
+# (docs/extension-release.md). Tag v1.2.3 or extension-v1.2.3; the version must match
+# apps/extension/package.json. Optional repository variables set the build:
+#   WXT_SERVER_URL   the server a fresh install points at (and its host permission)
+#   WXT_APP_NAME     the extension's name
+#   WXT_MANIFEST_KEY the Chrome Web Store item's public key, so the unpacked zip gets its id
+#   WXT_GECKO_ID     the Firefox add-on id
+name: Extension release
+
+on:
+  push:
+    tags: ['v*', 'extension-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install pnpm
+        run: npm install -g pnpm@11.27.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter "@toolbar/extension..."
+      - name: Check the extension
+        run: pnpm --filter @toolbar/extension check && pnpm --filter @toolbar/extension test
+      - name: Build the zips
+        env:
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          WXT_SERVER_URL: ${{ vars.WXT_SERVER_URL }}
+          WXT_APP_NAME: ${{ vars.WXT_APP_NAME }}
+          WXT_MANIFEST_KEY: ${{ vars.WXT_MANIFEST_KEY }}
+          WXT_GECKO_ID: ${{ vars.WXT_GECKO_ID }}
+        run: scripts/release-extension.sh
+      - name: Keep the zips with the run
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-zips
+          path: dist/
+      - name: Attach to the release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes "Browser extension $TAG. See docs/extension-release.md to install or publish it."
+          gh release upload "$TAG" dist/*.zip dist/SHA256SUMS --clobber

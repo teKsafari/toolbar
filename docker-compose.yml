@@ -1,10 +1,16 @@
-# Full stack: docker compose up --build
-# Dev defaults work on a clean machine. For a real deploy, copy .env.example to .env and
-# set every variable marked "!" there (scripts/gen-secrets.sh writes random values).
-# Sign-in is one OIDC provider (docs/configuration.md, "Sign-in"): OIDC_ISSUER, OIDC_CLIENT_ID,
-# OIDC_CLIENT_SECRET and ALLOWED_EMAIL_DOMAINS. For development, the `dev` profile adds a mock
-# provider (see oidc-mock below). No mail leaves the server unless FEATURE_EMAIL and SMTP_URL
-# are set; the `mail` profile adds Mailpit to catch it.
+# open-toolbar, self-hosted: docker compose up -d --build
+#
+# A real deployment needs five values in .env (copy .env.example, or run
+# scripts/gen-secrets.sh https://feedback.example.com): PUBLIC_URL, BETTER_AUTH_SECRET (or
+# AUTH_SECRET), the OIDC provider (OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET) and
+# ALLOWED_EMAIL_DOMAINS. Everything else has a working default; docs/configuration.md documents
+# every variable. Put a TLS proxy (Caddy, Traefik, nginx) in front of the server's port.
+#
+# Profiles: `whisper` runs the local transcriber (COMPOSE_PROFILES=whisper in .env.example);
+# `dev` adds a mock OIDC provider for development and tests; `mail` adds Mailpit for the paused
+# mail. Postgres, Garage and whisper publish their ports on 127.0.0.1 only, for `pnpm dev` and
+# backups from the host; nothing but the server is reachable from other machines.
+# Coolify: use docker-compose.coolify.yml instead.
 name: toolbar
 
 services:
@@ -16,12 +22,12 @@ services:
     # machine, the server reaches it through the host, so both see the same issuer URL (D-094).
     extra_hosts: ["host.docker.internal:host-gateway", "oidc.localhost:host-gateway"]
     environment:
+      # required for a real deployment (the server refuses the dev secret on a public URL)
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
-      ORIGIN: ${PUBLIC_URL:-http://localhost:3000}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-${AUTH_SECRET:-dev-only-change-me-0000000000000000}}
       # chunks are capped at 8 MiB per route; assets (attachments) at 200 MiB
       BODY_SIZE_LIMIT: ${BODY_SIZE_LIMIT:-210M}
       DATABASE_URL: postgres://toolbar:${POSTGRES_PASSWORD:-toolbar}@postgres:5432/toolbar
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-only-change-me-0000000000000000}
       S3_ENDPOINT: http://garage:3900
       S3_REGION: garage
       S3_BUCKET: ${S3_BUCKET:-toolbar}
@@ -100,7 +106,7 @@ services:
       POSTGRES_USER: toolbar
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-toolbar}
       POSTGRES_DB: toolbar
-    ports: ["${POSTGRES_PORT:-5432}:5432"]
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]
     volumes: [pg:/var/lib/postgresql]
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U toolbar -d toolbar"], interval: 2s, timeout: 3s, retries: 30 }
     restart: unless-stopped
@@ -115,7 +121,7 @@ services:
       GARAGE_DEFAULT_ACCESS_KEY: ${S3_ACCESS_KEY_ID:-GK000000000000000000000000}
       GARAGE_DEFAULT_SECRET_KEY: ${S3_SECRET_ACCESS_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
       GARAGE_DEFAULT_BUCKET: ${S3_BUCKET:-toolbar}
-    ports: ["${S3_PORT:-3900}:3900"]
+    ports: ["127.0.0.1:${S3_PORT:-3900}:3900"]
     volumes:
       - ./deploy/garage.toml:/etc/garage.toml:ro
       - garage-meta:/var/lib/garage/meta
@@ -132,7 +138,10 @@ services:
         exec whisper-server --host 0.0.0.0 --port 8080 --convert -m /models/ggml-$${WHISPER_MODEL}.bin
     environment:
       WHISPER_MODEL: ${WHISPER_MODEL:-base}
-    ports: ["${WHISPER_PORT:-8080}:8080"]
+    # optional: COMPOSE_PROFILES=whisper (or --profile whisper). Without it, set
+    # TRANSCRIBE_PROVIDER to a hosted model or to none (docs/configuration.md, "Transcription").
+    profiles: [whisper]
+    ports: ["127.0.0.1:${WHISPER_PORT:-8080}:8080"]
     volumes: [whisper-models:/models]
     restart: unless-stopped
     healthcheck:
@@ -147,7 +156,7 @@ services:
   mailpit:
     image: axllent/mailpit:v1.31.5
     profiles: [mail]
-    ports: ["${MAILPIT_UI_PORT:-8025}:8025", "${SMTP_PORT:-1025}:1025"]
+    ports: ["127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025", "127.0.0.1:${SMTP_PORT:-1025}:1025"]
     restart: unless-stopped
 
   # Development and e2e sign-in (docs/scope.md, "Sign-in"): a mock OpenID Connect provider. It
