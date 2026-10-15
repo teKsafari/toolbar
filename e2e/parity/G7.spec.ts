@@ -19,7 +19,8 @@
 // id passes through e2e/parity-shots/G7/S7.2.json (or PARITY_N7).
 import { chromium, expect, test, type Browser, type BrowserContext, type Frame, type Locator, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
+import { createServer } from 'node:http';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -912,6 +913,109 @@ test('S7.3 integrations (paused by owner scope)', async () => {
   const ev = new Evidence(GROUP, 'S7.3');
   ev.set('status', 'paused (docs/scope.md: FEATURE_TRACKERS, FEATURE_SLACK); not run on either product');
   test.skip(true, 'S7.3 is paused by owner scope (docs/scope.md)');
+});
+
+// ================================================================ S7.3 step 7: webhooks (kept by scope)
+
+// Webhooks are one of the three agent channels (docs/scope.md), so J-142 is not paused even
+// though the rest of S7.3 is. Nib only: Jam's webhooks need a connected account.
+test('S7.3 step 7 webhooks (J-142, kept by owner scope)', async () => {
+  test.setTimeout(900_000);
+  const ev = new Evidence(GROUP, 'S7.3-7');
+  const { context } = await getRig();
+  const team = await activate(context, TEAM_WS);
+  const ws = team.id;
+  ev.set('load-start', load());
+  // a listener on this machine the server container can reach
+  const seen: { headers: Record<string, string | string[] | undefined>; body: string; at: number }[] = [];
+  let status = 200;
+  const srv = createServer((req, res) => {
+    let b = '';
+    req.on('data', (c) => (b += c));
+    req.on('end', () => {
+      seen.push({ headers: req.headers, body: b, at: Date.now() });
+      res.writeHead(status, { 'content-type': 'application/json' });
+      res.end('{}');
+    });
+  });
+  await new Promise<void>((r) => srv.listen(0, '0.0.0.0', () => r()));
+  const port = (srv.address() as { port: number }).port;
+  const hookUrl = `http://host.docker.internal:${port}/parity`;
+  try {
+    // repeatable: drop hooks an earlier run left
+    for (const h of (await api<{ items: { id: string; url: string }[] }>(context, 'GET', `/api/v1/workspaces/${ws}/webhooks`)).body.items ?? [])
+      if (/\/parity$/.test(h.url)) await api(context, 'DELETE', `/api/v1/webhooks/${h.id}`);
+    const page = await openUrl(context, '/settings/webhooks');
+    await ready(page);
+    await page.screenshot({ path: ev.file('7-webhooks-empty') });
+    let clicks = 0;
+    await page.getByTestId('add-webhook').click();
+    clicks++;
+    await page.getByTestId('webhook-url').fill(hookUrl);
+    await page.getByTestId('webhook-save').click();
+    clicks++;
+    await expect(page.getByTestId('webhook-secret')).toHaveText(/^whsec_/);
+    const secret = txt(await page.getByTestId('webhook-secret').textContent());
+    await page.screenshot({ path: ev.file('7-webhook-secret') });
+    await page.locator('[data-testid=webhook-secret-dialog][open]').getByRole('button', { name: 'Done' }).click();
+    clicks++;
+    await page.screenshot({ path: ev.file('7-webhooks') });
+    // a capture made now sends capture.created
+    const c = await calm();
+    const t0 = Date.now();
+    const capId = await apiScreenshot(context, ws, 'parity S7.3 webhook capture');
+    const created = await (async () => {
+      for (let i = 0; i < 200; i++) {
+        const hit = seen.find((x) => x.body.includes(capId));
+        if (hit) return hit;
+        await sleep(100);
+      }
+      return null;
+    })();
+    const verify = (hit: { headers: Record<string, string | string[] | undefined>; body: string }) => {
+      const sig = String(hit.headers['x-nib-signature'] ?? '');
+      const [t, v1] = sig.split(',').map((p) => p.split('=')[1]);
+      return { header: sig.replace(/v1=[0-9a-f]+/, 'v1=<hex>'), valid: !!t && !!v1 && createHmac('sha256', secret).update(`${t}.${hit.body}`).digest('hex') === v1 };
+    };
+    const payload = created ? (JSON.parse(created.body) as Record<string, unknown>) : null;
+    const delivery = created ? { event: payload?.event, keys: Object.keys(payload ?? {}), signature: verify(created), finalizeToDeliveryMs: created.at - t0, load: c.load } : 'no delivery in 20 s';
+    // the listener fails: the delivery is retried with a backoff and the log lists the attempts
+    status = 500;
+    const failCap = await apiScreenshot(context, ws, 'parity S7.3 webhook retry');
+    const hooks = (await api<{ items: { id: string; url: string }[] }>(context, 'GET', `/api/v1/workspaces/${ws}/webhooks`)).body.items;
+    const hookId = hooks.find((h) => h.url === hookUrl)!.id;
+    const attempts = async () => (await api<{ items: { status: string; attempts: number; event?: string; recordingId?: string }[] }>(context, 'GET', `/api/v1/webhooks/${hookId}/deliveries`)).body.items;
+    // wait for the first attempt to fail (HTTP 500 from the listener)
+    let firstFail: unknown = null;
+    for (let i = 0; i < 150 && !firstFail; i++) {
+      const d = (await attempts()).find((x) => x.status !== 'ok' && x.attempts >= 1);
+      if (d) firstFail = d;
+      else await sleep(200);
+    }
+    status = 200; // back up: the retry after the first backoff (10 s) succeeds
+    let retried: unknown = null;
+    for (let i = 0; i < 60 && !retried; i++) {
+      const d = (await attempts()).find((x) => x.attempts >= 2);
+      if (d) retried = d;
+      else await sleep(1000);
+    }
+    await page.reload();
+    await ready(page);
+    const row = page.getByTestId('webhook-row').filter({ hasText: `${port}` }).first();
+    await row.getByTestId('webhook-log-toggle').click();
+    clicks++;
+    await sleep(500);
+    const log = await page.getByTestId('webhook-log').locator('tr').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-status') ?? ''} ${(e.textContent ?? '').replace(/\s+/g, ' ').trim()}`.trim()));
+    await page.screenshot({ path: ev.file('7-webhook-log') });
+    ev.set('step7-webhooks (J-142)', { listener: hookUrl.replace(/:\d+/, ':<port>'), delivery, failingDelivery: firstFail, retry: retried, retryCapture: failCap, log: log.slice(0, 8), requestsSeen: seen.length, clicks: { add: 3, openLog: 1, total: clicks } });
+    ev.set('step7-shots', await shoot4(ev, '7-webhooks', ownerOpen(context, '/settings/webhooks')));
+    // tidy: the hook goes, the two captures stay as data of this run
+    await api(context, 'DELETE', `/api/v1/webhooks/${hookId}`);
+    await page.close();
+  } finally {
+    await new Promise<void>((r) => srv.close(() => r()));
+  }
+  ev.set('load-end', load());
 });
 
 // ================================================================ S7.4
