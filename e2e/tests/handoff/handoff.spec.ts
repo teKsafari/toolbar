@@ -111,8 +111,11 @@ test('the share URL answers markdown whose first line pulls the folder; link hol
   expect(readme.length / 3.5).toBeLessThan(8000);
   expect(readme.indexOf('## What did not happen')).toBeLessThan(readme.indexOf('## Timeline'));
   const notHappened = readme.slice(readme.indexOf('## What did not happen'), readme.indexOf('## Timeline'));
-  expect(notHappened).toMatch(/500|silent/);
-  expect(notHappened).toMatch(/stuck|never answered/);
+  // the request that never answered is in "what did not happen" with spans or without; the hidden
+  // 500 is at least in the timeline (the span engine may call it changed when the page text moves)
+  expect(notHappened).toMatch(/stuck/);
+  expect(notHappened).toContain('/api/hang');
+  expect(readme.slice(readme.indexOf('## Timeline'))).toMatch(/\/api\/fail.*500|500.*\/api\/fail/);
   expect(readme).toContain('```text captured source="title"');
   const net = readFileSync(join(dir, 'network.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l) as { status: number | null; url: string; responseBody: string | null });
   expect(net.some((n) => n.status === 500)).toBe(true);

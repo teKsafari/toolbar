@@ -386,7 +386,7 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
       const filesOf = [...(s.keyframes ?? []), ...(s.shots ?? [])].map((x) => kfFile.get(x)).filter((x): x is string => !!x);
       const annId = annByEvent.get(s.action.eventId ?? '');
       if (annId && annFile.has(annId)) filesOf.unshift(annFile.get(annId)!);
-      const entry: TimelineEntry = { atMs: s.startMs, span: s.id, outcome: s.outcome === 'silent' && s.silent ? `silent ${s.silent}` : s.outcome, text: s.summary, files: filesOf };
+      const entry: TimelineEntry = { atMs: s.startMs, span: s.id, outcome: s.outcome === 'silent' && s.silent ? `silent ${s.silent}` : s.outcome, text: s.summary, files: filesOf, t: startedAt + s.startMs + s.durationMs };
       timeline.push(entry);
       if (isQuiet(s.outcome)) notHappened.push(entry);
     }
@@ -394,11 +394,11 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
     for (const a of p.actions) {
       if (a.type === 'scroll' || a.type === 'visibility' || a.type === 'select') continue;
       const what = a.type === 'navigation' ? `navigate ${a.url ?? ''}` : `${a.type} ${a.target ? (a.target.name || a.target.text || a.target.selector) : ''}${a.value ? ` = ${a.value}` : ''}${a.key ? ` [${a.key}]` : ''}`;
-      timeline.push({ atMs: a.offsetMs, outcome: a.type === 'navigation' ? 'nav' : 'action', text: what });
+      timeline.push({ atMs: a.offsetMs, outcome: a.type === 'navigation' ? 'nav' : 'action', text: what, t: a.t + 1500 });
     }
     for (const c of p.console) {
       if (c.level !== 'error') continue;
-      timeline.push({ atMs: c.offsetMs, outcome: c.kind === 'error' ? 'uncaught' : 'console', text: c.message.split('\n')[0] ?? '' });
+      timeline.push({ atMs: c.offsetMs, outcome: c.kind === 'error' ? 'uncaught' : 'console', text: c.message.split('\n')[0] ?? '', t: c.t + 1500 });
     }
     for (const n of p.network) {
       if (n.type === 'websocket' || n.type === 'eventsource') continue;
@@ -408,6 +408,7 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
         atMs: n.offsetMs,
         outcome: n.state === 'pending' ? 'stuck' : n.state === 'failed' ? 'failed' : `http ${n.status}`,
         text: `${n.method} ${n.url} rid=${n.rid}${n.state === 'pending' ? ' never answered' : n.error ? ` ${n.error}` : ''}${n.errorMessage ? `: ${n.errorMessage}` : ''}`,
+        t: n.t + 1500,
       };
       timeline.push(e);
       notHappened.push(e);
@@ -422,23 +423,24 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
     timeline.sort((a, b) => a.atMs - b.atMs);
   }
 
-  // video stills when the capture has video but no keyframes
+  // video stills when the capture has video but no keyframes: the moment each failure, navigation
+  // or error shows its effect, at player time (the video starts after the capture clock)
   if (!keyframeAssets.length && d.hasVideo && io.frame) {
-    const times = [...new Set([...notHappened.map((e) => e.atMs), ...timeline.filter((e) => e.outcome === 'nav' || e.outcome === 'uncaught' || e.outcome === 'error').map((e) => e.atMs)].map((t) => Math.round(t / 500) * 500))]
-      .sort((a, b) => a - b)
-      .slice(0, MAX_KEYFRAMES - k);
-    if (!times.length && d.rec.durationMs) times.push(...[0.1, 0.5, 0.9].map((f) => Math.round(d.rec.durationMs! * f)));
+    const toPlayer = (t: number) => (p ? p.map.toPlayer(t) : t - startedAt);
+    const key = (e: TimelineEntry) => Math.round((e.t ?? startedAt + e.atMs) / 500) * 500;
+    const wanted = [...notHappened, ...timeline.filter((e) => ['nav', 'uncaught', 'error'].includes(e.outcome))];
+    const times = [...new Set(wanted.map(key))].sort((a, b) => a - b).slice(0, MAX_KEYFRAMES - k);
+    if (!times.length && d.rec.durationMs) times.push(...[0.1, 0.5, 0.9].map((f) => startedAt + Math.round(d.rec.durationMs! * f)));
     let failures = 0;
     for (const t of times) {
-      // 1.5 s after the moment shows its effect; keep clear of the last frames, where seeking a
-      // MediaRecorder WebM often finds no frame
-      const at = d.rec.durationMs ? Math.max(0, Math.min(t + 1500, d.rec.durationMs - 600)) : t + 1500;
+      // keep clear of the last frames, where seeking a MediaRecorder WebM often finds no frame
+      const player = Math.max(0, d.rec.durationMs ? Math.min(toPlayer(t), d.rec.durationMs - 600) : toPlayer(t));
       try {
-        const png = await io.frame(at);
+        const png = await io.frame(player);
         const file = `keyframes/k${pad2(++k)}.png`;
-        add(file, png, `video still at ${fmtOffset(at)} (after ${fmtOffset(t)}), scaled to the page's CSS width`, 'image/png');
-        keyframes.push({ file, atMs: at, reason: 'video still' });
-        for (const e of [...timeline, ...notHappened]) if (Math.round(e.atMs / 500) * 500 === t) e.files = [...new Set([...(e.files ?? []), file])];
+        add(file, png, `video still at ${fmtOffset(off(t))} from the capture start (${fmtOffset(player)} into the video), scaled to the page's CSS width`, 'image/png');
+        keyframes.push({ file, atMs: off(t), reason: 'video still' });
+        for (const e of [...timeline, ...notHappened]) if (key(e) === t) e.files = [...new Set([...(e.files ?? []), file])];
       } catch {
         if (++failures >= 3) break;
       }
@@ -453,11 +455,13 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
   const voiceNotes = new Map<string, TranscriptIn>();
   for (const t of d.transcripts) if (t.stream.startsWith('voice:')) voiceNotes.set(t.stream.slice(6), t);
   const ordered = [...d.comments].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  // comment times are player ms; the README counts from the capture start
+  const commentAt = (tMs: number | null) => (tMs == null ? null : p ? Math.max(0, p.map.toEpoch(tMs) - startedAt) : tMs);
   for (const c of ordered) {
-    words.push({ source: c.parentId ? 'reply' : c.viaAgent ? `comment (written by agent ${c.viaAgent})` : 'comment', author: c.author, atMs: c.tMs, text: c.body });
+    words.push({ source: c.parentId ? 'reply' : c.viaAgent ? `comment (written by agent ${c.viaAgent})` : 'comment', author: c.author, atMs: commentAt(c.tMs), text: c.body });
     for (const aid of c.attachments) {
       const tr = voiceNotes.get(aid);
-      if (tr?.vtt && tr.status === 'done') words.push({ source: 'voice note transcript', author: c.author, atMs: c.tMs, text: cuesOf(tr.vtt).map((q) => q.text).join(' ') });
+      if (tr?.vtt && tr.status === 'done') words.push({ source: 'voice note transcript', author: c.author, atMs: commentAt(c.tMs), text: cuesOf(tr.vtt).map((q) => q.text).join(' ') });
     }
   }
   const mainTr = d.transcripts.find((t) => t.stream === 'voice');
@@ -663,7 +667,7 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
       : { resolved: false },
     counts,
     annotations: annJson,
-    comments: ordered.map((c) => ({ id: c.id, parentId: c.parentId, author: c.author, email: c.authorEmail, body: c.body, atMs: c.tMs, createdAt: c.createdAt.toISOString(), resolved: !!c.resolvedAt, viaAgent: c.viaAgent })),
+    comments: ordered.map((c) => ({ id: c.id, parentId: c.parentId, author: c.author, email: c.authorEmail, body: c.body, atMs: commentAt(c.tMs), videoMs: c.tMs, createdAt: c.createdAt.toISOString(), resolved: !!c.resolvedAt, viaAgent: c.viaAgent })),
     transcripts: d.transcripts.map((t) => ({ stream: t.stream, status: t.status, language: t.language, text: t.vtt ? cuesOf(t.vtt).map((q) => q.text).join(' ') : null })),
     keyframes,
     metadata: d.rec.metadata,

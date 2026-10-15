@@ -129,6 +129,8 @@ export interface TimelineEntry {
   text: string;
   /** folder files to open for this entry */
   files?: string[];
+  /** epoch ms of the moment that shows the effect (for video stills); not printed */
+  t?: number;
 }
 
 export interface ReviewerWords {
