@@ -15,7 +15,9 @@
     "./projects": "./src/projects.ts",
     "./ext": "./src/ext/index.ts",
     "./areas/*": "./src/areas/*.ts",
-    "./derive": "./src/derive/index.ts"
+    "./derive": "./src/derive/index.ts",
+    "./locator": "./src/locator.ts",
+    "./sourcemap": "./src/sourcemap.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -23,7 +25,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "@jridgewell/trace-mapping": "0.3.31"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

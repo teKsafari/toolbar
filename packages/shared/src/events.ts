@@ -2,6 +2,8 @@
 // One envelope for every captured signal. NDJSON on the wire, gzip per chunk.
 
 /** Epoch ms with sub-ms precision: performance.timeOrigin + performance.now(). */
+import type { MappedFrame } from './locator.ts';
+
 export type Ms = number;
 
 export const SCHEMA_VERSION = 1 as const;
@@ -370,6 +372,15 @@ export interface Marker {
   rect?: { x: number; y: number; w: number; h: number };
 }
 
+/**
+ * Original positions for the stack of an earlier `error` or `console` event (`ref` is its id),
+ * read from the app's own source maps after the fact (D-128). Absent when the app serves none.
+ */
+export interface StackMap {
+  ref: string;
+  frames: MappedFrame[];
+}
+
 export interface EventDataMap {
   env: EnvInfo;
   nav: Nav;
@@ -388,6 +399,7 @@ export interface EventDataMap {
   annotation: AnnotationRef;
   marker: Marker;
   'canvas.sample': CanvasSample;
+  stackmap: StackMap;
 }
 
 export type EventKind = keyof EventDataMap;
@@ -410,6 +422,7 @@ export const EVENT_KINDS = [
   'annotation',
   'marker',
   'canvas.sample',
+  'stackmap',
 ] as const satisfies readonly EventKind[];
 
 export type CaptureEvent = { [K in EventKind]: Envelope<K, EventDataMap[K]> }[EventKind];

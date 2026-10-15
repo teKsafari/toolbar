@@ -6,6 +6,7 @@ import { DEFAULT_HOOKS } from './hooks/index.ts';
 import { navCause } from './hooks/history.ts';
 import { learnOwnFile } from './hooks/util.ts';
 import { installMetadata } from './metadata.ts';
+import { installLocatorMain } from './locator-main.ts';
 import type { Emit, HookInstaller, Uninstall } from './transport.ts';
 
 /** Marker on window, non-enumerable, so tests can tell that the hooks ran. */
@@ -54,6 +55,11 @@ export function startMainWorld(opts: StartMainOptions = {}) {
     post = (e) => bridge.post(e);
     try {
       installMetadata(win, bridge);
+    } catch {
+      /* optional */
+    }
+    try {
+      installLocatorMain(win, bridge);
     } catch {
       /* optional */
     }

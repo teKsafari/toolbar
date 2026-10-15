@@ -104,6 +104,10 @@ function answerWorker(iso: IsolatedHandle, transport: Transport & { command?: (c
           () => reply({ env: null }),
         );
         return true;
+      case 'locator.describe':
+        // D-128: the page's part of a locator packet
+        void iso.locate(msg.target).then(reply, (e: unknown) => reply({ error: e instanceof Error ? e.message : String(e) }));
+        return true;
       case 'capture.flush':
         flushAll();
         reply({ ok: true, sent: sentEvents });

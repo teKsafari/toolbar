@@ -12,4 +12,5 @@ Run: `pnpm install && pnpm lab` (builds, then serves http://localhost:5173 and a
 | `/canvas` | Text drawn on a canvas; the button redraws only the canvas |
 | `/live` | WebSocket (`/ws`, echo plus a tick every 3 s) and SSE (`/api/sse`, 20 ticks) |
 | `/slow` | SvelteKit streamed load (late data after 3 s) |
+| `/items/[id]` | A route with a parameter and one button (`item-buy`), for source location (route file candidates) |
 | `/slow-raw` | Plain HTML streamed in 8 chunks over 4 s |

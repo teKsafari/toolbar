@@ -300,7 +300,7 @@ const getEvents = define({
   description: 'The raw captured event envelopes ({ id, ctx, seq, t, kind, data }) in time order, for anything the other tools leave out (DOM change summaries, markers, media events). Filter by kind and frame context.',
   input: z.object({
     capture,
-    kinds: z.array(z.enum(['env', 'nav', 'console', 'error', 'net.req', 'net.res', 'net.fail', 'ws', 'sse', 'user', 'dom', 'rrweb', 'media', 'shot', 'annotation', 'marker'])).optional(),
+    kinds: z.array(z.enum(['env', 'nav', 'console', 'error', 'net.req', 'net.res', 'net.fail', 'ws', 'sse', 'user', 'dom', 'rrweb', 'media', 'shot', 'annotation', 'marker', 'stackmap'])).optional(),
     ctx: z.string().optional().describe('Frame context: "top", "f1", "sw".'),
     fromMs,
     toMs,

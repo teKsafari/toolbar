@@ -3,10 +3,83 @@
 import { z } from 'zod';
 import { EVENT_KINDS, SCHEMA_VERSION, type CaptureEvent } from './events.ts';
 import { RECORDING_KINDS, RECORDING_STATUSES, SHARE_ACCESS, STREAM_NAMES, ASSET_KINDS, LIMITS } from './constants.ts';
+import { LOCATOR_VERSION } from './locator.ts';
 
 // ---------- building blocks ----------
 
 export const rectSchema = z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() });
+
+// ---------- locator packets (D-128) ----------
+
+export const mappedFrameSchema = z.object({
+  fn: z.string().max(500).optional(),
+  url: z.string().max(2000),
+  line: z.number(),
+  col: z.number(),
+  source: z.string().max(2000).optional(),
+  file: z.string().max(2000).optional(),
+  srcLine: z.number().optional(),
+  srcCol: z.number().optional(),
+  name: z.string().max(500).optional(),
+  snippet: z.string().max(400).optional(),
+});
+
+export const locatorPacketSchema = z.object({
+  v: z.literal(LOCATOR_VERSION),
+  kind: z.enum(['element', 'text', 'area', 'page']),
+  at: z.number(),
+  url: z.string().max(4000),
+  route: z.string().max(4000),
+  title: z.string().max(500).optional(),
+  masking: z.enum(['staging', 'production', 'none']).optional(),
+  framework: z.object({ name: z.enum(['sveltekit', 'svelte']), dev: z.boolean(), base: z.string().optional(), routeId: z.string().optional() }).optional(),
+  routeFiles: z
+    .array(
+      z.object({
+        file: z.string().max(1000),
+        routeId: z.string().max(1000),
+        role: z.enum(['page', 'page-server', 'component']),
+        source: z.enum(['svelte-meta', 'manifest', 'guess']),
+        params: z.record(z.string(), z.string()).optional(),
+      }),
+    )
+    .max(20),
+  source: z.object({ file: z.string().max(1000), line: z.number(), column: z.number(), via: z.literal('svelte-meta'), depth: z.number().int() }).optional(),
+  components: z
+    .array(z.object({ type: z.string().max(40), file: z.string().max(1000).optional(), line: z.number().optional(), column: z.number().optional(), tag: z.string().max(200).optional() }))
+    .max(30)
+    .optional(),
+  selector: z.string().max(2000).optional(),
+  tag: z.string().max(100).optional(),
+  role: z.string().max(100).optional(),
+  name: z.string().max(500).optional(),
+  text: z.string().max(500).optional(),
+  testId: z.string().max(500).optional(),
+  elId: z.string().max(500).optional(),
+  classes: z.array(z.string().max(200)).max(20).optional(),
+  landmarks: z.array(z.string().max(200)).max(20).optional(),
+  heading: z.string().max(500).optional(),
+  attrs: z.record(z.string(), z.string().max(1000)).optional(),
+  rect: rectSchema.optional(),
+  selection: z.string().max(2000).optional(),
+  viewport: z.object({ w: z.number(), h: z.number(), scrollX: z.number(), scrollY: z.number(), dpr: z.number() }),
+  crop: z.object({ w: z.number(), h: z.number(), scale: z.literal(1), file: z.string().optional(), assetId: z.string().optional() }).optional(),
+  errors: z
+    .array(
+      z.object({
+        t: z.number(),
+        kind: z.enum(['error', 'console']),
+        type: z.string().max(100).optional(),
+        message: z.string().max(4000),
+        stack: z.string().max(20_000).optional(),
+        frames: z.array(mappedFrameSchema).max(50).optional(),
+        mapped: z.boolean(),
+        reason: z.string().max(200).optional(),
+      }),
+    )
+    .max(20)
+    .optional(),
+});
 
 export const targetRefSchema = z.object({
   selector: z.string(),
@@ -197,6 +270,7 @@ export const eventDataSchemas = {
     diff: z.number().min(0).max(1).optional(),
     at: z.number(),
   }),
+  stackmap: z.object({ ref: z.string(), frames: z.array(mappedFrameSchema).max(50) }),
 } as const satisfies Record<(typeof EVENT_KINDS)[number], z.ZodType>;
 
 function envelope<K extends keyof typeof eventDataSchemas>(kind: K) {
@@ -262,6 +336,8 @@ export const annotationInputSchema = z.object({
   shapes: z.array(z.record(z.string(), z.unknown())),
   target: targetRefSchema.optional(),
   comment: z.string().max(10_000).optional(),
+  /** where in the app's source the annotation points (annotations/aNN.locator.json, D-128) */
+  locator: locatorPacketSchema.optional(),
 });
 
 export const finalizeRecordingSchema = z.object({

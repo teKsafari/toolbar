@@ -10,3 +10,5 @@ export { recordUserEvents } from './user-events.ts';
 export { observeDom } from './dom-summary.ts';
 export { evaluateMetadata, METADATA_MAX_BYTES } from './metadata.ts';
 export { watchPageWeight, countNodes, type PageWeight } from './page-weight.ts';
+export { locateInPage, findKitEntries, elementAt, type LocateRequest, type PageLocator } from './locator.ts';
+export { readSvelteMeta, readKitGlobal, LOCATE_EVENT, type SvelteMetaInfo, type LocateReply } from './locator-main.ts';
