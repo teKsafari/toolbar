@@ -9,7 +9,7 @@
 // Needs the compose stack on :3000, the lab on :5173 and :5174 (with L-1 to L-3), the release
 // build, xdotool, xclip, ImageMagick, ffprobe and espeak-ng (S3.5 narration).
 import { test, type BrowserContext, type Frame, type Page } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -26,6 +26,7 @@ import {
   editorFrame,
   firstMatching,
   focusWindow,
+  hasEditor,
   launchNib,
   load,
   openPopup,
@@ -1109,5 +1110,74 @@ test('S3.5 voice transcript', async () => {
   } finally {
     await b.close();
   }
+  ev.set('load-end', load());
+});
+
+// ================================================================ S3.6
+
+/**
+ * The first video frame of a chord recording (J-006, J-027, J-181): the video must open on the
+ * page, never on the countdown veil or its card. Each run starts a tab recording with the chord,
+ * stops it after 1.5 s, reads the draft video from the editor, and compares the brightness of the
+ * first frame with a frame 0.6 s in (the veil darkens the page by about half). The second half
+ * of the runs adds two busy loops, to load the 4 CPUs. The draft is discarded; nothing uploads.
+ */
+test('S3.6 first video frame of chord recordings (J-006)', async () => {
+  test.setTimeout(1_800_000);
+  const ev = new Evidence(GROUP, 'S3.6');
+  const { context } = await getRig();
+  ev.set('load-start', load());
+  const page = await freshLab(context);
+  await sleep(2000);
+  const n = Number(process.env.PARITY_FIRST_FRAME_RUNS ?? 12);
+  const runs: Record<string, unknown>[] = [];
+  const dir = path.join(ev.dir, 'S3.6-videos');
+  fs.mkdirSync(dir, { recursive: true });
+  for (let i = 0; i < n; i++) {
+    const busy: ChildProcess[] = i >= n / 2 ? [0, 1].map(() => spawn('sh', ['-c', 'while :; do :; done'], { stdio: 'ignore' })) : [];
+    try {
+      if (busy.length) await sleep(3000);
+      const loadAtStart = load();
+      await focusWindow(page);
+      xkey('ctrl+shift+space');
+      await until(async () => (await barOf(page))?.attrs['data-state'] === 'recording', 30_000, 30);
+      await sleep(1500);
+      await focusWindow(page);
+      xkey('ctrl+shift+space');
+      const f = await editorFrame(page, 90_000);
+      const b64 = (
+        await until(
+          async () =>
+            f.evaluate(async () => {
+              const v = document.querySelector('video');
+              if (!v?.src) return null;
+              const buf = new Uint8Array(await (await fetch(v.src)).arrayBuffer());
+              let bin = '';
+              for (let k = 0; k < buf.length; k += 0x8000) bin += String.fromCharCode(...buf.subarray(k, k + 0x8000));
+              return btoa(bin);
+            }),
+          30_000,
+          200,
+        )
+      ).value;
+      const file = path.join(dir, `run-${i + 1}.webm`);
+      fs.writeFileSync(file, Buffer.from(b64!, 'base64'));
+      const firstPts = Number(execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'frame=pts_time', '-read_intervals', '%+#1', '-of', 'csv=p=0', file], { encoding: 'utf8' }).trim().split('\n')[0]);
+      const mean = (args: string[], png: string) => {
+        execFileSync('ffmpeg', ['-v', 'error', '-y', ...args, '-i', file, '-frames:v', '1', png]);
+        return Number(execFileSync('magick', [png, '-colorspace', 'gray', '-format', '%[fx:mean]', 'info:'], { encoding: 'utf8' }).trim());
+      };
+      const first = mean([], path.join(dir, `run-${i + 1}-first.png`));
+      const later = mean(['-ss', '0.6'], path.join(dir, `run-${i + 1}-0.6s.png`));
+      runs.push({ run: i + 1, busyLoops: busy.length, load: loadAtStart, firstPts, firstMean: Math.round(first * 1000) / 1000, laterMean: Math.round(later * 1000) / 1000, veil: first < later * 0.8 });
+      await xclickEl(page, f.getByTestId('close'));
+      await until(async () => !hasEditor(page), 15_000);
+      await sleep(1500);
+    } finally {
+      for (const b of busy) b.kill();
+    }
+  }
+  ev.set('runs', runs);
+  ev.set('veilFrames', runs.filter((r) => r.veil).length);
   ev.set('load-end', load());
 });
