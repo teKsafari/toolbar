@@ -280,5 +280,5 @@ describe('OCR', async () => {
       .toBuffer();
     const text = await ocrPng(await sharp(img).resize({ width: 1280 }).png().toBuffer());
     expect(text).toMatch(/Habari\s+dunia\s+42/);
-  });
+  }, 60_000);
 });

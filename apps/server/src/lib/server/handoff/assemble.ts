@@ -384,7 +384,7 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
   if (d.spans) {
     for (const s of spans) {
       const filesOf = [...(s.keyframes ?? []), ...(s.shots ?? [])].map((x) => kfFile.get(x)).filter((x): x is string => !!x);
-      const annId = annByEvent.get((s.action as { eventId?: string }).eventId ?? '');
+      const annId = annByEvent.get(s.action.eventId ?? '');
       if (annId && annFile.has(annId)) filesOf.unshift(annFile.get(annId)!);
       const entry: TimelineEntry = { atMs: s.startMs, span: s.id, outcome: s.outcome === 'silent' && s.silent ? `silent ${s.silent}` : s.outcome, text: s.summary, files: filesOf };
       timeline.push(entry);

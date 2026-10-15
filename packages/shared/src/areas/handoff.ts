@@ -109,7 +109,7 @@ export interface HandoffSpan {
   startMs: number;
   durationMs: number;
   url?: string;
-  action: { type: string; label: string };
+  action: { type: string; label: string; eventId?: string };
   outcome: string;
   silent?: string;
   summary: string;
