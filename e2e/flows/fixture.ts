@@ -386,7 +386,7 @@ export function saveShot(name: string) {
  * and the popup shows the account. Leaves the web session signed in too (the window shares the
  * profile's cookies).
  */
-export async function connectExtension(context: BrowserContext, email: string) {
+export async function connectExtension(context: BrowserContext, email: string, opts: { allowLab?: boolean } = {}) {
   const lab = await labPage(context);
   const popup = await openPopup(context, lab);
   const card = popup.getByTestId('signed-out');
@@ -404,7 +404,65 @@ export async function connectExtension(context: BrowserContext, email: string) {
   await provider.click();
   await mockProviderLogin(win, email, 'Flow Reviewer');
   await expect(popup.getByTestId('signed-in')).toContainText(email, { timeout: 30_000 });
-  return { lab, popup };
+  if (opts.allowLab === false) return { lab, popup };
+  // D-126: the extension records only on project origins the person allowed. A new account has
+  // none: add the lab as a project, then allow it from the popup, as a person does.
+  await addProject(context, [LAB_URL]);
+  await popup.close();
+  const again = await openPopup(context, lab);
+  await allowFromPopup(context, again);
+  return { lab, popup: again };
+}
+
+// ---------------------------------------------------------------- projects (D-123, D-126)
+
+/** Add a project to the signed-in user's active workspace with the web session. */
+export async function addProject(context: BrowserContext, origins: string[], name = 'Lab', maskingPreset: 'staging' | 'production' = 'staging') {
+  const ws = await api<{ items: { id: string }[]; activeId: string | null }>(context, 'GET', '/api/v1/workspaces');
+  const id = ws.body.activeId ?? ws.body.items[0]!.id;
+  const r = await api<{ id: string }>(context, 'POST', `/api/v1/workspaces/${id}/projects`, { name, origins, maskingPreset });
+  expect(r.status, JSON.stringify(r.body)).toBe(201);
+  return { workspaceId: id, projectId: r.body.id };
+}
+
+/**
+ * Chrome's "requested additional permissions" prompt: a dialog inside the browser window with
+ * Deny focused. Tab moves to Allow and Return presses it, through the X server like a person's
+ * keys. The keys go to the browser window, not to a DevTools window that may hold the focus.
+ */
+export async function acceptPermissionPrompt(timeout = 10_000) {
+  await new Promise((r) => setTimeout(r, 700));
+  const t0 = Date.now();
+  let win = '';
+  while (!win && Date.now() - t0 < timeout) {
+    try {
+      win =
+        xdo('search', '--onlyvisible', '--name', 'Chrom')
+          .split('\n')
+          .filter(Boolean)
+          .find((w) => !xdo('getwindowname', w).startsWith('DevTools')) ?? '';
+    } catch {
+      /* not yet */
+    }
+    if (!win) await new Promise((r) => setTimeout(r, 100));
+  }
+  if (!win) throw new Error('no browser window for the permission prompt');
+  xdo('windowactivate', '--sync', win);
+  await new Promise((r) => setTimeout(r, 200));
+  xdo('key', 'Tab');
+  xdo('key', 'Return');
+}
+
+/** In the popup over a project page: click Allow and accept Chrome's prompt; the capture rows return. */
+export async function allowFromPopup(context: BrowserContext, popup: Page) {
+  const card = popup.getByTestId('site-access');
+  await expect(card).toHaveAttribute('data-state', 'needs-grant', { timeout: 15_000 });
+  await popup.getByTestId('site-allow').click();
+  await acceptPermissionPrompt();
+  const sw = context.serviceWorkers().find((w) => w.url().startsWith(`chrome-extension://${EXT_ID}/`))!;
+  await expect
+    .poll(() => sw.evaluate((o) => (globalThis as unknown as { chrome: { permissions: { contains(p: object): Promise<boolean> } } }).chrome.permissions.contains({ origins: [`${o}/*`] }), LAB_URL), { timeout: 15_000 })
+    .toBe(true);
 }
 
 // ---------------------------------------------------------------- fixture

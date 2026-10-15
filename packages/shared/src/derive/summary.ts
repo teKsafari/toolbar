@@ -37,6 +37,9 @@ export interface CaptureBrief {
   comments: BriefComment[];
   transcript: { status: string; text: string | null } | null;
   metadata?: Record<string, unknown> | null;
+  /** project and masking preset of the capture (D-123, D-125) */
+  project?: string | null;
+  maskingPreset?: string | null;
 }
 
 export interface Signals {
@@ -129,6 +132,8 @@ export function shareMarkdown(b: CaptureBrief, s: Signals | null, ptr: Pointers)
     `locale: ${yaml(env?.locale)}`,
     `author: ${yaml(b.author?.name ?? null)}`,
     `created: ${yaml(b.createdAt)}`,
+    ...(b.project ? [`project: ${yaml(b.project)}`] : []),
+    ...(b.maskingPreset ? [`masking_preset: ${yaml(b.maskingPreset)}`] : []),
     '---',
   ];
   const body: string[] = ['', `# ${b.title || 'Untitled capture'}`, ''];

@@ -38,6 +38,7 @@ import { createDraft, saveDraft } from './drafts';
 import { CAPTURE_KEYS, getAuth, getPrivate, getSettings, getStore, serverUrl, setPrivate, setStore } from './store';
 import { installWebRequest } from './webrequest';
 import { isReplayBlocked } from '@toolbar/shared/areas/ext-ui';
+import { presetFor, scope, workspaceForUrl } from '../scope';
 
 type Port = ReturnType<typeof browser.runtime.connect>;
 export class CaptureError extends Error {
@@ -208,7 +209,19 @@ export class CaptureService {
         if (!want && p.top && !this.activeRecording()?.tabs.includes(p.tabId)) await this.ring.purgeTab(p.tabId).catch(() => {});
       }
     }
-    for (const p of this.ports) this.postPort(p, { type: 'config', captureUserEvents: this.settings.captureUserEvents, maskingPreset: 'staging' });
+    await this.reconfigurePorts();
+  }
+
+  /** Masking preset and body policy of the page's project (D-125), sent to every open page. */
+  async reconfigurePorts() {
+    const s = await this.settingsNow();
+    const sc = await scope();
+    for (const p of this.ports) this.postPort(p, { type: 'config', captureUserEvents: s.captureUserEvents, ...this.privacyOf(sc, p) });
+  }
+
+  private privacyOf(sc: Awaited<ReturnType<typeof scope>>, p: PortInfo) {
+    const { maskingPreset, bodyPolicy } = presetFor(sc, p.url);
+    return { maskingPreset, bodyPolicy };
   }
 
   /**
@@ -291,7 +304,7 @@ export class CaptureService {
   private async configurePort(p: PortInfo) {
     await this.loaded;
     const s = await this.settingsNow();
-    this.postPort(p, { type: 'config', captureUserEvents: s.captureUserEvents, maskingPreset: 'staging' });
+    this.postPort(p, { type: 'config', captureUserEvents: s.captureUserEvents, ...this.privacyOf(await scope(), p) });
     if (this.ringWanted(p.tabId, p.url)) this.postPort(p, { type: 'ring', enabled: true, minutes: this.replay.minutes });
     const held = this.traceHolds.get(p.tabId);
     if (held) this.postPort(p, { type: 'attach', recordingId: held.id, t0: held.t0 });
@@ -605,7 +618,7 @@ export class CaptureService {
       pageTitle: geo?.title ?? tab.title ?? '',
       startedAt: t,
       durationMs: null,
-      workspaceId: auth?.activeWorkspaceId ?? null,
+      workspaceId: (await workspaceForUrl(geo?.url ?? tab.url)) ?? auth?.activeWorkspaceId ?? null, // D-124: the project's workspace
       events: slice.events,
       screenshot: crop?.blob ?? full.blob,
       full: crop ? full.blob : null,
@@ -938,7 +951,7 @@ export class CaptureService {
         clientId: pend?.localId,
         recordingId: pend?.serverId ?? null,
         mode: s.mode,
-        workspaceId: auth?.activeWorkspaceId ?? null,
+        workspaceId: (await workspaceForUrl(startUrl)) ?? auth?.activeWorkspaceId ?? null, // D-124: the project's workspace
         events,
         rrweb,
         env,
@@ -1183,7 +1196,7 @@ export class CaptureService {
       startedAt: start,
       durationMs,
       clientId: draftKey,
-      workspaceId: auth?.activeWorkspaceId ?? null,
+      workspaceId: (await workspaceForUrl(tab.url)) ?? auth?.activeWorkspaceId ?? null, // D-124: the project's workspace
       events,
       rrweb: slice.rrweb,
       thumb,

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compose test of the injector (D-123): builds and starts the injector in front of the lab app,
+# Compose test of the injector (D-128): builds and starts the injector in front of the lab app,
 # runs e2e/injector/injector.spec.ts in a browser without the extension, then stops it.
 #
 #   apps/injector/test/run.sh

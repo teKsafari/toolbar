@@ -62,7 +62,7 @@
     <li><DIcon name="check" size={14} />Tokens, card numbers and email addresses found in request and response bodies</li>
     <li><DIcon name="check" size={14} />Text you blur in the editor is flattened into the image</li>
   </ul>
-  <p class="muted small">Not captured: other tabs, browser history, and anything on pages where you did not start a capture or turn on instant replay.</p>
+  <p class="muted small">Not captured: sites outside your workspace’s <a href="/settings/projects">projects</a>, other tabs, browser history, and anything on pages where you did not start a capture or turn on instant replay. Each project picks how much is masked.</p>
 </Section>
 
 <Section title="Instant replay never records on" description="Instant replay keeps the last minutes of a tab on your computer. It stays off on these sites." testid="blocked-section">

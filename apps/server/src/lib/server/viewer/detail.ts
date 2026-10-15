@@ -4,7 +4,7 @@
 import { and, count, eq, isNull } from 'drizzle-orm';
 import { buildPath, ROUTES, type CaptureDetail, type CaptureSummary } from '@toolbar/shared/api';
 import { db } from '#lib/server/db/index.ts';
-import { annotation, asset, comment, folder, recordingChunk, recordingLink, recordingStream, transcript, user } from '#lib/server/db/schema/index.ts';
+import { annotation, asset, comment, folder, project, recordingChunk, recordingLink, recordingStream, transcript, user } from '#lib/server/db/schema/index.ts';
 import { env } from '#lib/server/env.ts';
 import { videoRenditions } from '#lib/server/media/proxy.ts';
 import type { RecordingRow, ViewerCtx } from './access.ts';
@@ -150,6 +150,9 @@ export async function captureDetail(ctx: ViewerCtx): Promise<CaptureDetail> {
     videoOffsetMs,
     // window.toolbar.setMetadata output stored at create (J-073)
     metadata: rec.metadata && typeof rec.metadata === 'object' && !Array.isArray(rec.metadata) ? (rec.metadata as Record<string, unknown>) : null,
+    // D-123, D-125
+    project: rec.projectId ? ((await db.select({ id: project.id, name: project.name }).from(project).where(eq(project.id, rec.projectId)).limit(1))[0] ?? null) : null,
+    maskingPreset: rec.maskingPreset ?? (env0 as { maskingPreset?: CaptureDetail['maskingPreset'] } | null)?.maskingPreset ?? null,
   };
 }
 

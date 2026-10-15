@@ -16,6 +16,7 @@
   import Heavy from './screens/Heavy.svelte';
   import Restricted from './screens/Restricted.svelte';
   import SignedOut from './screens/SignedOut.svelte';
+  import SiteAccess from './screens/SiteAccess.svelte';
   import AccountCard from '../../lib/auth/AccountCard.svelte';
   import BrandLogo from '../../lib/ui/BrandLogo.svelte';
   import { brand } from '../../lib/brand.svelte';
@@ -33,6 +34,9 @@
     window.close();
   };
   const restricted = $derived(!!store.context?.restricted);
+  // D-126: outside a granted project origin the page cannot be captured (our own server's pages can)
+  const site = $derived(store.context?.site);
+  const blocked = $derived(!!site && !site.allowed && !site.allSites && !store.context?.isServerPage);
 </script>
 
 <main data-popup data-loading={store.loading}>
@@ -66,6 +70,8 @@
     <SignedOut />
   {:else if restricted && store.screen === 'main'}
     <Restricted />
+  {:else if blocked && site && store.screen === 'main'}
+    <SiteAccess {site} />
   {:else if store.screen === 'settings'}
     <Settings />
   {:else if store.screen === 'sites'}
@@ -80,12 +86,23 @@
     <Heavy />
   {:else}
     <Main />
+    {#if site?.project && site.allowed}
+      <p class="project" data-testid="site-project" data-preset={site.project.maskingPreset}>
+        {site.project.name} · {site.project.maskingPreset === 'production' ? 'Production masking' : 'Staging masking'}
+      </p>
+    {/if}
   {/if}
 </main>
 
 <style>
   main {
     padding: 0 15px 15px;
+  }
+  .project {
+    margin: 10px 0 0;
+    color: var(--nb-text-faint);
+    font: var(--nb-text-sm) / 1.3 var(--nb-font-sans);
+    text-align: center;
   }
   header {
     display: flex;

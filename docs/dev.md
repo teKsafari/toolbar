@@ -8,7 +8,7 @@ How to run each part of the repo on this machine or a fresh one. The product is 
 |---|---|---|
 | `apps/server` | `@toolbar/server` | SvelteKit 3 app (adapter-node): dashboard, share pages, `/api/v1`, Better Auth, job worker |
 | `apps/extension` | `@toolbar/extension` | WXT + Svelte 5 MV3 extension; `page/` is the injector's page bundle (`build:page`) |
-| `apps/injector` | `@toolbar/injector` | Go reverse proxy that injects the page bundle for signed-in reviewers (D-123); its `package.json` wraps `go build`, `go vet` and `go test`, so `pnpm -r` needs Go 1.26 |
+| `apps/injector` | `@toolbar/injector` | Go reverse proxy that injects the page bundle for signed-in reviewers (D-128); its `package.json` wraps `go build`, `go vet` and `go test`, so `pnpm -r` needs Go 1.26 |
 | `packages/shared` | `@toolbar/shared` | Event envelope and kinds, zod schemas, constants, ids; `/api` endpoint contracts and route table; `/ext` extension messaging, session state machine, storage keys |
 | `packages/capture` | `@toolbar/capture` | Page-side capture: `Transport`, MAIN/ISOLATED bridge, hook installers |
 | `packages/ui` | `@toolbar/ui` | Design tokens, icons, Svelte primitives (Button, Icon, Popover, Toaster) |
@@ -130,9 +130,11 @@ DISPLAY=:101 ~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome --user-d
 
 `--no-first-run` matters: without it a fresh profile opens a modal terms-of-service dialog and Chromium loads nothing until someone clicks Accept. openbox takes its display from `DISPLAY` and rejects a `--display` flag.
 
+Site access (D-123, D-126): a release build can talk to its server and nothing else. To capture on an app, a workspace admin adds it under Settings, Projects (name, origins, masking preset). After sign-in, open the popup on that app and click Allow; Chrome asks once for the origins of all your projects. On any other site the popup says the site is in no project and nothing is injected. A build pointed at another server through the options page asks for that server's origin when you save it.
+
 WXT's own browser runner is off (`webExt.disabled`), because this VM has no display for it and the shared browser belongs to another agent.
 
-How the pieces connect: the service worker registers `content-scripts/capture-main.js` (MAIN world) and `content-scripts/capture.js` (ISOLATED) for `<all_urls>` at `document_start`. The MAIN script installs the page hooks from `@toolbar/capture` and relays events over a private `MessageChannel`; the isolated script forwards them to the worker on the `capture` port and, in the top frame, mounts `<toolbar-root>` with the Svelte UI in a shadow root.
+How the pieces connect: the service worker registers `content-scripts/capture-main.js` (MAIN world) and `content-scripts/capture.js` (ISOLATED) at `document_start` for the origins of the signed-in user's projects that the person allowed (D-126; test builds: every site unless storage key `tb:test-scope` is `projects`). The MAIN script installs the page hooks from `@toolbar/capture` and relays events over a private `MessageChannel`; the isolated script forwards them to the worker on the `capture` port and, in the top frame, mounts `<toolbar-root>` with the Svelte UI in a shadow root.
 
 The signing key's private half is `.secrets/extension-key.pem` (git-ignored). Keep a copy outside this machine; a new key means a new extension id.
 
@@ -153,7 +155,7 @@ Two Playwright suites in `e2e/`, both headed Chromium on a private Xvfb display 
 | Suite | Specs | Extension build | Config | Default display |
 |---|---|---|---|---|
 | Area suites | `e2e/tests/**` (one folder per area, about 230 tests) | test build `chrome-mv3-test` (open shadow root, `globalThis.__tb`) | `playwright.config.ts` | `:101` |
-| User journeys | `e2e/flows/*.spec.ts`, flows A to O of `docs/jam/flows.md` | release build `chrome-mv3` | `playwright.flows.config.ts` | `:120` |
+| User journeys | `e2e/flows/*.spec.ts`, flows A to O of `docs/jam/flows.md`, P (branding) and Q (zero integration, D-126) | release build `chrome-mv3` | `playwright.flows.config.ts` | `:120` |
 
 ### Everything, from a clean database
 
@@ -187,6 +189,7 @@ Points that keep the runs deterministic:
 
 - Listeners the server must call (webhooks, the GitHub and Slack stand-ins) bind `0.0.0.0`. `e2e/fixtures/net.ts` gives the server `host.docker.internal` when a container publishes the server's port (compose maps it to the host gateway), else `127.0.0.1`; the browser keeps using `127.0.0.1`.
 - Chrome's share picker crashes Chromium on Xvfb now and then (`docs/spikes.md` S2). Tests that go through it (flows D and E, the capture suite's J-201) run in a browser of their own on a private Xvfb display (`e2e/fixtures/xvfb.ts`, the suite's display number plus 40). A crash, and only a crash, gets another try in a fresh browser: D and E fall back to Chromium's fake media flags after three crashes and say `LIMITATION` in the log and a `limitation` annotation in the report; J-201 has four tries and no fallback, since a fake picker cannot be cancelled.
+- `connectExtension` (flows) adds a project for the lab to the new account's workspace and allows it from the popup, accepting Chrome's permission prompt with Tab and Return through xdotool; flow Q does the same steps by hand and checks that a second origin gets nothing. The area suites' test build holds `<all_urls>`; `e2e/tests/zero-integration` switches it to the release scope with `tb:test-scope` (D-127).
 - The flows close the app's pages each flow leaves open. Playwright reports every page as visible, so left-over capture tabs would each hold a comments stream (a real browser drops it for background tabs) and use up Chromium's six connections to the server.
 
 ## Where area work goes

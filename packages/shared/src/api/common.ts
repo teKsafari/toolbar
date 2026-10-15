@@ -65,6 +65,8 @@ export const ERROR_STATUS = {
   // instance branding (D-112)
   locked_by_env: 409,
   invalid_image: 422,
+  // projects (D-123): the page is not on an origin of any project of the workspace
+  origin_not_allowed: 403,
 } as const;
 export type ErrorCode = keyof typeof ERROR_STATUS;
 export const ERROR_CODES = Object.keys(ERROR_STATUS) as ErrorCode[];

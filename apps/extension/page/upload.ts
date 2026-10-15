@@ -1,4 +1,4 @@
-// Upload client of the page bundle (D-124). It calls the server through the injector's relay on
+// Upload client of the page bundle (D-129). It calls the server through the injector's relay on
 // the app's own origin (/__toolbar/api/...), which adds the reviewer's bearer token; the page never
 // holds a credential. It uses the fetch saved before the capture hooks were installed, so its
 // own requests stay out of the reviewer's network log.
@@ -6,6 +6,7 @@
 // Paths are spelled out instead of read from ROUTES so the bundle does not carry zod;
 // test/page-upload.test.ts checks each one against the route table.
 import { HEADERS, STREAM_CONTENT_TYPES } from '@toolbar/shared/constants';
+import type { ProjectScope } from '@toolbar/shared/projects';
 
 export const RELAY = '/__toolbar';
 
@@ -34,6 +35,8 @@ export interface Bootstrap {
   activeWorkspaceId: string | null;
   workspaces: { id: string; name: string }[];
   branding?: { name?: string; accent?: string };
+  /** projects of every workspace the reviewer belongs to (D-123) */
+  projects?: ProjectScope[];
 }
 
 const fill = (path: string, params: Record<string, string | number>) => path.replace(/:([A-Za-z]+)/g, (_, k: string) => encodeURIComponent(String(params[k])));

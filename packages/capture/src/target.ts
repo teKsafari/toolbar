@@ -141,6 +141,11 @@ function rectOf(el: Element): Rect {
   return { x: Math.round(r.x + sx), y: Math.round(r.y + sy), w: Math.round(r.width), h: Math.round(r.height) };
 }
 
+/** Text masked the way rrweb masks it: every non-space character becomes `*`. */
+export function maskText(s: string): string {
+  return s.replace(/\S/g, '*');
+}
+
 export interface DescribeOptions {
   preset?: MaskingPreset;
   frame?: string;
@@ -167,6 +172,24 @@ export function describeNode(node: Node | null | undefined, opts: DescribeOption
     const testAttr = TEST_ID_ATTRS.find((a) => el.hasAttribute(a));
     const isField = tag === 'input' || tag === 'textarea' || tag === 'select';
     const text = isField ? undefined : clean((el as HTMLElement).innerText ?? el.textContent);
+    // production preset (D-125): page text is masked; structure (tag, role, test id, classes) stays
+    if (opts.preset === 'production') {
+      const ref: TargetRef = { selector: selectorOf(el), tag, rect: rectOf(el) };
+      const role = roleOf(el);
+      if (role) ref.role = role;
+      const t = isField ? undefined : clean((el as HTMLElement).innerText ?? el.textContent);
+      if (t) ref.text = maskText(t);
+      const n = accessibleName(el);
+      if (n) ref.name = maskText(n);
+      if (testAttr) ref.testId = el.getAttribute(testAttr)!;
+      if (el.id) ref.elId = el.id;
+      if (cls.length) ref.classes = cls;
+      const kept: Record<string, string> = {};
+      for (const [k, v] of Object.entries(attrs)) kept[k] = k === 'type' || k === 'role' || (TEST_ID_ATTRS as readonly string[]).includes(k) ? v : k === 'value' ? MASKED_TYPING : maskText(v);
+      if (Object.keys(kept).length) ref.attrs = kept;
+      if (opts.frame) ref.frame = opts.frame;
+      return ref;
+    }
     const ref: TargetRef = {
       selector: selectorOf(el),
       tag,

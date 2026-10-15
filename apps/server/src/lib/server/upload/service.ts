@@ -66,6 +66,9 @@ export interface CreateInput {
   source: CaptureSource;
   author: AuthorSnapshot | null;
   recordingLinkId?: string | null;
+  /** project the page belongs to and the preset applied (D-123, D-125) */
+  projectId?: string | null;
+  maskingPreset?: 'staging' | 'production' | 'none' | null;
 }
 
 /**
@@ -104,6 +107,8 @@ export async function createCaptureRecord(db: Db, input: CreateInput): Promise<{
       recordingLinkId: input.recordingLinkId ?? null,
       source: input.source,
       access,
+      projectId: input.projectId ?? null,
+      maskingPreset: input.maskingPreset ?? null,
     })
     .onConflictDoNothing({ target: recording.clientId })
     .returning();

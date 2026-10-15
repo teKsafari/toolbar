@@ -15,7 +15,12 @@ export const authHandlers: Handlers = {
     const a = await readStore('auth');
     return { signedIn: !!a, user: a?.user ?? null, serverUrl: a?.serverUrl ?? (await serverUrl()) };
   },
-  'auth.signIn': async () => ({ user: (await authClient.signIn()).user }),
+  'auth.signIn': async () => {
+    const { user } = await authClient.signIn();
+    // D-126: the project list decides where the extension may run; fetch it with the sign-in
+    await authClient.bootstrap().catch(() => undefined);
+    return { user };
+  },
   'auth.signOut': async () => {
     await authClient.signOut();
     return {};

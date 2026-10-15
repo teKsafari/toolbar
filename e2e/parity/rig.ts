@@ -426,7 +426,51 @@ export async function signIn(context: BrowserContext, email: string) {
   await win.getByLabel('Password').fill(PASSWORD);
   await win.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(popup.getByTestId('signed-in')).toContainText(email, { timeout: 30_000 });
-  return { lab, popup };
+  return { lab, popup: await allowLab(context, lab, popup) };
+}
+
+/** The lab's origins: the page origin and the same page on 127.0.0.1 (second-origin scenarios). */
+export const LAB_ORIGINS = [LAB_URL, LAB_URL.replace('localhost', '127.0.0.1')];
+
+/**
+ * D-126: the release build records only on project origins the person allowed. Add the lab as a
+ * project of the account's workspace (once) and allow it from the popup with X input, accepting
+ * Chrome's permission prompt (Deny has the focus: Tab, then Return, in the browser window).
+ * Returns the popup, reopened.
+ */
+export async function allowLab(context: BrowserContext, lab: Page, popup: Page): Promise<Page> {
+  const ws = await api<{ items: { id: string }[]; activeId: string | null }>(context, 'GET', '/api/v1/workspaces');
+  const wsId = ws.body.activeId ?? ws.body.items[0]!.id;
+  const have = await api<{ items: { origins: string[] }[] }>(context, 'GET', `/api/v1/workspaces/${wsId}/projects`);
+  if (!have.body.items.some((p) => LAB_ORIGINS.every((o) => p.origins.includes(o)))) {
+    const r = await api(context, 'POST', `/api/v1/workspaces/${wsId}/projects`, { name: 'Lab', origins: LAB_ORIGINS });
+    expect(r.status).toBe(201);
+  }
+  await closePopup(popup);
+  let p = await clickIcon(context, lab);
+  const card = p.getByTestId('site-access');
+  if (!(await card.count())) return p;
+  await expect(card).toHaveAttribute('data-state', 'needs-grant', { timeout: 20_000 });
+  await xclickPopup(p, p.getByTestId('site-allow'));
+  await sleep(700);
+  const win = xdo('search', '--onlyvisible', '--name', 'Chrom')
+    .split('\n')
+    .filter(Boolean)
+    .find((w) => !xdo('getwindowname', w).startsWith('DevTools'));
+  if (!win) throw new Error('no browser window for the permission prompt');
+  xdo('windowactivate', '--sync', win);
+  await sleep(200);
+  xkey('Tab');
+  xkey('Return');
+  const sw = context.serviceWorkers().find((w) => w.url().startsWith(`chrome-extension://${EXT_ID}/`))!;
+  await expect
+    .poll(() => sw.evaluate((o) => (globalThis as unknown as { chrome: { permissions: { contains(p: object): Promise<boolean> } } }).chrome.permissions.contains({ origins: [`${o}/*`] }), LAB_URL), { timeout: 15_000 })
+    .toBe(true);
+  await dropPopupConnection(context);
+  await lab.reload(); // the parity scenarios time the page from its first load with the scripts in
+  p = await clickIcon(context, lab);
+  await expect(p.getByTestId('site-access')).toHaveCount(0);
+  return p;
 }
 
 /** The editor frame the extension opens over the page after a capture. */

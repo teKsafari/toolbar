@@ -14,6 +14,8 @@ pnpm install && pnpm --filter @toolbar/extension build   # then load apps/extens
 
 Sign-in goes through one OIDC provider that you configure (`docs/dev.md` explains the mock provider and the dev-only password sign-in).
 
+The extension installs with access to your server only and adds nothing to the apps you review. A workspace admin lists each app under Settings > Projects with its origins and a masking preset (staging or production). After sign-in, open the extension's popup on one of those apps and click Allow: the extension records there and on your other project origins, and nowhere else.
+
 ## Docs
 
 - `docs/dev.md`: running each part, ports, builds, tests and the e2e suites

@@ -34,10 +34,17 @@
       return cc;
     }
   });
+  const MASKING: Record<string, string> = {
+    staging: 'Staging, own team: text recorded, bodies of the app’s own origins',
+    production: 'Production: text and inputs masked, media blocked, bodies only for allowlisted URLs',
+  };
   const rows = $derived(
     [
       ['URL', v.detail.pageUrl ?? env?.url ?? null],
       ['Page title', v.detail.pageTitle],
+      // D-123, D-125
+      ['Project', v.detail.project?.name ?? null],
+      ['Masking', MASKING[v.detail.maskingPreset ?? env?.maskingPreset ?? ''] ?? null],
       ['OS', env?.os ? `${env.os.name}${env.os.version ? ' ' + env.os.version : ''}` : (env?.platform ?? null)],
       ['Browser', env?.browser ? `${env.browser.name} ${env.browser.version}` : null],
       ['Viewport', env?.viewport ? `${env.viewport.w} x ${env.viewport.h}` : null],

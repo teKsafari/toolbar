@@ -94,7 +94,9 @@ class PopupStore {
       void send('settings.sync', {});
       // limits (J-013), folders (J-015) and the support link (J-177) come with the bootstrap;
       // the auth area answers from its cache when it is fresh, and storage.onChanged updates us
-      void send('bootstrap.get', {});
+      // D-126: on a page the extension may not run on, the project list may be new: fetch it now
+      const site = this.context?.site;
+      void send('bootstrap.get', { refresh: !!site && !site.allowed && !site.allSites && !this.context?.isServerPage });
     }
   }
 
@@ -104,7 +106,10 @@ class PopupStore {
       if (changes[STORAGE.auth.key]) this.auth = (changes[STORAGE.auth.key]!.newValue as AuthState | undefined) ?? null;
       if (changes[STORAGE.settings.key]) this.settings = { ...defaults, ...((changes[STORAGE.settings.key]!.newValue as Partial<ExtensionSettings>) ?? {}) };
       if (changes[STORAGE.drafts.key]) this.drafts = (changes[STORAGE.drafts.key]!.newValue as DraftSummary[] | undefined) ?? [];
-      if (changes[STORAGE.bootstrap.key]) this.bootstrap = (changes[STORAGE.bootstrap.key]!.newValue as StorageValues['bootstrap']) ?? null;
+      if (changes[STORAGE.bootstrap.key]) {
+        this.bootstrap = (changes[STORAGE.bootstrap.key]!.newValue as StorageValues['bootstrap']) ?? null;
+        void this.refreshContext(); // D-126: a new project list changes what this page allows
+      }
     });
     browser.runtime.onMessage.addListener((msg: Broadcast) => {
       if (msg?.type === 'session.changed') {
@@ -114,6 +119,15 @@ class PopupStore {
       if (msg?.type === 'auth.changed') void this.load();
       return undefined;
     });
+    // D-126: a grant made while the prompt covered the popup
+    browser.permissions?.onAdded?.addListener(() => {
+      setTimeout(() => void this.refreshContext(), 300);
+    });
+  }
+
+  async refreshContext() {
+    const ctx = await send('ui.context', { tabId: this.tabId });
+    if (ctx.ok) this.context = ctx.context;
   }
 
   async updateSettings(patch: Partial<ExtensionSettings>) {

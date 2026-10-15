@@ -12,6 +12,7 @@
     "./constants": "./src/constants.ts",
     "./ids": "./src/ids.ts",
     "./redact": "./src/redact.ts",
+    "./projects": "./src/projects.ts",
     "./ext": "./src/ext/index.ts",
     "./areas/*": "./src/areas/*.ts",
     "./derive": "./src/derive/index.ts"

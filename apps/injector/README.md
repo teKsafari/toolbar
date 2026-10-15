@@ -1,6 +1,6 @@
 # Injector
 
-A small Go reverse proxy that adds the open-toolbar to an app's pages without any change to the app (PLAN "Zero integration", delivery 2; D-123). It sits between Traefik and the apps you choose. For a signed-in reviewer it adds one script tag to the `<head>` of each HTML page. Everyone else gets the app's response untouched.
+A small Go reverse proxy that adds the open-toolbar to an app's pages without any change to the app (PLAN "Zero integration", delivery 2; D-128). It sits between Traefik and the apps you choose. For a signed-in reviewer it adds one script tag to the `<head>` of each HTML page. Everyone else gets the app's response untouched.
 
 ## What it does
 
@@ -45,10 +45,10 @@ Sign-in, step by step:
 
 1. The reviewer opens `https://app.example/__toolbar/login` (a bookmark, or a link you share).
 2. The injector sends them to `https://feedback.example/review/start?origin=https://app.example&next=/`. The server asks them to sign in when they are not.
-3. The server page names the site and the account; "Open app.example with the toolbar" mints the token and signs the cookie for that origin only (it must be listed in the server's `INJECTOR_ORIGINS`).
+3. The server page names the site and the account; "Open app.example with the toolbar" mints the token and signs the cookie for that origin only. The origin must be in the server's `INJECTOR_ORIGINS`, or, while that list is empty, an origin of a project (Settings, Projects) in one of the person's workspaces.
 4. The page posts the value to `https://app.example/__toolbar/session`; the injector sets the cookie and sends the browser to `next`.
 
-## The page bundle (D-124)
+## The page bundle (D-129)
 
 `apps/extension/page/` (`pnpm --filter @toolbar/extension build:page`, output `apps/extension/.output/page/toolbar.js`, about 60 KB gzipped). It runs the same capture code as the extension: the MAIN-world hooks and the isolated-world recorder of `@toolbar/capture`, both in the page's realm and joined by their usual bridge, with `PageSession` as the `Transport`. It keeps the last 60 seconds of console, errors, network, user events and DOM replay in memory. The UI is a small bar at the bottom of the page:
 
@@ -56,7 +56,7 @@ Sign-in, step by step:
 - **Start trace / Stop trace**: a capture that streams events and DOM replay to the server every two seconds and follows the reviewer across pages of the tab (its id and chunk counters live in `sessionStorage`). Stop asks for an optional note.
 - **Menu**: hide the bar, turn review off on this site.
 
-Captures it makes carry `source: injector` ("Toolbar on the site" in the dashboard filter).
+The page's project (the first project in the reviewer's workspaces with an origin that matches the page, from the bootstrap) sets the masking preset and body policy (D-125) and the workspace each capture goes to; events wait in the page until the preset is known. With no matching project the bundle uses the staging preset with bodies of the page's own origin, and the reviewer's active workspace. Captures it makes carry `source: injector` ("Toolbar on the site" in the dashboard filter).
 
 ## Configuration
 
@@ -72,7 +72,7 @@ Captures it makes carry `source: injector` ("Toolbar on the site" in the dashboa
 | `INJECTOR_LISTEN` | `:8080` | Listen address. |
 | `INJECTOR_ASSETS` | `/srv/toolbar` | Folder with `toolbar.js`. |
 
-On the open-toolbar server: `INJECTOR_SECRET` (the same value), `INJECTOR_ORIGINS` (the app origins, comma separated) and `INJECTOR_COOKIE_DAYS` (default 7). See `docs/configuration.md`.
+On the open-toolbar server: `INJECTOR_SECRET` (the same value), `INJECTOR_ORIGINS` (the app origins, comma separated; empty means the origins of each person's projects) and `INJECTOR_COOKIE_DAYS` (default 7). See `docs/configuration.md`.
 
 ## Coolify
 

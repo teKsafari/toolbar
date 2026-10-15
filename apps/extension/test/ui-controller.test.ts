@@ -36,6 +36,12 @@ beforeEach(async () => {
     registered = true;
   }
   await dispatch({ type: 'RESET' });
+  // D-126: signed in, one project on the lab origin, host access granted
+  await browser.storage.local.set({
+    'tb:auth': { serverUrl: 'http://localhost:3000', token: 'tb_dev_x', tokenId: 't', user: { id: 'u', name: 'U', email: 'u@x.test', image: null }, activeWorkspaceId: 'w', signedInAt: 1 },
+    'tb:bootstrap': { at: Date.now(), data: { limits: { chunkBytes: 1048576, maxRecordingMs: null, aiAvailable: false }, projects: [{ id: 'p', workspaceId: 'w', name: 'Lab', origins: ['http://localhost:5173'], maskingPreset: 'staging', bodyAllowlist: [] }] } },
+  });
+  (browser as unknown as { permissions: object }).permissions = { contains: vi.fn(async () => true), onAdded: { addListener: vi.fn() }, onRemoved: { addListener: vi.fn() } };
   const tab = await fakeBrowser.tabs.create({ url: 'http://localhost:5173/', active: true });
   tabId = tab.id!;
 });
@@ -123,5 +129,16 @@ describe('ui controller', () => {
     expect(r).toMatchObject({ ok: true, context: { isServerPage: true, recordMode: 'desktop', restricted: false } });
     const lab = await send({ type: 'ui.context', tabId });
     expect(lab).toMatchObject({ context: { isServerPage: false, recordMode: 'tab' } });
+  });
+
+  it('refuses a page capture outside the project origins and says why (D-126)', async () => {
+    const other = await fakeBrowser.tabs.create({ url: 'http://localhost:5174/', active: true });
+    const r = await send({ type: 'capture', mode: 'screenshot', tabId: other.id });
+    expect(r).toMatchObject({ ok: false, error: 'permission_denied' });
+    expect(String(r.message)).toMatch(/not in any of your projects/);
+    const ctx = await send({ type: 'ui.context', tabId: other.id });
+    expect(ctx).toMatchObject({ ok: true, context: { site: { project: null, allowed: false, projectCount: 1, allSites: false } } });
+    const inside = await send({ type: 'ui.context', tabId });
+    expect(inside).toMatchObject({ ok: true, context: { site: { project: { name: 'Lab' }, allowed: true, missing: [] } } });
   });
 });

@@ -149,7 +149,7 @@ export default defineContentScript({
         };
       },
     };
-    const iso = startIsolatedWorld({ transport: t, extVersion: browser.runtime.getManifest().version });
+    const iso = startIsolatedWorld({ transport: t, extVersion: browser.runtime.getManifest().version, awaitConfig: true });
     if (window.top !== window) return;
     answerWorker(iso, t, () => commandAll({ type: 'flush' }));
 

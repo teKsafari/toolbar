@@ -1,4 +1,4 @@
-// The page bundle's side of capture (D-124): a Transport for @toolbar/capture that keeps the last
+// The page bundle's side of capture (D-129): a Transport for @toolbar/capture that keeps the last
 // 60 seconds of events and DOM replay in memory (comments without a trace attach them), and,
 // while a trace runs, streams both to the server in gzip NDJSON chunks every two seconds. A trace
 // is a capture of kind `trace` (D-117), so the server derives its interaction spans as it does
@@ -176,13 +176,15 @@ export class PageSession implements Transport {
       this.changed();
       return { queued: true };
     }
+    // the workspace comes with the page's preset; events held until then are released first
+    const workspaceId = await this.opts.workspaceId();
     this.command({ type: 'flush' });
     const s = this.ring.slice(this.now());
     const { client } = this.opts;
     const created = await client.createCapture({
       clientId: uuid(),
       kind: 'replay',
-      workspaceId: await this.opts.workspaceId(),
+      workspaceId,
       page: { url: location.href, title: document.title },
       startedAt: s.start,
       env: await this.opts.env().catch(() => undefined),
@@ -210,11 +212,12 @@ export class PageSession implements Transport {
 
   async startTrace() {
     if (this.trace) return;
+    const workspaceId = await this.opts.workspaceId();
     const startedAt = this.now();
     const created = await this.opts.client.createCapture({
       clientId: uuid(),
       kind: 'trace',
-      workspaceId: await this.opts.workspaceId(),
+      workspaceId,
       page: { url: location.href, title: document.title },
       startedAt,
       env: await this.opts.env().catch(() => undefined),

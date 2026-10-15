@@ -6,7 +6,7 @@ import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { CaptureEvent, EnvInfo } from '@toolbar/shared';
 import { prepare, type BriefComment, type CaptureBrief, type Prepared } from '@toolbar/shared/derive';
 import type { Db } from '../db/index.ts';
-import { asset, comment, folder, recordingStream, transcript, user } from '../db/schema/index.ts';
+import { asset, comment, folder, project, recordingStream, transcript, user } from '../db/schema/index.ts';
 import { getBytes } from '../s3.ts';
 import { env } from '../env.ts';
 import { fail } from '../share/http.ts';
@@ -166,6 +166,8 @@ export async function briefOf(db: Db, rec: RecordingRow, opts: { url: string; im
     comments: threadsOf(await commentRows(db, rec.id)).map(briefComment),
     transcript: tr ? { status: tr.status, text: tr.text } : null,
     metadata: (rec.metadata as Record<string, unknown> | null) ?? null,
+    project: rec.projectId ? ((await db.select({ name: project.name }).from(project).where(eq(project.id, rec.projectId)).limit(1))[0]?.name ?? null) : null,
+    maskingPreset: rec.maskingPreset ?? (rec.env as EnvInfo | null)?.maskingPreset ?? null,
   };
 }
 
