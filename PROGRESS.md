@@ -19,7 +19,8 @@ A new session reads this file first.
 - `docs/architecture.md` (step 2 design) and `docs/spikes.md` (capture spikes S1, S2 and extras: all work, with caveats).
 
 ### In flight (2026-10-14)
-- Step 2: foundation done and checked (Nib, D-018..D-027). The eight area branches (`area/*`, kept) are merged into main (D-073); worktrees removed. One migration `0001_area_merge`. Status per row: `docs/status.md` (P0 73 built; P1 101 built, 5 partial; P2 61 built, 1 partial, 10 skipped).
+- Step 2 done, gate 2 passed (2026-10-14): 241 rows built, 10 skipped; clean-clone verification passed. Area branches area/* kept for history.
+- Next: step 3 parity against Jam (docs/parity.md), then step 4 including the owner's branding change (D-074, docs/research/branding.md).
 - Open after the merge (each a call or mount in another area's file, from the area reports):
   - J-137, J-140: the editor's destination menu does not list integrations or mount dashboard's `TrackerFields`; finalize never sends `destination: {type:'integration'}`.
   - J-138: the capture page header has the viewer's own send menu; dashboard's `SendToApp` (field form, J-140) is not mounted.
