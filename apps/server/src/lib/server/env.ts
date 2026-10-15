@@ -1,6 +1,8 @@
 // Runtime configuration from process.env, with dev defaults that match docker-compose.yml.
 // Every variable is listed in the root .env.example.
 
+import { transcribeConfig } from './transcribe/config.ts';
+
 const DEV_SECRET = 'dev-only-change-me-0000000000000000';
 const DEV_S3_KEY = 'GK000000000000000000000000';
 const DEV_S3_SECRET = '0000000000000000000000000000000000000000000000000000000000000000';
@@ -113,12 +115,9 @@ export function loadEnv() {
     },
     /** empty: `<instance name> <noreply@<PUBLIC_URL host>>` (D-112) */
     mailFrom: read('MAIL_FROM'),
-    transcribe: {
-      provider: read('TRANSCRIBE_PROVIDER', 'whispercpp') as 'whispercpp' | 'openai-compatible' | 'none',
-      whisperUrl: read('WHISPER_URL', 'http://localhost:8080'),
-      sttUrl: read('STT_URL'),
-      sttApiKey: read('STT_API_KEY'),
-      sttModel: read('STT_MODEL', 'whisper-1'),
+    /** TRANSCRIBE_* (D-087); read on use, see transcribe/config.ts */
+    get transcribe() {
+      return transcribeConfig();
     },
     extensionIds: read('EXTENSION_IDS').split(/[\s,]+/).filter(Boolean),
     auth: {

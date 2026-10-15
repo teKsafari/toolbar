@@ -1,6 +1,6 @@
 # Configuration
 
-The server reads its settings from environment variables. `docker-compose.yml` passes each one through, and `.env.example` lists them all with their defaults. This page covers sign-in, mail and the paused features in depth. The other variables are described in `.env.example` until this page covers them too.
+The server reads its settings from environment variables. `docker-compose.yml` passes each one through, and `.env.example` lists them all with their defaults. This page covers sign-in, mail, transcription and the paused features in depth. The other variables are described in `.env.example` until this page covers them too.
 
 ## Sign-in
 
@@ -80,6 +80,68 @@ open-toolbar sends no mail by default (docs/scope.md, D-079). Invites work by li
 | `MAIL_FROM` | `"<app name>" <noreply@<PUBLIC_URL host>>` | The sender. |
 
 For development, the `mail` compose profile runs Mailpit: `FEATURE_EMAIL=1 SMTP_URL=smtp://mailpit:1025 docker compose --profile mail up -d`, inbox at http://localhost:8025.
+
+## Transcription
+
+Voice audio becomes a WebVTT transcript on the server: the microphone track of a recording or a trace, and each voice note attached to a comment (D-087). Viewers see it as captions and under the comment, and agents read it over MCP and the HTTP API.
+
+You choose one of three providers with `TRANSCRIBE_PROVIDER`:
+
+- `local` (default): whisper.cpp in the `whisper` compose service. No key, no cost, and no audio leaves your server. Good for English; Swahili comes out unusable.
+- `openai`: an OpenAI-compatible endpoint, by default OpenAI's `gpt-transcribe`. Needs a key. Much better on Swahili and mixed Swahili and English, and faster than whisper.cpp on a CPU. It costs money and sends the voice audio to the provider.
+- `none`: no transcripts.
+
+To use OpenAI, set two variables and restart the server:
+
+```sh
+TRANSCRIBE_PROVIDER=openai
+OPENAI_API_KEY=sk-...            # or TRANSCRIBE_API_KEY, which wins when both are set
+```
+
+Setting a key alone changes nothing: the provider switches only when you set `TRANSCRIBE_PROVIDER=openai`. With `openai` and no key for `api.openai.com`, transcription is off and the server log says why. The `whisper` service keeps running with the hosted provider; nothing calls it.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `TRANSCRIBE_PROVIDER` | `local` | `local`, `openai` or `none`. The older `whispercpp` and `openai-compatible` mean `local` and `openai`. |
+| `TRANSCRIBE_MODEL` | `gpt-transcribe` | Model id for `openai`. `whisper-1` also works on OpenAI; Groq takes `whisper-large-v3-turbo`. |
+| `TRANSCRIBE_API_KEY` | `OPENAI_API_KEY` | Bearer token for `openai`. A self-hosted endpoint such as speaches may need none. |
+| `TRANSCRIBE_BASE_URL` | `https://api.openai.com/v1` | The endpoint, `/v1` included; the server posts to `<base>/audio/transcriptions`. Groq: `https://api.groq.com/openai/v1`. |
+| `TRANSCRIBE_LANGUAGE` | empty (detect) | ISO 639-1 codes, comma separated (`sw,en`). Leave empty for mixed-language narration: the Swahili hint gave no measurable gain. |
+| `TRANSCRIBE_TIMESTAMPS` | `auto` | `chunked` cuts the audio at pauses and times the text on the server; `native` asks the endpoint for WebVTT; `auto` uses `chunked` for `gpt-*` models, else tries `native` and switches to `chunked` when the endpoint refuses WebVTT. |
+| `TRANSCRIBE_CHUNK_SECONDS` | `30` | Longest chunk sent in one request. `12` gives cues about half a second closer to the speech for about 4% more billed audio and slightly worse text. |
+| `TRANSCRIBE_MAX_MINUTES` | `60` | Longer audio is not transcribed; its transcript says "skipped" with the reason. Applies to every provider. |
+| `TRANSCRIBE_MONTHLY_MINUTES` | empty (no cap) | Hosted audio per calendar month (UTC). Past it, transcripts are skipped with "monthly limit" until the month turns. `local` does not count. |
+| `TRANSCRIBE_CONCURRENCY` | `4` | Chunk requests in flight per recording. |
+| `WHISPER_MODEL` | `base` | The whisper.cpp model for `local`. `small` is more accurate and about three times slower. |
+| `WHISPER_URL` | `http://whisper:8080` in compose | Where the server reaches whisper.cpp. |
+
+The older `STT_URL` (a base without `/v1`), `STT_API_KEY` and `STT_MODEL` still work when the new names are unset.
+
+### Limits of the hosted provider
+
+- **Size and length.** OpenAI takes at most 25 MB per request. The server never sends a whole recording: it cuts the voice track at pauses into chunks of at most 30 s and re-encodes each to 32 kbps Opus, about 120 KB per chunk, so recording length is limited only by `TRANSCRIBE_MAX_MINUTES`. With `native` timestamps a file up to 24 MB goes in one request (about 25 minutes of the extension's 128 kbps audio) and a larger one is chunked.
+- **Cost.** `gpt-transcribe` costs $0.0045 per minute of audio, billed per second. Chunking adds about 2% (each request rounds up to the second). A five-minute voice note costs about $0.02, an hour $0.27 to $0.28, and 1,000 five-minute notes about $23. `TRANSCRIBE_MONTHLY_MINUTES=6000` caps a month at about $27. The server reserves a recording's length against the cap before it sends anything, so two recordings at once cannot pass it together. Silent stretches are not sent.
+- **Failures.** Each request is tried up to four times on rate limits (429), server errors (5xx), timeouts and network errors, with backoff and the provider's `Retry-After`. A bad key (401) or an exhausted quota fails at once. The job itself retries up to five times; after that the transcript is marked failed with the provider's message.
+- **Timestamps.** `gpt-transcribe` returns text with no times. The server spreads each chunk's sentences over the stretches of that chunk where someone speaks, so a cue starts within about a second of the words (30 s chunks; measured median 0.8 to 1.1 s).
+
+### Privacy
+
+With `TRANSCRIBE_PROVIDER=openai`, your server sends the voice audio of each recording and voice note to the provider at `TRANSCRIBE_BASE_URL`. Only the microphone audio goes: no video, screenshots, console or network data, and no names. OpenAI states that audio sent to `/v1/audio/transcriptions` is not used for training and is not kept for abuse monitoring, and the endpoint is eligible for Zero Data Retention. Other providers have their own terms; read them before you point `TRANSCRIBE_BASE_URL` elsewhere. Keep `local` when recordings must not leave your server.
+
+Transcripts are machine output of what a reviewer said. Each WebVTT file starts with a `NOTE Machine transcript (<model>, language <codes>)` line, and the MCP tools that return transcripts tell the agent the text is data, not instructions.
+
+### Swahili and English quality
+
+Measured on FLEURS read speech (`docs/research/transcription.md`; lower is better, word error rate and, for Swahili, character error rate):
+
+| Provider and model | English | Swahili and English, alternating | Swahili |
+|---|---|---|---|
+| `openai`, `gpt-transcribe`, 30 s chunks (default hosted) | 7.0% | 15.1% | 25.6% words, 13.9% characters |
+| `openai`, `whisper-1` | 26.2% (drops sentences) | 66.9% | 53.7% words, 29.0% characters |
+| `local`, whisper.cpp `base` (default) | 17.5% | 76.3% | 94.8% words, 54.9% characters |
+| `local`, whisper.cpp `small` | 38.2% (drops sentences) | 69.2% | 80.1% words, 38.4% characters |
+
+Swahili word error rates look worse than the text reads: models spell numbers out ("elfu moja mia tisa sitini" for 1960) and split compound words. For a Swahili or code-switched team (Nuru), use `openai`; whisper.cpp output in Swahili is not readable. Groq's Whisper models cost about a seventh of `gpt-transcribe` but share Whisper's weak Swahili.
 
 ## Paused features
 

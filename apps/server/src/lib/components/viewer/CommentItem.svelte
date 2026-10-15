@@ -119,6 +119,18 @@
     {:else}
       {#if c.body}<div class="body" data-testid="comment-body">{@html renderMarkdown(c.body)}</div>{/if}
     {/if}
+    {#if c.voice}
+      <div class="voice" data-testid="comment-voice">
+        <audio controls preload="none" src={c.voice.url}></audio>
+        {#if c.voice.transcript?.status === 'done' && c.voice.transcript.text}
+          <p class="tr" data-testid="voice-transcript" lang={c.voice.transcript.language?.split(',')[0] || undefined}>{c.voice.transcript.text}</p>
+        {:else if c.voice.transcript?.status === 'pending' || c.voice.transcript?.status === 'running'}
+          <p class="tr muted" data-testid="voice-transcript">Transcribing</p>
+        {:else if c.voice.transcript?.reason}
+          <p class="tr muted" data-testid="voice-transcript">No transcript: {c.voice.transcript.reason}</p>
+        {/if}
+      </div>
+    {/if}
     {#if c.attachments.length}
       <div class="atts">
         {#each c.attachments as a (a.id)}
@@ -198,6 +210,10 @@
   .body :global(p:last-child) { margin: 0; }
   .body :global(ul), .body :global(ol) { margin: 0 0 4px; padding-left: 20px; }
   .body :global(.nb-mention) { color: var(--nb-accent-text); font-weight: 500; }
+  .voice { display: flex; flex-direction: column; gap: 4px; }
+  .voice audio { height: 30px; width: 100%; max-width: 320px; }
+  .tr { margin: 0; padding-left: 8px; border-left: 2px solid var(--nb-border-strong); color: var(--nb-text); font-size: var(--nb-text-md); white-space: pre-wrap; }
+  .tr.muted { color: var(--nb-text-faint); font-size: var(--nb-text-sm); }
   .atts { display: flex; gap: 6px; flex-wrap: wrap; }
   .atts img { width: 120px; height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid var(--nb-border); display: block; }
   .reacts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }

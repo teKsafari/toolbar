@@ -98,6 +98,12 @@ pnpm e2e           # test build of the extension, then the area suites (needs co
 scripts/e2e-all.sh # every e2e suite on a fresh, seeded compose stack (see E2E below)
 ```
 
+Transcription tests (`apps/server/test/transcribe*.test.ts`): the unit tests use recorded API answers and synthetic audio; the chunker and integration tests need ffmpeg and use the FLEURS clips in `apps/server/fixtures/transcribe/` (CC BY 4.0, `ATTRIBUTION.md`). One live test calls OpenAI's `gpt-transcribe` on both clips, about $0.002 a run, and runs only when asked:
+
+```sh
+TRANSCRIBE_LIVE_TEST=1 pnpm --filter @toolbar/server exec vitest run test/transcribe.live.test.ts   # needs OPENAI_API_KEY or TRANSCRIBE_API_KEY
+```
+
 ## The extension
 
 Builds:
@@ -191,5 +197,5 @@ Points that keep the runs deterministic:
 | API | `apps/server/src/routes/api/v1/**`, helpers in `apps/server/src/lib/server/api.ts`, contracts in `packages/shared/src/api/` (route table `routes.ts`) |
 | Jobs | register handlers with `registerJob()` in `apps/server/src/lib/server/jobs/worker.ts`, enqueue with `enqueue()` |
 | Viewer, dashboard, settings | `apps/server/src/routes/(app)/**`, share page `apps/server/src/routes/s/[token]` |
-| Transcription | `apps/server/src/lib/server/transcribe/index.ts` |
+| Transcription | `apps/server/src/lib/server/transcribe/` (providers in `index.ts`, settings `config.ts`, chunker `chunk.ts`, cues `vtt.ts`, guards `run.ts`, comment voice notes `notes.ts`) |
 | Shared UI | `packages/ui/src/lib/*`, tokens in `packages/ui/src/tokens.ts` (then `pnpm --filter @toolbar/ui gen:tokens`) |

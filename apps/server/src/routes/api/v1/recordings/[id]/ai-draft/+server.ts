@@ -48,7 +48,7 @@ export const POST = async (event) => {
   const [tr] = await db
     .select({ vtt: transcript.vtt })
     .from(transcript)
-    .where(and(eq(transcript.recordingId, rec.id), eq(transcript.status, 'done')))
+    .where(and(eq(transcript.recordingId, rec.id), eq(transcript.stream, 'voice'), eq(transcript.status, 'done')))
     .limit(1);
   let draft;
   try {
