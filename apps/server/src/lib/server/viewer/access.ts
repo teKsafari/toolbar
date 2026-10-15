@@ -1,5 +1,5 @@
 // Who may see a capture, and with what rights. Members of the capture's workspace see it with
-// their seat role; anyone else needs a share token (x-nib-share header on API calls, the URL on
+// their seat role; anyone else needs a share token (x-toolbar-share header on API calls, the URL on
 // /s/:token pages; D-030). Owner: viewer area. Share-token rules follow architecture s8; the
 // server-core area owns minting and revoking tokens.
 import { json, type Cookies, type RequestEvent } from '@sveltejs/kit';
@@ -57,7 +57,7 @@ export function handle<E extends RequestEvent>(fn: (event: E) => Promise<Respons
   };
 }
 
-const ANON_COOKIE = 'nib_anon';
+const ANON_COOKIE = 'tb_anon';
 
 /** Read (and with `create`, set) the anonymous visitor id cookie. */
 export function anonKeyOf(cookies: Cookies, create = false): string | null {
@@ -100,7 +100,7 @@ export async function findShareLink(token: string): Promise<ShareLinkRow | null>
 export const linkDevtools = (l: ShareLinkRow) => (l as ShareLinkRow & { devtools?: boolean | null }).devtools !== false;
 
 /**
- * Resolve access to a capture. `token` comes from the page URL or the x-nib-share header.
+ * Resolve access to a capture. `token` comes from the page URL or the x-toolbar-share header.
  * Unknown, deleted or unshared captures are 404; a workspace-only link while signed out is 401.
  */
 export async function viewerAccess(

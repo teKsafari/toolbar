@@ -26,7 +26,7 @@
     if (!name.trim() || !workspaceId) return;
     try {
       const f = await api<Folder>('folders.create', { params: { workspaceId }, body: { name: name.trim() } });
-      await invalidate('nib:shell');
+      await invalidate('tb:shell');
       onpick(f.id, f.name);
     } catch (err) {
       toasts.error(errMsg(err));

@@ -75,7 +75,7 @@ export function loadEnv() {
       get slack() {
         return flag('FEATURE_SLACK', false);
       },
-      /** the `nib` command-line tool, its settings page and pointers to it (FEATURE_CLI, D-078) */
+      /** the `open-toolbar` command-line tool, its settings page and pointers to it (FEATURE_CLI, D-078) */
       get cli() {
         return flag('FEATURE_CLI', false);
       },
@@ -89,7 +89,7 @@ export function loadEnv() {
       },
     },
     smtpUrl: read('SMTP_URL', 'smtp://localhost:1025'),
-    mailFrom: read('MAIL_FROM', 'Nib <nib@localhost>'),
+    mailFrom: read('MAIL_FROM', 'open-toolbar <noreply@localhost>'),
     transcribe: {
       provider: read('TRANSCRIBE_PROVIDER', 'whispercpp') as 'whispercpp' | 'openai-compatible' | 'none',
       whisperUrl: read('WHISPER_URL', 'http://localhost:8080'),

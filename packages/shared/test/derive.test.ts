@@ -64,12 +64,12 @@ const brief = (over: Partial<CaptureBrief> = {}): CaptureBrief => ({
   description: 'Clicked submit.',
   kind: 'video',
   status: 'ready',
-  url: 'http://nib.test/s/tok',
+  url: 'http://toolbar.test/s/tok',
   pageUrl: 'http://lab.test/checkout',
   pageTitle: 'Checkout',
   createdAt: '2026-10-13T14:00:00.000Z',
   durationMs: 3000,
-  author: { name: 'Dana', email: 'dana@nib.test' },
+  author: { name: 'Dana', email: 'dana@toolbar.test' },
   env: { ua: 'UA', browser: { name: 'Chrome', version: '141' }, os: { name: 'Linux' }, viewport: { w: 1280, h: 720 }, dpr: 1, tz: 'Africa/Nairobi' },
   folder: null,
   imageUrl: null,
@@ -201,23 +201,23 @@ describe('derive: summaries', () => {
   });
 
   it('writes the share markdown with front matter, signals, comments and pointers (J-153)', () => {
-    const md = shareMarkdown(brief(), s, { mcpUrl: 'http://nib.test/mcp', apiUrl: 'http://nib.test/api/v1', cli: 'nib' });
+    const md = shareMarkdown(brief(), s, { mcpUrl: 'http://toolbar.test/mcp', apiUrl: 'http://toolbar.test/api/v1', cli: 'open-toolbar' });
     expect(md.startsWith('---\ntitle: "Submit does nothing"\n')).toBe(true);
     expect(md).toContain('browser: "Chrome 141"');
     expect(md).toContain('Signals: 1 console error, 1 failed request, 1 with a 5xx status, 1 request never answered, 2 interactions.');
     expect(md).toContain('## Comments (2)');
     expect(md).toContain('@Dana');
     expect(md).toContain('  - **Dana**');
-    expect(md).toContain('http://nib.test/mcp');
-    expect(md).toContain('`nib get http://nib.test/s/tok`');
-    expect(md).toContain(`- HTTP API: \`GET http://nib.test/api/v1/recordings/${brief().id}/console\``);
+    expect(md).toContain('http://toolbar.test/mcp');
+    expect(md).toContain('`open-toolbar get http://toolbar.test/s/tok`');
+    expect(md).toContain(`- HTTP API: \`GET http://toolbar.test/api/v1/recordings/${brief().id}/console\``);
   });
 
   it('leaves the paused CLI out of the share markdown when no CLI is named (J-153, docs/scope.md)', () => {
-    const md = shareMarkdown(brief(), s, { mcpUrl: 'http://nib.test/mcp', apiUrl: 'http://nib.test/api/v1', cli: null });
-    expect(md).toContain('- MCP server: http://nib.test/mcp');
+    const md = shareMarkdown(brief(), s, { mcpUrl: 'http://toolbar.test/mcp', apiUrl: 'http://toolbar.test/api/v1', cli: null });
+    expect(md).toContain('- MCP server: http://toolbar.test/mcp');
     expect(md).toContain('- HTTP API:');
-    expect(md).not.toMatch(/\bnib (get|console|network|frames)\b/);
+    expect(md).not.toMatch(/\bopen-toolbar (get|console|network|frames)\b/);
     expect(md).not.toContain('CLI');
   });
 
@@ -232,9 +232,9 @@ describe('derive: summaries', () => {
   });
 
   it('builds prompts and the copy-for-AI bundle (J-152)', () => {
-    const pr = agentPrompts('http://nib.test/c/1', 'http://nib.test/mcp');
-    for (const k of ['setup', 'fix', 'summarize', 'e2e'] as const) expect(pr[k]).toContain(k === 'setup' ? 'http://nib.test/mcp' : 'http://nib.test/c/1');
-    const all = copyForAi(brief(), p, { mcpUrl: 'http://nib.test/mcp', cli: 'nib' });
+    const pr = agentPrompts('http://toolbar.test/c/1', 'http://toolbar.test/mcp');
+    for (const k of ['setup', 'fix', 'summarize', 'e2e'] as const) expect(pr[k]).toContain(k === 'setup' ? 'http://toolbar.test/mcp' : 'http://toolbar.test/c/1');
+    const all = copyForAi(brief(), p, { mcpUrl: 'http://toolbar.test/mcp', cli: 'open-toolbar' });
     expect(all).toContain('## Failed requests');
     expect(all).toContain('Out of stock');
     expect(all).toContain('## Requests that never answered');

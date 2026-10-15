@@ -29,7 +29,7 @@ services:
       STT_URL: ${STT_URL:-}
       STT_API_KEY: ${STT_API_KEY:-}
       SMTP_URL: ${SMTP_URL:-smtp://mailpit:1025}
-      MAIL_FROM: ${MAIL_FROM:-Nib <nib@localhost>}
+      MAIL_FROM: ${MAIL_FROM:-open-toolbar <noreply@localhost>}
       EXTENSION_IDS: ${EXTENSION_IDS:-fmongfmimgdafigcahdpofnmmhljpnei}
       AUTH_DEV_PASSWORD: ${AUTH_DEV_PASSWORD:-}
       AUTH_EMAIL_PASSWORD: ${AUTH_EMAIL_PASSWORD:-}

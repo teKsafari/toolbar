@@ -3,7 +3,7 @@
 import { expect, test } from './fixture.ts';
 import { recordLabErrors } from './journeys.ts';
 
-test('B: record chord, the lab error cases, record chord, Ctrl+Enter gives a link to a ready video', async ({ nib }) => {
-  const made = await recordLabErrors(nib);
+test('B: record chord, the lab error cases, record chord, Ctrl+Enter gives a link to a ready video', async ({ tb }) => {
+  const made = await recordLabErrors(tb);
   expect(made.shareUrl).toMatch(/\/s\/[A-Za-z0-9_-]+$/);
 });

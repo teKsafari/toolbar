@@ -1,4 +1,4 @@
-// Parity group G5, Nib side: sharing, permissions, comments and notifications
+// Parity group G5, open-toolbar side: sharing, permissions, comments and notifications
 // (docs/parity/scenarios.md, S5.1 to S5.3). Each test is one scenario, run as scripted, and
 // records its evidence (states, counts, clicks, API statuses, timings with the load average,
 // screenshots) in e2e/parity-shots/G5/<scenario>.json and .png files. The raw results are
@@ -36,7 +36,7 @@ import {
   clipboard,
   editorFrame,
   labPage,
-  launchNib,
+  launchExtension,
   load,
   screencast,
   firstMatching,
@@ -78,7 +78,7 @@ let plain: Browser | null = null;
 
 async function getRig(): Promise<Launched> {
   if (rig) return rig;
-  rig = await launchNib();
+  rig = await launchExtension();
   const { popup } = await signIn(rig.context, EMAIL);
   await popup.close().catch(() => undefined);
   for (const p of rig.context.pages()) if (p.url().startsWith(SERVER)) await p.close().catch(() => undefined);

@@ -22,16 +22,16 @@ declare const __tbDrafts: DraftHooks;
 export async function signIn(sw: Worker, serverUrl: string) {
   await sw.evaluate(async (serverUrl) => {
     await chrome.storage.local.set({
-      'nib:auth': {
+      'tb:auth': {
         serverUrl,
         token: 'tb_dev_e2e',
         tokenId: 't1',
-        user: { id: '019a0000-0000-7000-8000-000000000001', name: 'Dana Reviewer', email: 'dana@nib.test', image: null },
+        user: { id: '019a0000-0000-7000-8000-000000000001', name: 'Dana Reviewer', email: 'dana@toolbar.test', image: null },
         activeWorkspaceId: '019a0000-0000-7000-8000-0000000000a1',
         signedInAt: Date.now(),
       },
-      'nib:bootstrap': null,
-      'nib:editor-prefs': null,
+      'tb:bootstrap': null,
+      'tb:editor-prefs': null,
     });
   }, serverUrl);
 }

@@ -13,7 +13,7 @@ const SAM = '019a0000-0000-7000-8000-000000000002';
 test.beforeAll(async () => {
   browser = await launch();
   page = await (await newContext(browser)).newPage();
-  await signIn(page, 'dana@nib.test', 'nib-dev-password');
+  await signIn(page, 'dana@toolbar.test', 'toolbar-dev-password');
 });
 test.afterAll(async () => browser.close());
 
@@ -115,7 +115,7 @@ test('J-214: an unknown route shows the drawn not-found page with a button home'
 
 test('J-207: the grid shows skeletons while captures load', async () => {
   const p = await (await newContext(browser)).newPage();
-  await signIn(p, 'dana@nib.test', 'nib-dev-password');
+  await signIn(p, 'dana@toolbar.test', 'toolbar-dev-password');
   await p.route('**/api/v1/recordings?*', async (r) => {
     await new Promise((x) => setTimeout(x, 1500));
     await r.continue();
@@ -129,7 +129,7 @@ test('J-207: the grid shows skeletons while captures load', async () => {
 test('390 px and dark mode: one column, the sidebar becomes a drawer, dark tokens apply', async () => {
   const ctx = await newContext(browser, { width: 390, height: 844, dark: true });
   const p = await ctx.newPage();
-  await signIn(p, 'dana@nib.test', 'nib-dev-password');
+  await signIn(p, 'dana@toolbar.test', 'toolbar-dev-password');
   await go(p, '/');
   await expect(p.getByTestId('capture-card')).toHaveCount(2);
   const widths = await p.getByTestId('capture-card').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().width));

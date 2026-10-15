@@ -1,5 +1,5 @@
 // The MCP tool set (J-149 reads, J-150 search and lists, J-151 writes), modelled on what an
-// agent gets from Jam (docs/jam/agent-output.md) with Nib's own names and descriptions, plus the
+// agent gets from Jam (docs/jam/agent-output.md) with open-toolbar's own names and descriptions, plus the
 // gaps fixed: request and response headers, WebSocket and SSE messages, and errors that say why.
 // Every tool takes an optional `intent` and every capture tool takes an id or a capture URL.
 import { and, asc, count, desc, eq, ilike, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm';

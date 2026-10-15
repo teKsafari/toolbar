@@ -1,4 +1,4 @@
-// Parity group G8, Nib side: agent hand-off (MCP, markdown, copy for AI), shortcuts, speed,
+// Parity group G8, open-toolbar side: agent hand-off (MCP, markdown, copy for AI), shortcuts, speed,
 // errors and empty states (docs/parity/scenarios.md, S8.1 to S8.5). Each test is one scenario,
 // run as scripted, and records its evidence (counts, steps, clicks, timings with the load
 // average, screenshots) in e2e/parity-shots/G8/<scenario>.json and .png files. The raw results
@@ -41,7 +41,7 @@ import {
   focusWindow,
   hasEditor,
   iconPoint,
-  launchNib,
+  launchExtension,
   load,
   popupBox,
   popupPage,
@@ -71,7 +71,7 @@ const CLIENT_NAME = 'Claude Code';
 const REDIRECT_PORT = 47121;
 const REDIRECT = `http://127.0.0.1:${REDIRECT_PORT}/callback`;
 // the access token lives outside the repo and outside the evidence
-const STATE_FILE = path.join(os.tmpdir(), 'nib-parity-g8-state.json');
+const STATE_FILE = path.join(os.tmpdir(), 'tb-parity-g8-state.json');
 
 function idFrom(env: string, file: string, pick: (j: Record<string, unknown>) => unknown): string {
   if (process.env[env]) return process.env[env]!;
@@ -101,7 +101,7 @@ let plain: Browser | null = null;
 
 async function getRig(): Promise<Launched> {
   if (rig) return rig;
-  rig = await launchNib();
+  rig = await launchExtension();
   const { popup } = await signIn(rig.context, EMAIL);
   await popup.close().catch(() => undefined);
   for (const p of rig.context.pages()) if (p.url().startsWith(SERVER)) await p.close().catch(() => undefined);
@@ -246,7 +246,7 @@ async function agentTab(p: Page) {
 // ---------------------------------------------------------------- extension helpers (as in G1)
 
 async function session(sw: () => Promise<import('@playwright/test').Worker>) {
-  return (await (await sw()).evaluate(async () => (await chrome.storage.session.get('nib:session'))['nib:session'])) as { state: string; [k: string]: unknown } | undefined;
+  return (await (await sw()).evaluate(async () => (await chrome.storage.session.get('tb:session'))['tb:session'])) as { state: string; [k: string]: unknown } | undefined;
 }
 
 async function freshLab(context: BrowserContext, p = '/'): Promise<Page> {
@@ -362,7 +362,7 @@ interface AgentRun {
 
 // Claude Code remembers servers that answered 401 (by name) in this file and then skips them for a
 // while; a run that saw the server refuse (step 8) would make the next run skip it. The spec drops
-// the "nib" entry before each run and puts the file back as it found it at the end.
+// the "open-toolbar" entry before each run and puts the file back as it found it at the end.
 const NEEDS_AUTH = path.join(os.homedir(), '.claude', 'mcp-needs-auth-cache.json');
 let needsAuthBefore: string | null | undefined;
 function forgetNeedsAuth() {
@@ -370,8 +370,8 @@ function forgetNeedsAuth() {
     const raw = fs.readFileSync(NEEDS_AUTH, 'utf8');
     if (needsAuthBefore === undefined) needsAuthBefore = raw;
     const j = JSON.parse(raw) as Record<string, unknown>;
-    if ('nib' in j) {
-      delete j.nib;
+    if ('open-toolbar' in j) {
+      delete j['open-toolbar'];
       fs.writeFileSync(NEEDS_AUTH, JSON.stringify(j));
     }
   } catch {
@@ -379,7 +379,7 @@ function forgetNeedsAuth() {
   }
 }
 function restoreNeedsAuth() {
-  // the "nib" entry is already gone (forgetNeedsAuth); a file this spec created goes too
+  // the "open-toolbar" entry is already gone (forgetNeedsAuth); a file this spec created goes too
   if (needsAuthBefore !== null) return;
   try {
     if (fs.readFileSync(NEEDS_AUTH, 'utf8').trim() === '{}') fs.rmSync(NEEDS_AUTH, { force: true });
@@ -397,7 +397,7 @@ function agent(ev: Evidence, step: string, cwd: string, prompt: string): AgentRu
   try {
     out = execFileSync(
       'claude',
-      ['-p', prompt, '--mcp-config', path.join(cwd, 'mcp.json'), '--strict-mcp-config', '--allowedTools', 'mcp__nib', '--output-format', 'stream-json', '--verbose', '--model', 'sonnet', '--max-turns', '30'],
+      ['-p', prompt, '--mcp-config', path.join(cwd, 'mcp.json'), '--strict-mcp-config', '--allowedTools', 'mcp__open-toolbar', '--output-format', 'stream-json', '--verbose', '--model', 'sonnet', '--max-turns', '30'],
       { cwd, encoding: 'utf8', timeout: 600_000, maxBuffer: 64 << 20, input: '' },
     );
   } catch (e) {
@@ -413,7 +413,7 @@ function agent(ev: Evidence, step: string, cwd: string, prompt: string): AgentRu
       continue;
     }
     if (m.type === 'assistant')
-      for (const c of (m.message?.content ?? []) as { type: string; name?: string; input?: unknown }[]) if (c.type === 'tool_use') run.toolCalls.push({ name: c.name!.replace(/^mcp__nib__/, ''), input: c.input });
+      for (const c of (m.message?.content ?? []) as { type: string; name?: string; input?: unknown }[]) if (c.type === 'tool_use') run.toolCalls.push({ name: c.name!.replace(/^mcp__open-toolbar__/, ''), input: c.input });
     if (m.type === 'user')
       for (const c of (m.message?.content ?? []) as { type: string; content?: unknown; is_error?: boolean }[]) {
         if (c.type !== 'tool_result') continue;
@@ -523,7 +523,7 @@ test('S8.1 MCP, markdown and copy for AI (N1)', async () => {
   ev.set('step1-shots', await shoot4(ev, '1-mcp-page', ownerOpen(context, '/settings/mcp'), settingsDrawer));
 
   // 2. the agent's first call: 401, discovery, registration as "Claude Code", consent, one click
-  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-g8-agent-'));
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-g8-agent-'));
   const state: G8State = { scratch };
   await probe(ev, 'step2-consent (J-146)', async () => {
     const first = await fetch(`${SERVER}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }) });
@@ -584,7 +584,7 @@ test('S8.1 MCP, markdown and copy for AI (N1)', async () => {
       state.token = tj.access_token;
       state.clientId = reg.client_id;
       writeState(state);
-      fs.writeFileSync(path.join(scratch, 'mcp.json'), JSON.stringify({ mcpServers: { nib: { type: 'http', url: `${SERVER}/mcp`, headers: { Authorization: `Bearer ${tj.access_token}` } } } }), { mode: 0o600 });
+      fs.writeFileSync(path.join(scratch, 'mcp.json'), JSON.stringify({ mcpServers: { 'open-toolbar': { type: 'http', url: `${SERVER}/mcp`, headers: { Authorization: `Bearer ${tj.access_token}` } } } }), { mode: 0o600 });
       const tools = await rpc(tj.access_token, 'tools/list');
       return {
         firstCall: { status: first.status, wwwAuthenticate: wwwAuth.replace(SERVER, '<server>') },
@@ -630,7 +630,7 @@ test('S8.1 MCP, markdown and copy for AI (N1)', async () => {
       ev,
       '3',
       scratch,
-      `Use the nib MCP tools on this capture: ${n1Link}\n` +
+      `Use the open-toolbar MCP tools on this capture: ${n1Link}\n` +
         'Fetch: its details; its console logs (every row); its network requests with status 5xx only; its user events (every row). ' +
         'Then answer with only a JSON object, no prose: {"title": string, "console": {"total": number, "returned": number}, "network5xx": {"total": number, "rows": [string]}, "userEvents": {"total": number, "returned": number}, "networkFields": [string] (the field names one 5xx request carries), "has": {"requestHeaders": bool, "responseHeaders": bool, "responseBody": bool, "frameId": bool}}',
     );
@@ -644,7 +644,7 @@ test('S8.1 MCP, markdown and copy for AI (N1)', async () => {
         ev,
         '4',
         scratch,
-        `With the nib MCP tools: (a) find the capture at ${n1Link} by passing that URL to search; (b) search for "parity"; (c) list the folders; (d) list the workspace members. ` +
+        `With the open-toolbar MCP tools: (a) find the capture at ${n1Link} by passing that URL to search; (b) search for "parity"; (c) list the folders; (d) list the workspace members. ` +
           'Answer with only a JSON object: {"byUrl": {"found": bool, "id": string, "title": string}, "parity": {"total": number, "titles": [string]}, "folders": [{"name": string, "captures": number}], "members": [{"email": string, "role": string}]}',
       ),
     ),
@@ -670,7 +670,7 @@ test('S8.1 MCP, markdown and copy for AI (N1)', async () => {
         ev,
         '5a',
         scratch,
-        `With the nib MCP tools, on the capture ${n1Link}: add the comment "agent parity check" pinned at 0:10 of the video (videoMs 10000), and set the capture's title to "parity S3.1 lab (agent)". ` +
+        `With the open-toolbar MCP tools, on the capture ${n1Link}: add the comment "agent parity check" pinned at 0:10 of the video (videoMs 10000), and set the capture's title to "parity S3.1 lab (agent)". ` +
           'Answer with only a JSON object: {"commentId": string, "videoMs": number, "title": string}',
       ),
     ),
@@ -693,7 +693,7 @@ test('S8.1 MCP, markdown and copy for AI (N1)', async () => {
         ev,
         '5b',
         scratch,
-        `With the nib MCP tools, on the capture ${n1Link}: set its title back to "${n1Title}"${commentId ? ` and delete the comment with id ${commentId}` : ' and delete your comment "agent parity check"'}. Answer with only a JSON object: {"title": string, "commentDeleted": bool}`,
+        `With the open-toolbar MCP tools, on the capture ${n1Link}: set its title back to "${n1Title}"${commentId ? ` and delete the comment with id ${commentId}` : ' and delete your comment "agent parity check"'}. Answer with only a JSON object: {"title": string, "commentDeleted": bool}`,
       ),
     ),
   );
@@ -765,7 +765,7 @@ test('S8.1 MCP, markdown and copy for AI (N1)', async () => {
       headings: accept.split('\n').filter((l) => /^#{1,3} /.test(l)),
       countsLine: accept.split('\n').find((l) => /console|network|error/i.test(l) && /\d/.test(l) && !l.startsWith('#'))?.slice(0, 300) ?? null,
       mentionsMcp: /mcp/i.test(accept),
-      mentionsCli: /\bnib (get|console|network|frames)\b|\bCLI\b/.test(accept),
+      mentionsCli: /\bopen-toolbar (get|console|network|frames)\b|\bCLI\b/.test(accept),
       mentionsHttpApi: /HTTP API/.test(accept),
       contentTypeMd: headMd.match(/^content-type:.*$/im)?.[0] ?? null,
       varyMd: headMd.match(/^vary:.*$/im)?.[0] ?? null,
@@ -800,7 +800,7 @@ test('S8.1 MCP, markdown and copy for AI (N1)', async () => {
     await p.close();
     return { listed, confirmText, clicks: 3, rowGoneWithoutReloadMs: gone, load: c.load, nextCallStatus: after.status };
   });
-  await probe(ev, 'step8-agent-after-remove', () => Promise.resolve(agent(ev, '8', scratch, `Use the nib MCP tools to fetch the details of ${n1Link}. Answer with only a JSON object: {"ok": bool, "what_happened": string}`)));
+  await probe(ev, 'step8-agent-after-remove', () => Promise.resolve(agent(ev, '8', scratch, `Use the open-toolbar MCP tools to fetch the details of ${n1Link}. Answer with only a JSON object: {"ok": bool, "what_happened": string}`)));
   ev.set('step8-shots', await shoot4(ev, '8-mcp-page-after', ownerOpen(context, '/settings/mcp'), settingsDrawer));
 
   // 9. a 30-day token with the defaults (MCP and HTTP API read only; the CLI is paused): shown
@@ -1091,8 +1091,8 @@ test('S8.4 speed', async () => {
   ev.set('load-start', load());
   // a browser of its own on a kept profile, so the cold open is the first open after a start
   await closeRig();
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-parity-g8-cold-'));
-  let b: Launched | null = await launchNib({ userDataDir: dir });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-parity-g8-cold-'));
+  let b: Launched | null = await launchExtension({ userDataDir: dir });
   try {
     const { popup } = await signIn(b.context, EMAIL);
     await popup.close().catch(() => undefined);
@@ -1149,7 +1149,7 @@ test('S8.4 speed', async () => {
     };
 
     // J-193: cold, then three warm
-    b = await launchNib({ userDataDir: dir });
+    b = await launchExtension({ userDataDir: dir });
     const page = await (async () => {
       const pg = b!.context.pages()[0] ?? (await b!.context.newPage());
       await pg.goto(LAB_URL + '/');

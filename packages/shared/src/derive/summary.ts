@@ -101,9 +101,9 @@ function commentLines(cs: BriefComment[], indent = ''): string[] {
 }
 
 export interface Pointers {
-  /** MCP server URL, e.g. https://nib.example/mcp */
+  /** MCP server URL, e.g. https://toolbar.example/mcp */
   mcpUrl: string;
-  /** base of the HTTP API, e.g. https://nib.example/api/v1; omitted: no API line */
+  /** base of the HTTP API, e.g. https://toolbar.example/api/v1; omitted: no API line */
   apiUrl?: string | null;
   /** name of the CLI binary; null or omitted while the CLI is paused (docs/scope.md, FEATURE_CLI) */
   cli?: string | null;

@@ -14,4 +14,4 @@ class Shell {
 
 export const shell = new Shell();
 
-export const DRAG_MIME = 'application/x-nib-captures';
+export const DRAG_MIME = 'application/x-toolbar-captures';

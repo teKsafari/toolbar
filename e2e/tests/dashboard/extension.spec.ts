@@ -8,18 +8,18 @@ declare const chrome: { storage: { local: { set(v: Record<string, unknown>): Pro
 
 test('J-018: new capture in the dashboard header opens the extension popup', async ({ context, sw }) => {
   // Point the extension at this area's server, whatever the build defaulted to.
-  await sw.evaluate((url) => chrome.storage.local.set({ 'nib:server-url': url }), SERVER);
+  await sw.evaluate((url) => chrome.storage.local.set({ 'tb:server-url': url }), SERVER);
   // the worker's context is shared with earlier suites; start signed out so /login shows the form
   await context.clearCookies();
   const page = await context.newPage();
   await signIn(page, uniqueEmail(undefined, 'newcap'));
   await go(page, '/');
-  await expect(page.locator('html')).toHaveAttribute('data-nib-extension', /.+/);
+  await expect(page.locator('html')).toHaveAttribute('data-tb-extension', /.+/);
 
   // Other origins are left alone.
   const other = await context.newPage();
   await other.goto(`${SERVER.replace('localhost', '127.0.0.1')}/login`);
-  expect(await other.locator('html').getAttribute('data-nib-extension')).toBeNull();
+  expect(await other.locator('html').getAttribute('data-tb-extension')).toBeNull();
   await other.close();
 
   await page.bringToFront();

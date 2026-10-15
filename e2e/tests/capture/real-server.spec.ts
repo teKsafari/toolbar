@@ -1,8 +1,8 @@
 // The uploader against a real server (server-core's upload API), not the mock. Opt-in: runs only
-// when NIB_E2E_TOKEN holds a personal or device token for SERVER_URL and NIB_E2E_WORKSPACE names
+// when TOOLBAR_E2E_TOKEN holds a personal or device token for SERVER_URL and TOOLBAR_E2E_WORKSPACE names
 // a workspace of that token's user (the seed's Lab shop works). Run it on a tree with
 // area/server-core merged:
-//   NIB_E2E_TOKEN=... NIB_E2E_WORKSPACE=... SERVER_URL=http://localhost:3102 npx playwright test real-server
+//   TOOLBAR_E2E_TOKEN=... TOOLBAR_E2E_WORKSPACE=... SERVER_URL=http://localhost:3102 npx playwright test real-server
 import type { Worker } from '@playwright/test';
 import { LAB_URL, expect, session, setSettings, sleep, svc, tabIdOf, test } from './helpers.ts';
 
@@ -10,18 +10,18 @@ import { LAB_URL, expect, session, setSettings, sleep, svc, tabIdOf, test } from
 declare const chrome: any;
 
 const SERVER = process.env.SERVER_URL ?? 'http://localhost:3102';
-const TOKEN = process.env.NIB_E2E_TOKEN ?? '';
-const WS = process.env.NIB_E2E_WORKSPACE ?? '';
+const TOKEN = process.env.TOOLBAR_E2E_TOKEN ?? '';
+const WS = process.env.TOOLBAR_E2E_WORKSPACE ?? '';
 
-test.skip(!TOKEN || !WS, 'set NIB_E2E_TOKEN and NIB_E2E_WORKSPACE to run against a real server');
+test.skip(!TOKEN || !WS, 'set TOOLBAR_E2E_TOKEN and TOOLBAR_E2E_WORKSPACE to run against a real server');
 test.describe.configure({ timeout: 180_000 });
 
 async function signInReal(sw: Worker) {
   await sw.evaluate(
     async ({ serverUrl, token, ws }) => {
       await chrome.storage.local.set({
-        'nib:auth': { serverUrl, token, tokenId: 'tok-real', user: { id: 'u', name: 'E2E', email: 'e2e@nib.test', image: null }, activeWorkspaceId: ws, signedInAt: Date.now() },
-        'nib:server-url': serverUrl,
+        'tb:auth': { serverUrl, token, tokenId: 'tok-real', user: { id: 'u', name: 'E2E', email: 'e2e@toolbar.test', image: null }, activeWorkspaceId: ws, signedInAt: Date.now() },
+        'tb:server-url': serverUrl,
       });
     },
     { serverUrl: SERVER, token: TOKEN, ws: WS },

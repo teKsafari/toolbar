@@ -1,5 +1,5 @@
 // Browser client for the routes the capture page calls. URLs come from the route table
-// (docs/parallel.md rule 5); share-link viewers send their token in x-nib-share (D-030).
+// (docs/parallel.md rule 5); share-link viewers send their token in x-toolbar-share (D-030).
 import { buildPath, ROUTES, SHARE_TOKEN_HEADER } from '@toolbar/shared/api';
 
 type RouteName = keyof typeof ROUTES;

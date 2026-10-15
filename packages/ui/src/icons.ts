@@ -1,14 +1,9 @@
-// Nib's icon set, drawn for this project: 24x24 grid, 1.75 px round strokes, no fills
+// open-toolbar's icon set, drawn for this project: 24x24 grid, 1.75 px round strokes, no fills
 // unless noted. Each icon is a list of SVG child elements as markup strings.
 
 export const icons = {
-  /** Product mark: a pen nib with its slit and breather hole. */
-  logo: [
-    '<path d="M12 2.75 5.5 11l2.25 7.25h8.5L18.5 11z"/>',
-    '<path d="M12 12.5v5.75"/>',
-    '<circle cx="12" cy="10.5" r="1.5"/>',
-    '<path d="M8.5 21.25h7"/>',
-  ],
+  /** Product mark (D-083): a filled rectangle in the text colour. */
+  logo: ['<rect x="2" y="7" width="20" height="10" fill="currentColor" stroke="none"/>'],
   screenshot: [
     '<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/>',
     '<circle cx="12" cy="12" r="3"/>',

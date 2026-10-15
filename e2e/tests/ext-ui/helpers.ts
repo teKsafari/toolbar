@@ -37,7 +37,7 @@ export const AUTH = {
   serverUrl: 'http://localhost:1',
   token: 'tb_dev_e2e_not_a_real_token',
   tokenId: '019a0000-0000-7000-8000-00000000e2e0',
-  user: { id: '019a0000-0000-7000-8000-00000000e2e1', name: 'Test Reviewer', email: 'test@nib.test', image: null },
+  user: { id: '019a0000-0000-7000-8000-00000000e2e1', name: 'Test Reviewer', email: 'test@toolbar.test', image: null },
   activeWorkspaceId: '019a0000-0000-7000-8000-0000000000a1',
   signedInAt: 0,
 };
@@ -54,10 +54,10 @@ export async function freshState(sw: Worker, opts: { mic?: string; auth?: Partia
         if ((await __tbUi.session()).state === 'idle') break;
       }
       __tbUi.useFakeDriver(mic ? { mic } : {});
-      await chrome.storage.local.remove(['nib:drafts', 'nib:bootstrap', 'nib:server-url']);
-      await chrome.storage.session.remove(['nib:replay', 'nib:heavy-override']);
-      if (auth) await chrome.storage.local.set({ 'nib:auth': auth });
-      else await chrome.storage.local.remove('nib:auth');
+      await chrome.storage.local.remove(['tb:drafts', 'tb:bootstrap', 'tb:server-url']);
+      await chrome.storage.session.remove(['tb:replay', 'tb:heavy-override']);
+      if (auth) await chrome.storage.local.set({ 'tb:auth': auth });
+      else await chrome.storage.local.remove('tb:auth');
       await __tbUi.setSettings(settings ?? {});
     },
     { mic: opts.mic, auth: opts.auth === null ? null : { ...AUTH, ...(opts.auth ?? {}) }, settings: opts.settings },
@@ -76,7 +76,7 @@ export async function labPage(context: BrowserContext, path = '/'): Promise<{ pa
 /** Chrome tab id of a page, matched by a marker in its URL hash-free href. */
 export async function tabIdOf(context: BrowserContext, page: Page): Promise<number> {
   const sw = context.serviceWorkers()[0]!;
-  const marker = `nib-${Math.random().toString(36).slice(2)}`;
+  const marker = `tb-${Math.random().toString(36).slice(2)}`;
   await page.evaluate((m) => (document.title = `${document.title} ${m}`), marker);
   const id = await sw.evaluate(async (m) => {
     for (let i = 0; i < 50; i++) {

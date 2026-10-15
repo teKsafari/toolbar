@@ -48,7 +48,7 @@ describe('env', () => {
 
   it('allows dev secrets on localhost only', () => {
     expect(assertSafeSecrets(loadEnv())).toEqual([]);
-    process.env.PUBLIC_URL = 'https://nib.example.com';
+    process.env.PUBLIC_URL = 'https://toolbar.example.com';
     expect(assertSafeSecrets(loadEnv())).toEqual(['BETTER_AUTH_SECRET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY']);
   });
 });

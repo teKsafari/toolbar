@@ -1,4 +1,4 @@
-// Design tokens for Nib (D-018, D-019). Source of truth; src/tokens.css is generated from
+// Design tokens for open-toolbar (D-018, D-019). Source of truth; src/tokens.css is generated from
 // this file with `pnpm --filter @toolbar/ui gen:tokens`, and a unit test fails if they drift.
 //
 // The palette is our own: "ink" (a cobalt blue-violet) for the accent on warm "paper"

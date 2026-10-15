@@ -12,7 +12,7 @@
   async function dismiss() {
     hidden = true;
     await api('dashboard.dismissOnboarding').catch(() => {});
-    await invalidate('nib:shell');
+    await invalidate('tb:shell');
   }
 </script>
 

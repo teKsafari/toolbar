@@ -4,9 +4,9 @@
 import { SERVER, expect, hydrated, saveShot, test } from './fixture.ts';
 import { instantReplay, recordLabErrors } from './journeys.ts';
 
-test('H: new folder from the sidebar; move by checkbox and by drag', async ({ nib, context }) => {
-  const video = await recordLabErrors(nib);
-  const replay = await instantReplay(nib);
+test('H: new folder from the sidebar; move by checkbox and by drag', async ({ tb, context }) => {
+  const video = await recordLabErrors(tb);
+  const replay = await instantReplay(tb);
   const page = await context.newPage();
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`${SERVER}/`);

@@ -233,7 +233,7 @@ async function pickerCancel({ context, sw }: { context: BrowserContext; sw: Work
   x('click', '1');
   await waitState(sw, 'idle', 10_000);
   expect((await sent(sw)).some((x) => x.c.type === 'ui.bar' && x.c.bar === null)).toBe(true);
-  const drafts = await sw.evaluate(async () => ((await chrome.storage.local.get('nib:drafts'))['nib:drafts'] ?? []).filter((d: { kind: string; status: string }) => d.kind === 'screen' && d.status === 'open').length);
+  const drafts = await sw.evaluate(async () => ((await chrome.storage.local.get('tb:drafts'))['tb:drafts'] ?? []).filter((d: { kind: string; status: string }) => d.kind === 'screen' && d.status === 'open').length);
   expect(drafts).toBe(0);
   const created = [...mock.captures.values()].filter((c) => c.body.kind === 'screen');
   expect(created.every((c) => c.deleted)).toBe(true); // the unlisted server capture is removed

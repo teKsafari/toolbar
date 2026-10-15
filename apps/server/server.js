@@ -3,13 +3,13 @@
 // and assumes https. Pin the origin to PUBLIC_URL instead, so form CSRF checks and
 // absolute URLs match on plain-http localhost and behind a TLS proxy alike.
 const pub = new URL(process.env.PUBLIC_URL || 'http://localhost:3000');
-process.env.PROTOCOL_HEADER = 'x-nib-origin-proto';
-process.env.HOST_HEADER = 'x-nib-origin-host';
+process.env.PROTOCOL_HEADER = 'x-toolbar-origin-proto';
+process.env.HOST_HEADER = 'x-toolbar-origin-host';
 
 const { server } = await import('./build/index.js');
 server.prependListener('request', (req) => {
-  req.headers['x-nib-origin-proto'] = pub.protocol.slice(0, -1);
-  req.headers['x-nib-origin-host'] = pub.host;
+  req.headers['x-toolbar-origin-proto'] = pub.protocol.slice(0, -1);
+  req.headers['x-toolbar-origin-host'] = pub.host;
   // Kit 3's CSRF check refuses POST/PUT/PATCH/DELETE with a form-like or missing Content-Type
   // unless Origin is this server: that blocks the extension's multipart asset uploads
   // (Origin chrome-extension://...) and every curl or CLI DELETE (no Origin). A request that

@@ -280,7 +280,7 @@
   onconfirm={async () => {
     if (toDelete) await del(toDelete).catch((e) => toasts.error(errMsg(e)));
     toDelete = null;
-    void invalidate('nib:shell');
+    void invalidate('tb:shell');
   }}
 />
 

@@ -26,7 +26,7 @@
       url = new URL(value.trim());
       if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error();
     } catch {
-      error = 'Type a full address such as https://nib.example.com';
+      error = 'Type a full address such as https://toolbar.example.com';
       return;
     }
     const origin = url.origin;

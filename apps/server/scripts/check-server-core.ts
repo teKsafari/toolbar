@@ -110,7 +110,7 @@ function shiftEvents(startedAt: number): CaptureEvent[] {
 }
 
 function probeDuration(b: Uint8Array): number {
-  const dir = mkdtempSync(join(tmpdir(), 'nib-check-'));
+  const dir = mkdtempSync(join(tmpdir(), 'tb-check-'));
   const p = join(dir, 'v.webm');
   writeFileSync(p, b);
   const out = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', p]).toString().trim();
@@ -211,10 +211,10 @@ const sections: Record<string, () => Promise<void>> = {
     ok(page.headers.get('referrer-policy') === 'no-referrer' && page.headers.get('x-robots-tag')?.includes('noindex'), '/s/<token> sends no-referrer and noindex');
     const range = await call('GET', `/s/${token}/media/video`, { token: null, headers: { range: 'bytes=0-1023' } });
     ok(range.status === 206 && range.headers.get('content-range')?.startsWith('bytes 0-1023/') && range.data.length === 1024, 'Range request through the share proxy: 206 with 1024 bytes');
-    const full = await call('GET', `/s/${token}/media/video`, { token: null, headers: { 'x-nib-share': token } });
+    const full = await call('GET', `/s/${token}/media/video`, { token: null, headers: { 'x-toolbar-share': token } });
     ok(full.status === 200 && full.headers.get('accept-ranges') === 'bytes', 'full GET: 200, accept-ranges bytes');
-    const viaHeader = await call('GET', `/api/v1/recordings/${id}/media/thumb`, { token: null, headers: { 'x-nib-share': token } });
-    ok(viaHeader.status === 200, 'member media route with x-nib-share header works signed out');
+    const viaHeader = await call('GET', `/api/v1/recordings/${id}/media/thumb`, { token: null, headers: { 'x-toolbar-share': token } });
+    ok(viaHeader.status === 200, 'member media route with x-toolbar-share header works signed out');
     const settings = await call('GET', `/api/v1/recordings/${id}/share`);
     ok(settings.status === 200 && settings.data.link.devtools && !settings.data.contentOnlyLink.devtools, 'share settings: default link and content-only link');
     const co = settings.data.contentOnlyLink.url.split('/s/')[1];
@@ -254,7 +254,7 @@ const sections: Record<string, () => Promise<void>> = {
     ok((await call('GET', `/api/v1/share/${token}`, { token: null })).status === 401, 'signed out: 401 (sign-in page)');
     ok((await call('GET', `/s/${token}/media/screenshot`, { token: null })).status === 401, 'signed out media: 401');
     ok((await call('GET', `/api/v1/share/${token}`)).status === 200, 'member: 200');
-    ok((await call('GET', `/api/v1/recordings/${id}/media/screenshot`, { token: null, headers: { 'x-nib-share': token } })).status === 401, 'share header on a workspace capture: 401');
+    ok((await call('GET', `/api/v1/recordings/${id}/media/screenshot`, { token: null, headers: { 'x-toolbar-share': token } })).status === 401, 'share header on a workspace capture: 401');
     await call('PATCH', `/api/v1/recordings/${id}/share`, { body: { access: 'anyone' } });
     ok((await call('GET', `/api/v1/share/${token}`, { token: null })).status === 200, 'back to anyone: signed out 200');
   },
@@ -399,7 +399,7 @@ const sections: Record<string, () => Promise<void>> = {
     const dl = await call('GET', `/api/v1/recordings/${id}/media/video?download=1`);
     ok(dl.headers.get('content-disposition')?.startsWith('attachment;'), 'download=1 sends an attachment (J-098)');
     // a 1080p source gets the whole ladder, 720p down to 240p
-    const dir = mkdtempSync(join(tmpdir(), 'nib-hd-'));
+    const dir = mkdtempSync(join(tmpdir(), 'tb-hd-'));
     const hd = join(dir, 'hd.webm');
     execFileSync('ffmpeg', ['-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=1920x1080:rate=30', '-t', '6', '-c:v', 'libvpx-vp9', '-deadline', 'realtime', '-cpu-used', '8', '-b:v', '2M', hd]);
     const c = await create('video');
@@ -419,7 +419,7 @@ const sections: Record<string, () => Promise<void>> = {
     const member = (await call('GET', `/api/v1/recordings/${c.data.id}`)).data;
     ok(labels(member) === 'Original,720p,480p,360p,240p', `capture detail lists the renditions: ${labels(member)}`);
     const tok = c.data.shareUrl.split('/s/')[1] as string;
-    const shared = (await call('GET', `/api/v1/recordings/${c.data.id}`, { token: null, headers: { 'x-nib-share': tok } })).data;
+    const shared = (await call('GET', `/api/v1/recordings/${c.data.id}`, { token: null, headers: { 'x-toolbar-share': tok } })).data;
     const r240 = (shared?.media?.video?.renditions ?? []).find((x: { label: string }) => x.label === '240p');
     ok(labels(shared) === labels(member) && r240?.url.endsWith(`/s/${tok}/media/video-240`), `share viewer gets the same menu on the share proxy: ${labels(shared)}`);
     const via = await call('GET', new URL(r240?.url ?? '/none', S).pathname, { token: null, headers: { range: 'bytes=0-99' } });
@@ -454,7 +454,7 @@ const sections: Record<string, () => Promise<void>> = {
 
   async chapters() {
     console.log('J-075 AI chapters (needs AI_PROVIDER=openai-compatible on the server; espeak-ng and ffmpeg here)');
-    const dir = mkdtempSync(join(tmpdir(), 'nib-chap-'));
+    const dir = mkdtempSync(join(tmpdir(), 'tb-chap-'));
     const vid = join(dir, 'v.webm');
     const voice = join(dir, 'n.webm');
     execFileSync('ffmpeg', ['-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=15', '-t', '60', '-c:v', 'libvpx-vp9', '-deadline', 'realtime', '-cpu-used', '8', vid]);

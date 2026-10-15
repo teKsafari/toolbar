@@ -482,7 +482,7 @@ describe.skipIf(!reachable)('dashboard (integration)', () => {
   });
 
   it('J-020: an uploaded MP4 becomes a video capture with no logs, converted to WebM', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'nib-up-'));
+    const dir = mkdtempSync(join(tmpdir(), 'tb-up-'));
     const mp4 = join(dir, 'clip.mp4');
     execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc=size=320x240:rate=15', '-t', '1', '-pix_fmt', 'yuv420p', '-c:v', 'libx264', mp4]);
     const file = new File([readFileSync(mp4)], 'clip.mp4', { type: 'video/mp4' });

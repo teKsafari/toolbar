@@ -60,7 +60,7 @@ export async function probe(path: string): Promise<Probe> {
 }
 
 export async function withTmp<T>(fn: (dir: string) => Promise<T>): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nib-media-'));
+  const dir = await mkdtemp(join(tmpdir(), 'tb-media-'));
   try {
     return await fn(dir);
   } finally {

@@ -6,12 +6,14 @@ import { injectIntoOpenTabs, registerCaptureScripts } from '../lib/registration'
 import { CAPTURE_PORT, type BgRequest, type PortMessage } from '../lib/messages';
 import { TEST_HOOKS } from '../lib/flags';
 import { registerAuth } from '../lib/bg/auth';
+import { migrateStorage } from '../lib/migrate';
 import { setupCapture } from '../lib/bg/capture';
 import { registerUi } from '../lib/bg/ui';
 import { registerDraftHandlers } from '../lib/bg/drafts';
 import { registerDashboard } from '../lib/bg/dashboard';
 
 export default defineBackground(() => {
+  void migrateStorage();
   registerAuth();
   registerUi();
   registerDashboard();
@@ -19,7 +21,7 @@ export default defineBackground(() => {
   const recent: CaptureEvent[] = [];
 
   const ready = registerCaptureScripts().catch((e: unknown) => {
-    console.error('[nib] content script registration failed', e);
+    console.error('[toolbar] content script registration failed', e);
     throw e;
   });
   registerDraftHandlers();
@@ -45,7 +47,7 @@ export default defineBackground(() => {
   browser.commands.onCommand.addListener((command, tab) => {
     stats.commands.push(command);
     // routed by lib/bg/ui.ts (ext-ui)
-    console.debug('[nib] command', command as CommandName, tab?.id);
+    console.debug('[toolbar] command', command as CommandName, tab?.id);
   });
 
   browser.runtime.onMessage.addListener((msg: BgRequest, _sender, reply) => {

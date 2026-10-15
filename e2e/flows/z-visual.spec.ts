@@ -43,7 +43,7 @@ async function look(page: Page, name: string, theme: 'light' | 'dark') {
   await page.emulateMedia({ colorScheme: theme });
   await page.waitForTimeout(400);
   const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  const why = await page.evaluate(() => `data-theme=${document.documentElement.getAttribute('data-theme')} media-dark=${matchMedia('(prefers-color-scheme: dark)').matches} stored=${localStorage.getItem('nib.theme')}`);
+  const why = await page.evaluate(() => `data-theme=${document.documentElement.getAttribute('data-theme')} media-dark=${matchMedia('(prefers-color-scheme: dark)').matches} stored=${localStorage.getItem('tb.theme')}`);
   const [r, g, b] = (bg.match(/\d+/g) ?? ['255', '255', '255']).map(Number) as [number, number, number];
   const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
   if (bg !== 'rgba(0, 0, 0, 0)') expect(theme === 'dark' ? lum < 80 : lum > 180, `${name}: body ${bg} in ${theme} (${why})`).toBe(true);
@@ -63,11 +63,11 @@ async function open(page: Page, url: string) {
   await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
 }
 
-test('visual: web pages at 1440 and 390, light and dark', async ({ nib, context }) => {
+test('visual: web pages at 1440 and 390, light and dark', async ({ tb, context }) => {
   test.setTimeout(300_000); // 36 page loads; several seconds each when the machine is busy
-  const video = await recordLabErrors(nib);
-  const replay = await instantReplay(nib);
-  const shot = nib.made.screenshot;
+  const video = await recordLabErrors(tb);
+  const replay = await instantReplay(tb);
+  const shot = tb.made.screenshot;
   const member: [string, string][] = [
     ['dashboard', '/'],
     ['capture-video', `/c/${video.id}`],
@@ -98,12 +98,12 @@ test('visual: web pages at 1440 and 390, light and dark', async ({ nib, context 
   await anon.close();
 });
 
-test('visual: popup, options and the editor, light and dark', async ({ nib, context }) => {
-  void nib;
+test('visual: popup, options and the editor, light and dark', async ({ tb, context }) => {
+  void tb;
   for (const theme of THEMES) {
     const lab = await labPage(context);
     await lab.emulateMedia({ colorScheme: theme });
-    const tabId = await (await nib.sw()).evaluate(async (u) => (await chrome.tabs.query({ url: `${u}/*` })).at(-1)?.id ?? -1, LAB_URL);
+    const tabId = await (await tb.sw()).evaluate(async (u) => (await chrome.tabs.query({ url: `${u}/*` })).at(-1)?.id ?? -1, LAB_URL);
     const popup = await context.newPage();
     await popup.setViewportSize({ width: 400, height: 600 }); // Chrome sizes the popup to its 400 px content
     await popup.emulateMedia({ colorScheme: theme });

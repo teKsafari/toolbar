@@ -53,7 +53,7 @@ test('J-152 agent tab: setup prompt until an agent connects, then presets with t
   const browser = await chromium.launch({ headless: false, env: { ...process.env, DISPLAY: process.env.E2E_DISPLAY ?? ':117' } });
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await ctx.newPage();
-  await signInWithPassword(page, 'sam@nib.test', 'nib-dev-password');
+  await signInWithPassword(page, 'sam@toolbar.test', 'toolbar-dev-password');
   await page.goto(`${SERVER}/c/${C1}`);
   await hydrated(page);
   await expect(page.getByTestId('tab-agent')).toBeVisible();

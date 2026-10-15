@@ -1,4 +1,4 @@
-// Parity group G6, Nib side: dashboard, folders, search and recording links
+// Parity group G6, open-toolbar side: dashboard, folders, search and recording links
 // (docs/parity/scenarios.md, S6.1 to S6.3). Each test is one scenario, run as scripted, and
 // records its evidence (states, counts, clicks, timings with the load average, screenshots) in
 // e2e/parity-shots/G6/<scenario>.json and .png files. The raw results are written up in
@@ -26,7 +26,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { privateDisplay } from '../fixtures/xvfb.ts';
-import { DISPLAY, Evidence, LAB_URL, ROOT, SERVER, api, availableMb, calm, clipboard, launchNib, load, secs, signIn, sleep, waitReady, type Launched } from './rig.ts';
+import { DISPLAY, Evidence, LAB_URL, ROOT, SERVER, api, availableMb, calm, clipboard, launchExtension, load, secs, signIn, sleep, waitReady, type Launched } from './rig.ts';
 
 const GROUP = 'G6';
 const EMAIL = process.env.PARITY_EMAIL ?? 'parity@example.com';
@@ -51,7 +51,7 @@ let plain: Browser | null = null;
 
 async function getRig(): Promise<Launched> {
   if (rig) return rig;
-  rig = await launchNib();
+  rig = await launchExtension();
   const { popup } = await signIn(rig.context, EMAIL);
   await popup.close().catch(() => undefined);
   for (const p of rig.context.pages()) if (p.url().startsWith(SERVER)) await p.close().catch(() => undefined);

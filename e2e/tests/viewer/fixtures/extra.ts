@@ -37,7 +37,7 @@ async function main() {
     status: 'ready' as const,
     authorUserId: DANA,
     authorName: 'Dana Reviewer',
-    authorEmail: 'dana@nib.test',
+    authorEmail: 'dana@toolbar.test',
   };
   const putEvents = async (id: string, events: CaptureEvent[]) => {
     await putObject(keys.final(id, 'events.json.gz'), gzipSync(JSON.stringify(events)), 'application/gzip');

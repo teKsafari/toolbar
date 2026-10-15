@@ -50,7 +50,7 @@ describe('authorize', () => {
     const none = { user: null, apiToken: null };
     const viewerRoute = (ROUTE_LIST as readonly RouteDef[]).find((r) => r.auth === 'viewer')!;
     const uploadRoute = (ROUTE_LIST as readonly RouteDef[]).find((r) => r.auth === 'upload')!;
-    expect(await authorize(viewerRoute, {}, none, h({ 'x-nib-share': 'tok' }))).toBeNull();
+    expect(await authorize(viewerRoute, {}, none, h({ 'x-toolbar-share': 'tok' }))).toBeNull();
     expect(await authorize(viewerRoute, {}, none, h())).toMatchObject({ code: 'unauthorized' });
     expect(await authorize(uploadRoute, {}, none, h({ authorization: 'Bearer tb_upl_abc' }))).toBeNull();
     expect(await authorize(uploadRoute, {}, none, h({ authorization: 'Bearer tb_pat_abc' }))).toMatchObject({ code: 'unauthorized' });

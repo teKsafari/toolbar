@@ -28,7 +28,7 @@
       toasts.success(`Moved ${r.updated} ${r.updated === 1 ? 'capture' : 'captures'} to ${name ?? 'all captures'}`);
       onclear();
       shell.reload();
-      await invalidate('nib:shell');
+      await invalidate('tb:shell');
     } catch (e) {
       toasts.error(errMsg(e));
     }
@@ -40,7 +40,7 @@
       toasts.success(`Deleted ${r.updated} ${r.updated === 1 ? 'capture' : 'captures'}`);
       onclear();
       shell.reload();
-      await invalidate('nib:shell');
+      await invalidate('tb:shell');
     } catch (e) {
       toasts.error(errMsg(e));
     }

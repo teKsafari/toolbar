@@ -168,7 +168,7 @@ test('J-142: add a webhook, the secret shows once, a test delivery is signed, a 
   try {
     await go(page, '/settings/webhooks');
     await page.getByTestId('add-webhook').click();
-    await page.getByTestId('webhook-url').fill(`${hook.url}/nib`);
+    await page.getByTestId('webhook-url').fill(`${hook.url}/hook`);
     await page.getByTestId('webhook-save').click();
     await expect(page.getByTestId('webhook-secret')).toHaveText(/^whsec_/);
     const secret = (await page.getByTestId('webhook-secret').textContent())!.trim();
@@ -178,7 +178,7 @@ test('J-142: add a webhook, the secret shows once, a test delivery is signed, a 
     await row.getByTestId('webhook-test').click();
     await toast(page, 'Test delivered (HTTP 200)');
     const got = hook.seen.at(-1)!;
-    const [t, v1] = String(got.headers['x-nib-signature']).split(',').map((p) => p.split('=')[1]);
+    const [t, v1] = String(got.headers['x-toolbar-signature']).split(',').map((p) => p.split('=')[1]);
     expect(createHmac('sha256', secret).update(`${t}.${got.body}`).digest('hex')).toBe(v1);
     expect(JSON.parse(got.body)).toMatchObject({ event: 'capture.created', workspaceId: wsId });
     hook.setStatus(500);

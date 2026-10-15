@@ -12,7 +12,7 @@ import { ffmpeg, probe } from '../media/ffmpeg.ts';
 import { fail } from '../share/http.ts';
 import type { RecordingRow } from '../share/access.ts';
 
-const DIR = join(tmpdir(), 'nib-agent-frames');
+const DIR = join(tmpdir(), 'tb-agent-frames');
 export const FRAME_SIZES = { '360': 360, '720': 720, '1080': 1080 } as const;
 export type FrameSize = keyof typeof FRAME_SIZES;
 

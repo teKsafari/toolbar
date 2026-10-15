@@ -105,26 +105,26 @@ export interface UploadProgress {
   updatedAt: number;
 }
 
-/** Keys and value types. Prefix "nib:" keeps them apart from anything WXT stores. */
+/** Keys and value types. Prefix "tb:" keeps them apart from anything WXT stores. */
 export const STORAGE = {
   // chrome.storage.local: survives restarts
-  auth: { area: 'local', key: 'nib:auth' },
-  settings: { area: 'local', key: 'nib:settings' },
-  bootstrap: { area: 'local', key: 'nib:bootstrap' },
-  drafts: { area: 'local', key: 'nib:drafts' },
+  auth: { area: 'local', key: 'tb:auth' },
+  settings: { area: 'local', key: 'tb:settings' },
+  bootstrap: { area: 'local', key: 'tb:bootstrap' },
+  drafts: { area: 'local', key: 'tb:drafts' },
   /** server URL override (options page); default from WXT_SERVER_URL */
-  serverUrl: { area: 'local', key: 'nib:server-url' },
-  installId: { area: 'local', key: 'nib:install-id' },
-  micGranted: { area: 'local', key: 'nib:mic-granted' },
+  serverUrl: { area: 'local', key: 'tb:server-url' },
+  installId: { area: 'local', key: 'tb:install-id' },
+  micGranted: { area: 'local', key: 'tb:mic-granted' },
   /** heavy-page thresholds (J-011); unset means LIMITS.heavyPageNodes and heavyPageMutationsPerSec */
-  heavyThresholds: { area: 'local', key: 'nib:heavy-thresholds' },
+  heavyThresholds: { area: 'local', key: 'tb:heavy-thresholds' },
   // chrome.storage.session: survives worker restarts, not browser restarts
-  session: { area: 'session', key: 'nib:session' },
-  replay: { area: 'session', key: 'nib:replay' },
-  uploads: { area: 'session', key: 'nib:uploads' },
-  pendingAuth: { area: 'session', key: 'nib:pending-auth' },
+  session: { area: 'session', key: 'tb:session' },
+  replay: { area: 'session', key: 'tb:replay' },
+  uploads: { area: 'session', key: 'tb:uploads' },
+  pendingAuth: { area: 'session', key: 'tb:pending-auth' },
   /** heavy-page replay overrides for one page load (J-011): tab id -> page URL */
-  heavyOverride: { area: 'session', key: 'nib:heavy-override' },
+  heavyOverride: { area: 'session', key: 'tb:heavy-override' },
 } as const satisfies Record<string, { area: StorageArea; key: string }>;
 
 export interface StorageValues {
@@ -144,8 +144,40 @@ export interface StorageValues {
 }
 export type StorageName = keyof typeof STORAGE;
 
+/** Key prefix of extension builds before the rename to open-toolbar (D-111). */
+export const LEGACY_KEY_PREFIX = 'nib:';
+export const KEY_PREFIX = 'tb:';
+
+/** The part of chrome.storage.StorageArea the migration needs. */
+export interface MigratableArea {
+  get(keys: null): Promise<Record<string, unknown>>;
+  set(items: Record<string, unknown>): Promise<void>;
+  remove(keys: string[]): Promise<void>;
+}
+
+/**
+ * Moves every legacy `nib:*` value to its `tb:*` key and removes the old key. A `tb:*` value
+ * that already exists wins. Safe to run more than once; returns the keys it wrote.
+ */
+export async function migrateLegacyKeys(area: MigratableArea): Promise<string[]> {
+  const all = await area.get(null);
+  const moved: Record<string, unknown> = {};
+  const old: string[] = [];
+  for (const [k, v] of Object.entries(all)) {
+    if (!k.startsWith(LEGACY_KEY_PREFIX)) continue;
+    old.push(k);
+    const next = KEY_PREFIX + k.slice(LEGACY_KEY_PREFIX.length);
+    if (!(next in all)) moved[next] = v;
+  }
+  if (!old.length) return [];
+  if (Object.keys(moved).length) await area.set(moved);
+  await area.remove(old);
+  return Object.keys(moved);
+}
+
 /** IndexedDB database in the extension origin (service worker and extension pages). */
 export const IDB = {
+  /** Frozen: the working name of 2026 (D-018). Renaming the database would drop queued chunks and drafts. */
   name: 'nib',
   version: 1,
   stores: {

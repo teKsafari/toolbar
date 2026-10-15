@@ -1,4 +1,4 @@
-// A minimal WebSocket server endpoint (RFC 6455) for the CDP proxy in `nib record`: handshake,
+// A minimal WebSocket server endpoint (RFC 6455) for the CDP proxy in `open-toolbar record`: handshake,
 // text and binary frames, ping, close. Node has a WebSocket client built in but no server.
 import { createHash } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';

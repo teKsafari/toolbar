@@ -168,7 +168,7 @@ test('J-135 mentions in a comment and the description email the member', async (
   await input.pressSequentially(marker);
   await input.press('Control+Enter');
   await expect(page.getByTestId('comment').filter({ hasText: marker }).locator('.nb-mention')).toHaveText('@Sam Developer');
-  await expect.poll(async () => (await mailsTo('sam@nib.test')).some((m) => m.Snippet.includes(marker)), { timeout: 10000 }).toBe(true);
+  await expect.poll(async () => (await mailsTo('sam@toolbar.test')).some((m) => m.Snippet.includes(marker)), { timeout: 10000 }).toBe(true);
   // the description takes mentions too
   await page.getByTestId('description').click();
   const desc = page.getByTestId('description-input');
@@ -178,7 +178,7 @@ test('J-135 mentions in a comment and the description email the member', async (
   await desc.press('Tab');
   await page.locator('body').click({ position: { x: 5, y: 600 } });
   await expect(page.getByTestId('description').locator('.nb-mention')).toHaveText('@Sam Developer');
-  await expect.poll(async () => (await mailsTo('sam@nib.test')).some((m) => /the description/.test(m.Snippet)), { timeout: 10000 }).toBe(true);
+  await expect.poll(async () => (await mailsTo('sam@toolbar.test')).some((m) => /the description/.test(m.Snippet)), { timeout: 10000 }).toBe(true);
 });
 
 test('J-133 a hidden tab closes its comments stream and catches up when shown again', async ({ page, context }) => {

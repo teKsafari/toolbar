@@ -13,7 +13,7 @@ window.toolbar?.setMetadata(() => ({
   build: APP_VERSION,
 }));`;
   const guarded = `if (window.toolbar) window.toolbar.setMetadata({ tenant: 'acme' });
-// window.nib.setMetadata works too. Pass null to stop attaching data.`;
+// Pass null to stop attaching data.`;
 </script>
 
 <svelte:head><title>SDK · Settings</title></svelte:head>

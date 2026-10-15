@@ -19,7 +19,7 @@ test.beforeAll(async () => {
   browser = await launch();
   page = await (await newContext(browser)).newPage();
   await signIn(page, uniqueEmail(undefined, 'folders'));
-  const dir = mkdtempSync(join(tmpdir(), 'nib-e2e-'));
+  const dir = mkdtempSync(join(tmpdir(), 'tb-e2e-'));
   const f = join(dir, 'ten.mp4');
   // about 10 MB of H.264 so the upload converts a real file (J-020)
   execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=1280x720:rate=30', '-t', '8', '-c:v', 'libx264', '-b:v', '10M', '-maxrate', '10M', '-bufsize', '20M', '-pix_fmt', 'yuv420p', f]);
@@ -115,7 +115,7 @@ test('J-166: drag a card onto a sidebar folder to move it', async () => {
   // while a card is dragged, folders get dashed outlines and the hovered one a solid outline
   await card.dispatchEvent('dragstart', { dataTransfer: await page.evaluateHandle(() => new DataTransfer()) });
   await expect.poll(() => other.evaluate((el) => getComputedStyle(el).borderTopStyle)).toBe('dashed');
-  await target.dispatchEvent('dragover', { dataTransfer: await page.evaluateHandle(() => { const d = new DataTransfer(); d.setData('application/x-nib-captures', '[]'); return d; }) });
+  await target.dispatchEvent('dragover', { dataTransfer: await page.evaluateHandle(() => { const d = new DataTransfer(); d.setData('application/x-toolbar-captures', '[]'); return d; }) });
   await expect.poll(() => target.evaluate((el) => getComputedStyle(el).borderTopStyle)).toBe('solid');
   await card.dispatchEvent('dragend');
   await expect.poll(() => other.evaluate((el) => getComputedStyle(el).borderTopStyle)).not.toBe('dashed');

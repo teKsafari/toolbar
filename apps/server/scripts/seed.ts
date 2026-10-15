@@ -32,10 +32,10 @@ if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(env.publicUrl)) {
 /** Fixed ids (UUIDv7 layout) so re-runs replace the same rows and URLs stay stable. */
 const u = (n: number) => `019a0000-0000-7000-8000-${n.toString(16).padStart(12, '0')}`;
 const SEED = {
-  password: 'nib-dev-password',
+  password: 'toolbar-dev-password',
   users: {
-    dana: { id: u(0x1), name: 'Dana Reviewer', email: 'dana@nib.test' },
-    sam: { id: u(0x2), name: 'Sam Developer', email: 'sam@nib.test' },
+    dana: { id: u(0x1), name: 'Dana Reviewer', email: 'dana@toolbar.test' },
+    sam: { id: u(0x2), name: 'Sam Developer', email: 'sam@toolbar.test' },
   },
   workspace: { id: u(0xa1), name: 'Lab shop', slug: 'lab-shop' },
   folder: { id: u(0xf1), name: 'Checkout bugs' },
@@ -44,7 +44,7 @@ const SEED = {
 } as const;
 
 const seedToken = (label: string, bytes = 16) =>
-  base64url(createHash('sha256').update(`nib-seed:${label}`).digest().subarray(0, bytes));
+  base64url(createHash('sha256').update(`tb-seed:${label}`).digest().subarray(0, bytes));
 const fixture = (name: string) => readFileSync(new URL(`../fixtures/${name}`, import.meta.url));
 const at = (ms: number) => new Date(FIXTURE_T0 + ms);
 

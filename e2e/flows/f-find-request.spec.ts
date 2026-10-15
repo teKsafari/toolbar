@@ -4,8 +4,8 @@ import { chromium } from '@playwright/test';
 import { api, captureOf, expect, saveShot, test } from './fixture.ts';
 import { recordLabErrors } from './journeys.ts';
 
-test('F: logged out, the marker names the failure and the network pane shows the 500 body', async ({ nib }) => {
-  const made = await recordLabErrors(nib);
+test('F: logged out, the marker names the failure and the network pane shows the 500 body', async ({ tb }) => {
+  const made = await recordLabErrors(tb);
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(made.shareUrl).origin });
@@ -28,8 +28,8 @@ test('F: logged out, the marker names the failure and the network pane shows the
   // 3 clicks: network tab, the failing row, the response sub-tab
   await page.getByTestId('tab-network').click();
   const row = page.getByTestId('network-list').locator('.nrow', { hasText: '/api/fail' });
-  const rec = await captureOf(nib.context, made.shareUrl);
-  const failRows = (await api<{ items: Record<string, unknown>[] }>(nib.context, 'GET', `/api/v1/recordings/${rec.id}/network?limit=200`)).body.items.filter((r) => String(r.url).endsWith('/api/fail'));
+  const rec = await captureOf(tb.context, made.shareUrl);
+  const failRows = (await api<{ items: Record<string, unknown>[] }>(tb.context, 'GET', `/api/v1/recordings/${rec.id}/network?limit=200`)).body.items.filter((r) => String(r.url).endsWith('/api/fail'));
   const brief = failRows.map((r) => ({ rid: r.rid, source: r.source, frame: r.frame, status: r.status, offsetMs: r.offsetMs, initiator: r.initiator }));
   await expect(row, `the /api/fail rows: ${JSON.stringify(brief)}`).toHaveCount(1);
   await expect(row.locator('.c-s')).toHaveText('500');

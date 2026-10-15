@@ -13,15 +13,15 @@ import { recordLabErrors } from './journeys.ts';
 const b64 = (b: Buffer) => b.toString('base64url');
 const REDIRECT = 'http://127.0.0.1:47123/callback';
 
-test('J: MCP page snippet, consent in one click, the agent reads the capture and the 500', async ({ nib, context }) => {
-  const video = await recordLabErrors(nib);
+test('J: MCP page snippet, consent in one click, the agent reads the capture and the 500', async ({ tb, context }) => {
+  const video = await recordLabErrors(tb);
   const page = await context.newPage();
   await page.goto(`${SERVER}/settings`);
   await hydrated(page);
   await page.getByRole('link', { name: 'MCP', exact: true }).click();
   await expect(page).toHaveURL(/\/settings\/mcp$/);
   await page.getByTestId('agent-card-claude-code').click();
-  await expect(page.getByTestId('setup-snippet')).toHaveText(`claude mcp add --transport http nib ${SERVER}/mcp`);
+  await expect(page.getByTestId('setup-snippet')).toHaveText(`claude mcp add --transport http open-toolbar ${SERVER}/mcp`);
   await page.getByRole('button', { name: 'Done' }).click();
 
   // what the agent does on its first call
@@ -82,20 +82,20 @@ test('J: MCP page snippet, consent in one click, the agent reads the capture and
   await expect(page.getByTestId('mcp-client').filter({ hasText: client })).toHaveCount(1);
 
   if (process.env.FLOWS_CLAUDE === '1') {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-claude-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-claude-'));
     const cfg = path.join(dir, 'mcp.json');
     // the token goes in a file only this run reads; it is revoked below
-    fs.writeFileSync(cfg, JSON.stringify({ mcpServers: { nib: { type: 'http', url: `${SERVER}/mcp`, headers: { Authorization: `Bearer ${access}` } } } }), { mode: 0o600 });
+    fs.writeFileSync(cfg, JSON.stringify({ mcpServers: { 'open-toolbar': { type: 'http', url: `${SERVER}/mcp`, headers: { Authorization: `Bearer ${access}` } } } }), { mode: 0o600 });
     const out = execFileSync(
       'claude',
       [
         '-p',
-        `Use the nib MCP tools. Call get_network_requests for the capture ${video.shareUrl} with status ["5xx"]. Reply with one line: the failing request's path and the "error" field of its JSON response body.`,
+        `Use the open-toolbar MCP tools. Call get_network_requests for the capture ${video.shareUrl} with status ["5xx"]. Reply with one line: the failing request's path and the "error" field of its JSON response body.`,
         '--mcp-config',
         cfg,
         '--strict-mcp-config',
         '--allowedTools',
-        'mcp__nib__get_network_requests,mcp__nib__get_capture',
+        'mcp__open-toolbar__get_network_requests,mcp__open-toolbar__get_capture',
         '--output-format',
         'text',
       ],

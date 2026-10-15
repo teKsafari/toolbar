@@ -140,7 +140,7 @@
 
 <Modal bind:open={adding} title="Add webhook endpoint" width={480} testid="add-webhook-dialog">
   <form id="hook-form" class="f" onsubmit={add}>
-    <label>Endpoint URL<input type="url" bind:value={url} placeholder="https://example.com/nib-webhook" data-testid="webhook-url" /></label>
+    <label>Endpoint URL<input type="url" bind:value={url} placeholder="https://example.com/tb-webhook" data-testid="webhook-url" /></label>
     <fieldset>
       <legend>Events</legend>
       {#each WEBHOOK_EVENTS as ev (ev)}

@@ -13,7 +13,7 @@
     // tells tests and scripts that the app has hydrated
     document.documentElement.setAttribute('data-app-ready', '');
     try {
-      const t = localStorage.getItem('nib.theme');
+      const t = localStorage.getItem('tb.theme');
       if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
     } catch {
       /* storage blocked */

@@ -163,7 +163,7 @@
       });
       toasts.update(tid, { kind: 'success', message: `${file.name} uploaded; it plays once processing ends` });
       await load(true);
-      void invalidate('nib:shell');
+      void invalidate('tb:shell');
     } catch (err) {
       toasts.update(tid, { kind: 'error', message: errMsg(err) });
     } finally {

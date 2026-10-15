@@ -8,7 +8,7 @@ import { callbackHost } from '../../fixtures/net.ts';
 import { SERVER, hydrated, showPassword, uniqueEmail } from '../auth/helpers.ts';
 
 export { SERVER, uniqueEmail };
-export const PASSWORD = 'nib-e2e-password';
+export const PASSWORD = 'toolbar-e2e-password';
 
 export async function launch(): Promise<Browser> {
   return chromium.launch({

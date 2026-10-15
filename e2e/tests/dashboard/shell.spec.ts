@@ -26,7 +26,7 @@ test('J-018: new capture asks the extension to open its menu, or explains how to
   await page.keyboard.press('Escape');
   // with the extension present (it marks <html>), the click dispatches the event instead
   await page.evaluate((ev) => {
-    document.documentElement.setAttribute('data-nib-extension', '');
+    document.documentElement.setAttribute('data-tb-extension', '');
     (window as unknown as { __got: unknown[] }).__got = [];
     window.addEventListener(ev, (e) => (window as unknown as { __got: unknown[] }).__got.push((e as CustomEvent).detail));
   }, NEW_CAPTURE_EVENT);

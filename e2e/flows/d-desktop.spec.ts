@@ -7,7 +7,7 @@
 // in a fresh browser, then falls back to fake media with a "limitation" annotation. Any failure
 // that is not a browser crash fails the test at once. In practice about half the tries crash,
 // right as the picker opens and the popup closes.
-import { BrowserCrash, FAKE_MEDIA, LAB_URL, api, captureOf, chord, connectExtension, createFromEditor, editorFrame, expect, labPage, launchNib, newEmail, openPopup, pickEntireScreen, saveShot, test, throughPicker, waitReady, withPrivateDisplay, xshot } from './fixture.ts';
+import { BrowserCrash, FAKE_MEDIA, LAB_URL, api, captureOf, chord, connectExtension, createFromEditor, editorFrame, expect, labPage, launchExtension, newEmail, openPopup, pickEntireScreen, saveShot, test, throughPicker, waitReady, withPrivateDisplay, xshot } from './fixture.ts';
 
 type Mode = 'picker' | 'fake';
 
@@ -19,13 +19,13 @@ interface Session {
 const desktopRecording = (mode: Mode) => withPrivateDisplay((display) => desktopRecordingOn(display, mode));
 
 async function desktopRecordingOn(display: string, mode: Mode) {
-  const b = await launchNib({ cdpPort: 9351, display, args: mode === 'fake' ? FAKE_MEDIA : [] });
+  const b = await launchExtension({ cdpPort: 9351, display, args: mode === 'fake' ? FAKE_MEDIA : [] });
   let crashed = false;
   let closing = false;
   b.context.on('close', () => {
     if (!closing) crashed = true;
   });
-  const session = async () => (await (await b.sw()).evaluate(async () => (await chrome.storage.session.get('nib:session'))['nib:session'])) as Session;
+  const session = async () => (await (await b.sw()).evaluate(async () => (await chrome.storage.session.get('tb:session'))['tb:session'])) as Session;
   try {
     const { lab, popup: first } = await connectExtension(b.context, newEmail('desk'));
     await first.close();

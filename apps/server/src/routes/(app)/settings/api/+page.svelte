@@ -16,7 +16,7 @@
 <h1>API</h1>
 <Section title="REST API" description="Everything the dashboard does is an HTTP call you can make too.">
   <p>Base URL: <code>{origin}/api/v1</code>. Send <code>Authorization: Bearer tb_pat_...</code> with a token from <a href="/settings/tokens">API tokens</a>. Lists return <code>{'{ items, total, returned, hasMore, nextCursor }'}</code>; errors return <code>{'{ error, message }'}</code>.</p>
-  <pre class="ex">curl -H "Authorization: Bearer $NIB_TOKEN" {origin}/api/v1/recordings?limit=5</pre>
+  <pre class="ex">curl -H "Authorization: Bearer $TOOLBAR_TOKEN" {origin}/api/v1/recordings?limit=5</pre>
   <p>Machine-readable list: <a href={`${origin}/api/v1`} target="_blank" rel="noopener">{origin}/api/v1</a></p>
 </Section>
 <Section title="Endpoints" description="Routes of paused features (AI drafts, the audit log, integrations) are left out while their flag is off.">

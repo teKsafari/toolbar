@@ -217,7 +217,7 @@ test('J-013: with a cap the timer shows it, turns orange then red, and the recor
   const { page, tabId } = await labPage(context);
   await sw.evaluate(async () => {
     await chrome.storage.local.set({
-      'nib:bootstrap': {
+      'tb:bootstrap': {
         at: Date.now(),
         data: { limits: { chunkBytes: 1, maxRecordingMs: 13_000, aiAvailable: false }, user: null, workspaces: [], activeWorkspaceId: null, folders: [], integrations: [], settings: null, serverVersion: 'test' },
       },
@@ -233,7 +233,7 @@ test('J-013: with a cap the timer shows it, turns orange then red, and the recor
   expect(danger).toBe('rgb(240, 103, 90)');
   await expect.poll(async () => (await stats(sw)).stops, { timeout: 15000 }).toContain('cap');
   await expect.poll(async () => (await session(sw)).state).toBe('draft');
-  await sw.evaluate(() => chrome.storage.local.remove('nib:bootstrap'));
+  await sw.evaluate(() => chrome.storage.local.remove('tb:bootstrap'));
   await page.close();
 });
 
@@ -313,7 +313,7 @@ test('J-013: a recording started by its chord, with no bootstrap cached, gets th
   await expect(bar(page)).toHaveAttribute('data-stage', 'warn');
   await expect(bar(page).locator('[data-nb-cap]')).toHaveText(' / 0:12');
   await expect.poll(async () => (await stats(sw)).stops, { timeout: 15000 }).toContain('cap');
-  await sw.evaluate(() => chrome.storage.local.remove('nib:bootstrap'));
+  await sw.evaluate(() => chrome.storage.local.remove('tb:bootstrap'));
   await page.close();
   await server.close();
 });

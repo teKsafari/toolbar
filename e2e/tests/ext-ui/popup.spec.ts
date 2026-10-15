@@ -17,7 +17,7 @@ test('J-001 J-193: the popup lists screenshot, record and recording link under a
   const t0 = Date.now();
   const popup = await openPopup(context, tabId);
   expect(Date.now() - t0).toBeLessThan(budget(1700));
-  expect(await popup.evaluate(() => (globalThis as { __nibPopupPaintMs?: number }).__nibPopupPaintMs)).toBeLessThan(budget(1700));
+  expect(await popup.evaluate(() => (globalThis as { __tbPopupPaintMs?: number }).__tbPopupPaintMs)).toBeLessThan(budget(1700));
   await expect(popup.locator('[data-row]')).toHaveCount(3);
   await expect(popup.locator('[data-row]').nth(0)).toHaveAttribute('data-row', 'screenshot');
   await expect(popup.locator('[data-row]').nth(1)).toHaveAttribute('data-row', 'record');
@@ -131,7 +131,7 @@ test('J-176 J-089 J-190 J-184: settings replace the body, scroll inside the popu
     await expect(popup.getByRole('switch', { name: label })).toBeVisible();
   await expect(popup.locator('[data-open-shortcuts]')).toBeVisible();
   await expect(popup.locator('[data-reset]')).toBeVisible();
-  const read = () => sw.evaluate(async () => (await chrome.storage.local.get('nib:settings'))['nib:settings'] as Record<string, unknown>);
+  const read = () => sw.evaluate(async () => (await chrome.storage.local.get('tb:settings'))['tb:settings'] as Record<string, unknown>);
 
   await popup.getByRole('switch', { name: 'Open captures in a new tab' }).click();
   await expect.poll(async () => (await read()).openInNewTab).toBe(false);
@@ -171,7 +171,7 @@ test('J-012: with replay on, the blocked-sites list ships with defaults, adds a 
   await expect(popup.locator('[data-site="example-bank.com"]')).toBeVisible();
   await popup.locator('[data-site-remove="paypal.com"]').click();
   await expect(popup.locator('[data-site="paypal.com"]')).toHaveCount(0);
-  const saved = await sw.evaluate(async () => ((await chrome.storage.local.get('nib:settings'))['nib:settings'] as { replayBlockedSites: string[] }).replayBlockedSites);
+  const saved = await sw.evaluate(async () => ((await chrome.storage.local.get('tb:settings'))['tb:settings'] as { replayBlockedSites: string[] }).replayBlockedSites);
   expect(saved).toContain('example-bank.com');
   expect(saved).not.toContain('paypal.com');
   await popup.close();
@@ -192,7 +192,7 @@ test('J-011: on a heavy page the replay row shows a badge; clicking opens a warn
   await freshState(sw, { settings: { instantReplay: true } });
   const { page, tabId } = await labPage(context, '/list');
   await sw.evaluate(async (id) => {
-    await chrome.storage.session.set({ 'nib:replay': { enabled: true, minutes: 2, tabs: { [id]: { since: Date.now(), video: false, heavy: true } } } });
+    await chrome.storage.session.set({ 'tb:replay': { enabled: true, minutes: 2, tabs: { [id]: { since: Date.now(), video: false, heavy: true } } } });
     __tbUi.stub('replay.set', { ok: true, replay: { enabled: true, minutes: 2, tabs: {} } });
   }, tabId);
   const popup = await openPopup(context, tabId);
@@ -220,7 +220,7 @@ test('J-215: on popup open the account replay setting is pulled from the server'
   const { page, tabId } = await labPage(context);
   const popup = await openPopup(context, tabId);
   await expect(popup.locator('[data-row="replay"]')).toBeVisible();
-  const local = await sw.evaluate(async () => (await chrome.storage.local.get('nib:settings'))['nib:settings'] as { instantReplay: boolean; replayMinutes: number });
+  const local = await sw.evaluate(async () => (await chrome.storage.local.get('tb:settings'))['tb:settings'] as { instantReplay: boolean; replayMinutes: number });
   expect(local.instantReplay).toBe(true);
   expect(local.replayMinutes).toBe(3);
   const get = server.hits.find((h) => h.method === 'GET');
@@ -294,7 +294,7 @@ test('J-035: with a draft open, the header pill counts drafts and only the link 
   const { page, tabId } = await labPage(context);
   await sw.evaluate(
     async ({ list, tabId }) => {
-      await chrome.storage.local.set({ 'nib:drafts': list });
+      await chrome.storage.local.set({ 'tb:drafts': list });
       await __tbUi.dispatch({ type: 'DRAFT_READY', draftId: 'd-video', kind: 'video', recordingId: 'r1', tabId });
     },
     { list: drafts(Date.now()), tabId },
@@ -320,7 +320,7 @@ test('J-218: Drafts lists thumbnail, host and age with view and trash; trash tur
   const { page, tabId } = await labPage(context);
   await sw.evaluate(
     async (list) => {
-      await chrome.storage.local.set({ 'nib:drafts': list });
+      await chrome.storage.local.set({ 'tb:drafts': list });
       __tbUi.stub('draft.discard', { ok: true });
       __tbUi.stub('draft.open', { ok: true });
     },
@@ -396,7 +396,7 @@ test('X-07: the popup renders with the shared tokens in light and dark', async (
 
 test('empty and error states: no drafts, and a link create with the server down', async ({ context, sw }) => {
   const { page, tabId } = await labPage(context);
-  await sw.evaluate(() => chrome.storage.local.set({ 'nib:drafts': [{ id: 'gone', kind: 'screenshot', createdAt: 0, updatedAt: 0, host: 'a.com', pageUrl: '', pageTitle: '', title: '', durationMs: null, thumbBlobId: null, recordingId: null, status: 'saved' }] }));
+  await sw.evaluate(() => chrome.storage.local.set({ 'tb:drafts': [{ id: 'gone', kind: 'screenshot', createdAt: 0, updatedAt: 0, host: 'a.com', pageUrl: '', pageTitle: '', title: '', durationMs: null, thumbBlobId: null, recordingId: null, status: 'saved' }] }));
   await sw.evaluate(() => __tbUi.stub('draft.discard', { ok: true }));
   const popup = await openPopup(context, tabId);
   await popup.locator('[data-drafts-pill]').click();

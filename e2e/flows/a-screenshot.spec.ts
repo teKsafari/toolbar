@@ -3,7 +3,7 @@
 import { chromium } from '@playwright/test';
 import { SERVER, captureOf, chord, createFromEditor, editorFrame, expect, labPage, saveShot, test, waitReady } from './fixture.ts';
 
-test('A: chord, click, rectangle, title, Ctrl+Enter gives a share link that opens logged out', async ({ nib, context }) => {
+test('A: chord, click, rectangle, title, Ctrl+Enter gives a share link that opens logged out', async ({ tb, context }) => {
   const page = await labPage(context);
   await page.getByTestId('hidden-500').click();
   await expect(page.getByTestId('status')).toContainText('saved'); // the hidden 500 looks like success
@@ -45,7 +45,7 @@ test('A: chord, click, rectangle, title, Ctrl+Enter gives a share link that open
   expect(rec.kind).toBe('screenshot');
   expect(rec.title).toBe(title);
   await waitReady(context, rec.id);
-  nib.made.screenshot = { id: rec.id, shareUrl: link, title };
+  tb.made.screenshot = { id: rec.id, shareUrl: link, title };
 
   // a logged-out viewer sees the image with the box burned in
   const browser = await chromium.launch();

@@ -1,5 +1,9 @@
 import { defineConfig } from 'wxt';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { COMMANDS, PRODUCT_NAME } from '@toolbar/shared';
+import { ICON_SIZES, renderIcons } from './scripts/icons';
 
 // Test builds (WXT_TEST_HOOKS=1) render the in-page UI in an open shadow root and expose
 // globalThis.__tb in the service worker; they go to .output/chrome-mv3-test.
@@ -25,6 +29,22 @@ const commands = Object.fromEntries(
 
 const devPort = Number(process.env.WXT_DEV_PORT || 3001);
 
+/**
+ * Build-time brand for self-built extensions (D-111): WXT_APP_NAME names the manifest, the action
+ * title and the page titles; WXT_APP_ICON (an SVG or PNG path) replaces the packaged icons. A
+ * signed-in extension shows the server's name and logo on top of these at runtime.
+ */
+export function buildName(raw = process.env.WXT_APP_NAME): string {
+  const name = (raw ?? '').trim();
+  if (!name) return PRODUCT_NAME;
+  // eslint-disable-next-line no-control-regex
+  if (name.length > 60 || /[\u0000-\u001f<>]/.test(name)) throw new Error('WXT_APP_NAME must be 1 to 60 characters with no control characters or angle brackets');
+  return name;
+}
+const appName = buildName();
+const appIcon = process.env.WXT_APP_ICON ? resolve(process.env.WXT_APP_ICON) : null;
+const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+
 export default defineConfig({
   modules: ['@wxt-dev/module-svelte'],
   outDirTemplate: testHooks ? `{{browser}}-mv{{manifestVersion}}-test${process.env.WXT_OUT_SUFFIX ?? ''}` : undefined,
@@ -34,7 +54,7 @@ export default defineConfig({
   // WXT_DEV_PORT=320<i> (docs/parallel.md).
   dev: { server: { port: devPort, origin: `http://localhost:${devPort}` } },
   manifest: {
-    name: testHooks ? `${PRODUCT_NAME} (test)` : PRODUCT_NAME,
+    name: testHooks ? `${appName} (test)` : appName,
     description: 'Capture bugs with console, network, user actions, screenshots, video and voice.',
     key: MANIFEST_KEY,
     minimum_chrome_version: '116',
@@ -53,9 +73,29 @@ export default defineConfig({
       'desktopCapture',
     ],
     commands,
-    action: { default_title: PRODUCT_NAME },
+    action: { default_title: appName },
   },
   vite: () => ({
-    define: { __TB_TEST_HOOKS__: JSON.stringify(testHooks) },
+    define: { __TB_TEST_HOOKS__: JSON.stringify(testHooks), __TB_APP_NAME__: JSON.stringify(appName) },
+    plugins: [{ name: 'tb-app-name', transformIndexHtml: (html: string) => html.replaceAll('%APP_NAME%', escHtml(appName)) }],
   }),
+  hooks: {
+    // WXT takes the popup's <title> (the %APP_NAME% placeholder) for the action title
+    'build:manifestGenerated': (_wxt, manifest) => {
+      if (manifest.action) manifest.action.default_title = appName;
+    },
+    // WXT_APP_ICON: the rendered icons replace public/icon/*.png in this build's output only
+    'build:publicAssets': async (_wxt, files) => {
+      if (!appIcon) return;
+      const icons = await renderIcons(appIcon);
+      const dir = mkdtempSync(join(tmpdir(), 'tb-icons-'));
+      for (const n of ICON_SIZES) {
+        const dest = `icon/${n}.png`;
+        const i = files.findIndex((f) => f.relativeDest === dest);
+        if (i >= 0) files.splice(i, 1);
+        writeFileSync(join(dir, `${n}.png`), icons[n]);
+        files.push({ relativeDest: dest, absoluteSrc: join(dir, `${n}.png`) });
+      }
+    },
+  },
 });

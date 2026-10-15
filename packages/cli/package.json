@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "nib: read Nib captures from a terminal and make captures from agents",
+  "description": "open-toolbar: read captures from a terminal and make captures from agents",
   "bin": {
-    "nib": "./dist/nib.mjs"
+    "open-toolbar": "./dist/open-toolbar.mjs"
   },
   "exports": {
     ".": "./src/index.ts"

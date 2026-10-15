@@ -10,7 +10,7 @@
   let theme = $state<Theme>('system');
   $effect(() => {
     try {
-      theme = (localStorage.getItem('nib.theme') as Theme) || 'system';
+      theme = (localStorage.getItem('tb.theme') as Theme) || 'system';
     } catch {
       /* storage blocked */
     }
@@ -18,7 +18,7 @@
   function setTheme(t: Theme) {
     theme = t;
     try {
-      localStorage.setItem('nib.theme', t);
+      localStorage.setItem('tb.theme', t);
     } catch {
       /* ignore */
     }

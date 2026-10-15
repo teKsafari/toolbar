@@ -199,9 +199,9 @@ export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
  * Signature header on every delivery: `t=<unix seconds>,v1=<hex HMAC-SHA256(secret, `${t}.${rawBody}`)>`.
  * Receivers reject deliveries older than five minutes.
  */
-export const WEBHOOK_SIGNATURE_HEADER = 'x-nib-signature';
-export const WEBHOOK_EVENT_HEADER = 'x-nib-event';
-export const WEBHOOK_DELIVERY_HEADER = 'x-nib-delivery';
+export const WEBHOOK_SIGNATURE_HEADER = 'x-toolbar-signature';
+export const WEBHOOK_EVENT_HEADER = 'x-toolbar-event';
+export const WEBHOOK_DELIVERY_HEADER = 'x-toolbar-delivery';
 
 export const webhookSchema = z.object({
   id: idSchema,

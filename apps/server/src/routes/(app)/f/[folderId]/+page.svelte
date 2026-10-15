@@ -40,7 +40,7 @@
   async function del() {
     const r = await api<{ deletedCaptures: number }>('folders.delete', { params: { id: f.id } });
     toasts.success(`Deleted "${f.name}"${r.deletedCaptures ? ` and ${r.deletedCaptures} ${r.deletedCaptures === 1 ? 'capture' : 'captures'}` : ''}`);
-    await invalidate('nib:shell');
+    await invalidate('tb:shell');
     await goto('/');
   }
 </script>

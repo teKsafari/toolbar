@@ -1,11 +1,11 @@
-// `nib record --cdp <url>` (J-246): record a Chromium that an agent drives. Attaches over the
+// `open-toolbar record --cdp <url>` (J-246): record a Chromium that an agent drives. Attaches over the
 // DevTools protocol and captures console, uncaught errors, network with headers and small text
 // bodies, WebSocket frames, navigations, and video from the screencast. It also serves a CDP
 // proxy: an agent that connects through it (Playwright connectOverCDP, Puppeteer,
 // chrome-devtools-mcp) has its input commands counted, and every click and committed input on
 // the page is logged with the element hit, password and payment fields masked.
-// Forms: `nib record --cdp URL -- <command...>` wraps a command (NIB_CDP_PROXY is set for it);
-// `nib record start --cdp URL` runs until `nib record stop`; `nib record status`.
+// Forms: `open-toolbar record --cdp URL -- <command...>` wraps a command (TOOLBAR_CDP_PROXY is set for it);
+// `open-toolbar record start --cdp URL` runs until `open-toolbar record stop`; `open-toolbar record status`.
 import { parseArgs } from 'node:util';
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer, type Server } from 'node:http';
@@ -26,9 +26,9 @@ const BODY_CAP = 64 * 1024;
 
 /** Page-side listener: clicks and committed inputs with the element hit, secrets masked. */
 const INJECT = `(() => {
-  if (window.__nibRec) return; window.__nibRec = 1;
+  if (window.__tbRec) return; window.__tbRec = 1;
   const SECRET = /pass(word)?|pwd|otp|one-?time|2fa|totp|card|cc-|cvc|cvv|security.?code|secret/i;
-  const send = (o) => { try { window.__nibRecord(JSON.stringify(o)); } catch (e) {} };
+  const send = (o) => { try { window.__tbRecord(JSON.stringify(o)); } catch (e) {} };
   const sel = (el) => {
     if (!(el instanceof Element)) return '';
     const t = el.getAttribute('data-testid'); if (t) return '[data-testid="' + t + '"]';
@@ -146,7 +146,7 @@ export class Recorder {
 
   private async setupPage(sessionId: string, targetInfo: Json) {
     const s = (m: string, p: Json = {}) => this.cdp.send(m, p, sessionId).catch(() => ({}) as Json);
-    await s('Runtime.addBinding', { name: '__nibRecord' });
+    await s('Runtime.addBinding', { name: '__tbRecord' });
     await s('Page.enable');
     await s('Page.addScriptToEvaluateOnNewDocument', { source: INJECT });
     await s('Runtime.enable');
@@ -233,7 +233,7 @@ export class Recorder {
         break;
       }
       case 'Runtime.bindingCalled':
-        if (p.name === '__nibRecord') {
+        if (p.name === '__tbRecord') {
           const ev = JSON.parse(p.payload) as Json;
           if (ev.type === 'click') this.stats.clicks++;
           if (ev.type === 'input') this.stats.inputs++;
@@ -361,8 +361,8 @@ export class Recorder {
 
 /** Screencast frames to a WebM with each frame held until the next (variable frame rate). */
 export async function framesToWebm(frames: { t: number; data: string }[]): Promise<{ bytes: Buffer; durationMs: number }> {
-  if (spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status !== 0) throw new CliError('nib record needs ffmpeg on PATH to turn the screencast into a video.');
-  const dir = await mkdtemp(join(tmpdir(), 'nib-rec-'));
+  if (spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status !== 0) throw new CliError('open-toolbar record needs ffmpeg on PATH to turn the screencast into a video.');
+  const dir = await mkdtemp(join(tmpdir(), 'tb-rec-'));
   try {
     const list: string[] = [];
     for (let i = 0; i < frames.length; i++) {
@@ -432,7 +432,7 @@ export async function recordCommand(argv: string[], io: { log: (s: string) => vo
   }
   if (sub === 'stop') {
     const s = await readFile(statePath(), 'utf8').then((t) => JSON.parse(t) as Json).catch(() => null);
-    if (!s?.pid) throw new CliError('No recording is running (nib record start --cdp <url>).');
+    if (!s?.pid) throw new CliError('No recording is running (open-toolbar record start --cdp <url>).');
     try {
       process.kill(s.pid, 'SIGTERM');
     } catch {
@@ -449,7 +449,7 @@ export async function recordCommand(argv: string[], io: { log: (s: string) => vo
     }
     throw new CliError('The recorder did not finish within 150 s.');
   }
-  if (sub !== 'start' && sub !== 'run') throw new CliError('Use: nib record --cdp <url> -- <command>, nib record start --cdp <url>, nib record stop, nib record status');
+  if (sub !== 'start' && sub !== 'run') throw new CliError('Use: open-toolbar record --cdp <url> -- <command>, open-toolbar record start --cdp <url>, open-toolbar record stop, open-toolbar record status');
   if (!v.cdp) throw new CliError('Pass --cdp <http://host:port> (Chromium started with --remote-debugging-port).');
 
   const rec = new Recorder(v.cdp.replace(/\/+$/, ''));
@@ -459,7 +459,7 @@ export async function recordCommand(argv: string[], io: { log: (s: string) => vo
 
   if (wrapped.length) {
     const code = await new Promise<number>((resolve) => {
-      const child = spawn(wrapped[0]!, wrapped.slice(1), { stdio: 'inherit', env: { ...process.env, NIB_CDP_PROXY: rec.proxyUrl!, NIB_CDP_URL: v.cdp! } });
+      const child = spawn(wrapped[0]!, wrapped.slice(1), { stdio: 'inherit', env: { ...process.env, TOOLBAR_CDP_PROXY: rec.proxyUrl!, TOOLBAR_CDP_URL: v.cdp! } });
       child.on('exit', (c) => resolve(c ?? 1));
       child.on('error', () => resolve(127));
     });

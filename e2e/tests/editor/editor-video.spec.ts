@@ -254,8 +254,8 @@ test('a reopened video draft saves for later from its close button; toast with v
   const d = await getDraft(sw, id);
   expect(d).toMatchObject({ status: 'saved', trim: { startMs: expect.any(Number) } });
   expect((d as { ai: { title: string } }).ai.title).toBe(AI.title);
-  // the popup's list (nib:drafts) says saved, and the capture session was told the draft is closed
-  const rows = await sw.evaluate(async () => (await chrome.storage.local.get('nib:drafts'))['nib:drafts'] as { id: string; status: string }[]);
+  // the popup's list (tb:drafts) says saved, and the capture session was told the draft is closed
+  const rows = await sw.evaluate(async () => (await chrome.storage.local.get('tb:drafts'))['tb:drafts'] as { id: string; status: string }[]);
   expect(rows.find((r) => r.id === id)?.status).toBe('saved');
   expect(await sw.evaluate(() => (globalThis as unknown as { __closed: string[] }).__closed)).toEqual([`${id}:saved`]);
   // put the worker's real bridge back: later suites in this worker reopen drafts through it

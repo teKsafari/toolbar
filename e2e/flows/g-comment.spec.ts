@@ -3,8 +3,8 @@
 import { SERVER, api, expect, test } from './fixture.ts';
 import { recordLabErrors } from './journeys.ts';
 
-test('G: seek, type, Ctrl+Enter adds a timed comment and a timeline bubble', async ({ nib, context }) => {
-  const made = await recordLabErrors(nib);
+test('G: seek, type, Ctrl+Enter adds a timed comment and a timeline bubble', async ({ tb, context }) => {
+  const made = await recordLabErrors(tb);
   const page = await context.newPage();
   await page.goto(made.shareUrl); // a member is sent on to the capture page
   await page.waitForURL(new RegExp(`${SERVER}/c/${made.id}`));

@@ -18,7 +18,7 @@ const devPort = Number(process.env.DEV_PORT || 3000);
  */
 const OAUTH_FORM_PATHS = /^\/mcp\/(token|revoke)(\?|$)/;
 const oauthFormOrigin = {
-  name: 'nib-oauth-form-origin',
+  name: 'tb-oauth-form-origin',
   configureServer(server: { middlewares: { use: (fn: (req: { url?: string; headers: Record<string, unknown> }, res: unknown, next: () => void) => void) => void } }) {
     server.middlewares.use((req, _res, next) => {
       if ((req.url && OAUTH_FORM_PATHS.test(req.url)) || /^Bearer\s/i.test(String(req.headers.authorization ?? ''))) req.headers.origin = process.env.PUBLIC_URL || `http://localhost:${devPort}`;

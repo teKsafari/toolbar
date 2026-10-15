@@ -104,7 +104,7 @@
       const issue = await call<LinkedIssue>('integrations.send', { id: v.detail.id }, { integrationId: t.id, fields: { ...$state.snapshot(fields), title: issueTitle } });
       formOpen = false;
       try {
-        localStorage.setItem('nib.viewer.lastSend', t.id);
+        localStorage.setItem('tb.viewer.lastSend', t.id);
       } catch {
         /* private mode */
       }
@@ -121,7 +121,7 @@
   }
   const lastSend = $derived.by(() => {
     try {
-      const id = typeof localStorage !== 'undefined' ? localStorage.getItem('nib.viewer.lastSend') : null;
+      const id = typeof localStorage !== 'undefined' ? localStorage.getItem('tb.viewer.lastSend') : null;
       return v.data.integrations.find((i) => i.id === id) ?? v.data.integrations[0] ?? null;
     } catch {
       return v.data.integrations[0] ?? null;

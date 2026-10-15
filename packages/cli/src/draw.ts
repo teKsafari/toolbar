@@ -11,7 +11,7 @@ export type Mark =
   | { type: 'redact'; x: number; y: number; w: number; h: number }
   | { type: 'blur'; x: number; y: number; w: number; h: number; radius?: number };
 
-/** Nib "ink" accent (D-019); marks may override it with a #rrggbb colour. */
+/** open-toolbar "ink" accent (D-019); marks may override it with a #rrggbb colour. */
 export const DEFAULT_MARK_COLOR = '#3446cf';
 
 type RGB = [number, number, number];

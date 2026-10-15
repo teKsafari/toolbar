@@ -7,11 +7,11 @@ import path from 'node:path';
 import { ROOT, SERVER, expect, hydrated, test } from './fixture.ts';
 import { recordLabErrors } from './journeys.ts';
 
-const CLI = path.join(ROOT, 'packages/cli/dist/nib.mjs');
+const CLI = path.join(ROOT, 'packages/cli/dist/open-toolbar.mjs');
 
-test('CLI: token from settings, nib login, nib pull writes summary.md with the failing request', async ({ nib, context }) => {
+test('CLI: token from settings, open-toolbar login, open-toolbar pull writes summary.md with the failing request', async ({ tb, context }) => {
   test.skip(!fs.existsSync(CLI), 'build the CLI first: pnpm --filter @toolbar/cli build');
-  const video = await recordLabErrors(nib);
+  const video = await recordLabErrors(tb);
   const page = await context.newPage();
   await page.goto(`${SERVER}/settings/tokens`);
   await hydrated(page);
@@ -22,10 +22,10 @@ test('CLI: token from settings, nib login, nib pull writes summary.md with the f
   expect(secret).toMatch(/^tb_pat_/);
   await page.close();
 
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-cli-'));
-  const env = { ...process.env, NIB_CONFIG: path.join(dir, 'config.json'), NIB_TOKEN: '', NIB_SERVER: '' };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-cli-'));
+  const env = { ...process.env, TOOLBAR_CONFIG: path.join(dir, 'config.json'), TOOLBAR_TOKEN: '', TOOLBAR_SERVER: '' };
   const login = execFileSync(process.execPath, [CLI, 'login', '--server', SERVER, '--token', secret], { env, encoding: 'utf8' });
-  expect(JSON.parse(login)).toMatchObject({ signedIn: true, as: nib.email });
+  expect(JSON.parse(login)).toMatchObject({ signedIn: true, as: tb.email });
   const out = path.join(dir, 'pull');
   execFileSync(process.execPath, [CLI, 'pull', video.shareUrl, '--out', out], { env, encoding: 'utf8', timeout: 120_000 });
   const files = fs.readdirSync(out, { recursive: true }).map(String);

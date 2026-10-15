@@ -1,4 +1,4 @@
-// The Nib rig for the parity scenarios (docs/parity/scenarios.md, "Rigs"): Playwright 1.63.0
+// The open-toolbar rig for the parity scenarios (docs/parity/scenarios.md, "Rigs"): Playwright 1.63.0
 // Chromium with the release build of the extension (closed shadow root) on a private Xvfb display
 // with openbox. Pointer and keyboard input that a person gives goes through the X server with
 // xdotool: the toolbar icon, the in-page UI (cursor pill, bar, pen, blur), chords and the share
@@ -23,7 +23,7 @@ export const LAB2_URL = process.env.LAB2_URL ?? 'http://localhost:5174';
 export const SERVER = process.env.SERVER_URL ?? 'http://localhost:3000';
 export const ROOT = path.resolve(import.meta.dirname, '../..');
 export const EXT_DIR = path.join(ROOT, 'apps/extension/.output', process.env.PARITY_EXT_BUILD ?? 'chrome-mv3');
-export const PASSWORD = 'nib parity password';
+export const PASSWORD = 'toolbar parity password';
 /** Browser window: its frame is 4 px each side, so 1448x991 gives a 1440x900 page viewport (screen 1460x1000). */
 export const WINDOW = { w: 1448, h: 991 };
 
@@ -228,14 +228,14 @@ export interface Launched {
 }
 
 /** Chromium with the extension on a fresh profile, the action pinned, window at 0,0. */
-export async function launchNib(opts: { cdpPort?: number; args?: string[]; userDataDir?: string } = {}): Promise<Launched> {
+export async function launchExtension(opts: { cdpPort?: number; args?: string[]; userDataDir?: string } = {}): Promise<Launched> {
   if (!fs.existsSync(path.join(EXT_DIR, 'manifest.json'))) throw new Error(`No extension build at ${EXT_DIR}`);
   const free = availableMb();
   if (free < 1600) throw new Error(`only ${free} MB available; a browser needs about 800 MB and 800 MB must stay free`);
   const cdpPort = opts.cdpPort ?? 9361;
   // a given profile folder survives close() (G8 S8.4 relaunches it for a cold popup open)
   const keep = !!opts.userDataDir;
-  const userDataDir = opts.userDataDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'nib-parity-'));
+  const userDataDir = opts.userDataDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'tb-parity-'));
   const fresh = !fs.existsSync(path.join(userDataDir, 'Default', 'Preferences'));
   fs.mkdirSync(path.join(userDataDir, 'Default'), { recursive: true });
   // developer mode on, as for anyone who loads the extension unpacked: without it a runtime

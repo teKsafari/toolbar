@@ -7,7 +7,7 @@ import { activeWorkspaceId, listWorkspaces } from '#lib/server/auth/workspaces.t
 import { shellData } from '#lib/server/dashboard/shell.ts';
 
 export const load = async ({ locals, url, depends }) => {
-  depends('nib:shell');
+  depends('tb:shell');
   if (!locals.user) redirect(303, `/login?next=${encodeURIComponent(url.pathname + url.search)}`);
   const workspaces = await db
     .select({ id: organization.id, name: organization.name, role: member.role })

@@ -19,7 +19,7 @@
   let over = $state<string | null>(null);
 
   try {
-    collapsed = typeof localStorage !== 'undefined' && localStorage.getItem('nib.folders.collapsed') === '1';
+    collapsed = typeof localStorage !== 'undefined' && localStorage.getItem('tb.folders.collapsed') === '1';
   } catch {
     /* storage blocked */
   }
@@ -27,7 +27,7 @@
   function toggle() {
     collapsed = !collapsed;
     try {
-      localStorage.setItem('nib.folders.collapsed', collapsed ? '1' : '0');
+      localStorage.setItem('tb.folders.collapsed', collapsed ? '1' : '0');
     } catch {
       /* ignore */
     }
@@ -44,7 +44,7 @@
       toasts.success(`Folder "${f.name}" created`);
       name = '';
       adding = false;
-      await invalidate('nib:shell');
+      await invalidate('tb:shell');
     } catch (err) {
       toasts.error(errMsg(err));
     } finally {
@@ -65,7 +65,7 @@
         action: { label: 'Open', run: () => goto(`/f/${f.shortId}`) },
       });
       shell.reload();
-      await invalidate('nib:shell');
+      await invalidate('tb:shell');
     } catch (err) {
       toasts.error(errMsg(err));
     }

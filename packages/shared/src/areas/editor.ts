@@ -33,7 +33,7 @@ export interface EditorPrefs {
   lastWorkspaceId: string | null;
   lastDestination: { integrationId: string; fields: Record<string, unknown> } | null;
 }
-export const EDITOR_PREFS_KEY = 'nib:editor-prefs';
+export const EDITOR_PREFS_KEY = 'tb:editor-prefs';
 export const DEFAULT_EDITOR_PREFS: EditorPrefs = { ai: true, lastFolderId: null, lastWorkspaceId: null, lastDestination: null };
 
 /** Destination menu entries (J-079). Paid-account trackers are on the skip list. */

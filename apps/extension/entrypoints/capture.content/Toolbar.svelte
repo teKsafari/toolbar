@@ -78,7 +78,7 @@
       ui.tabId = r.tabId;
       ui.apply(r.cmd);
     });
-    const settingsKey = 'nib:settings';
+    const settingsKey = 'tb:settings';
     void browser.storage.local.get(settingsKey).then((got) => {
       ui.micSetting = !!(got[settingsKey] as { mic?: boolean } | undefined)?.mic;
     });

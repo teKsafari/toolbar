@@ -13,7 +13,7 @@ function setup(opts: { launch?: (url: string) => Promise<string | undefined>; to
   const changes: boolean[] = [];
   let seenChallenge = '';
   const client = createAuthClient({
-    serverUrl: async () => 'http://nib.test/',
+    serverUrl: async () => 'http://toolbar.test/',
     redirectUrl: () => REDIRECT,
     launch:
       opts.launch ??
@@ -49,8 +49,8 @@ function setup(opts: { launch?: (url: string) => Promise<string | undefined>; to
 
 describe('extension auth client', () => {
   it('builds the connect URL and reads the code back', () => {
-    const u = new URL(connectUrl('http://nib.test/', { redirectUri: REDIRECT, state: 's1234567', challenge: 'c'.repeat(43) }));
-    expect(u.origin + u.pathname).toBe('http://nib.test/ext/connect');
+    const u = new URL(connectUrl('http://toolbar.test/', { redirectUri: REDIRECT, state: 's1234567', challenge: 'c'.repeat(43) }));
+    expect(u.origin + u.pathname).toBe('http://toolbar.test/ext/connect');
     expect(u.searchParams.get('code_challenge_method')).toBe('S256');
     expect(codeFromRedirect(`${REDIRECT}?code=abc&state=s1`, 's1')).toBe('abc');
     expect(() => codeFromRedirect(`${REDIRECT}?code=abc&state=other`, 's1')).toThrow(AuthError);
@@ -59,7 +59,7 @@ describe('extension auth client', () => {
   it('signs in with PKCE, stores the device token and clears the pending pair', async () => {
     const s = setup();
     const a = await s.client.signIn();
-    expect(a).toMatchObject({ serverUrl: 'http://nib.test', token: 'tb_dev_x', activeWorkspaceId: 'w1' });
+    expect(a).toMatchObject({ serverUrl: 'http://toolbar.test', token: 'tb_dev_x', activeWorkspaceId: 'w1' });
     expect(s.auth?.token).toBe('tb_dev_x');
     expect(s.pending).toBeNull();
     expect(s.changes).toEqual([true]);

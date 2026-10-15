@@ -51,10 +51,10 @@ export async function signInExtension(sw: Worker, a: Account) {
   await sw.evaluate(
     async ({ serverUrl, token, ws, user }) => {
       await chrome.storage.local.set({
-        'nib:auth': { serverUrl, token, tokenId: 'tok-rows', user, activeWorkspaceId: ws, signedInAt: Date.now() },
-        'nib:server-url': serverUrl,
-        'nib:bootstrap': null,
-        'nib:editor-prefs': null,
+        'tb:auth': { serverUrl, token, tokenId: 'tok-rows', user, activeWorkspaceId: ws, signedInAt: Date.now() },
+        'tb:server-url': serverUrl,
+        'tb:bootstrap': null,
+        'tb:editor-prefs': null,
       });
     },
     { serverUrl: SERVER, token: a.token, ws: a.workspaceId, user: { id: a.userId, name: a.name, email: a.email, image: null } },
@@ -66,8 +66,8 @@ export async function setExtSettings(sw: Worker, patch: Record<string, unknown>,
   const who = a ?? current;
   if (who) await json(who.page, 'PATCH', '/api/v1/me/settings', { extension: patch });
   await sw.evaluate(async (patch) => {
-    const cur = (await chrome.storage.local.get('nib:settings'))['nib:settings'] ?? {};
-    await chrome.storage.local.set({ 'nib:settings': { ...cur, ...patch } });
+    const cur = (await chrome.storage.local.get('tb:settings'))['tb:settings'] ?? {};
+    await chrome.storage.local.set({ 'tb:settings': { ...cur, ...patch } });
   }, patch);
   await new Promise((r) => setTimeout(r, 200));
 }

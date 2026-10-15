@@ -40,8 +40,8 @@ fresh() {
 
   step "seed"
   pnpm --filter @toolbar/server db:seed | tee "$LOGS/seed.log" || exit 1
-  NIB_E2E_TOKEN=$(sed -n 's/^ *token: *\(tb_pat_[A-Za-z0-9_-]*\).*/\1/p' "$LOGS/seed.log")
-  export NIB_E2E_TOKEN
+  TOOLBAR_E2E_TOKEN=$(sed -n 's/^ *token: *\(tb_pat_[A-Za-z0-9_-]*\).*/\1/p' "$LOGS/seed.log")
+  export TOOLBAR_E2E_TOKEN
 }
 
 status=0

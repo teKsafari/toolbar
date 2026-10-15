@@ -29,7 +29,7 @@ const WS1 = '019a0000-0000-7000-8000-0000000000a1';
 const WS2 = '019a0000-0000-7000-8000-0000000000a2';
 export const MOCK_IDS = { WS1, WS2, F1: '019a0000-0000-7000-8000-0000000000f1', F2: '019a0000-0000-7000-8000-0000000000f2', F3: '019a0000-0000-7000-8000-0000000000f3', GH: '019a0000-0000-7000-8000-00000000091a' };
 
-const person = { id: '019a0000-0000-7000-8000-000000000001', name: 'Dana Reviewer', email: 'dana@nib.test', image: null };
+const person = { id: '019a0000-0000-7000-8000-000000000001', name: 'Dana Reviewer', email: 'dana@toolbar.test', image: null };
 const ws = (id: string, name: string) => ({ id, name, slug: name.toLowerCase().replace(/\s+/g, '-'), logoUrl: null, role: 'admin', isOwner: true, memberCount: 2, createdAt: '2026-10-14T00:00:00.000Z' });
 const folder = (id: string, workspaceId: string, name: string) => ({ id, shortId: id.slice(-4), workspaceId, name, parentId: null, private: false, captureCount: 0, createdBy: person, createdAt: '2026-10-14T00:00:00.000Z' });
 

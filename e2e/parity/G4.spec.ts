@@ -1,4 +1,4 @@
-// Parity group G4, Nib side: viewer and dev tools panels (docs/parity/scenarios.md, S4.1 to
+// Parity group G4, open-toolbar side: viewer and dev tools panels (docs/parity/scenarios.md, S4.1 to
 // S4.3). Each test is one scenario, run as scripted on the capture page at 1440x900, and records
 // its evidence (lists, counts, clicks, states, timings with the load average, screenshots) in
 // e2e/parity-shots/G4/<scenario>.json and .png files. The raw results are written up in
@@ -33,7 +33,7 @@ import {
   clipboard,
   editorFrame,
   focusWindow,
-  launchNib,
+  launchExtension,
   load,
   screencast,
   secs,
@@ -70,7 +70,7 @@ let rig: Launched | null = null;
 
 async function getRig(): Promise<Launched> {
   if (rig) return rig;
-  rig = await launchNib();
+  rig = await launchExtension();
   const { popup } = await signIn(rig.context, EMAIL);
   await popup.close().catch(() => undefined);
   for (const p of rig.context.pages()) if (p.url().startsWith(SERVER)) await p.close().catch(() => undefined);
@@ -203,7 +203,7 @@ test('S4.1 video capture page (N1)', async () => {
   if (detail0?.status !== 'ready') throw new Error(`N1 ${id} is not available: ${JSON.stringify(detail0).slice(0, 200)}`);
   ev.set('capture-before', { title: detail0.title, description: detail0.description, kind: detail0.kind });
   const cap = await openCap(context, id);
-  const prefs0 = await cap.evaluate(() => localStorage.getItem('nib.viewer.prefs'));
+  const prefs0 = await cap.evaluate(() => localStorage.getItem('tb.viewer.prefs'));
   ev.set('prefs-before', prefs0);
 
   try {
@@ -225,7 +225,7 @@ test('S4.1 video capture page (N1)', async () => {
       await cap.mouse.up();
       await sleep(400);
       const right2 = (await boxOf(cap.getByTestId('right-panel')))!;
-      const stored = await cap.evaluate(() => localStorage.getItem('nib.viewer.split'));
+      const stored = await cap.evaluate(() => localStorage.getItem('tb.viewer.split'));
       return {
         viewport: cap.viewportSize(),
         main,
@@ -239,7 +239,7 @@ test('S4.1 video capture page (N1)', async () => {
     });
     await cap.screenshot({ path: ev.file('1-splitter-dragged') });
     // put the splitter back for the shots
-    await cap.evaluate(() => localStorage.removeItem('nib.viewer.split'));
+    await cap.evaluate(() => localStorage.removeItem('tb.viewer.split'));
     ev.set('step1-shots-overflow', await shoot4(ev, context, id, '1-page', async () => undefined));
 
     // 2. hide the panel, then show it again
@@ -763,9 +763,9 @@ test('S4.1 video capture page (N1)', async () => {
     await probe(ev, 'restore', async () => {
       const r = await api<unknown>(context, 'PATCH', `/api/v1/recordings/${id}`, { title: detail0.title, description: detail0.description ?? '' });
       await cap.evaluate((p) => {
-        if (p) localStorage.setItem('nib.viewer.prefs', p);
-        else localStorage.removeItem('nib.viewer.prefs');
-        localStorage.removeItem('nib.viewer.split');
+        if (p) localStorage.setItem('tb.viewer.prefs', p);
+        else localStorage.removeItem('tb.viewer.prefs');
+        localStorage.removeItem('tb.viewer.split');
       }, prefs0);
       const s = await api<unknown>(context, 'PATCH', '/api/v1/me/settings', { viewer: prefs0 ? JSON.parse(prefs0) : { playbackRate: 1, timeZone: 'capture', devtoolsOpen: true } });
       const after = (await api<{ title: string; description: string }>(context, 'GET', `/api/v1/recordings/${id}`)).body;

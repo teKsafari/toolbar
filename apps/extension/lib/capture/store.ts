@@ -4,6 +4,7 @@ import { browser } from 'wxt/browser';
 import { DEFAULT_SERVER_URL } from '@toolbar/shared/constants';
 import { DEFAULT_USER_SETTINGS, type ExtensionSettings } from '@toolbar/shared/api';
 import { STORAGE, type AuthState, type StorageName, type StorageValues } from '@toolbar/shared/ext';
+import { migrateStorage } from '../migrate';
 
 const areaOf = (a: 'local' | 'session') => (a === 'local' ? browser.storage.local : browser.storage.session);
 
@@ -21,14 +22,15 @@ export async function setStore<N extends StorageName>(name: N, value: StorageVal
 /** Capture-private keys (not part of the shared contract). */
 export const CAPTURE_KEYS = {
   /** local capture id or server id -> server id, for the background drainer */
-  serverIds: 'nib:cap:server-ids',
+  serverIds: 'tb:cap:server-ids',
   /** tab id -> end of the last capture, so a screenshot's pre-roll restarts after each capture (J-071) */
-  lastCaptureEnd: 'nib:cap:last-end',
+  lastCaptureEnd: 'tb:cap:last-end',
   /** driver mode: the session's recording id -> the media and upload id (server id when known) */
-  mediaIds: 'nib:cap:media-ids',
+  mediaIds: 'tb:cap:media-ids',
 } as const;
 
 export async function getPrivate<T>(key: string, fallback: T): Promise<T> {
+  await migrateStorage();
   const r = await browser.storage.local.get(key);
   return (r[key] as T | undefined) ?? fallback;
 }

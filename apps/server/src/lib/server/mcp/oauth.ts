@@ -42,7 +42,7 @@ export function protectedResourceMetadata() {
     authorization_servers: [issuer()],
     scopes_supported: [...MCP_SCOPES],
     bearer_methods_supported: ['header'],
-    resource_name: 'Nib captures',
+    resource_name: 'open-toolbar captures',
   };
 }
 

@@ -2,8 +2,8 @@
 import { SERVER, expect, hydrated, test } from './fixture.ts';
 import { recordLabErrors } from './journeys.ts';
 
-test('I: Ctrl+K, a few words of the title, Enter opens the capture', async ({ nib, context }) => {
-  const video = await recordLabErrors(nib);
+test('I: Ctrl+K, a few words of the title, Enter opens the capture', async ({ tb, context }) => {
+  const video = await recordLabErrors(tb);
   const page = await context.newPage();
   await page.goto(`${SERVER}/`);
   await hydrated(page);

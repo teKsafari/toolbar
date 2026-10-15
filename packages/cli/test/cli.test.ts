@@ -169,22 +169,22 @@ describe('ids and config', () => {
   });
 
   it('stores the sign-in with mode 600 and lets env override it', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nibcfg-'));
-    process.env.NIB_CONFIG = join(dir, 'c.json');
-    delete process.env.NIB_TOKEN;
+    const dir = await mkdtemp(join(tmpdir(), 'tbcfg-'));
+    process.env.TOOLBAR_CONFIG = join(dir, 'c.json');
+    delete process.env.TOOLBAR_TOKEN;
     await writeConfig({ server: 'http://x.test/', token: 'tb_pat_x', via: 'token' });
     expect((await readConfig())!.server).toBe('http://x.test');
-    process.env.NIB_SERVER = 'http://y.test';
-    process.env.NIB_TOKEN = 'tb_pat_y';
+    process.env.TOOLBAR_SERVER = 'http://y.test';
+    process.env.TOOLBAR_TOKEN = 'tb_pat_y';
     expect(await readConfig()).toEqual({ server: 'http://y.test', token: 'tb_pat_y', via: 'token' });
-    delete process.env.NIB_SERVER;
-    delete process.env.NIB_TOKEN;
+    delete process.env.TOOLBAR_SERVER;
+    delete process.env.TOOLBAR_TOKEN;
     const { stat } = await import('node:fs/promises');
-    expect((await stat(process.env.NIB_CONFIG!)).mode & 0o777).toBe(0o600);
+    expect((await stat(process.env.TOOLBAR_CONFIG!)).mode & 0o777).toBe(0o600);
   });
 
   it('installs the skill with the read order (J-247)', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nibskill-'));
+    const dir = await mkdtemp(join(tmpdir(), 'tbskill-'));
     const writes: string[] = [];
     const orig = process.stdout.write.bind(process.stdout);
     process.stdout.write = ((s: string) => (writes.push(s), true)) as typeof process.stdout.write;
@@ -194,10 +194,10 @@ describe('ids and config', () => {
       process.stdout.write = orig;
     }
     const text = await readFile(join(dir, 'SKILL.md'), 'utf8');
-    expect(text).toMatch(/1\. `nib get/);
-    expect(text).toMatch(/2\. `nib network .*--status 4xx,5xx,failed/);
-    expect(text).toMatch(/3\. `nib frames/);
-    expect(text).toContain('nib comment');
+    expect(text).toMatch(/1\. `open-toolbar get/);
+    expect(text).toMatch(/2\. `open-toolbar network .*--status 4xx,5xx,failed/);
+    expect(text).toMatch(/3\. `open-toolbar frames/);
+    expect(text).toContain('open-toolbar comment');
     expect(writes.join('')).toContain('SKILL.md');
   });
 });

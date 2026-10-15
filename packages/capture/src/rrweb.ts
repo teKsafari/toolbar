@@ -57,7 +57,7 @@ export function createRrwebRecorder(send: (batch: unknown[], full: boolean) => v
             maskAllInputs: preset === 'production',
             maskInputOptions: { password: true, email: true, tel: true },
             maskTextSelector: preset === 'production' ? '*' : undefined,
-            blockClass: 'nib-block',
+            blockClass: 'tb-block',
             sampling: { mousemove: 50, scroll: 150, input: 'last', media: 800 },
             inlineStylesheet: true,
             recordCrossOriginIframes: false,

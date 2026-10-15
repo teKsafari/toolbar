@@ -11,6 +11,7 @@
 // behind CaptureDriver, which the capture area implements in lib/bg/capture.ts and installs
 // with setCaptureDriver(). Until then every media call fails with not_implemented.
 import { browser } from 'wxt/browser';
+import { migrateStorage } from '../migrate';
 import { DEFAULT_SERVER_URL, uuidv7, type RecordingKind } from '@toolbar/shared';
 import {
   DEFAULT_USER_SETTINGS,
@@ -62,6 +63,7 @@ export class BgFailure extends Error {
 // ---------------------------------------------------------------- storage
 
 export async function readStore<K extends StorageName>(name: K): Promise<StorageValues[K] | undefined> {
+  await migrateStorage();
   const { area, key } = STORAGE[name];
   const got = await browser.storage[area].get(key);
   return got[key] as StorageValues[K] | undefined;
@@ -321,7 +323,7 @@ async function updateActionIcon(s: CaptureSession) {
     await browser.action.setBadgeBackgroundColor({ color: '#e0402f' });
     await browser.action.setBadgeText({ text: badge });
   } catch (e) {
-    console.debug('[nib] action icon', e);
+    console.debug('[toolbar] action icon', e);
   }
 }
 
@@ -560,12 +562,12 @@ async function openPopup(screen?: 'link' | 'main') {
     await browser.action.openPopup();
     stats.popupOpens++;
   } catch (e) {
-    console.debug('[nib] openPopup', e);
+    console.debug('[toolbar] openPopup', e);
   }
 }
 
-export const POPUP_SCREEN_KEY = 'nib:popup-screen';
-const REOPEN_KEY = 'nib:reopen-popup';
+export const POPUP_SCREEN_KEY = 'tb:popup-screen';
+const REOPEN_KEY = 'tb:reopen-popup';
 
 async function activeTabId(): Promise<number> {
   const [tab] = await browser.tabs.query({ active: true, lastFocusedWindow: true });

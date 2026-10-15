@@ -60,7 +60,7 @@ export const COUNTDOWN_MS = 3000;
 /** Stop to editor budget; after this the session shows an error with an open-drafts action (J-034). */
 export const STOP_TIMEOUT_MS = 60_000;
 const PRUNE_EVERY_MS = 10_000;
-const DRAIN_ALARM = 'nib-upload-drain';
+const DRAIN_ALARM = 'tb-upload-drain';
 
 interface PortInfo {
   port: Port;

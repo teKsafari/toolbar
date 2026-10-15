@@ -1,6 +1,6 @@
 // Who may see or change a capture. One place for the rules every area applies:
 // - workspace members by seat role (J-124), with private captures and private folders (J-237);
-// - share-token viewers (x-nib-share header) when the capture's general access is "anyone" (J-119);
+// - share-token viewers (x-toolbar-share header) when the capture's general access is "anyone" (J-119);
 // - recording-link recipients with a per-capture upload token (D-030);
 // - nothing is reachable before finalize except by its uploader (J-189).
 // Pure decisions are exported for tests; `captureAccess()` loads the rows and throws ApiErrors.
@@ -51,7 +51,7 @@ export function decideAccess(input: {
   folderPrivacy: FolderPrivacy | null;
   /** capture id granted by a tb_upl_ token, if one was sent */
   uploadGrant: string | null;
-  /** capture id of a live share token sent in x-nib-share, if any */
+  /** capture id of a live share token sent in x-toolbar-share, if any */
   shareGrant: string | null;
 }): AccessDecision {
   const { mode, rec, userId, seat } = input;

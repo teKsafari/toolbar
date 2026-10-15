@@ -38,7 +38,7 @@ export const test = base.extend<{ context: BrowserContext }, { extContext: Brows
     async ({}, use) => {
       if (!fs.existsSync(path.join(EXT_DIR, 'manifest.json')))
         throw new Error(`No extension build at ${EXT_DIR}. Run: pnpm --filter @toolbar/extension build:test`);
-      const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-e2e-'));
+      const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-e2e-'));
       fs.mkdirSync(path.join(userDataDir, 'Default'), { recursive: true });
       fs.writeFileSync(
         path.join(userDataDir, 'Default', 'Preferences'),

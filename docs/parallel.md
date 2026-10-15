@@ -18,7 +18,7 @@ Eight area agents build Part 1 step 2 at the same time, each in its own worktree
 
 Naming: the API path says `recordings`; the UI says capture. They are the same row.
 
-Auth modes on routes: `public`, `member` (session or `Bearer tb_dev_`/`tb_pat_`), `viewer` (member, or a share token in the `x-nib-share` header for the logged-out viewer), `upload` (member, or the `tb_upl_` token a recording-link recipient gets), `session` (browser session only). Seat roles: viewer, creator, admin; the stored role `owner` acts as admin and Better Auth's `member` as creator (`seatRoleOf()`).
+Auth modes on routes: `public`, `member` (session or `Bearer tb_dev_`/`tb_pat_`), `viewer` (member, or a share token in the `x-toolbar-share` header for the logged-out viewer), `upload` (member, or the `tb_upl_` token a recording-link recipient gets), `session` (browser session only). Seat roles: viewer, creator, admin; the stored role `owner` acts as admin and Better Auth's `member` as creator (`seatRoleOf()`).
 
 ## Areas
 
@@ -80,8 +80,8 @@ Area index `i` from the table above. `scripts/area-setup.sh <area>` writes these
 - Extension builds point at your server with `WXT_SERVER_URL` (read it as `import.meta.env.WXT_SERVER_URL`, falling back to `DEFAULT_SERVER_URL`). Build-only is fine if you need no HMR; `.output/` is per worktree.
 - Databases live on the shared compose Postgres at `localhost:5432` (user and password `toolbar`). There is no `createdb` binary on this VM; the script uses `psql ... -c 'create database ...'`.
 - Storage: the shared Garage bucket `toolbar` at `localhost:3900`; `S3_KEY_PREFIX` puts every key under your prefix (`keys.*` in `s3.ts` apply it).
-- Chromium profiles: `/tmp/nib-<area>-profile`. Remote debugging, if you need it: port `9310 + i`. Never `:99`, never ports 9224 to 9226, never the chrome-devtools or playwright MCP tools (the shared browser).
-- Shared and read-only for everyone: the lab app on 5173 and 5174, Mailpit on 8025 and 1025 (search by recipient; seed users are `dana@nib.test` and `sam@nib.test`), whisper on 8080 (one job at a time).
+- Chromium profiles: `/tmp/tb-<area>-profile`. Remote debugging, if you need it: port `9310 + i`. Never `:99`, never ports 9224 to 9226, never the chrome-devtools or playwright MCP tools (the shared browser).
+- Shared and read-only for everyone: the lab app on 5173 and 5174, Mailpit on 8025 and 1025 (search by recipient; seed users are `dana@toolbar.test` and `sam@toolbar.test`), whisper on 8080 (one job at a time).
 - Never use port 3000, 3001 or the database `toolbar`: the compose stack and the main checkout own them.
 
 ## Rules
@@ -98,7 +98,7 @@ Area index `i` from the table above. `scripts/area-setup.sh <area>` writes these
 
 `pnpm --filter @toolbar/server db:seed` (or `scripts/area-setup.sh <area> --seed`) creates, with fixed ids so links stay stable:
 
-- users Dana Reviewer (`dana@nib.test`, workspace owner) and Sam Developer (`sam@nib.test`, creator), password `nib-dev-password`; a personal token for Dana, printed by the script (dev only; the script refuses a non-localhost `PUBLIC_URL`);
+- users Dana Reviewer (`dana@toolbar.test`, workspace owner) and Sam Developer (`sam@toolbar.test`, creator), password `toolbar-dev-password`; a personal token for Dana, printed by the script (dev only; the script refuses a non-localhost `PUBLIC_URL`);
 - workspace Lab shop, folder Checkout bugs, recording link Support inbox;
 - capture `...c1`, tab video of `/checkout` (8 s WebM): console at five levels, a hidden 500 on `POST /api/orders` with a JSON error body, a request that never returns, a cross-origin image seen by webRequest, WebSocket frames, an uncaught TypeError with stack, a SPA navigation, masked email and password typing, a pen marker, device and browser info;
 - capture `...c2`, area screenshot in the folder: crop with flattened annotations, the full viewport kept, annotation shapes and locator, logs from 20 s before the shot;

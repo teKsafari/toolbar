@@ -1,6 +1,6 @@
 // Signed outgoing webhooks (J-142, D-030). Each event becomes one delivery row per subscribed
 // endpoint; a `webhook-deliver` job posts it and reschedules failures with backoff. Signature:
-// `x-nib-signature: t=<unix>,v1=<hex HMAC-SHA256(secret, "<t>.<raw body>")>`.
+// `x-toolbar-signature: t=<unix>,v1=<hex HMAC-SHA256(secret, "<t>.<raw body>")>`.
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { and, desc, eq, lt, sql } from 'drizzle-orm';
 import { uuidv7 } from '@toolbar/shared';
@@ -150,7 +150,7 @@ export async function attempt(db: Db, deliveryId: string): Promise<DeliveryRow |
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'user-agent': 'nib-webhooks/1',
+        'user-agent': 'toolbar-webhooks/1',
         [WEBHOOK_SIGNATURE_HEADER]: sign(secret, body),
         [WEBHOOK_EVENT_HEADER]: d.event,
         [WEBHOOK_DELIVERY_HEADER]: d.id,

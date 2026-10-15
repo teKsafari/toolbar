@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { expect, test, chromium, type Browser, type Page } from '@playwright/test';
 import { SERVER, hydrated, signInWithPassword } from '../auth/helpers.ts';
 
-const DANA = { email: 'dana@nib.test', password: 'nib-dev-password' };
+const DANA = { email: 'dana@toolbar.test', password: 'toolbar-dev-password' };
 const SHARE_C3 = process.env.AGENT_SHARE_TOKEN ?? 'SFq1xBEGwjZnpQ2jmqx2-g';
 const b64 = (b: Buffer) => b.toString('base64url');
 const REDIRECT = 'http://127.0.0.1:47111/callback';
@@ -39,7 +39,7 @@ test('J-145 MCP page: one card per agent, snippets hold only the server URL', as
   for (const id of ['claude-code', 'cursor', 'codex', 'vscode', 'other']) await expect(page.getByTestId(`agent-card-${id}`)).toBeVisible();
   await page.getByTestId('agent-card-claude-code').click();
   const snippet = page.getByTestId('setup-snippet');
-  await expect(snippet).toHaveText(`claude mcp add --transport http nib ${SERVER}/mcp`);
+  await expect(snippet).toHaveText(`claude mcp add --transport http open-toolbar ${SERVER}/mcp`);
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByTestId('agent-card-cursor').click();
   await expect(snippet).toContainText(`"url": "${SERVER}/mcp"`);
@@ -108,21 +108,21 @@ test('J-155 CLI page: install, sign in and skill commands; install routes serve'
   await page.goto(`${SERVER}/settings/cli`);
   await hydrated(page);
   await expect(page.getByTestId('cli-install')).toHaveText(`curl -fsSL ${SERVER}/cli/install.sh | sh`);
-  await expect(page.getByTestId('cli-login')).toHaveText(`nib login --server ${SERVER}`);
-  await expect(page.getByTestId('cli-skill')).toHaveText('nib skill install');
+  await expect(page.getByTestId('cli-login')).toHaveText(`open-toolbar login --server ${SERVER}`);
+  await expect(page.getByTestId('cli-skill')).toHaveText('open-toolbar skill install');
   await page.getByRole('tab', { name: 'Windows' }).click();
   await expect(page.getByTestId('cli-install')).toHaveText(`irm ${SERVER}/cli/install.ps1 | iex`);
   const sh = await page.request.get(`${SERVER}/cli/install.sh`);
-  expect(await sh.text()).toContain(`${SERVER}/cli/nib.mjs`);
-  const bundle = await page.request.get(`${SERVER}/cli/nib.mjs`);
+  expect(await sh.text()).toContain(`${SERVER}/cli/open-toolbar.mjs`);
+  const bundle = await page.request.get(`${SERVER}/cli/open-toolbar.mjs`);
   if (bundle.status() === 200) expect((await bundle.text()).startsWith('#!/usr/bin/env node')).toBe(true);
 });
 
-const CLI = new URL('../../../packages/cli/dist/nib.mjs', import.meta.url).pathname;
+const CLI = new URL('../../../packages/cli/dist/open-toolbar.mjs', import.meta.url).pathname;
 
-test('J-155 nib login through the browser, then nib ls lists captures', async () => {
+test('J-155 open-toolbar login through the browser, then open-toolbar ls lists captures', async () => {
   test.skip(!existsSync(CLI), 'build the CLI first: pnpm --filter @toolbar/cli build');
-  const env = { ...process.env, NIB_CONFIG: join(mkdtempSync(join(tmpdir(), 'nib-e2e-')), 'config.json'), NIB_TOKEN: '', NIB_SERVER: '' };
+  const env = { ...process.env, TOOLBAR_CONFIG: join(mkdtempSync(join(tmpdir(), 'tb-e2e-')), 'config.json'), TOOLBAR_TOKEN: '', TOOLBAR_SERVER: '' };
   const child = spawn(process.execPath, [CLI, 'login', '--server', SERVER, '--no-open'], { env });
   let err = '';
   let out = '';
@@ -133,7 +133,7 @@ test('J-155 nib login through the browser, then nib ls lists captures', async ()
   const url = /https?:\/\/\S+\/mcp\/authorize\S+/.exec(err)![0];
   await page.goto(url);
   await hydrated(page);
-  await expect(page.getByTestId('mcp-client-name')).toContainText('Nib CLI on');
+  await expect(page.getByTestId('mcp-client-name')).toContainText('open-toolbar CLI on');
   await page.getByTestId('mcp-approve').click();
   await expect(page.getByText('Signed in. You can close this tab')).toBeVisible();
   expect(await exited).toBe(0);
@@ -160,7 +160,7 @@ test('J-148 read-only CLI key: 30 days, shown once with its prefix, reads work a
   await expect(page.getByTestId('token-secret')).toHaveCount(0);
   await expect(page.getByText(name)).toBeVisible();
 
-  const env = { ...process.env, NIB_CONFIG: join(mkdtempSync(join(tmpdir(), 'nib-e2e-')), 'config.json'), NIB_TOKEN: secret, NIB_SERVER: SERVER };
+  const env = { ...process.env, TOOLBAR_CONFIG: join(mkdtempSync(join(tmpdir(), 'tb-e2e-')), 'config.json'), TOOLBAR_TOKEN: secret, TOOLBAR_SERVER: SERVER };
   const ls = JSON.parse(execFileSync(process.execPath, [CLI, 'ls'], { env, encoding: 'utf8' })) as { total: number };
   expect(ls.total).toBeGreaterThanOrEqual(3);
   let refused = '';

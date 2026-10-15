@@ -36,7 +36,7 @@ test.afterAll(async () => {
 });
 
 const heavyOf = (sw: Worker, tabId: number) =>
-  sw.evaluate(async (id) => !!((await chrome.storage.session.get('nib:replay'))['nib:replay'] as { tabs?: Record<number, { heavy?: boolean }> } | undefined)?.tabs?.[id]?.heavy, tabId);
+  sw.evaluate(async (id) => !!((await chrome.storage.session.get('tb:replay'))['tb:replay'] as { tabs?: Record<number, { heavy?: boolean }> } | undefined)?.tabs?.[id]?.heavy, tabId);
 
 /** rrweb records the ring took for a tab in the last `ms`. */
 const recentRrweb = async (sw: Worker, tabId: number, ms: number) => (await ring(sw, tabId, ms)).rrweb.length;
@@ -50,7 +50,7 @@ async function labTab(context: import('@playwright/test').BrowserContext, sw: Wo
 
 test('J-011: on /list over the lab threshold the ring pauses, the popup badge opens the warning, continue runs replay for this page load only', async ({ context, sw }) => {
   await signInExtension(sw, acct);
-  await sw.evaluate(() => chrome.storage.local.set({ 'nib:heavy-thresholds': { nodes: 1000 } }));
+  await sw.evaluate(() => chrome.storage.local.set({ 'tb:heavy-thresholds': { nodes: 1000 } }));
   await setExtSettings(sw, { instantReplay: true, replayBlockedSites: [] });
   try {
     const { page, tabId } = await labTab(context, sw, '/list');
@@ -86,7 +86,7 @@ test('J-011: on /list over the lab threshold the ring pauses, the popup badge op
     expect(await recentRrweb(sw, tabId, 3000)).toBeGreaterThan(0);
     await page.close();
   } finally {
-    await sw.evaluate(() => chrome.storage.local.remove('nib:heavy-thresholds'));
+    await sw.evaluate(() => chrome.storage.local.remove('tb:heavy-thresholds'));
     await setExtSettings(sw, { instantReplay: false });
   }
 });
@@ -381,7 +381,7 @@ test('J-219: a video draft reopened from Drafts saves for later; the popup shows
   const id = await seedDraft(sw, { kind: 'video', videoBase64: VIDEO, durationMs: 8000, tabId, workspaceId: acct.workspaceId, status: 'saved' });
   // a draft reopens into the session only from idle; earlier tests in this worker may still be
   // winding theirs down
-  const state = () => sw.evaluate(async () => ((await chrome.storage.session.get('nib:session'))['nib:session'] as { state: string } | undefined)?.state ?? 'idle');
+  const state = () => sw.evaluate(async () => ((await chrome.storage.session.get('tb:session'))['tb:session'] as { state: string } | undefined)?.state ?? 'idle');
   await expect.poll(state, { timeout: 20_000 }).toBe('idle');
   let popup = await openPopup(context, tabId);
   await popup.locator('[data-drafts-pill]').click();
@@ -389,7 +389,7 @@ test('J-219: a video draft reopened from Drafts saves for later; the popup shows
     const g = globalThis as unknown as { __j219?: string[] };
     g.__j219 = [];
     chrome.storage.session.onChanged.addListener((c: Record<string, { newValue?: { state: string } }>) => {
-      if (c['nib:session']) g.__j219!.push(c['nib:session'].newValue?.state ?? 'none');
+      if (c['tb:session']) g.__j219!.push(c['tb:session'].newValue?.state ?? 'none');
     });
   });
   await popup.locator(`[data-draft-view="${id}"]`).click();
@@ -404,7 +404,7 @@ test('J-219: a video draft reopened from Drafts saves for later; the popup shows
   await expect(page.locator('iframe[data-nb-editor]')).toHaveCount(0, { timeout: 20_000 });
   await expect(page.locator('toolbar-root').getByText('Saved to your drafts')).toBeVisible();
   await expect(page.locator('toolbar-root').getByRole('button', { name: 'View' })).toBeVisible();
-  await expect.poll(() => sw.evaluate(async () => ((await chrome.storage.session.get('nib:session'))['nib:session'] as { state: string }).state)).toBe('idle');
+  await expect.poll(() => sw.evaluate(async () => ((await chrome.storage.session.get('tb:session'))['tb:session'] as { state: string }).state)).toBe('idle');
   popup = await openPopup(context, tabId);
   await expect(popup.locator('[data-drafts-pill]')).toBeEnabled();
   await expect(popup.locator('[data-drafts-pill]')).toHaveText(/\d+/);

@@ -2,10 +2,10 @@
 // the auth window (connectExtension); this checks what the user sees afterwards.
 import { SERVER, expect, hydrated, labPage, openPopup, test } from './fixture.ts';
 
-test('O: the popup shows the account and the capture rows; settings lists this browser', async ({ nib, context }) => {
+test('O: the popup shows the account and the capture rows; settings lists this browser', async ({ tb, context }) => {
   const lab = await labPage(context);
   const popup = await openPopup(context, lab);
-  await expect(popup.getByTestId('signed-in')).toContainText(nib.email);
+  await expect(popup.getByTestId('signed-in')).toContainText(tb.email);
   await expect(popup.getByTestId('signed-out')).toHaveCount(0);
   for (const name of [/Screenshot/, /Record this tab/, /Recording link/]) await expect(popup.getByRole('button', { name }).first()).toBeVisible();
   await popup.close();

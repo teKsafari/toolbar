@@ -5,7 +5,7 @@
 import { defineWxtModule } from 'wxt/modules';
 
 export default defineWxtModule({
-  name: 'nib-editor',
+  name: 'tb-editor',
   setup(wxt) {
     wxt.hook('build:manifestGenerated', (_wxt, manifest) => {
       const war = (manifest.web_accessible_resources ?? []) as { resources: string[]; matches: string[] }[];

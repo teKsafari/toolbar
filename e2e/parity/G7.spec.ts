@@ -1,4 +1,4 @@
-// Parity group G7, Nib side: settings, team admin, integrations, privacy and deletion
+// Parity group G7, open-toolbar side: settings, team admin, integrations, privacy and deletion
 // (docs/parity/scenarios.md, S7.1 to S7.4). Each test is one scenario, run as scripted, and
 // records its evidence (states, counts, clicks, API statuses, timings with the load average,
 // screenshots) in e2e/parity-shots/G7/<scenario>.json and .png files. The raw results are
@@ -40,7 +40,7 @@ import {
   editorFrame,
   focusWindow,
   labPage,
-  launchNib,
+  launchExtension,
   load,
   popupBox,
   secs,
@@ -113,7 +113,7 @@ let plain: Browser | null = null;
 
 async function getRig(): Promise<Launched> {
   if (rig) return rig;
-  rig = await launchNib();
+  rig = await launchExtension();
   const { popup } = await signIn(rig.context, EMAIL);
   await popup.close().catch(() => undefined);
   for (const p of rig.context.pages()) if (p.url().startsWith(SERVER)) await p.close().catch(() => undefined);
@@ -830,7 +830,7 @@ test('S7.2 extension settings and user-event capture off (N7)', async () => {
   ev.set('load-start', load());
   ev.set('mem-available-mb', availableMb());
   await activate(context, MAIN_WS);
-  const storage = async () => ((await (await sw()).evaluate(async () => (await chrome.storage.local.get('nib:settings'))['nib:settings'])) ?? {}) as Record<string, unknown>;
+  const storage = async () => ((await (await sw()).evaluate(async () => (await chrome.storage.local.get('tb:settings'))['tb:settings'])) ?? {}) as Record<string, unknown>;
 
   // 1. popup menu, settings; every setting; scroll
   let page = await labPage(context, '/');
@@ -964,7 +964,7 @@ test('S7.3 integrations (paused by owner scope)', async () => {
 // ================================================================ S7.3 step 7: webhooks (kept by scope)
 
 // Webhooks are one of the three agent channels (docs/scope.md), so J-142 is not paused even
-// though the rest of S7.3 is. Nib only: Jam's webhooks need a connected account.
+// though the rest of S7.3 is. open-toolbar only: Jam's webhooks need a connected account.
 test('S7.3 step 7 webhooks (J-142, kept by owner scope)', async () => {
   test.setTimeout(900_000);
   const ev = new Evidence(GROUP, 'S7.3-7');
@@ -1019,7 +1019,7 @@ test('S7.3 step 7 webhooks (J-142, kept by owner scope)', async () => {
       return null;
     })();
     const verify = (hit: { headers: Record<string, string | string[] | undefined>; body: string }) => {
-      const sig = String(hit.headers['x-nib-signature'] ?? '');
+      const sig = String(hit.headers['x-toolbar-signature'] ?? '');
       const [t, v1] = sig.split(',').map((p) => p.split('=')[1]);
       return { header: sig.replace(/v1=[0-9a-f]+/, 'v1=<hex>'), valid: !!t && !!v1 && createHmac('sha256', secret).update(`${t}.${hit.body}`).digest('hex') === v1 };
     };

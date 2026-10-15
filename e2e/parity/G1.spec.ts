@@ -1,4 +1,4 @@
-// Parity group G1, Nib side: capture modes and the in-page recording UI (docs/parity/scenarios.md,
+// Parity group G1, open-toolbar side: capture modes and the in-page recording UI (docs/parity/scenarios.md,
 // S1.1 to S1.6). Each test is one scenario, run as scripted, and records its evidence (counts,
 // clicks, timings with the load average, screenshots) in e2e/parity-shots/G1/<scenario>.json and
 // .png files. The raw results are written up in docs/parity/G1-replica.md.
@@ -32,7 +32,7 @@ import {
   iconPoint,
   openPopup,
   labPage,
-  launchNib,
+  launchExtension,
   load,
   popupBox,
   popupPage,
@@ -70,14 +70,14 @@ let rig: (Launched & { signedIn: boolean }) | null = null;
 
 async function getRig(): Promise<Launched> {
   if (rig) return rig;
-  rig = { ...(await launchNib()), signedIn: false };
+  rig = { ...(await launchExtension()), signedIn: false };
   const { lab, popup } = await signIn(rig.context, EMAIL);
   await popup.close().catch(() => undefined);
   // rig hygiene: the shared parity account starts with instant replay off, as a new account
   // does; an earlier S1.4 that stopped before its step 6 leaves it on (server and extension)
   await api(rig.context, 'PATCH', '/api/v1/me/settings', { extension: { instantReplay: false } });
   await (await rig.sw()).evaluate(async () => {
-    const k = 'nib:settings';
+    const k = 'tb:settings';
     const cur = ((await chrome.storage.local.get(k))[k] ?? {}) as Record<string, unknown>;
     await chrome.storage.local.set({ [k]: { ...cur, instantReplay: false } });
   });
@@ -107,7 +107,7 @@ async function freshLab(context: BrowserContext, p = '/', base = LAB_URL): Promi
 }
 
 async function session(sw: () => Promise<import('@playwright/test').Worker>) {
-  return (await (await sw()).evaluate(async () => (await chrome.storage.session.get('nib:session'))['nib:session'])) as { state: string; [k: string]: unknown } | undefined;
+  return (await (await sw()).evaluate(async () => (await chrome.storage.session.get('tb:session'))['tb:session'])) as { state: string; [k: string]: unknown } | undefined;
 }
 
 /** The popup's three-dot menu; a second click if the first did not open it. */
@@ -526,7 +526,7 @@ test('S1.2 tab recording with the recording bar', async () => {
   const hover = await shadowOne(page, 'data-nb-blur-hover');
   ev.set('step8-hover-outline', hover ? { box: hover.box, cardBox: cb } : null);
   ev.xshot('8-blur-hover', { x: cardPt.x - cb.width - 20, y: cardPt.y - cb.height / 2 - 30, w: cb.width + 120, h: cb.height + 60 });
-  const blurredCount = () => page.evaluate(() => document.querySelectorAll('[data-nib-blurred]').length);
+  const blurredCount = () => page.evaluate(() => document.querySelectorAll('[data-tb-blurred]').length);
   const seq: Record<string, number> = {};
   xclick(cardPt.x, cardPt.y);
   await sleep(400);
@@ -652,7 +652,7 @@ test('S1.2 tab recording with the recording bar', async () => {
   clicks['step15'] = 'icon, menu, restart, icon, pill = 5';
   ev.set('clicks', clicks);
 
-  // After-check (scenario: after S2.4 creates the capture). Nib has no capture budget, so the
+  // After-check (scenario: after S2.4 creates the capture). open-toolbar has no capture budget, so the
   // draft is created here from the drafts list and its video is checked: the bar at its dragged
   // spot, the card blurred, the length about 5 s shorter than the wall time.
   const wallMs = tStop - live.at;
@@ -730,7 +730,7 @@ test('S1.3 desktop recording across tabs', async () => {
   let mode: 'picker' | 'fake' = 'picker';
   for (;;) {
     attempt++;
-    const b = await launchNib({ cdpPort: 9362, args: mode === 'fake' ? ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] : [] });
+    const b = await launchExtension({ cdpPort: 9362, args: mode === 'fake' ? ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] : [] });
     let crashed = false;
     let closing = false;
     b.context.on('close', () => {
@@ -1003,7 +1003,7 @@ test('S1.4 instant replay', async () => {
     await popup.close().catch(() => undefined);
   } catch {
     await (await sw()).evaluate(async () => {
-      const k = 'nib:settings';
+      const k = 'tb:settings';
       const cur = ((await chrome.storage.local.get(k))[k] ?? {}) as Record<string, unknown>;
       await chrome.storage.local.set({ [k]: { ...cur, instantReplay: false } });
     });
@@ -1018,7 +1018,7 @@ test('S1.5 recording link from the popup', async () => {
   const ev = new Evidence(GROUP, 'S1.5');
   const { context } = await getRig();
   ev.set('load-start', load());
-  // the folder "parity" (S6.2 makes it on Jam; Nib makes it here through the API if missing)
+  // the folder "parity" (S6.2 makes it on Jam; open-toolbar makes it here through the API if missing)
   const boot = await api<{ activeWorkspaceId?: string; workspaces?: { id: string }[] }>(context, 'GET', '/api/v1/ext/bootstrap');
   let ws = boot.body?.activeWorkspaceId ?? boot.body?.workspaces?.[0]?.id;
   if (!ws) {
@@ -1113,7 +1113,7 @@ test('S1.6 microphone and the recording cap', async () => {
   {
     const { context, sw } = await getRig();
     const page = await freshLab(context);
-    await (await sw()).evaluate(() => chrome.storage.local.set({ 'nib:mic-granted': false }));
+    await (await sw()).evaluate(() => chrome.storage.local.set({ 'tb:mic-granted': false }));
     const popup = await clickIcon(context, page);
     const opened = context.waitForEvent('page', { predicate: (p) => p.url().includes('/permissions.html'), timeout: 15_000 }).catch(() => null);
     const tClick = Date.now();
@@ -1131,7 +1131,7 @@ test('S1.6 microphone and the recording cap', async () => {
     }
     const closedAt = perm ? await perm.waitForEvent('close', { timeout: 15_000 }).then(() => Date.now()).catch(() => null) : null;
     await sleep(800);
-    const settings = (await (await sw()).evaluate(async () => (await chrome.storage.local.get('nib:settings'))['nib:settings'])) as { mic?: boolean } | undefined;
+    const settings = (await (await sw()).evaluate(async () => (await chrome.storage.local.get('tb:settings'))['tb:settings'])) as { mic?: boolean } | undefined;
     const p2 = (await openPopup(context, page)).popup;
     const pill = await p2.locator('[data-mic-pill]').getAttribute('data-mic-pill');
     const err = (await p2.locator('[data-popup-error]').count()) ? await p2.locator('[data-popup-error]').textContent() : null;
@@ -1146,7 +1146,7 @@ test('S1.6 microphone and the recording cap', async () => {
   compose({ MAX_RECORDING_MIN: '1' });
   await healthy();
   try {
-    const b = await launchNib({ cdpPort: 9363 });
+    const b = await launchExtension({ cdpPort: 9363 });
     try {
       const { lab: page, popup: p0 } = await signIn(b.context, EMAIL);
       await p0.close().catch(() => undefined);
@@ -1192,7 +1192,7 @@ test('S1.6 microphone and the recording cap', async () => {
       const f = await editorFrame(page, 60_000);
       await sleep(1500);
       const length = (await f.getByTestId('length').textContent().catch(() => ''))?.trim();
-      const s = await (await b.sw()).evaluate(async () => (await chrome.storage.session.get('nib:session'))['nib:session']);
+      const s = await (await b.sw()).evaluate(async () => (await chrome.storage.session.get('tb:session'))['tb:session']);
       ev.set('step3-cap (J-013)', { stages, stoppedAfterS: secs(stopAt - live.at), draftLength: length, sessionAfter: (s as { state?: string } | undefined)?.state, editorOpened: true, why: stopped.value, load: load() });
       ev.xshot('3-draft-after-cap', { x: 0, y: 0, w: 1460, h: 1000 });
       await closeEditor(page);
@@ -1208,14 +1208,14 @@ test('S1.6 microphone and the recording cap', async () => {
   // Tab capture fails with the fake-device flags (e2e/flows/fixture.ts), so this recording is a
   // desktop one, which the fake UI flag answers without a picker, as in the capture suite's
   // J-211 test. The fake device is Chromium's default (a beep), not a speech WAV.
-  const b = await launchNib({ cdpPort: 9364, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
+  const b = await launchExtension({ cdpPort: 9364, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
   try {
     const { lab: page, popup: p0 } = await signIn(b.context, EMAIL);
     await p0.close().catch(() => undefined);
     for (const p of b.context.pages()) if (p !== page) await p.close().catch(() => undefined);
     await page.goto(LAB_URL + '/');
     await focusWindow(page);
-    await (await b.sw()).evaluate(() => chrome.storage.local.set({ 'nib:mic-granted': false }));
+    await (await b.sw()).evaluate(() => chrome.storage.local.set({ 'tb:mic-granted': false }));
     let popup = await clickIcon(b.context, page);
     const opened = b.context.waitForEvent('page', { predicate: (p) => p.url().includes('/permissions.html'), timeout: 15_000 }).catch(() => null);
     await xclickPopup(popup, '[data-mic-pill]');

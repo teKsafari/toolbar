@@ -1,6 +1,6 @@
 // Custom metadata SDK (J-073), with no package to install: the page calls
 //   window.toolbar.setMetadata(() => ({ plan: 'pro', userId: 7 }))
-// (also window.nib.setMetadata). The callback runs when a capture is made; its JSON must be
+// The callback runs when a capture is made; its JSON must be
 // at most 10 KB, larger objects are rejected.
 import type { MainCommand, MainReply } from './bridge.ts';
 
@@ -43,11 +43,6 @@ export function installMetadata(win: Window & typeof globalThis, bridge: { onCom
     define((win as unknown as { toolbar?: object }).toolbar);
   } catch {
     /* no BarProp */
-  }
-  try {
-    if (!(win as unknown as { nib?: unknown }).nib) Object.defineProperty(win, 'nib', { value: api, enumerable: false, configurable: true, writable: true });
-  } catch {
-    /* ignore */
   }
   bridge.onCommand((c) => {
     if (c.cmd !== 'metadata') return;

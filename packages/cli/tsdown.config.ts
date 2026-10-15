@@ -2,7 +2,7 @@
 import { defineConfig } from 'tsdown';
 
 export default defineConfig({
-  entry: { nib: 'src/main.ts' },
+  entry: { 'open-toolbar': 'src/main.ts' },
   format: 'esm',
   platform: 'node',
   target: 'node24',

@@ -9,7 +9,7 @@ import { DISPLAY, EXT_DIR, EXT_ID, LAB_URL } from '../../fixtures/extension.ts';
 base('J-177: restart from the menu reloads the extension and reopens the popup', async () => {
   base.skip(DISPLAY === ':99', 'never on the shared display');
   // developer mode: without it Chromium disables an unpacked extension when it reloads itself
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-e2e-restart-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-e2e-restart-'));
   fs.mkdirSync(path.join(dir, 'Default'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID], ui: { developer_mode: true } } }));
   const context = await chromium.launchPersistentContext(dir, {
@@ -20,7 +20,7 @@ base('J-177: restart from the menu reloads the extension and reopens the popup',
   });
   try {
     const sw1 = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
-    await sw1.evaluate(() => chrome.storage.local.set({ 'nib:auth': { serverUrl: 'http://localhost:1', token: 'tb_dev_x', tokenId: 'x', user: { id: null, name: 'T', email: null, image: null }, activeWorkspaceId: null, signedInAt: 0 } }));
+    await sw1.evaluate(() => chrome.storage.local.set({ 'tb:auth': { serverUrl: 'http://localhost:1', token: 'tb_dev_x', tokenId: 'x', user: { id: null, name: 'T', email: null, image: null }, activeWorkspaceId: null, signedInAt: 0 } }));
     const lab = await context.newPage();
     await lab.goto(LAB_URL);
     const popup = await context.newPage();
@@ -40,8 +40,8 @@ base('J-177: restart from the menu reloads the extension and reopens the popup',
           await check.goto(`chrome-extension://${EXT_ID}/options.html`).catch(() => undefined);
           return check
             .evaluate(async () => {
-              const got = await chrome.storage.local.get('nib:reopen-popup');
-              return got['nib:reopen-popup'] === undefined ? 'consumed' : 'pending';
+              const got = await chrome.storage.local.get('tb:reopen-popup');
+              return got['tb:reopen-popup'] === undefined ? 'consumed' : 'pending';
             })
             .catch(() => 'down');
         },

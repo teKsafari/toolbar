@@ -28,7 +28,7 @@ test('X-05: signed in on the web, the extension connects in one step and shows u
   expect(await bg(ext, { type: 'auth.state' })).toMatchObject({ ok: true, signedIn: true, user: { email } });
 
   // The token is a device token; the bootstrap call works with it.
-  const stored = (await ext.evaluate(() => chrome.storage.local.get('nib:auth')))['nib:auth'] as { token: string };
+  const stored = (await ext.evaluate(() => chrome.storage.local.get('tb:auth')))['tb:auth'] as { token: string };
   expect(stored.token).toMatch(/^tb_dev_/);
   const boot = await bg<{ ok: boolean; bootstrap: { user: { email: string }; workspaces: unknown[]; activeWorkspaceId: string } }>(ext, {
     type: 'bootstrap.get',
@@ -51,7 +51,7 @@ test('X-05: signed in on the web, the extension connects in one step and shows u
 
   // Sign in again, then sign out from the extension: the device token is revoked on the server.
   expect(await bg(ext, { type: 'auth.signIn' })).toMatchObject({ ok: true });
-  const token = ((await ext.evaluate(() => chrome.storage.local.get('nib:auth')))['nib:auth'] as { token: string }).token;
+  const token = ((await ext.evaluate(() => chrome.storage.local.get('tb:auth')))['tb:auth'] as { token: string }).token;
   expect(await bg(ext, { type: 'auth.signOut' })).toMatchObject({ ok: true });
   const res = await web.request.get(`${SERVER}/api/v1/me`, { headers: { authorization: `Bearer ${token}` } });
   expect(res.status()).toBe(401);

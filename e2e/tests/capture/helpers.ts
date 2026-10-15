@@ -36,7 +36,7 @@ export interface TabBrowser {
  * may crash it (Chrome's share picker on Xvfb, docs/spikes.md S2) launches its own.
  */
 export async function launchTabBrowser(display = DISPLAY): Promise<TabBrowser & { close(): Promise<void> }> {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-e2e-tab-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-e2e-tab-'));
   fs.mkdirSync(path.join(dir, 'Default'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID] } }));
   const context = await chromium.launchPersistentContext(dir, {
@@ -101,8 +101,8 @@ export async function signIn(sw: Worker, serverUrl: string) {
   await sw.evaluate(
     async ({ serverUrl, token, ws }) => {
       await chrome.storage.local.set({
-        'nib:auth': { serverUrl, token, tokenId: 'tok-e2e', user: { id: 'u1', name: 'Dana Reviewer', email: 'dana@nib.test', image: null }, activeWorkspaceId: ws, signedInAt: Date.now() },
-        'nib:server-url': serverUrl,
+        'tb:auth': { serverUrl, token, tokenId: 'tok-e2e', user: { id: 'u1', name: 'Dana Reviewer', email: 'dana@toolbar.test', image: null }, activeWorkspaceId: ws, signedInAt: Date.now() },
+        'tb:server-url': serverUrl,
       });
     },
     { serverUrl, token: MOCK_TOKEN, ws: WORKSPACE_ID },
@@ -116,8 +116,8 @@ export async function resetSession(sw: Worker) {
 
 export async function setSettings(sw: Worker, patch: Record<string, unknown>) {
   await sw.evaluate(async (patch) => {
-    const cur = (await chrome.storage.local.get('nib:settings'))['nib:settings'] ?? {};
-    await chrome.storage.local.set({ 'nib:settings': { ...cur, ...patch } });
+    const cur = (await chrome.storage.local.get('tb:settings'))['tb:settings'] ?? {};
+    await chrome.storage.local.set({ 'tb:settings': { ...cur, ...patch } });
   }, patch);
   await new Promise((r) => setTimeout(r, 150)); // storage.onChanged reaches the service
 }

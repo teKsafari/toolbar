@@ -14,10 +14,10 @@
       : `irm ${data.serverUrl}/cli/install.ps1 | iex`,
   );
   const steps = $derived([
-    { id: 'install', title: 'Install', body: 'Needs Node.js 24 or newer. Puts the nib command on your PATH.', cmd: install },
+    { id: 'install', title: 'Install', body: 'Needs Node.js 24 or newer. Puts the open-toolbar command on your PATH.', cmd: install },
     { id: 'login', title: 'Sign in', body: 'Opens your browser to approve, like an MCP agent. On a machine without a browser, create a token under API tokens and pass it with --token.', cmd: `${CLI_BIN} login --server ${data.serverUrl}` },
     { id: 'skill', title: 'Teach your agents', body: 'Writes a skill file for Claude Code (or --agent codex, cursor) with the order to read a capture in.', cmd: `${CLI_BIN} skill install` },
-    { id: 'try', title: 'Try it', body: 'Lists your latest captures. Then nib get <link>, nib network <link> --status 5xx, nib frames <link> --at 5000.', cmd: `${CLI_BIN} ls` },
+    { id: 'try', title: 'Try it', body: 'Lists your latest captures. Then open-toolbar get <link>, open-toolbar network <link> --status 5xx, open-toolbar frames <link> --at 5000.', cmd: `${CLI_BIN} ls` },
   ]);
 
   async function copy(id: string, text: string) {
@@ -57,7 +57,7 @@
   {/each}
 </ol>
 {#if !data.bundle}
-  <p class="warn" data-testid="cli-no-bundle">This server has no CLI build to hand out yet. Build it with <code>pnpm --filter @toolbar/cli build</code>, or run it from a checkout with <code>node packages/cli/dist/nib.mjs</code>.</p>
+  <p class="warn" data-testid="cli-no-bundle">This server has no CLI build to hand out yet. Build it with <code>pnpm --filter @toolbar/cli build</code>, or run it from a checkout with <code>node packages/cli/dist/open-toolbar.mjs</code>.</p>
 {/if}
 
 <style>

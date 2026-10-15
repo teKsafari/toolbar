@@ -11,7 +11,7 @@ export type HttpMethod = (typeof HTTP_METHODS)[number];
  * - `public`: nobody needs to sign in (share pages, recording-link recorder, health).
  * - `member`: a browser session or `Authorization: Bearer tb_dev_|tb_pat_`, for a member of the
  *   capture's workspace.
- * - `viewer`: like `member`, or a share token in the `x-nib-share` header (logged-out viewer, J-121).
+ * - `viewer`: like `member`, or a share token in the `x-toolbar-share` header (logged-out viewer, J-121).
  * - `upload`: like `member`, or the per-capture upload token a recording-link recipient gets (J-017).
  * - `session`: a browser session only (pages that set cookies or redirect).
  */
@@ -19,7 +19,7 @@ export const AUTH_MODES = ['public', 'member', 'viewer', 'upload', 'session'] as
 export type AuthMode = (typeof AUTH_MODES)[number];
 
 /** Header that carries a share token on API calls made by the logged-out viewer. */
-export const SHARE_TOKEN_HEADER = 'x-nib-share';
+export const SHARE_TOKEN_HEADER = 'x-toolbar-share';
 /** Prefix of the per-capture upload token returned to recording-link recipients. */
 export const UPLOAD_TOKEN_PREFIX = 'tb_upl_';
 

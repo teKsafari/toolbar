@@ -1,6 +1,6 @@
-# Developing Nib
+# Developing open-toolbar
 
-How to run each part of the repo on this machine or a fresh one. Nib is the working product name (D-018); the repo and package scope stay `toolbar`.
+How to run each part of the repo on this machine or a fresh one. The product is open-toolbar (D-083, formerly the working name Nib); the repo and package scope stay `toolbar`.
 
 ## Layout
 
@@ -45,7 +45,7 @@ curl -s localhost:3000/api/health  # {"ok":true,"checks":{"db":{"ok":true},"s3":
 
 Open http://localhost:3000. Out of the box the server offers no sign-in method: the scope's sign-in is one OIDC provider (`OIDC_1_*`, docs/scope.md). For development, either start the mock provider (`docker compose --profile dev up -d oidc-mock server` with the `OIDC_1_*` values in `docs/parity/fix-round-1.md`), or turn on the dev-only password sign-in with `AUTH_DEV_PASSWORD=1 docker compose up -d server` and sign in with any email and a password of 8+ characters (the account is created on first sign-in, with a personal workspace). `scripts/e2e-all.sh` sets `AUTH_DEV_PASSWORD=1`.
 
-Paused features (docs/scope.md) stay hidden unless their flag is set to 1: `FEATURE_EMAIL`, `FEATURE_TRACKERS`, `FEATURE_SLACK`, `FEATURE_CLI`, `FEATURE_AI`, `FEATURE_ADMIN_EXTRAS`. Area tests of a paused feature need its flag on the server; the viewer's chapter tests (J-096) also need `E2E_FEATURE_AI=1` in the test environment, and otherwise check that the chapters pill is hidden. The area suites sign in seeded `@nib.test` accounts, so the server they run against must not set `AUTH_ALLOWED_DOMAINS`.
+Paused features (docs/scope.md) stay hidden unless their flag is set to 1: `FEATURE_EMAIL`, `FEATURE_TRACKERS`, `FEATURE_SLACK`, `FEATURE_CLI`, `FEATURE_AI`, `FEATURE_ADMIN_EXTRAS`. Area tests of a paused feature need its flag on the server; the viewer's chapter tests (J-096) also need `E2E_FEATURE_AI=1` in the test environment, and otherwise check that the chapters pill is hidden. The area suites sign in seeded `@toolbar.test` accounts, so the server they run against must not set `AUTH_ALLOWED_DOMAINS`.
 
 Compose works with no `.env`: every variable has a dev default. For anything beyond localhost, run `scripts/gen-secrets.sh https://your.host` to write `.env` with random secrets (`.env.example` lists every variable). The server refuses to start on a non-localhost `PUBLIC_URL` with dev secrets. Sign-in rate limits (3 tries per 10 s per address) are on in the image; `AUTH_RATE_LIMIT=off` turns them off for an e2e run.
 
@@ -108,7 +108,7 @@ Or start a private Chromium with it, on its own display (never `:99`):
 
 ```sh
 Xvfb :101 -screen 0 1440x900x24 & DISPLAY=:101 openbox &
-DISPLAY=:101 ~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome --user-data-dir=/tmp/nib-profile --no-first-run \
+DISPLAY=:101 ~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome --user-data-dir=/tmp/tb-profile --no-first-run \
   --disable-extensions-except=$PWD/apps/extension/.output/chrome-mv3-dev \
   --load-extension=$PWD/apps/extension/.output/chrome-mv3-dev http://localhost:5173
 ```
@@ -141,8 +141,8 @@ KEEP=1 scripts/e2e-all.sh                  # keep the running stack and its data
 The script does, in order:
 
 1. `docker compose down -v`, then `AUTH_RATE_LIMIT=off docker compose up --build -d`, and waits for `/api/health`. Rate limits are off because the suites sign in many test accounts from one address, and Better Auth allows 3 sign-ins per 10 s per address in production.
-2. `pnpm --filter @toolbar/server db:seed` against the compose database (the server's defaults point at it). The seed prints a personal token; the script passes it as `NIB_E2E_TOKEN`, so `agent/cli-create.spec.ts` runs instead of skipping.
-3. Builds the release extension, the test extension and the CLI (`packages/cli/dist/nib.mjs`).
+2. `pnpm --filter @toolbar/server db:seed` against the compose database (the server's defaults point at it). The seed prints a personal token; the script passes it as `TOOLBAR_E2E_TOKEN`, so `agent/cli-create.spec.ts` runs instead of skipping.
+3. Builds the release extension, the test extension and the CLI (`packages/cli/dist/open-toolbar.mjs`).
 4. Runs the area suites, then the flows. With `RUNS=n` it repeats steps 1, 2 and 4 n times. Logs go to `e2e/runs/area-N.log` and `e2e/runs/flows-N.log`; HTML reports to `e2e/playwright-report` and `e2e/playwright-report-flows`; flow screenshots to `e2e/flows-shots/`.
 
 It needs the lab (`systemctl --user status toolbar-lab`, on :5173 and :5174), Xvfb, openbox, xdotool, xclip, ImageMagick (`import`) and ffmpeg.

@@ -76,7 +76,7 @@ test('custom metadata from window.toolbar.setMetadata; over 10 KB is rejected (J
   const d1 = await svc<DraftLike>(sw, 'takeScreenshot', null, { tabId, openEditor: false });
   expect(d1.metadata).toEqual({ plan: 'x', userId: 7 });
   await svc(sw, 'discardDraft', d1.id);
-  await page.evaluate(() => (window as unknown as { nib: { setMetadata(f: () => unknown): void } }).nib.setMetadata(() => ({ blob: 'x'.repeat(11_000) })));
+  await page.evaluate(() => (window as unknown as { toolbar: { setMetadata(f: () => unknown): void } }).toolbar.setMetadata(() => ({ blob: 'x'.repeat(11_000) })));
   const d2 = await svc<DraftLike>(sw, 'takeScreenshot', null, { tabId, openEditor: false });
   expect(d2.metadata).toBeNull();
   const ev = (await draftWithBlobs(sw, d2.id)).events as { kind: string; data: { args?: unknown[] } }[];

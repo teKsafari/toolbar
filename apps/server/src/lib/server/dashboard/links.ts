@@ -229,7 +229,7 @@ export async function recorderCreate(
 export const SUPPORT_LINK_NAME = 'Problem reports';
 
 /**
- * J-177: the recording link for bug reports about Nib itself, owned by the server admin (the
+ * J-177: the recording link for bug reports about open-toolbar itself, owned by the server admin (the
  * first account on this server) in their first own workspace. SUPPORT_RECORDING_LINK overrides
  * it with any URL, or turns it off with `off`. A link the admin turned off is left off.
  */

@@ -144,7 +144,7 @@ describe.skipIf(!reachable)('agent (integration)', () => {
 
     const cliOnly = await createApiToken(db, { userId: ids.dana, kind: 'personal', name: 'cli', scopes: ['cli:read'] });
     expect((await rpc(cliOnly.secret, 'tools/list')).status).toBe(403);
-    const asCli = await rpc(cliOnly.secret, 'tools/list', {}, { 'x-nib-client': 'cli' });
+    const asCli = await rpc(cliOnly.secret, 'tools/list', {}, { 'x-toolbar-client': 'cli' });
     expect(asCli.status).toBe(200);
 
     const mcpRead = await createApiToken(db, { userId: ids.dana, kind: 'personal', name: 'ro', scopes: ['mcp:read'] });

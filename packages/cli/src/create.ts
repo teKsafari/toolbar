@@ -1,4 +1,4 @@
-// `nib create`: captures made by an agent.
+// `open-toolbar create`: captures made by an agent.
 // - `--json payload.json`: an annotated screenshot (J-244). The marks are drawn into the image
 //   (boxes and arrows numbered in payload order, redactions opaque, blurs blurred) and kept as
 //   annotation shapes; notes on numbered marks become the description's numbered lines.
@@ -79,7 +79,7 @@ export async function createScreenshot(payload: ScreenshotPayload, baseDir: stri
     page: { url: payload.url ?? 'about:blank', title: payload.pageTitle },
     startedAt,
     env: {
-      ua: `${'nib'} CLI`,
+      ua: `open-toolbar CLI`,
       viewport: { w: payload.screen?.w ?? img.width, h: payload.screen?.h ?? img.height },
       dpr: payload.screen?.w ? Math.round((img.width / payload.screen.w) * 100) / 100 : 1,
       ...(payload.url ? { url: payload.url } : {}),
@@ -105,8 +105,8 @@ async function webmOf(path: string): Promise<{ bytes: Buffer; durationMs: number
   const ext = extname(path).toLowerCase();
   let file = path;
   if (ext !== '.webm') {
-    if (!hasFfmpeg()) throw new CliError(`${basename(path)} is not WebM. Install ffmpeg so nib can convert it, or record WebM (Playwright videos are WebM).`);
-    file = join(tmpdir(), `nib-${process.pid}-${Date.now()}.webm`);
+    if (!hasFfmpeg()) throw new CliError(`${basename(path)} is not WebM. Install ffmpeg so open-toolbar can convert it, or record WebM (Playwright videos are WebM).`);
+    file = join(tmpdir(), `tb-${process.pid}-${Date.now()}.webm`);
     const r = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', path, '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '36', '-deadline', 'realtime', '-cpu-used', '8', '-c:a', 'libopus', file], { stdio: 'inherit' });
     if (r.status !== 0) throw new CliError('ffmpeg could not convert the video.');
   }
@@ -180,7 +180,7 @@ export async function createCommand(argv: string[], io: { log: (s: string) => vo
     return createScreenshot(payload, v.json === '-' ? process.cwd() : join(v.json, '..'));
   }
   const file = pos[0];
-  if (!file) throw new CliError('Use: nib create --json payload.json, or nib create <video> [--trace trace.zip]');
+  if (!file) throw new CliError('Use: open-toolbar create --json payload.json, or open-toolbar create <video> [--trace trace.zip]');
   if (/\.(png)$/i.test(file)) return createScreenshot({ image: file, title: v.title, description: v.description, url: v.url, folderId: v.folder, workspaceId: v.workspace }, process.cwd());
   return createVideo(file, { trace: v.trace, title: v.title, description: v.description, folderId: v.folder, workspaceId: v.workspace, url: v.url, poster: v.poster }, io.log);
 }

@@ -1,4 +1,4 @@
-// `nib login`: with --token, check a personal token and save it; otherwise sign in through the
+// `open-toolbar login`: with --token, check a personal token and save it; otherwise sign in through the
 // browser with the same OAuth flow MCP agents use (dynamic registration, PKCE, loopback redirect).
 import { createHash, randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';

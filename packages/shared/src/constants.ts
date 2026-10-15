@@ -1,8 +1,8 @@
 // Values shared by the extension, the server and the tests. Change them here only.
 
 /** Working product name (D-018). The repo stays "toolbar". */
-export const PRODUCT_NAME = 'Nib';
-export const PRODUCT_SLUG = 'nib';
+export const PRODUCT_NAME = 'open-toolbar';
+export const PRODUCT_SLUG = 'open-toolbar';
 
 /** Tag name of the in-page UI host element (closed shadow root). */
 export const UI_HOST_TAG = 'toolbar-root';
@@ -75,7 +75,7 @@ export const LIMITS = {
   /**
    * Heavy-page guard for instant replay (J-011): a page with this many elements, or this many DOM
    * mutation records per second, pauses the ring until the person continues. The extension's
-   * `nib:heavy-thresholds` storage key overrides both (the lab e2e lowers them).
+   * `tb:heavy-thresholds` storage key overrides both (the lab e2e lowers them).
    */
   heavyPageNodes: 8000,
   heavyPageMutationsPerSec: 600,

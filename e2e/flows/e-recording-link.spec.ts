@@ -10,7 +10,7 @@
 import { chromium } from '@playwright/test';
 import { BrowserCrash, FAKE_MEDIA, SERVER, api, clipboard, expect, labPage, linkIn, mailTo, openPopup, pickEntireScreenInPage, saveShot, test, throughPicker, waitReady, withPrivateDisplay, xshot } from './fixture.ts';
 
-test('E: recording link from the popup; a recipient with no extension records and sends; the sender gets mail', async ({ nib, context }) => {
+test('E: recording link from the popup; a recipient with no extension records and sends; the sender gets mail', async ({ tb, context }) => {
   // Sender: popup, recording-link row, a name, create (3 clicks and typing)
   const lab = await labPage(context);
   const popup = await openPopup(context, lab);
@@ -71,7 +71,7 @@ test('E: recording link from the popup; a recipient with no extension records an
   }));
 
   // Sender: the mail names the link and carries the note and the capture
-  const mail = await mailTo(context, nib.email, new RegExp(`New recording from "${name}"`), 60_000);
+  const mail = await mailTo(context, tb.email, new RegExp(`New recording from "${name}"`), 60_000);
   expect(mail.text).toContain(note);
   const captureUrl = linkIn(mail.text, `${SERVER}/c/`);
   const id = captureUrl.split('/c/')[1]!.split(/[?#]/)[0]!;

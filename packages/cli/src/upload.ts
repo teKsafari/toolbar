@@ -1,5 +1,5 @@
 // Make a capture through the server's upload API (architecture s5): create, chunked stream
-// uploads with sha256, assets, complete, finalize. Used by `nib create` and `nib record`.
+// uploads with sha256, assets, complete, finalize. Used by `open-toolbar create` and `open-toolbar record`.
 import { createHash, randomBytes } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import type { CaptureEvent, EnvInfo } from '@toolbar/shared/events';

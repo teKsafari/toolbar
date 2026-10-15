@@ -5,9 +5,9 @@
 /**
  * J-018: the dashboard's new-capture button dispatches this DOM event on `window`
  * (`new CustomEvent(NEW_CAPTURE_EVENT, { detail: { from: 'dashboard' } })`). The extension's
- * isolated content script (`entrypoints/nib-web.content.ts`) listens for it and asks the
+ * isolated content script (`entrypoints/toolbar-web.content.ts`) listens for it and asks the
  * worker to open the capture menu. The same script marks the document with
- * `data-nib-extension` on <html>; without the mark the dashboard shows install help instead.
+ * `data-tb-extension` on <html>; without the mark the dashboard shows install help instead.
  */
-export const NEW_CAPTURE_EVENT = 'nib:new-capture';
-export const EXTENSION_MARK_ATTR = 'data-nib-extension';
+export const NEW_CAPTURE_EVENT = 'tb:new-capture';
+export const EXTENSION_MARK_ATTR = 'data-tb-extension';

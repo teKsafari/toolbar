@@ -13,7 +13,7 @@ declare const chrome: any;
 
 let ctx: BrowserContext;
 let sw: Worker;
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-e2e-private-'));
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-e2e-private-'));
 const file = path.join(dir, 'lab-page.html');
 
 test.beforeAll(async () => {

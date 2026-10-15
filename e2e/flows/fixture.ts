@@ -33,7 +33,7 @@ export const SHOTS = path.join(ROOT, 'e2e/flows-shots');
 const run = Date.now().toString(36);
 /** Second CDP client for the action popup; 9224 to 9226 belong to the shared browser. */
 const CDP_PORT = Number(process.env.FLOWS_CDP_PORT ?? 9341);
-export const PASSWORD = 'nib flows password';
+export const PASSWORD = 'toolbar flows password';
 
 /** A capture made by a flow, as the share link and the API know it. */
 export interface Made {
@@ -42,7 +42,7 @@ export interface Made {
   title: string;
 }
 
-export interface Nib {
+export interface Tb {
   context: BrowserContext;
   sw: () => Promise<Worker>;
   email: string;
@@ -71,7 +71,7 @@ export async function chord(page: Page, keys: string) {
 async function windowOf(page: Page): Promise<string> {
   for (let attempt = 0; attempt < 3; attempt++) {
     await page.bringToFront();
-    const marker = `nib-${Math.random().toString(36).slice(2, 8)}`;
+    const marker = `tb-${Math.random().toString(36).slice(2, 8)}`;
     const title = await page.title();
     await page.evaluate((m) => (document.title = m), marker);
     let win = '';
@@ -392,7 +392,7 @@ export async function connectExtension(context: BrowserContext, email: string) {
   await card.getByRole('button', { name: 'Sign in' }).click();
   const win = await authWindow;
   await win.waitForURL(/\/login\?next=%2Fext%2Fconnect/);
-  await expect(win.getByRole('heading', { name: /Connect the Nib extension/ })).toBeVisible();
+  await expect(win.getByRole('heading', { name: /Connect the open-toolbar extension/ })).toBeVisible();
   await hydrated(win);
   await expect(async () => {
     if (!(await win.getByLabel('Password').isVisible())) await win.getByRole('button', { name: 'Use a password instead' }).click({ timeout: 2000 });
@@ -419,11 +419,11 @@ export interface Launched {
  * browser of its own, so a crash cannot take the shared one down. `cdpPort` must differ from
  * every other open browser's; `args` adds Chromium flags.
  */
-export async function launchNib(opts: { cdpPort?: number; args?: string[]; display?: string } = {}): Promise<Launched> {
+export async function launchExtension(opts: { cdpPort?: number; args?: string[]; display?: string } = {}): Promise<Launched> {
   if (!fs.existsSync(path.join(EXT_DIR, 'manifest.json'))) throw new Error(`No extension build at ${EXT_DIR}. Run: pnpm --filter @toolbar/extension build`);
   if (DISPLAY === ':99') throw new Error('Display :99 belongs to the shared browser');
   const cdpPort = opts.cdpPort ?? CDP_PORT;
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-flows-'));
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-flows-'));
   fs.mkdirSync(path.join(userDataDir, 'Default'), { recursive: true });
   fs.writeFileSync(path.join(userDataDir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID] } }));
   const context = await chromium.launchPersistentContext(userDataDir, {
@@ -463,21 +463,21 @@ let accounts = 0;
 /** A fresh address for a new account in this run. */
 export const newEmail = (who = 'flows') => `${who}-${run}-${++accounts}@flows${run}.test`;
 
-export const test = base.extend<{ context: BrowserContext }, { nib: Nib }>({
-  nib: [
+export const test = base.extend<{ context: BrowserContext }, { tb: Tb }>({
+  tb: [
     async ({}, use) => {
-      const { context, sw, close } = await launchNib();
+      const { context, sw, close } = await launchExtension();
       const email = `flows-${run}@flows${run}.test`;
-      const nib: Nib = { context, sw, email, made: {} };
+      const tb: Tb = { context, sw, email, made: {} };
       const { lab, popup } = await connectExtension(context, email);
       await popup.close();
       await lab.close();
-      await use(nib);
+      await use(tb);
       await close();
     },
     { scope: 'worker', timeout: 120_000 },
   ],
-  context: async ({ nib }, use) => use(nib.context),
+  context: async ({ tb }, use) => use(tb.context),
 });
 
 export { expect };
@@ -489,7 +489,7 @@ export { expect };
  * and use up the browser's six connections to the server. On failure, keep a picture of the
  * whole X screen first: popups and the closed shadow root show there.
  */
-test.afterEach(async ({ nib }, info) => {
+test.afterEach(async ({ tb }, info) => {
   if (info.status !== info.expectedStatus) {
     try {
       execFileSync('import', ['-window', 'root', info.outputPath('screen.png')], { env: { ...process.env, DISPLAY } });
@@ -497,5 +497,5 @@ test.afterEach(async ({ nib }, info) => {
       /* imagemagick missing */
     }
   }
-  for (const p of nib.context.pages()) if (p.url().startsWith(SERVER)) await p.close().catch(() => undefined);
+  for (const p of tb.context.pages()) if (p.url().startsWith(SERVER)) await p.close().catch(() => undefined);
 });

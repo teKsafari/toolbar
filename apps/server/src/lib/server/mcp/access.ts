@@ -18,7 +18,7 @@ export type BearerResult = { ok: true; principal: McpPrincipal } | { ok: false; 
 
 /**
  * Resolve `Authorization: Bearer` for /mcp: an OAuth access token, or a personal token with an
- * mcp scope. The CLI sends `x-nib-client: cli` and is checked against the token's cli scopes.
+ * mcp scope. The CLI sends `x-toolbar-client: cli` and is checked against the token's cli scopes.
  */
 export async function principalFrom(db: Db, authorization: string | null, surface: 'mcp' | 'cli' = 'mcp'): Promise<BearerResult> {
   const m = authorization?.match(/^Bearer\s+(\S+)$/i);

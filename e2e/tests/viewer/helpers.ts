@@ -26,7 +26,7 @@ export const IDS = {
 
 /** Same derivation as scripts/seed.ts, so links stay stable across runs. */
 export function shareToken(id: string): string {
-  return createHash('sha256').update(`nib-seed:share:${id}`).digest().subarray(0, 16).toString('base64url');
+  return createHash('sha256').update(`tb-seed:share:${id}`).digest().subarray(0, 16).toString('base64url');
 }
 export const shareUrl = (id: string) => `${SERVER}/s/${shareToken(id)}`;
 export const captureUrl = (id: string) => `${SERVER}/c/${id}`;
@@ -43,7 +43,7 @@ export function reseed() {
 
 export async function signIn(context: BrowserContext, who: 'dana' | 'sam' = 'dana') {
   const r = await context.request.post(`${SERVER}/api/auth/sign-in/email`, {
-    data: { email: `${who}@nib.test`, password: 'nib-dev-password' },
+    data: { email: `${who}@toolbar.test`, password: 'toolbar-dev-password' },
     headers: { origin: SERVER },
   });
   if (!r.ok()) throw new Error(`sign-in failed: ${r.status()}`);

@@ -1,6 +1,6 @@
 // The capture-making journeys, shared: a later flow that needs a video or a replay reuses the
 // one an earlier flow made in this worker, or makes its own.
-import { SERVER, api, captureOf, chord, createFromEditor, editorFrame, expect, labPage, openPopup, saveShot, waitReady, xshot, type Made, type Nib } from './fixture.ts';
+import { SERVER, api, captureOf, chord, createFromEditor, editorFrame, expect, labPage, openPopup, saveShot, waitReady, xshot, type Made, type Tb } from './fixture.ts';
 
 /** Click the lab's failing cases: hidden 500, uncaught throw, unhandled rejection, console levels. */
 export async function labErrors(page: import('@playwright/test').Page) {
@@ -14,9 +14,9 @@ export async function labErrors(page: import('@playwright/test').Page) {
 }
 
 /** Flow B. */
-export async function recordLabErrors(nib: Nib): Promise<Made> {
-  if (nib.made.video) return nib.made.video;
-  const { context } = nib;
+export async function recordLabErrors(tb: Tb): Promise<Made> {
+  if (tb.made.video) return tb.made.video;
+  const { context } = tb;
   const page = await labPage(context);
   const t0 = Date.now();
   await chord(page, 'ctrl+shift+space');
@@ -46,15 +46,15 @@ export async function recordLabErrors(nib: Nib): Promise<Made> {
   expect(net.status).toBe(200);
   expect(net.body.items.some((r) => r.url.endsWith('/api/fail') && r.status === 500), JSON.stringify(net.body).slice(0, 500)).toBe(true);
   await page.close();
-  nib.made.video = { id: rec.id, shareUrl, title };
+  tb.made.video = { id: rec.id, shareUrl, title };
   void SERVER;
-  return nib.made.video;
+  return tb.made.video;
 }
 
 /** Flow C, including the one-time setup in the popup (menu, settings, switch). */
-export async function instantReplay(nib: Nib): Promise<Made> {
-  if (nib.made.replay) return nib.made.replay;
-  const { context } = nib;
+export async function instantReplay(tb: Tb): Promise<Made> {
+  if (tb.made.replay) return tb.made.replay;
+  const { context } = tb;
   const first = await labPage(context);
   const popup = await openPopup(context, first);
   if (!(await popup.getByRole('button', { name: /Instant replay/ }).count())) {
@@ -86,6 +86,6 @@ export async function instantReplay(nib: Nib): Promise<Made> {
   const net = await api<{ items: { status: number | null; url: string }[] }>(context, 'GET', `/api/v1/recordings/${rec.id}/network?status=5xx`);
   expect(net.body.items.some((r) => r.url.endsWith('/api/fail') && r.status === 500), JSON.stringify(net.body).slice(0, 500)).toBe(true);
   await page.close();
-  nib.made.replay = { id: rec.id, shareUrl, title };
-  return nib.made.replay;
+  tb.made.replay = { id: rec.id, shareUrl, title };
+  return tb.made.replay;
 }

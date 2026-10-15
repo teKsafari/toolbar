@@ -119,7 +119,7 @@ test('J-005: a 3 s delay from the chevron runs a bottom-left badge and a cancel 
   await expect.poll(async () => (await session(sw)).state).toBe('arming-screenshot');
   expect((await session(sw)).delaySec).toBe(3);
   // the choice is off next time
-  const saved = await sw.evaluate(async () => (await chrome.storage.local.get('nib:settings'))['nib:settings'] as { screenshotDelaySec: number });
+  const saved = await sw.evaluate(async () => (await chrome.storage.local.get('tb:settings'))['tb:settings'] as { screenshotDelaySec: number });
   expect(saved.screenshotDelaySec).toBe(0);
 
   await page.bringToFront();

@@ -33,7 +33,7 @@
   onMount(() => {
     hydrated = true;
     try {
-      const w = Number(localStorage.getItem('nib.viewer.split'));
+      const w = Number(localStorage.getItem('tb.viewer.split'));
       if (w >= 22 && w <= 70) rightPct = w;
     } catch {
       /* private mode */
@@ -71,7 +71,7 @@
     if (!dragging) return;
     dragging = false;
     try {
-      localStorage.setItem('nib.viewer.split', String(Math.round(rightPct)));
+      localStorage.setItem('tb.viewer.split', String(Math.round(rightPct)));
     } catch {
       /* private mode */
     }

@@ -1,6 +1,6 @@
 // J-217 provider buttons. Runs when E2E_PROVIDERS=1 and the server was started with
 //   GITHUB_CLIENT_ID, GOOGLE_CLIENT_ID (any value: the test stops at the provider's page) and
-//   OIDC_1_ID=nibsso OIDC_1_NAME="Mock SSO" OIDC_1_DISCOVERY_URL=<mock>/nibsso/.well-known/openid-configuration
+//   OIDC_1_ID=mocksso OIDC_1_NAME="Mock SSO" OIDC_1_DISCOVERY_URL=<mock>/mocksso/.well-known/openid-configuration
 // with a mock OIDC provider, e.g. docker run -p 3311:8080 -e JSON_CONFIG='{"interactiveLogin":true}'
 //   ghcr.io/navikt/mock-oauth2-server:2.1.10
 import { test, expect, chromium, type Browser } from '@playwright/test';
@@ -46,8 +46,8 @@ test('J-217: generic OIDC sign-in end to end creates the account and a workspace
   const email = uniqueEmail(undefined, 'sso');
   await page.goto(`${SERVER}/login`);
   await hydrated(page);
-  await page.locator('[data-provider="nibsso"]').click();
-  await page.waitForURL(/\/nibsso\/authorize/);
+  await page.locator('[data-provider="mocksso"]').click();
+  await page.waitForURL(/\/mocksso\/authorize/);
   await page.locator('input[name=username]').fill(`sso-${email}`);
   await page.locator('textarea[name=claims]').fill(JSON.stringify({ email, email_verified: true, name: 'Sso Person' }));
   await page.getByRole('button', { name: 'Sign-in' }).or(page.locator('input[type=submit]')).first().click();

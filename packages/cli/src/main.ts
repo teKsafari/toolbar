@@ -1,4 +1,4 @@
-// nib: the Nib command line (J-155, J-244 to J-247). Reads captures with the same data and JSON
+// open-toolbar: the command line (J-155, J-244 to J-247). Reads captures with the same data and JSON
 // shapes as the MCP tools, writes frames and screenshots to disk, pulls a whole capture into a
 // folder, installs the agent skill, and makes captures for agents.
 import { parseArgs, type ParseArgsConfig } from 'node:util';
@@ -175,15 +175,15 @@ async function skill(argv: string[]) {
   const target =
     (v.dir as string | undefined) ??
     (agent === 'claude'
-      ? join(home, '.claude', 'skills', 'nib-captures')
+      ? join(home, '.claude', 'skills', 'open-toolbar-captures')
       : agent === 'codex'
-        ? join(home, '.codex', 'skills', 'nib-captures')
+        ? join(home, '.codex', 'skills', 'open-toolbar-captures')
         : agent === 'cursor'
           ? join(process.cwd(), '.cursor', 'rules')
           : null);
   if (!target) throw new CliError('--agent is claude, codex or cursor (or pass --dir)');
   await mkdir(target, { recursive: true });
-  const file = join(target, agent === 'cursor' && !v.dir ? 'nib-captures.mdc' : 'SKILL.md');
+  const file = join(target, agent === 'cursor' && !v.dir ? 'open-toolbar-captures.mdc' : 'SKILL.md');
   await writeFile(file, text);
   out({ installed: file });
 }
@@ -196,9 +196,9 @@ export async function main(argv: string[]): Promise<void> {
   switch (cmd) {
     case 'login': {
       const { values: v } = parse(rest, { server: { type: 'string' }, token: { type: 'string' }, 'no-open': { type: 'boolean' } });
-      const server = (v.server as string | undefined) ?? process.env.NIB_SERVER ?? (await readConfig())?.server;
+      const server = (v.server as string | undefined) ?? process.env.TOOLBAR_SERVER ?? (await readConfig())?.server;
       if (!server) throw new CliError('Pass --server <url> (the address of your server).');
-      const token = (v.token as string | undefined) ?? (process.env.NIB_LOGIN_TOKEN || undefined);
+      const token = (v.token as string | undefined) ?? (process.env.TOOLBAR_LOGIN_TOKEN || undefined);
       if (token) {
         const me = await loginWithToken(server, token);
         return out({ signedIn: true, server, as: me.email, via: 'token', config: configPath() });
@@ -288,7 +288,7 @@ export async function main(argv: string[]): Promise<void> {
     }
     case 'messages': {
       const { values: v, positionals: pos } = parse(rest, { rid: { type: 'string' }, direction: { type: 'string' }, q: { type: 'string' } });
-      if (!v.rid) throw new CliError('Pass --rid <rid> of a websocket or eventsource row (from nib network --type websocket,eventsource).');
+      if (!v.rid) throw new CliError('Pass --rid <rid> of a websocket or eventsource row (from open-toolbar network --type websocket,eventsource).');
       return out(await paged(c, 'get_stream_messages', { capture: need(pos, 0, 'capture'), rid: v.rid, direction: v.direction, q: v.q }, v));
     }
     case 'actions':
@@ -344,7 +344,7 @@ const isEntry = (() => {
   try {
     const self = new URL(import.meta.url).pathname;
     const arg = process.argv[1] ? resolve(process.argv[1]) : '';
-    return arg === self || /(^|\/)(nib|nib\.mjs|main\.ts)$/.test(arg);
+    return arg === self || /(^|\/)(open-toolbar|open-toolbar\.mjs|main\.ts)$/.test(arg);
   } catch {
     return false;
   }

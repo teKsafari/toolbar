@@ -1,4 +1,4 @@
-// Parity group G2, Nib side: annotation, editor and submit (docs/parity/scenarios.md, S2.1 to
+// Parity group G2, open-toolbar side: annotation, editor and submit (docs/parity/scenarios.md, S2.1 to
 // S2.4). Each test is one scenario, run as scripted, and records its evidence (shape states,
 // clicks, timings with the load average, screenshots) in e2e/parity-shots/G2/<scenario>.json and
 // .png files. The raw results are written up in docs/parity/G2-replica.md.
@@ -35,7 +35,7 @@ import {
   hasEditor,
   labPage,
   meanDiff,
-  launchNib,
+  launchExtension,
   load,
   openPopup,
   popupBox,
@@ -75,7 +75,7 @@ interface WsSetup {
 
 async function getRig(): Promise<Launched & { ws?: WsSetup }> {
   if (rig) return rig;
-  rig = await launchNib();
+  rig = await launchExtension();
   const { lab, popup } = await signIn(rig.context, EMAIL);
   await popup.close().catch(() => undefined);
   void lab;
@@ -115,7 +115,7 @@ async function ensureWorkspaces(context: BrowserContext, sw: () => Promise<Worke
   }
   const pf = await api<{ items: { id: string; name: string }[] }>(context, 'GET', `/api/v1/workspaces/${parity.id}/folders`);
   await (await sw()).evaluate(async () => {
-    await chrome.storage.local.remove('nib:bootstrap');
+    await chrome.storage.local.remove('tb:bootstrap');
   });
   const out = { firstId: first.id, firstName: first.name, parityId: parity.id, folderInParity: pf.body.items.find((x) => x.name === 'parity')!.id };
   ev.set('setup-workspaces', out);
@@ -133,7 +133,7 @@ async function freshLab(context: BrowserContext, p = '/'): Promise<Page> {
 }
 
 async function session(sw: () => Promise<Worker>) {
-  return (await (await sw()).evaluate(async () => (await chrome.storage.session.get('nib:session'))['nib:session'])) as { state: string; [k: string]: unknown } | undefined;
+  return (await (await sw()).evaluate(async () => (await chrome.storage.session.get('tb:session'))['tb:session'])) as { state: string; [k: string]: unknown } | undefined;
 }
 
 /** Drafts the extension keeps in IndexedDB (read only). */
@@ -1181,7 +1181,7 @@ test('S2.4 video draft: preview, trim, save for later, create', async () => {
     still500: has500,
   });
   await cap.close().catch(() => undefined);
-  ev.set('step11-S1.2-video-checks', 'made on Nib in G1 S1.2 after-check (bar position, blur, pause)');
+  ev.set('step11-S1.2-video-checks', 'made on open-toolbar in G1 S1.2 after-check (bar position, blur, pause)');
   ev.set('clicks', clicks);
   ev.set('load-end', load());
 });

@@ -117,7 +117,7 @@ describe('ui controller', () => {
   });
 
   it('reports the popup context: own server pages default to desktop (J-019)', async () => {
-    await browser.storage.local.set({ 'nib:server-url': 'http://localhost:3000' });
+    await browser.storage.local.set({ 'tb:server-url': 'http://localhost:3000' });
     const t = await fakeBrowser.tabs.create({ url: 'http://localhost:3000/c/1', active: true });
     const r = await send({ type: 'ui.context', tabId: t.id });
     expect(r).toMatchObject({ ok: true, context: { isServerPage: true, recordMode: 'desktop', restricted: false } });

@@ -12,7 +12,7 @@ import { budget } from '../../fixtures/budget.ts';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const chrome: any;
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-capture-video-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-capture-video-'));
 
 function probe(file: string): { width: number; height: number; duration: number; codecs: string[] } {
   const fixed = `${file}.remux.webm`;
@@ -212,7 +212,7 @@ test('desktop recording: no countdown, follows tab switches, logs from both tabs
 
 test('microphone with no input device: the grant page closes itself and the mic turns off (J-014)', async ({ tab: { context, sw } }) => {
   // the second browser has no fake media devices, and this VM has no sound card
-  await sw.evaluate(() => chrome.storage.local.set({ 'nib:mic-granted': false }));
+  await sw.evaluate(() => chrome.storage.local.set({ 'tb:mic-granted': false }));
   await setSettings(sw, { mic: true });
   try {
     const opened = context.waitForEvent('page', (p) => p.url().includes('/permissions.html'));
@@ -220,16 +220,16 @@ test('microphone with no input device: the grant page closes itself and the mic 
     const perm = await opened;
     expect(await granted).toBe(false);
     await perm.waitForEvent('close', { timeout: 5000 });
-    const st = await sw.evaluate(async () => (await chrome.storage.local.get(['nib:mic-granted', 'nib:settings'])) as Record<string, { mic?: boolean } | boolean>);
-    expect(st['nib:mic-granted']).toBe(false);
-    expect((st['nib:settings'] as { mic?: boolean }).mic).toBe(false); // the pill shows off
+    const st = await sw.evaluate(async () => (await chrome.storage.local.get(['tb:mic-granted', 'tb:settings'])) as Record<string, { mic?: boolean } | boolean>);
+    expect(st['tb:mic-granted']).toBe(false);
+    expect((st['tb:settings'] as { mic?: boolean }).mic).toBe(false); // the pill shows off
   } finally {
     await setSettings(sw, { mic: false });
   }
 });
 
 test('microphone: one-time grant page, voice stream, mute and device switch mid-recording (J-014, J-211)', async ({ context, sw, mock }) => {
-  await sw.evaluate(() => chrome.storage.local.set({ 'nib:mic-granted': false }));
+  await sw.evaluate(() => chrome.storage.local.set({ 'tb:mic-granted': false }));
   const opened = context.waitForEvent('page', (p) => p.url().includes('/permissions.html'));
   const granted = svc<boolean>(sw, 'requestMic');
   const perm = await opened;

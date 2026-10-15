@@ -1,4 +1,4 @@
-// Parity group G3, Nib side: recording contents per lab case (docs/parity/scenarios.md, S3.1 to
+// Parity group G3, open-toolbar side: recording contents per lab case (docs/parity/scenarios.md, S3.1 to
 // S3.5). Each test is one scenario, run as scripted, and records its evidence (per-step counts,
 // viewer checks, timings with the load average, screenshots) in e2e/parity-shots/G3/<scenario>.json
 // and .png files. The raw results are written up in docs/parity/G3-replica.md.
@@ -27,7 +27,7 @@ import {
   firstMatching,
   focusWindow,
   hasEditor,
-  launchNib,
+  launchExtension,
   load,
   openPopup,
   screencast,
@@ -64,7 +64,7 @@ let lastCaptureEnd: { at: number; id: string; scenario: string } | null = null;
 
 async function getRig(): Promise<Launched> {
   if (rig) return rig;
-  rig = await launchNib();
+  rig = await launchExtension();
   const { lab, popup } = await signIn(rig.context, EMAIL);
   await popup.close().catch(() => undefined);
   void lab;
@@ -104,7 +104,7 @@ async function barOf(page: Page) {
 }
 
 async function session(sw: () => Promise<import('@playwright/test').Worker>) {
-  return (await (await sw()).evaluate(async () => (await chrome.storage.session.get('nib:session'))['nib:session'])) as { state: string; [k: string]: unknown } | undefined;
+  return (await (await sw()).evaluate(async () => (await chrome.storage.session.get('tb:session'))['tb:session'])) as { state: string; [k: string]: unknown } | undefined;
 }
 
 /** A real click on the centre of an in-page UI element (closed shadow root). */
@@ -917,7 +917,7 @@ test('S3.3 logs from before a screenshot', async () => {
   }
 
   // A fresh N4 pre-roll (S2.1 steps 1 and 2): Submit order, Log at every level, 20 s, a visible
-  // screenshot. Nib has no budget, so the run makes its own and is repeatable.
+  // screenshot. open-toolbar has no budget, so the run makes its own and is repeatable.
   const prev = lastConsoleEnd();
   const page = await freshLab(context);
   const tLoad = Date.now();
@@ -1029,7 +1029,7 @@ test('S3.5 voice transcript', async () => {
 
   // Tab capture fails with the fake-device flags (e2e/flows/fixture.ts, G1 S1.6), so both
   // recordings are desktop recordings, which the fake UI flag answers without a picker.
-  const b = await launchNib({ cdpPort: 9365, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-audio-capture=${wav}`] });
+  const b = await launchExtension({ cdpPort: 9365, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-audio-capture=${wav}`] });
   try {
     const { lab: page, popup: p0 } = await signIn(b.context, EMAIL);
     await p0.close().catch(() => undefined);

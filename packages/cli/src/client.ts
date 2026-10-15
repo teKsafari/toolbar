@@ -1,4 +1,4 @@
-// Talking to a Nib server: MCP tools over JSON-RPC at /mcp (the same data and shapes agents get)
+// Talking to a open-toolbar server: MCP tools over JSON-RPC at /mcp (the same data and shapes agents get)
 // and the REST API for uploads. Refreshes OAuth access tokens when they run out.
 import { readConfig, writeConfig, type Config } from './config.ts';
 
@@ -37,23 +37,23 @@ async function refresh(c: Config): Promise<boolean> {
   c.token = t.access_token;
   c.refreshToken = t.refresh_token;
   c.expiresAt = Date.now() + t.expires_in * 1000;
-  if (!process.env.NIB_TOKEN) await writeConfig(c);
+  if (!process.env.TOOLBAR_TOKEN) await writeConfig(c);
   return true;
 }
 
 export async function connect(): Promise<Client> {
   const config = await readConfig();
-  if (!config) throw new CliError('Not signed in. Run: nib login --server <url> (or set NIB_SERVER and NIB_TOKEN).', 2);
+  if (!config) throw new CliError('Not signed in. Run: open-toolbar login --server <url> (or set TOOLBAR_SERVER and TOOLBAR_TOKEN).', 2);
   if (config.via === 'oauth' && config.expiresAt && config.expiresAt - Date.now() < 60_000) await refresh(config);
 
   async function send(input: string, init: RequestInit): Promise<Response> {
     const go = () =>
-      fetch(input, { ...init, headers: { ...(init.headers as Record<string, string>), authorization: `Bearer ${config!.token}`, 'x-nib-client': 'cli' } });
+      fetch(input, { ...init, headers: { ...(init.headers as Record<string, string>), authorization: `Bearer ${config!.token}`, 'x-toolbar-client': 'cli' } });
     let res = await go().catch((e: Error) => {
       throw new CliError(`Cannot reach ${config!.server}: ${e.message}`);
     });
     if (res.status === 401 && (await refresh(config!))) res = await go();
-    if (res.status === 401) throw new CliError('The server refused the sign-in (expired or revoked). Run nib login again.', 2);
+    if (res.status === 401) throw new CliError('The server refused the sign-in (expired or revoked). Run open-toolbar login again.', 2);
     return res;
   }
 

@@ -16,6 +16,7 @@ import {
 } from '@toolbar/shared/ext';
 import type { ExtensionSettings } from '@toolbar/shared/api';
 import { send } from '../../capture.content/ui/send';
+import { migrateStorage } from '../../../lib/migrate';
 
 export type Screen = 'main' | 'settings' | 'sites' | 'drafts' | 'link' | 'link-help' | 'heavy';
 
@@ -61,6 +62,7 @@ class PopupStore {
 
   async load() {
     const t0 = performance.now();
+    await migrateStorage();
     const local = await browser.storage.local.get([STORAGE.auth.key, STORAGE.settings.key, STORAGE.drafts.key, STORAGE.bootstrap.key, STORAGE.serverUrl.key]);
     this.auth = (local[STORAGE.auth.key] as AuthState | undefined) ?? null;
     const stored = local[STORAGE.settings.key] as ExtensionSettings | undefined;
@@ -82,11 +84,11 @@ class PopupStore {
       this.replay = sess.replay;
     }
     if (ctx.ok) this.context = ctx.context;
-    const pending = await browser.storage.session.get('nib:popup-screen').catch(() => ({}) as Record<string, unknown>);
-    if (pending['nib:popup-screen'] === 'link') this.screen = 'link';
-    void browser.storage.session.remove('nib:popup-screen').catch(() => undefined);
+    const pending = await browser.storage.session.get('tb:popup-screen').catch(() => ({}) as Record<string, unknown>);
+    if (pending['tb:popup-screen'] === 'link') this.screen = 'link';
+    void browser.storage.session.remove('tb:popup-screen').catch(() => undefined);
     this.loading = false;
-    (globalThis as { __nibPopupPaintMs?: number }).__nibPopupPaintMs = performance.now() - t0;
+    (globalThis as { __tbPopupPaintMs?: number }).__tbPopupPaintMs = performance.now() - t0;
     if (this.signedIn) {
       // account settings follow the user across browsers (J-215)
       void send('settings.sync', {});

@@ -35,7 +35,7 @@ import type { AgentBgRequests, AgentContentCommand } from './areas/agent.ts';
 
 export const CAPTURE_PORT = 'capture';
 /** postMessage tag between the editor iframe and its content-script host. */
-export const EDITOR_FRAME_TAG = '__nib_editor';
+export const EDITOR_FRAME_TAG = '__tb_editor';
 
 // ---------- content <-> sw over the capture port ----------
 

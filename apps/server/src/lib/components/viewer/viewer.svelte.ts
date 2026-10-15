@@ -191,6 +191,6 @@ export class Viewer {
   timedComments = $derived(this.threads.filter((t) => t.tMs !== null && !t.resolvedAt));
 }
 
-const KEY = Symbol('nib-viewer');
+const KEY = Symbol('tb-viewer');
 export const provideViewer = (v: Viewer) => setContext(KEY, v);
 export const useViewer = () => getContext<Viewer>(KEY);

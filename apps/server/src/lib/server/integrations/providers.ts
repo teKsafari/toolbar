@@ -20,7 +20,7 @@ async function call(url: string, init: RequestInit & { token?: string; kind: 'gi
     headers.set('x-github-api-version', '2022-11-28');
     if (init.token) headers.set('authorization', `Bearer ${init.token}`);
   } else if (init.kind === 'gitlab' && init.token) headers.set('private-token', init.token);
-  headers.set('user-agent', 'nib-server');
+  headers.set('user-agent', 'toolbar-server');
   if (init.body && !headers.has('content-type')) headers.set('content-type', 'application/json');
   let res: Response;
   try {

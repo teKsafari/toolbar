@@ -3,7 +3,7 @@
 // clear() puts every element back when the recording ends.
 
 const BLUR = 'blur(10px)';
-const ATTR = 'data-nib-blurred';
+const ATTR = 'data-tb-blurred';
 
 interface Saved {
   el: HTMLElement;

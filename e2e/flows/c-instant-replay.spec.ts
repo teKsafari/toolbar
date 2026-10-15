@@ -3,7 +3,7 @@
 import { expect, test } from './fixture.ts';
 import { instantReplay } from './journeys.ts';
 
-test('C: settings switch, the bug happens, replay chord, create gives a link to the replay', async ({ nib }) => {
-  const made = await instantReplay(nib);
+test('C: settings switch, the bug happens, replay chord, create gives a link to the replay', async ({ tb }) => {
+  const made = await instantReplay(tb);
   expect(made.shareUrl).toMatch(/\/s\/[A-Za-z0-9_-]+$/);
 });

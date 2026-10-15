@@ -79,5 +79,5 @@ export function figmaLink(text: string): string | null {
 }
 
 export function figmaEmbedUrl(link: string): string {
-  return `https://www.figma.com/embed?embed_host=nib&url=${encodeURIComponent(link)}`;
+  return `https://www.figma.com/embed?embed_host=open-toolbar&url=${encodeURIComponent(link)}`;
 }
