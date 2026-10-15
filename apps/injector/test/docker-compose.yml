@@ -1,4 +1,4 @@
-# Compose test (D-130): the injector in front of the lab app, sending uploads to an open-toolbar
+# Compose test (D-134): the injector in front of the lab app, sending uploads to an open-toolbar
 # server. Run through apps/injector/test/run.sh, which starts it, runs
 # e2e/injector/injector.spec.ts in a browser without the extension, and stops it.
 #

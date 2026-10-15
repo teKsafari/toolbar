@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
-// The injector's compose test (D-130), run by apps/injector/test/run.sh: a plain Chromium with no
+// The injector's compose test (D-134), run by apps/injector/test/run.sh: a plain Chromium with no
 // extension, the injector in front of the lab app (INJECTOR_URL), the server on SERVER_URL.
 // Headless, so it needs no display.
 export default defineConfig({

@@ -20,7 +20,7 @@ export async function health(version: string): Promise<Health> {
   const [dbCheck, s3Check, whisper] = await Promise.all([
     timed(() => db.execute(sql`select 1`)),
     timed(s3Ping),
-    env.transcribe.provider === 'whispercpp' ? timed(() => whisperPing()) : Promise.resolve(null),
+    env.transcribe.provider === 'local' ? timed(() => whisperPing()) : Promise.resolve(null),
   ]);
   const checks: Health['checks'] = { db: dbCheck, s3: s3Check };
   if (whisper) checks.whisper = whisper;

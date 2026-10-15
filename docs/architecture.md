@@ -19,7 +19,7 @@ Status: design for Part 1, step 2 (Jam replica), written so Part 2 lands as addi
 | Database | Postgres | `postgres:18-alpine` | Built-in `uuidv7()` for primary keys. |
 | Object storage | Garage | `dxflrs/garage:v2.4.1` | See section 7. |
 | S3 client | `@aws-sdk/client-s3` | 3.11xx | `forcePathStyle: true`. |
-| Transcription | whisper.cpp server | `ghcr.io/ggml-org/whisper.cpp:main` (whisper.cpp v1.9.5), pin by digest | See section 12. |
+| Transcription | whisper.cpp server, or a hosted OpenAI-compatible model (`gpt-transcribe`) | `ghcr.io/ggml-org/whisper.cpp:main` (whisper.cpp v1.9.5), pin by digest | See section 12. |
 | Mail (paused, compose profile `mail`) | Mailpit | `axllent/mailpit:v1.31.5` | Catches the paused mail (FEATURE_EMAIL) in development and tests; the default compose file sends no mail (D-079, D-114). |
 | Validation | zod | 4.x | Shared schema checks on the server. |
 | Tests | vitest 5.0.x; `@playwright/test` **1.63.0** | | 1.63.0 matches the Chromium build already cached on this VM (`~/.cache/ms-playwright/chromium-1243`). |
@@ -58,7 +58,7 @@ export interface Transport {
 }
 ```
 
-The extension implements it with `chrome.runtime` ports. The Part 2 injector (`apps/injector`, D-130), which serves `/__toolbar/` on the app's own origin, implements it with `fetch` through its relay to the server (`apps/extension/page/session.ts`, section 11a). The Part 2 CLI review browser reuses the extension build.
+The extension implements it with `chrome.runtime` ports. The Part 2 injector (`apps/injector`, D-134), which serves `/__toolbar/` on the app's own origin, implements it with `fetch` through its relay to the server (`apps/extension/page/session.ts`, section 11a). The Part 2 CLI review browser reuses the extension build.
 
 ## 3. Server: one SvelteKit app
 
@@ -224,7 +224,7 @@ recording_chunk   recording_id, stream, seq, s3_key, bytes, sha256, t0, t1      
 asset             id, recording_id, kind (screenshot|crop|annotation|keyframe|thumb), s3_key, content_type, width, height, bytes
 annotation        id, recording_id, asset_id?, t, shapes jsonb, target jsonb (TargetRef), comment, author_user_id, created_at
 comment           id, recording_id, parent_id?, author_user_id, body, t_ms?, created_at, edited_at?, deleted_at?
-transcript        recording_id, stream, provider, model, language, vtt text, status, error?, updated_at
+transcript        recording_id, stream (voice | voice:<assetId>), provider, model, language, vtt text, status (pending | running | done | failed | skipped), error?, updated_at
 share_link        id, recording_id, token_hash bytea UNIQUE, token_enc bytea, access (anyone|workspace),
                   created_by, created_at, expires_at?, revoked_at?, last_used_at?
 api_token         id, user_id, kind (device|personal), name, token_hash bytea UNIQUE, last_used_at, created_at, revoked_at?
@@ -352,7 +352,7 @@ The goal: on "Instant replay", produce the last N minutes (setting, default 2, m
 - **Part 2 reuse.** "Comment without a trace" reads the last 60 s of `console` errors, `error` and failed `net.*` from the same ring, so this needs no extra capture code.
 - **Cost control.** The ring only runs where instant replay is enabled (Part 1: the setting, with Jam's default as observed; Part 2: project origins only). Experiment 1 in Part 2 measures the rrweb rate per minute.
 
-## 11a. The injector (`apps/injector`, D-130, D-131)
+## 11a. The injector (`apps/injector`, D-134, D-135)
 
 Delivery 2 of PLAN "Zero integration": a Go reverse proxy between Traefik and chosen apps. Traefik sends it only `/__toolbar/` and requests that carry the reviewer cookie (`deploy/injector/traefik-open-toolbar-injector.yml`); everyone else reaches the app directly.
 
@@ -369,19 +369,29 @@ Loads `events.json.gz` (one fetch, decompressed with `DecompressionStream`), vid
 - **Sync check.** The lab app gets a "flash" button that paints the page red and logs `FLASH` in the same frame. An e2e test asserts that, in the viewer, the console row highlights within 100 ms of the first red frame.
 - **Transcript.** The WebVTT text renders as a `<track>` on the video and as a searchable list.
 
-Transcription interface (`src/lib/server/transcribe/index.ts`):
+Transcription (`src/lib/server/transcribe/`, D-087, D-130 to D-133):
 
 ```ts
 export interface Transcriber {
-  id: string;
-  transcribe(input: { audio: ReadableStream<Uint8Array>; mime: string; language?: string }):
-    Promise<{ vtt: string; language?: string; model: string }>;
+  id: 'local' | 'openai';
+  model: string;
+  hosted: boolean; // audio leaves the server and costs money: the monthly cap applies
+  transcribe(input: { audio: Uint8Array; mime: string; durationMs?: number | null; pcm?: Int16Array }): Promise<{
+    vtt: string; language?: string; model: string; billedSeconds: number; requests: number; mode: 'local' | 'native' | 'chunked';
+  }>;
 }
-// TRANSCRIBE_PROVIDER = whispercpp | openai-compatible | none
+// TRANSCRIBE_PROVIDER = local (default) | openai | none; settings in config.ts, docs/configuration.md
 ```
 
-- `whispercpp` (default): `POST ${WHISPER_URL}/inference` multipart with `file`, `response_format=vtt`, `language=auto`. The server runs with `--convert` so ffmpeg in its image accepts WebM/Opus. Default model `base` (multilingual, because Nuru is Swahili-first). `WHISPER_MODEL=small` trades CPU for accuracy. whisper-server handles one request at a time, so the `transcribe` job runs with concurrency 1.
-- `openai-compatible`: `POST ${STT_URL}/v1/audio/transcriptions` with `response_format=vtt`. This covers speaches (the successor to faster-whisper-server; its latest tag is a 2025 release candidate, so it is not the default), OpenAI and Groq.
+- `local` (default): whisper.cpp, `POST ${WHISPER_URL}/inference` multipart with `file`, `response_format=vtt`, `language=auto`. The server runs with `--convert` so ffmpeg in its image accepts WebM/Opus. Default model `base`; `WHISPER_MODEL=small` trades CPU for accuracy. whisper-server handles one request at a time, so the `transcribe` job runs one at a time with this provider. Good timestamps and usable English, unusable Swahili (word error rate 80 to 95%, `docs/research/transcription.md`).
+- `openai`: any OpenAI-compatible endpoint, `POST ${TRANSCRIBE_BASE_URL}/audio/transcriptions`, default model `gpt-transcribe`. The gpt-* models answer text only, so the server times the text itself (chunked mode):
+  1. `audio.ts` decodes the voice track once to 16 kHz mono PCM with ffmpeg.
+  2. `chunk.ts` finds pauses with an adaptive energy detector (30 ms frames, threshold at the local 10th percentile plus 0.35 of the spread to the 95th over a 10 s window, pauses of 0.3 s or more) and cuts chunks of at most `TRANSCRIBE_CHUNK_SECONDS` (30) at the centre of the longest pause in the second half of the window; with no pause it cuts hard and overlaps the next chunk by one second. Chunks with no voiced frame are not sent.
+  3. Each chunk is cut from the PCM (exact offsets) and encoded to 32 kbps WebM/Opus, about 120 KB per 30 s, then sent as `response_format=json`, `TRANSCRIBE_CONCURRENCY` (4) at a time, with retries on 408, 409, 429 (not an exhausted quota), 5xx and network errors: four attempts, exponential backoff from 1 s, `Retry-After` honoured.
+  4. `vtt.ts` splits each chunk's text into sentences and spreads them over the chunk's voiced time by their share of the characters; sentences that would last over 7 s split at commas (pieces of 30 characters or more). Words a hard cut repeats are dropped from the next chunk. Detected languages are ranked by voiced time (`sw,en`).
+  Whisper-style models (`whisper-1`, Groq, speaches) return `vtt` (native mode); a file over 24 MB is chunked the same way and each chunk's cues are shifted by its offset. `TRANSCRIBE_TIMESTAMPS=auto` picks chunked for `gpt-*` ids, else tries `vtt` and switches to chunked on the 400 "not compatible" answer, remembered per model.
+- Guards (`run.ts`): audio longer than `TRANSCRIBE_MAX_MINUTES` is skipped. For a hosted provider, `TRANSCRIBE_MONTHLY_MINUTES` caps the audio sent per calendar month (UTC): the job reserves the recording's length in the `instance_setting` row `transcribe.usage.YYYY-MM` in one conditional upsert before sending, settles it to the billed seconds afterwards and gives it back on failure. A skipped transcript has status `skipped` and the reason in `error`.
+- Streams: `voice` is the capture's microphone track (recordings and traces); `voice:<assetId>` is a voice note on a comment (an asset of kind `voice`, one per comment). Each transcript's VTT starts with a `NOTE Machine transcript (<model>, language <codes>)` line. The viewer, captions, chapters, ai-draft and MCP `get_transcript` read `voice` only; comment voice notes reach the comment DTO (`voice.transcript`), MCP `list_comments` (`voiceNote.transcript`), `GET /api/v1/recordings/:id/transcript?asset=<id>` and `media/transcript-<assetId>`. Search covers both.
 - Why whisper.cpp: an official multi-arch image with ffmpeg inside, active releases (v1.9.5, October 2026), native VTT output, no Python stack, and good CPU speed.
 
 ## 13. docker compose
@@ -487,7 +497,7 @@ pnpm --filter @toolbar/extension build          # release build -> apps/extensio
 - `packages/shared`: schema round-trips against zod, `serialize()` edge cases (cycles, DOM nodes, huge strings), redaction table tests, HAR conversion, the clock offset math.
 - `packages/capture`: hooks in `happy-dom` (fetch/XHR/WebSocket/EventSource wrappers keep page behavior: same return values, same exceptions, `instanceof` holds), the ring pruning rules, `dom` summaries.
 - `apps/extension`: `WxtVitest()` from `wxt/testing/vitest-plugin` with `fakeBrowser` for the uploader (IndexedDB via `fake-indexeddb`), registration and message routing.
-- `apps/server`: token hashing, share access rules, the chunk state machine (201/200/409), the Transcriber adapters against recorded HTTP fixtures.
+- `apps/server`: token hashing, share access rules, the chunk state machine (201/200/409), the Transcriber adapters against recorded HTTP fixtures, the chunker on the FLEURS fixtures (`fixtures/transcribe/`), and one live hosted transcription gated on `TRANSCRIBE_LIVE_TEST=1`.
 - `packages/trace` (Part 2): span close rules and outcomes on hand-written event fixtures, including the 30 hand-labeled actions from experiment 2.
 
 **Integration (`pnpm test:int`).** The server's API runs against real Postgres and Garage from `docker compose up -d postgres garage`, with a fresh database per run (`CREATE DATABASE toolbar_test_<pid>`). Covered: chunked upload with gaps and retries, finalize + ffmpeg remux, Range proxying, share link expiry and revocation.

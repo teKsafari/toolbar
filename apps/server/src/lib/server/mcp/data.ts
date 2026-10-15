@@ -2,11 +2,12 @@
 // transcript, a brief for the markdown and the investigation guide. Used by the REST event
 // queries, the MCP tools, the markdown share page and the agent tab. Owner: agent area.
 import { gunzipSync } from 'node:zlib';
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import type { CaptureEvent, EnvInfo } from '@toolbar/shared';
 import { prepare, type BriefComment, type CaptureBrief, type Prepared } from '@toolbar/shared/derive';
 import type { Db } from '../db/index.ts';
-import { asset, comment, folder, project, recordingStream, transcript, user } from '../db/schema/index.ts';
+import { asset, comment, commentAttachment, folder, project, recordingStream, transcript, user } from '../db/schema/index.ts';
+import { voiceNoteTranscripts } from '../transcribe/notes.ts';
 import { getBytes } from '../s3.ts';
 import { env } from '../env.ts';
 import { fail } from '../share/http.ts';
@@ -93,6 +94,8 @@ export interface CommentRow {
   tMs: number | null;
   createdAt: string;
   editedAt: string | null;
+  /** only on comments with a voice note (D-087): its machine transcript, spoken by the author */
+  voiceNote?: { status: string; language: string | null; transcript: string | null; reason: string | null };
 }
 
 export async function commentRows(db: Db, recId: string): Promise<CommentRow[]> {
@@ -102,16 +105,30 @@ export async function commentRows(db: Db, recId: string): Promise<CommentRow[]> 
     .leftJoin(user, eq(user.id, comment.authorUserId))
     .where(and(eq(comment.recordingId, recId), isNull(comment.deletedAt)))
     .orderBy(asc(comment.createdAt));
-  return rows.map(({ c, name }) => ({
-    id: c.id,
-    parentId: c.parentId,
-    author: name ?? c.authorName ?? 'Anonymous',
-    authorUserId: c.authorUserId,
-    body: c.body,
-    tMs: c.tMs,
-    createdAt: c.createdAt.toISOString(),
-    editedAt: c.editedAt?.toISOString() ?? null,
-  }));
+  const ids = rows.map((r) => r.c.id);
+  const notes = ids.length
+    ? await db
+        .select({ commentId: commentAttachment.commentId, assetId: asset.id })
+        .from(commentAttachment)
+        .innerJoin(asset, eq(asset.id, commentAttachment.assetId))
+        .where(and(inArray(commentAttachment.commentId, ids), eq(asset.kind, 'voice')))
+    : [];
+  const tr = await voiceNoteTranscripts(db, recId, notes.map((n) => n.assetId));
+  const noteOf = new Map(notes.map((n) => [n.commentId, n.assetId]));
+  return rows.map(({ c, name }) => {
+    const t = noteOf.has(c.id) ? tr.get(noteOf.get(c.id)!) : undefined;
+    return {
+      id: c.id,
+      parentId: c.parentId,
+      author: name ?? c.authorName ?? 'Anonymous',
+      authorUserId: c.authorUserId,
+      body: c.body,
+      tMs: c.tMs,
+      createdAt: c.createdAt.toISOString(),
+      editedAt: c.editedAt?.toISOString() ?? null,
+      ...(noteOf.has(c.id) ? { voiceNote: { status: t?.status ?? 'none', language: t?.language ?? null, transcript: t?.text ?? null, reason: t?.reason ?? null } } : {}),
+    };
+  });
 }
 
 export function threadsOf(rows: CommentRow[]): (CommentRow & { replies: CommentRow[] })[] {
@@ -130,7 +147,11 @@ const briefComment = (c: CommentRow & { replies?: CommentRow[] }): BriefComment 
 // ---------- transcript ----------
 
 export async function transcriptOf(db: Db, recId: string) {
-  const [t] = await db.select().from(transcript).where(eq(transcript.recordingId, recId)).limit(1);
+  const [t] = await db
+    .select()
+    .from(transcript)
+    .where(and(eq(transcript.recordingId, recId), eq(transcript.stream, 'voice')))
+    .limit(1);
   if (!t) return null;
   const cues = t.status === 'done' && t.vtt ? parseVtt(t.vtt) : [];
   return { status: t.status, language: t.language, cues, text: cues.map((c) => c.text).join(' ') || null, error: t.error };

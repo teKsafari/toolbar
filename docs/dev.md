@@ -8,7 +8,7 @@ How to run each part of the repo on this machine or a fresh one. The product is 
 |---|---|---|
 | `apps/server` | `@toolbar/server` | SvelteKit 3 app (adapter-node): dashboard, share pages, `/api/v1`, Better Auth, job worker |
 | `apps/extension` | `@toolbar/extension` | WXT + Svelte 5 MV3 extension; `page/` is the injector's page bundle (`build:page`) |
-| `apps/injector` | `@toolbar/injector` | Go reverse proxy that injects the page bundle for signed-in reviewers (D-130); its `package.json` wraps `go build`, `go vet` and `go test`, so `pnpm -r` needs Go 1.26 |
+| `apps/injector` | `@toolbar/injector` | Go reverse proxy that injects the page bundle for signed-in reviewers (D-134); its `package.json` wraps `go build`, `go vet` and `go test`, so `pnpm -r` needs Go 1.26 |
 | `packages/shared` | `@toolbar/shared` | Event envelope and kinds, zod schemas, constants, ids; `/api` endpoint contracts and route table; `/ext` extension messaging, session state machine, storage keys |
 | `packages/capture` | `@toolbar/capture` | Page-side capture: `Transport`, MAIN/ISOLATED bridge, hook installers |
 | `packages/ui` | `@toolbar/ui` | Design tokens, icons, Svelte primitives (Button, Icon, Popover, Toaster) |
@@ -98,6 +98,12 @@ pnpm -r test       # unit tests (vitest); the server's DB tests run when Postgre
 pnpm -r check      # svelte-check / tsc
 pnpm e2e           # test build of the extension, then the area suites (needs compose server + lab)
 scripts/e2e-all.sh # every e2e suite on a fresh, seeded compose stack (see E2E below)
+```
+
+Transcription tests (`apps/server/test/transcribe*.test.ts`): the unit tests use recorded API answers and synthetic audio; the chunker and integration tests need ffmpeg and use the FLEURS clips in `apps/server/fixtures/transcribe/` (CC BY 4.0, `ATTRIBUTION.md`). One live test calls OpenAI's `gpt-transcribe` on both clips, about $0.002 a run, and runs only when asked:
+
+```sh
+TRANSCRIBE_LIVE_TEST=1 pnpm --filter @toolbar/server exec vitest run test/transcribe.live.test.ts   # needs OPENAI_API_KEY or TRANSCRIBE_API_KEY
 ```
 
 ## The extension
@@ -203,5 +209,5 @@ Points that keep the runs deterministic:
 | API | `apps/server/src/routes/api/v1/**`, helpers in `apps/server/src/lib/server/api.ts`, contracts in `packages/shared/src/api/` (route table `routes.ts`) |
 | Jobs | register handlers with `registerJob()` in `apps/server/src/lib/server/jobs/worker.ts`, enqueue with `enqueue()` |
 | Viewer, dashboard, settings | `apps/server/src/routes/(app)/**`, share page `apps/server/src/routes/s/[token]` |
-| Transcription | `apps/server/src/lib/server/transcribe/index.ts` |
+| Transcription | `apps/server/src/lib/server/transcribe/` (providers in `index.ts`, settings `config.ts`, chunker `chunk.ts`, cues `vtt.ts`, guards `run.ts`, comment voice notes `notes.ts`) |
 | Shared UI | `packages/ui/src/lib/*`, tokens in `packages/ui/src/tokens.ts` (then `pnpm --filter @toolbar/ui gen:tokens`) |

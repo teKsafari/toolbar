@@ -1,6 +1,6 @@
 # Status: the injector (Part 2, step 4, PLAN "Zero integration" delivery 2)
 
-Branch `p4/injector`. Decisions D-130 (proxy, cookie, Coolify routing) and D-131 (page bundle).
+Branch `p4/injector`. Decisions D-134 (proxy, cookie, Coolify routing) and D-135 (page bundle).
 
 ## What is built
 
@@ -34,4 +34,4 @@ Branch `p4/injector`. Decisions D-130 (proxy, cookie, Coolify routing) and D-131
 - The bundle shares the page realm: app scripts could call the upload relay as the reviewer while the page is open (limited to the upload routes). Page console calls show `toolbar.js` as their source in the browser's devtools.
 - A trace can lose up to two seconds before a navigation when the last chunk exceeds the 64 KB keepalive budget.
 - `pnpm -r build` and `test` now need Go 1.26 for `@toolbar/injector`.
-- Decision numbers D-130 and D-131 follow main's last row (D-129) at the time of the final merge; `p4/reviewer-ui` numbered its rows from D-117, so its merge will need to renumber.
+- Decision numbers D-134 and D-135 follow main's last row (D-133) at the time of the final merge; `p4/reviewer-ui` numbered its rows from D-117, so its merge will need to renumber.

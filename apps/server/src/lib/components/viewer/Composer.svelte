@@ -1,7 +1,8 @@
 <script lang="ts">
   // Comment composer (J-127, J-132, J-134, J-135): Enter adds a line, Ctrl+Enter sends; once the
   // player is past zero the send button grows into a pill naming the time and the comment is
-  // pinned there. Clears at once; the server answer replaces the optimistic row.
+  // pinned there. Clears at once; the server answer replaces the optimistic row. The microphone
+  // button records a voice note (D-087): the server transcribes it and shows the text under it.
   import { toasts } from '@toolbar/ui';
   import type { Asset, Comment } from '@toolbar/shared/api';
   import { fmtClock } from '@toolbar/ui/viewer';
@@ -25,7 +26,62 @@
   let fileInput: HTMLInputElement | undefined = $state();
   const timed = $derived(!parentId && v.playable && (v.now >= 500 || v.armed));
   const canAttach = $derived(!!v.data.me);
-  const ready = $derived((draft.text.trim() !== '' || files.some((f) => f.asset)) && !files.some((f) => f.uploading));
+  type VoiceDraft = { asset: Asset | null; preview: string; uploading: boolean };
+  let voice = $state<VoiceDraft | null>(null);
+  let recorder: MediaRecorder | null = $state(null);
+  let recStart = $state(0);
+  let recNow = $state(0);
+  const ready = $derived((draft.text.trim() !== '' || files.some((f) => f.asset) || !!voice?.asset) && !files.some((f) => f.uploading) && !voice?.uploading && !recorder);
+
+  async function toggleVoice() {
+    if (recorder) {
+      recorder.stop();
+      return;
+    }
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      toasts.error('The microphone is blocked for this page');
+      return;
+    }
+    const parts: Blob[] = [];
+    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
+    const r = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    r.ondataavailable = (e) => e.data.size && parts.push(e.data);
+    const tick = setInterval(() => (recNow = Date.now()), 250);
+    r.onstop = () => {
+      clearInterval(tick);
+      for (const t of stream.getTracks()) t.stop();
+      recorder = null;
+      const blob = new Blob(parts, { type: 'audio/webm' });
+      if (blob.size) void uploadVoice(blob);
+    };
+    recStart = recNow = Date.now();
+    r.start(1000);
+    recorder = r;
+  }
+
+  async function uploadVoice(blob: Blob) {
+    if (voice) URL.revokeObjectURL(voice.preview);
+    voice = { asset: null, preview: URL.createObjectURL(blob), uploading: true };
+    const fd = new FormData();
+    fd.set('kind', 'voice');
+    fd.set('recordingId', v.detail.id);
+    fd.set('file', new File([blob], 'voice-note.webm', { type: 'audio/webm' }));
+    try {
+      const asset = await call<Asset>('captures.uploadAsset', {}, fd);
+      if (voice) voice = { ...voice, asset, uploading: false };
+    } catch (e) {
+      voice = null;
+      toasts.error(`Voice note not uploaded: ${(e as Error).message}`);
+    }
+  }
+  function removeVoice() {
+    if (voice) URL.revokeObjectURL(voice.preview);
+    voice = null;
+  }
+  $effect(() => () => recorder?.stop());
 
   $effect(() => {
     if (v.armed && !parentId) {
@@ -66,10 +122,11 @@
     const body = draft.toMarkdown().trim();
     const mentions = draft.mentionIds();
     const tMs = timed ? Math.round(v.now) : undefined;
-    const attachmentAssetIds = files.map((f) => f.asset!.id);
-    const saved = { text: draft.text, picked: new Map(draft.picked), files: [...files] };
+    const attachmentAssetIds = [...files.map((f) => f.asset!.id), ...(voice?.asset ? [voice.asset.id] : [])];
+    const saved = { text: draft.text, picked: new Map(draft.picked), files: [...files], voice };
     draft.clear();
     files = [];
+    voice = null;
     v.armed = false;
     const tempId = `tmp-${Math.random().toString(36).slice(2)}`;
     const temp: Comment = {
@@ -82,6 +139,9 @@
       body,
       tMs: tMs ?? null,
       attachments: saved.files.map((f) => f.asset!),
+      voice: saved.voice?.asset
+        ? { assetId: saved.voice.asset.id, url: saved.voice.preview, contentType: 'audio/webm', transcript: { status: 'pending', language: null, text: null, reason: null } }
+        : null,
       reactions: [],
       mentions,
       createdAt: new Date().toISOString(),
@@ -101,6 +161,7 @@
       draft.text = saved.text;
       for (const [k, id] of saved.picked) draft.pick(k, id);
       files = saved.files;
+      voice = saved.voice;
       toasts.error(`Comment not sent: ${(e as Error).message}`);
     }
   }
@@ -132,8 +193,18 @@
       {/each}
     </div>
   {/if}
+  {#if voice}
+    <div class="voice" data-testid="composer-voice">
+      <audio controls src={voice.preview} preload="metadata"></audio>
+      {#if voice.uploading}<VIcon name="spinner" size={14} />{/if}
+      <button type="button" class="ib" onclick={removeVoice} aria-label="Remove voice note" title="Remove voice note"><VIcon name="close" size={12} /></button>
+    </div>
+  {/if}
   <div class="row">
     {#if canAttach && !parentId}
+      <button type="button" class="ib" class:rec={!!recorder} onclick={toggleVoice} aria-label={recorder ? 'Stop the voice note' : 'Record a voice note'} aria-pressed={!!recorder} title={recorder ? 'Stop' : 'Record a voice note'} data-testid="voice-note">
+        {#if recorder}<VIcon name="stop" size={14} /><span class="rt">{fmtClock(recNow - recStart)}</span>{:else}<VIcon name="mic" size={16} />{/if}
+      </button>
       <button type="button" class="ib" onclick={() => fileInput?.click()} aria-label="Attach an image" title="Attach an image" data-testid="attach"><VIcon name="paperclip" size={16} /></button>
       <input bind:this={fileInput} type="file" accept="image/*" multiple hidden onchange={(e) => { void addFiles((e.currentTarget as HTMLInputElement).files); (e.currentTarget as HTMLInputElement).value = ''; }} data-testid="attach-input" />
     {/if}
@@ -165,6 +236,9 @@
   .send.pill { padding: 0 12px 0 10px; }
   .send:disabled { opacity: 0.4; cursor: default; }
   .send:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; }
+  .ib.rec { width: auto; padding: 0 8px; gap: 4px; display: inline-flex; align-items: center; color: var(--nb-danger); font: 500 var(--nb-text-sm) var(--nb-font-mono); }
+  .voice { display: flex; align-items: center; gap: 6px; }
+  .voice audio { height: 30px; max-width: 100%; flex: 1; min-width: 0; }
   .files { display: flex; gap: 6px; flex-wrap: wrap; }
   .file { position: relative; width: 64px; height: 48px; border-radius: 6px; overflow: hidden; border: 1px solid var(--nb-border); }
   .file img { width: 100%; height: 100%; object-fit: cover; display: block; }

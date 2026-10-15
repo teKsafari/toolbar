@@ -31,7 +31,7 @@ export const isDevtoolsMedia = (name: string) => DEVTOOLS_ONLY.test(name);
 
 const slug = (s: string) => s.replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'capture';
 const ext = (ct: string) =>
-  ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'video/webm': 'webm', 'audio/webm': 'webm', 'application/pdf': 'pdf' })[ct] ?? 'bin';
+  ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'video/webm': 'webm', 'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'application/pdf': 'pdf' })[ct] ?? 'bin';
 
 /** The image shown first (crop for area shots) and the kept full viewport (J-004, J-051). */
 export function pickScreenshots(assets: AssetRow[]) {
@@ -98,6 +98,17 @@ async function resolveName(db: Db, rec: RecordingRow, name: string): Promise<Tar
 /** Serve one media object with Range support. `rec` must already have passed the access check. */
 export async function serveMedia(db: Db, rec: RecordingRow, name: string, request: Request, cacheControl = 'private, no-cache'): Promise<Response> {
   if (rec.deletedAt) return errorJson('not_found', 'This capture was deleted');
+  // transcript-<assetId>: the WebVTT of a comment's voice note (D-087)
+  const note = name.match(/^transcript-([0-9a-f-]{36})$/i);
+  if (note) {
+    const [t] = await db
+      .select()
+      .from(transcript)
+      .where(and(eq(transcript.recordingId, rec.id), eq(transcript.stream, `voice:${note[1]!.toLowerCase()}`), eq(transcript.status, 'done')))
+      .limit(1);
+    if (!t?.vtt) return errorJson('not_found', 'No transcript');
+    return new Response(t.vtt, { headers: { 'content-type': 'text/vtt; charset=utf-8', 'cache-control': cacheControl } });
+  }
   const target = await resolveName(db, rec, name);
   if (!target) return errorJson('not_found', `No ${name} media for this capture`);
   const download = new URL(request.url).searchParams.has('download');
@@ -105,7 +116,7 @@ export async function serveMedia(db: Db, rec: RecordingRow, name: string, reques
     const [t] = await db
       .select()
       .from(transcript)
-      .where(and(eq(transcript.recordingId, rec.id), eq(transcript.status, 'done')))
+      .where(and(eq(transcript.recordingId, rec.id), eq(transcript.stream, 'voice'), eq(transcript.status, 'done')))
       .limit(1);
     if (!t?.vtt) return errorJson('not_found', 'No transcript');
     return new Response(t.vtt, { headers: { 'content-type': 'text/vtt; charset=utf-8', 'cache-control': cacheControl } });

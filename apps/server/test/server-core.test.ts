@@ -215,7 +215,10 @@ describe('WebVTT and transcribers', () => {
       auth = (init.headers as Record<string, string>).authorization ?? '';
       return new Response(vtt);
     }) as unknown as typeof fetch;
-    await openAiCompatible('http://stt', 'k', 'whisper-1', fake).transcribe({ audio: new Uint8Array([1]), mime: 'audio/webm' });
+    await openAiCompatible({ baseUrl: 'http://stt/v1', apiKey: 'k', model: 'whisper-1', languages: [], timestamps: 'native', chunkSeconds: 30, concurrency: 1 }, { fetchImpl: fake }).transcribe({
+      audio: new Uint8Array([1]),
+      mime: 'audio/webm',
+    });
     expect(url).toBe('http://stt/v1/audio/transcriptions');
     expect(auth).toBe('Bearer k');
   });

@@ -1,4 +1,4 @@
-// Entry of the page bundle the injector serves as /__toolbar/toolbar.js (D-131). The injector puts
+// Entry of the page bundle the injector serves as /__toolbar/toolbar.js (D-135). The injector puts
 // it first in <head> as a classic script, so it runs before the app's own scripts, as the
 // extension's document_start content scripts do. The same capture code runs here: the MAIN-world
 // hooks and the isolated-world recorder from @toolbar/capture, both in the page's realm and joined

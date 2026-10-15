@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The injector's in-page toolbar (D-131): a small bar at the bottom centre with Comment, Start
+  // The injector's in-page toolbar (D-135): a small bar at the bottom centre with Comment, Start
   // and Stop trace, and a menu. Comment picks an element, then asks for the text; without a trace
   // it sends at once with the last minute of console, network and DOM replay, during a trace it
   // joins the trace. Positions are set through the CSSOM (no style attributes), so a page CSP

@@ -1,4 +1,4 @@
-// Upload client of the page bundle (D-131). It calls the server through the injector's relay on
+// Upload client of the page bundle (D-135). It calls the server through the injector's relay on
 // the app's own origin (/__toolbar/api/...), which adds the reviewer's bearer token; the page never
 // holds a credential. It uses the fetch saved before the capture hooks were installed, so its
 // own requests stay out of the reviewer's network log.

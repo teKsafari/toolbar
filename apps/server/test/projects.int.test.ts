@@ -142,7 +142,7 @@ describe.skipIf(!reachable)('projects (integration)', () => {
     expect(none.projects).toEqual([]);
   });
 
-  it('injector sign-in (D-130): project origins count while INJECTOR_ORIGINS is empty, the cookie verifies and holds a working token', async () => {
+  it('injector sign-in (D-134): project origins count while INJECTOR_ORIGINS is empty, the cookie verifies and holds a working token', async () => {
     const review = await import('../src/lib/server/review/index.ts');
     const { verifyReview } = await import('../src/lib/server/review/cookie.ts');
     const { resolveApiToken } = await import('../src/lib/server/tokens.ts');
