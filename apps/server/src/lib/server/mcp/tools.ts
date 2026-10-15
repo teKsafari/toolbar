@@ -648,7 +648,7 @@ const createComment = define({
     const [u] = await db.select({ name: user.name }).from(user).where(eq(user.id, principal.userId));
     const [row] = await db
       .insert(comment)
-      .values({ recordingId: c.rec.id, parentId, authorUserId: principal.userId, authorName: u?.name ?? null, body: a.body, tMs: a.videoMs ?? null })
+      .values({ recordingId: c.rec.id, parentId, authorUserId: principal.userId, authorName: u?.name ?? null, body: a.body, tMs: a.videoMs ?? null, viaAgent: principal.clientName ?? (principal.via === 'personal' ? 'an agent' : null) })
       .returning();
     publish(c.rec.id, { type: 'created', id: row!.id });
     return json({

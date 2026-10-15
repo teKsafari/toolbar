@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusNow } from '#lib/components/focus.ts';
   // Capture page header (J-112, J-113, J-114, J-117, J-118, J-121): home, folder chip, three-dot
   // menu (move to folder, delete), send-to-app split button and the copy-link split button.
   // J-138, J-140: send-to-app opens the tracker field form (repo, labels, assignee, milestone from
@@ -217,8 +218,7 @@
 {/if}
 {#if newFolder}
   <Modal title="New folder" confirmLabel="Create and move" {busy} onconfirm={createAndMove} oncancel={() => (newFolder = false)}>
-    <!-- svelte-ignore a11y_autofocus -->
-    <input type="text" bind:value={folderName} placeholder="Folder name" aria-label="Folder name" autofocus onkeydown={(e) => { if (e.key === 'Enter') void createAndMove(); }} data-testid="folder-name" />
+    <input type="text" bind:value={folderName} placeholder="Folder name" aria-label="Folder name" use:focusNow onkeydown={(e) => { if (e.key === 'Enter') void createAndMove(); }} data-testid="folder-name" />
   </Modal>
 {/if}
 

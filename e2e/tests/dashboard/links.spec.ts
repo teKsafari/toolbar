@@ -73,7 +73,7 @@ test('J-017, J-126: a signed-out recipient records screen and voice, adds a note
   await guest.waitForFunction(() => document.documentElement.hasAttribute('data-app-ready'));
   await expect(guest.getByRole('heading', { level: 1 })).toHaveText('Checkout total is wrong');
   await expect(guest.getByTestId('choose-voice')).toHaveAttribute('aria-checked', 'true'); // mic=1 preset
-  await guest.getByTestId('recorder-start').click();
+  await guest.getByTestId('choose-voice').click(); // the tile starts the recording (J-017)
   await expect(guest.getByTestId('recorder-live')).toBeVisible({ timeout: 15_000 });
   await guest.waitForTimeout(2500);
   await expect(guest.getByTestId('recorder-time')).not.toHaveText('0:00');

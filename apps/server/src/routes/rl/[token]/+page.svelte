@@ -10,6 +10,7 @@
   import DIcon from '#lib/components/dashboard/DIcon.svelte';
   import { MicUnavailableError, ScreenRecorder, micPermission, submitRecording, type Recording } from '#lib/components/dashboard/recorder.ts';
   import { page } from '$app/state';
+  import { focusNow } from '#lib/components/focus.ts';
 
   let { data } = $props();
   type Phase = 'choose' | 'starting' | 'recording' | 'review' | 'uploading' | 'done';
@@ -33,7 +34,7 @@
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   };
 
-  // A microphone the browser already refuses is known before Start (J-200).
+  // A microphone the browser already refuses is known before anything starts (J-200).
   async function chooseVoice() {
     voice = true;
     micProblem = (await micPermission()) === 'denied' ? 'denied' : null;
@@ -41,6 +42,33 @@
   $effect(() => {
     if (data.info?.mic) void chooseVoice();
   });
+  // A tile click is the start: screen only starts at once, screen and voice checks the
+  // microphone first and starts when it can be used (J-017: one click fewer than a separate Start).
+  async function pick(withVoice: boolean) {
+    if (phase !== 'choose') return;
+    if (!withVoice) {
+      voice = false;
+      micProblem = null;
+      return start();
+    }
+    await chooseVoice();
+    if (!micProblem) await start();
+  }
+  let paused = $state(false);
+  let micMuted = $state(false);
+  function togglePause() {
+    if (!rec) return;
+    if (rec.paused) rec.resume();
+    else rec.pause();
+    paused = rec.paused;
+    updatePip();
+  }
+  function toggleMic() {
+    if (!rec?.hasVoice) return;
+    rec.setMicMuted(!rec.micMuted);
+    micMuted = rec.micMuted;
+    updatePip();
+  }
 
   function withoutVoice() {
     voice = false;
@@ -69,10 +97,11 @@
       return;
     }
     phase = 'recording';
-    const t0 = Date.now();
     elapsed = 0;
+    paused = false;
+    micMuted = false;
     timer = setInterval(() => {
-      elapsed = Date.now() - t0;
+      elapsed = rec?.elapsedMs ?? elapsed;
       updatePip();
     }, 250);
     void openPip();
@@ -83,20 +112,40 @@
     const dpip = (window as unknown as { documentPictureInPicture?: { requestWindow(o: { width: number; height: number }): Promise<Window> } }).documentPictureInPicture;
     if (!dpip) return;
     try {
-      pip = await dpip.requestWindow({ width: 260, height: 72 });
-      pip.document.body.innerHTML = `<div style="display:flex;align-items:center;gap:12px;height:100vh;padding:0 16px;background:#25211c;color:#fff;font:600 15px system-ui">
-        <button id="stop" style="width:30px;height:30px;border-radius:8px;border:0;background:#d23c3c;cursor:pointer" aria-label="Stop recording"></button>
-        <span id="t" style="font-variant-numeric:tabular-nums">0:00</span><span style="font-weight:400;opacity:.7">Recording</span></div>`;
+      pip = await dpip.requestWindow({ width: 300, height: 72 });
+      // stop, pause, the timer and the microphone, as on the extension's bar (J-017)
+      const btn = 'height:30px;min-width:30px;padding:0 8px;border-radius:8px;border:0;cursor:pointer;font:600 13px system-ui';
+      pip.document.body.innerHTML = `<div style="display:flex;align-items:center;gap:10px;height:100vh;padding:0 14px;background:#25211c;color:#fff;font:600 15px system-ui">
+        <button id="stop" style="${btn};background:#d23c3c" aria-label="Stop recording"></button>
+        <button id="pause" style="${btn};background:#3a352e;color:#fff" aria-label="Pause recording">Pause</button>
+        <span id="t" style="font-variant-numeric:tabular-nums">0:00</span><span id="s" style="font-weight:400;opacity:.7">Recording</span>
+        ${voice ? `<button id="mic" style="${btn};margin-left:auto;background:#3a352e;color:#fff" aria-label="Mute microphone">Mic on</button>` : ''}</div>`;
       pip.document.body.style.margin = '0';
       pip.document.getElementById('stop')?.addEventListener('click', () => void stop());
+      pip.document.getElementById('pause')?.addEventListener('click', togglePause);
+      pip.document.getElementById('mic')?.addEventListener('click', toggleMic);
       pip.addEventListener('pagehide', () => (pip = null));
     } catch {
       pip = null;
     }
   }
   function updatePip() {
-    const t = pip?.document.getElementById('t');
+    const d = pip?.document;
+    if (!d) return;
+    const t = d.getElementById('t');
     if (t) t.textContent = fmt(elapsed);
+    const p = d.getElementById('pause');
+    if (p) {
+      p.textContent = paused ? 'Resume' : 'Pause';
+      p.setAttribute('aria-label', paused ? 'Resume recording' : 'Pause recording');
+    }
+    const st = d.getElementById('s');
+    if (st) st.textContent = paused ? 'Paused' : 'Recording';
+    const m = d.getElementById('mic');
+    if (m) {
+      m.textContent = micMuted ? 'Mic off' : 'Mic on';
+      m.setAttribute('aria-label', micMuted ? 'Unmute microphone' : 'Mute microphone');
+    }
   }
 
   async function stop() {
@@ -127,7 +176,8 @@
       await submitRecording(
         page.params.token!,
         result,
-        { note: note.trim(), title: data.info?.title ?? null, folder: data.preset?.folder ?? null, ref: data.preset?.ref ?? null },
+        // titled after the link unless the link presets a title (J-017)
+        { note: note.trim(), title: data.info?.title ?? data.info?.name ?? null, folder: data.preset?.folder ?? null, ref: data.preset?.ref ?? null },
         (p) => (pct = p),
       );
       phase = 'done';
@@ -171,8 +221,8 @@
           <p class="err">This browser cannot record the screen. Open the link in a desktop Chrome, Edge or Firefox.</p>
         {/if}
         <div class="choice" role="radiogroup" aria-label="What to record">
-          <button role="radio" aria-checked={!voice} onclick={() => { voice = false; micProblem = null; }} data-testid="choose-screen"><DIcon name="monitor" size={20} /><span><strong>Screen only</strong><small>Video of a window, tab or screen</small></span></button>
-          <button role="radio" aria-checked={voice} onclick={() => void chooseVoice()} data-testid="choose-voice"><DIcon name="mic" size={20} /><span><strong>Screen and voice</strong><small>Talk us through it with your microphone</small></span></button>
+          <button role="radio" aria-checked={!voice} disabled={phase !== 'choose' || !supported} onclick={() => void pick(false)} data-testid="choose-screen"><DIcon name="monitor" size={20} /><span><strong>Screen only</strong><small>Video of a window, tab or screen</small></span></button>
+          <button role="radio" aria-checked={voice} disabled={phase !== 'choose' || !supported} onclick={() => void pick(true)} data-testid="choose-voice"><DIcon name="mic" size={20} /><span><strong>Screen and voice</strong><small>Talk us through it with your microphone</small></span></button>
         </div>
         {#if voice && micProblem}
           <div class="mic" role="alert" data-testid="mic-help" data-reason={micProblem}>
@@ -191,11 +241,17 @@
             </div>
           </div>
         {/if}
-        <Button variant={voice && micProblem ? undefined : 'primary'} size="lg" icon="record" onclick={start} loading={phase === 'starting'} disabled={!supported} data-testid="recorder-start">{voice && micProblem ? 'Try again with voice' : 'Start recording'}</Button>
+        {#if voice && micProblem}
+          <Button size="lg" icon="record" onclick={start} loading={phase === 'starting'} disabled={!supported} data-testid="recorder-start">Try again with voice</Button>
+        {:else if phase === 'starting'}
+          <p class="muted small" data-testid="recorder-starting">Pick what to share in your browser's window.</p>
+        {/if}
 
       {:else if phase === 'recording'}
         <div class="live" data-testid="recorder-live">
-          <span class="dot"></span><span class="t" data-testid="recorder-time">{fmt(elapsed)}</span><span class="muted">Recording your screen{voice ? ' and voice' : ''}</span>
+          <span class="dot" class:still={paused}></span><span class="t" data-testid="recorder-time">{fmt(elapsed)}</span><span class="muted">{paused ? 'Paused' : `Recording your screen${voice ? ' and voice' : ''}`}</span>
+          <button class="ctl" onclick={togglePause} data-testid="recorder-pause">{paused ? 'Resume' : 'Pause'}</button>
+          {#if voice}<button class="ctl" onclick={toggleMic} data-testid="recorder-mic">{micMuted ? 'Mic off' : 'Mic on'}</button>{/if}
           <button class="stop" onclick={stop} data-testid="recorder-stop"><DIcon name="stop" size={14} />Stop</button>
         </div>
         <p class="muted small">Switch to the window you shared and show the problem. Come back here, or use the small control window, to stop.</p>
@@ -203,7 +259,7 @@
         <!-- svelte-ignore a11y_media_has_caption -->
         <video src={previewUrl} controls class="pv" data-testid="recorder-preview"></video>
         <label class="note">Add a note <span class="muted">(optional)</span>
-          <textarea bind:value={note} rows="3" maxlength="10000" placeholder="What were you trying to do, and what went wrong?" disabled={phase === 'uploading'} data-testid="recorder-note"></textarea>
+          <textarea use:focusNow bind:value={note} rows="3" maxlength="10000" placeholder="What were you trying to do, and what went wrong?" disabled={phase === 'uploading'} data-testid="recorder-note"></textarea>
         </label>
         {#if phase === 'uploading'}
           <div class="prog" data-testid="recorder-progress"><span style="width:{pct}%"></span></div>
@@ -257,6 +313,10 @@
   .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--nb-danger); animation: blink 1.2s infinite; }
   @keyframes blink { 50% { opacity: 0.3; } }
   .t { font-variant-numeric: tabular-nums; font-weight: var(--nb-weight-semibold); }
+  .ctl { all: unset; padding: 6px 10px; border-radius: var(--nb-radius-pill); background: var(--nb-chrome-2); color: var(--nb-on-chrome); cursor: pointer; font-size: var(--nb-text-md); }
+  .ctl:focus-visible { outline: 2px solid var(--nb-focus); }
+  .dot.still { animation: none; opacity: 0.5; }
+  .choice button:disabled { opacity: 0.6; cursor: default; }
   .stop { all: unset; margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--nb-radius-pill); background: var(--nb-danger); color: #fff; cursor: pointer; font-weight: var(--nb-weight-medium); }
   .stop:focus-visible { outline: 2px solid var(--nb-focus); }
   .pv { width: 100%; max-height: 360px; border-radius: var(--nb-radius-lg); background: #000; }

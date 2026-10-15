@@ -93,6 +93,7 @@ function toDto(r: Row, ctx: ViewerCtx, who: Map<string, Person>, reactions: Map<
     author: author ? { id: author.id, name: author.name, email: author.email, image: author.image } : null,
     anonymous,
     displayName: author?.name ?? r.authorName ?? (anonymous ? 'Anonymous' : 'Deleted user'),
+    viaAgent: r.viaAgent ?? null,
     body: r.body,
     tMs: r.tMs,
     attachments: atts.get(r.id) ?? [],

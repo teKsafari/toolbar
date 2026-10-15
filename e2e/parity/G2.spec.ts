@@ -983,6 +983,7 @@ test('S2.4 video draft: preview, trim, save for later, create', async () => {
       }
       return null;
     }, 30_000, 100);
+    if (!found.value) throw new Error('the editor did not reopen from the drafts list');
     page = found.value.pg;
     await found.value.fr.getByTestId('length').waitFor();
     await sleep(1000);

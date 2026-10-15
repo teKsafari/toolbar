@@ -62,7 +62,9 @@ export class ScreenRecorder {
   async start(withVoice: boolean) {
     if (withVoice) this.mic = await requestMic();
     try {
-      this.display = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true });
+      // The picker opens on the whole-screen pane, the usual pick for a bug report (J-017;
+      // MDN: MediaTrackConstraints.displaySurface is a hint the browser may follow).
+      this.display = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30, displaySurface: 'monitor' } as MediaTrackConstraints, audio: true });
     } catch (e) {
       this.release();
       throw e;
@@ -100,6 +102,37 @@ export class ScreenRecorder {
     return !!this.mic;
   }
 
+  private pausedAt: number | null = null;
+  private pausedMs = 0;
+  get paused() {
+    return this.pausedAt !== null;
+  }
+  /** Pause both recorders; the paused span is left out of the length (J-017 pop-out). */
+  pause() {
+    if (this.pausedAt !== null || this.rec?.state !== 'recording') return;
+    this.rec.pause();
+    if (this.voiceRec?.state === 'recording') this.voiceRec.pause();
+    this.pausedAt = Date.now();
+  }
+  resume() {
+    if (this.pausedAt === null) return;
+    this.rec?.resume();
+    if (this.voiceRec?.state === 'paused') this.voiceRec.resume();
+    this.pausedMs += Date.now() - this.pausedAt;
+    this.pausedAt = null;
+  }
+  /** Recorded time so far, pauses left out. */
+  get elapsedMs() {
+    return (this.pausedAt ?? Date.now()) - this.t0 - this.pausedMs;
+  }
+  get micMuted() {
+    return !!this.mic && this.mic.getAudioTracks().every((t) => !t.enabled);
+  }
+  /** Mute or unmute the microphone; the voice track keeps running silent. */
+  setMicMuted(muted: boolean) {
+    for (const t of this.mic?.getAudioTracks() ?? []) t.enabled = !muted;
+  }
+
   async stop(): Promise<Recording> {
     const done = (r: MediaRecorder | null) =>
       new Promise<void>((res) => {
@@ -107,8 +140,9 @@ export class ScreenRecorder {
         r.addEventListener('stop', () => res(), { once: true });
         r.stop();
       });
+    if (this.pausedAt !== null) this.resume();
     await Promise.all([done(this.rec), done(this.voiceRec)]);
-    const durationMs = Date.now() - this.t0;
+    const durationMs = Date.now() - this.t0 - this.pausedMs;
     this.release();
     return {
       video: new Blob(this.parts, { type: 'video/webm' }),

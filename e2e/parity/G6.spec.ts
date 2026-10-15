@@ -923,15 +923,11 @@ test('S6.3 recording links page, a recipient recording (N6), the workspace menu'
       const heading = txt(await rec.locator('main h1').textContent());
       const eyebrow = txt(await rec.locator('main .eyebrow').textContent().catch(() => ''));
       await rec.screenshot({ path: ev.file('2-recorder-recipient') });
-      // 3. screen and voice
+      // 3. screen and voice: the tile click checks the microphone and starts (J-017)
+      const helpBeforeStart = await rec.getByTestId('mic-help').isVisible().catch(() => false);
       await rec.getByTestId('choose-voice').click();
       clicks++;
-      steps.push('pick screen and voice');
-      await sleep(300);
-      const helpBeforeStart = await rec.getByTestId('mic-help').isVisible().catch(() => false);
-      await rec.getByTestId('recorder-start').click();
-      clicks++;
-      steps.push('start');
+      steps.push('pick screen and voice (starts at once)');
       await rec.getByTestId('mic-help').waitFor({ timeout: 15_000 });
       await sleep(300);
       const micHelp = { reason: await rec.getByTestId('mic-help').getAttribute('data-reason'), text: txt(await rec.getByTestId('mic-help').textContent()), startLabel: txt(await rec.getByTestId('recorder-start').textContent()) };

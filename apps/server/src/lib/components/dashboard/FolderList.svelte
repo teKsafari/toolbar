@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusNow } from '#lib/components/focus.ts';
   // Sidebar folders (J-162, J-213, J-163, J-166): alphabetical, icon per row, the active one shows
   // its count; the heading collapses the list and shows a plus on hover; dropping cards moves them.
   import { invalidate, goto } from '$app/navigation';
@@ -88,9 +89,8 @@
         <li>
           <form onsubmit={create} class="add">
             <DIcon name="folder" size={16} />
-            <!-- svelte-ignore a11y_autofocus -->
             <input
-              autofocus
+             use:focusNow
               bind:value={name}
               placeholder="Folder name"
               aria-label="Folder name"

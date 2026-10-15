@@ -69,6 +69,8 @@
           {/if}
           {#if canCreate}
             <Button icon="user" onclick={() => (inviteOpen = true)} data-testid="invite-button" class="inv">Invite</Button>
+            <!-- narrow screens keep the invite as an icon, so the modal stays one click away (J-123) -->
+            <Button icon="user" iconOnly aria-label="Invite" title="Invite" onclick={() => (inviteOpen = true)} data-testid="invite-button-sm" class="inv-sm" />
           {/if}
           {#if canCreate}<NewCapture />{/if}
         </span>
@@ -129,7 +131,9 @@
     .content { padding: 14px 12px 40px; }
     .avs { display: none; }
   }
+  .head-actions :global(.inv-sm) { display: none; }
   @media (max-width: 520px) {
     .head-actions :global(.inv) { display: none; }
+    .head-actions :global(.inv-sm) { display: inline-flex; }
   }
 </style>

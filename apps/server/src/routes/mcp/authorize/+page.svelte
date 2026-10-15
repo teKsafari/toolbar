@@ -54,10 +54,10 @@
 </main>
 
 <style>
-  .consent { min-height: 100vh; display: grid; place-content: center; gap: var(--nb-space-5); padding: var(--nb-space-6); background: var(--nb-bg); }
+  .consent { min-height: 100vh; display: grid; grid-template-columns: min(420px, 100%); place-content: center; gap: var(--nb-space-5); padding: var(--nb-space-6); background: var(--nb-bg); }
   .brand { display: flex; align-items: center; gap: var(--nb-space-2); font-weight: var(--nb-weight-semibold); font-size: var(--nb-text-lg); justify-content: center; }
   .mark { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: var(--nb-radius-md); background: var(--nb-accent); color: var(--nb-on-accent); }
-  .card { width: min(420px, 100%); background: var(--nb-surface); border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); box-shadow: var(--nb-shadow-md); padding: var(--nb-space-6); display: grid; gap: var(--nb-space-4); }
+  .card { justify-self: center; width: min(420px, 100%); background: var(--nb-surface); border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); box-shadow: var(--nb-shadow-md); padding: var(--nb-space-6); display: grid; gap: var(--nb-space-4); }
   h1 { font-size: var(--nb-text-xl); line-height: var(--nb-leading-tight); margin: 0; }
   .client { color: var(--nb-accent-text); }
   .muted { color: var(--nb-text-muted); margin: 0; font-size: var(--nb-text-md); }

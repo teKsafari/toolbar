@@ -19,5 +19,11 @@
   .hint { font-size: var(--nb-text-sm); color: var(--nb-text-muted); }
   .c { flex: none; display: flex; align-items: center; gap: 8px; }
   .badge { font-size: var(--nb-text-xs); font-weight: var(--nb-weight-normal); padding: 1px 6px; border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-pill); color: var(--nb-text-muted); }
-  @media (max-width: 560px) { .f { flex-direction: column; align-items: stretch; } .c { justify-content: flex-start; } }
+  /* On a phone a switch or a button stays at the right end of its row; only wide controls
+     (text fields, selects) move under their label (J-124, J-172, J-173). */
+  @media (max-width: 560px) {
+    .f { align-items: flex-start; }
+    .f:has(.c :global(:is(input:not([type='checkbox']):not([type='radio']), select, textarea))) { flex-direction: column; align-items: stretch; }
+    .c { justify-content: flex-start; }
+  }
 </style>

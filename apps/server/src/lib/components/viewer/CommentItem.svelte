@@ -101,7 +101,7 @@
   <Avatar name={c.displayName} image={c.author?.image} size={reply ? 22 : 28} />
   <div class="main">
     <div class="head">
-      <span class="name">{c.displayName}</span>
+      <span class="name">{c.displayName}</span>{#if c.viaAgent}<span class="via" title="Written by {c.viaAgent} for {c.displayName}" data-testid="comment-via">via {c.viaAgent}</span>{/if}
       {#if c.anonymous}<span class="tag">anonymous</span>{/if}
       {#if c.tMs !== null}<button type="button" class="tchip" onclick={seekHere} title="Play from here" data-testid="comment-time">{fmtClock(c.tMs)}</button>{/if}
       <span class="when" title={new Date(c.createdAt).toLocaleString()}>{relTime(c.createdAt)}</span>
@@ -179,6 +179,7 @@
 {/if}
 
 <style>
+  .via { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--nb-accent-tint); color: var(--nb-accent-text); font-size: var(--nb-text-xs); font-weight: 500; white-space: nowrap; }
   .cm { position: relative; display: flex; gap: 10px; padding: 10px 10px; border-radius: var(--nb-radius-md); transition: background var(--nb-dur-med); }
   .cm:hover { background: var(--nb-surface-2); }
   .cm.reply { padding: 6px 10px 6px 48px; }

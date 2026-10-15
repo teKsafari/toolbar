@@ -365,7 +365,7 @@ test('J-177: report a problem opens a recording link to the server admin', async
   await rl.waitForLoadState();
   expect(rl.url()).toBe(boot.supportRecordingLink);
   await expect(rl.getByTestId('recorder')).toBeVisible();
-  await expect(rl.getByTestId('recorder-start')).toBeVisible();
+  await expect(rl.getByTestId('choose-screen')).toBeVisible();
   await rl.close();
   await popup.close().catch(() => undefined);
   await page.close();

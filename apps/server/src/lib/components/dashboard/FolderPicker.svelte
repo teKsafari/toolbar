@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusNow } from '#lib/components/focus.ts';
   // Folder list for moves (J-165) and recording-link targets (J-223): the current location greyed,
   // "no folder", and an optional new-folder item that creates one and picks it.
   import { invalidate } from '$app/navigation';
@@ -43,8 +44,7 @@
   {#if allowCreate}
     {#if creating}
       <form onsubmit={create}>
-        <!-- svelte-ignore a11y_autofocus -->
-        <input bind:value={name} placeholder="New folder name" aria-label="New folder name" autofocus data-testid="picker-new-folder-input" />
+        <input bind:value={name} placeholder="New folder name" aria-label="New folder name" use:focusNow data-testid="picker-new-folder-input" />
       </form>
     {:else}
       <button role="menuitem" class="new" onclick={() => (creating = true)} data-testid="picker-new-folder"><DIcon name="folder-plus" />New folder</button>

@@ -15,6 +15,13 @@ export function shareSettings(v: Viewer): Promise<ShareSettings> {
   return shareCache;
 }
 
+/** Set the capture's general access (J-119); the cached settings follow. */
+export async function setShareAccess(v: Viewer, access: ShareSettings['access']): Promise<ShareSettings> {
+  const s = await call<ShareSettings>('sharing.update', { id: v.detail.id }, { access });
+  shareCache = Promise.resolve(s);
+  return s;
+}
+
 /** The link to copy: the share URL for members, the page's own link for share viewers. */
 export async function shareBaseUrl(v: Viewer, devtools = true): Promise<string | null> {
   if (v.data.mode === 'share' && v.data.shareToken) {

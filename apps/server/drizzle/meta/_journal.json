@@ -15,6 +15,13 @@
       "when": 1791969882653,
       "tag": "0001_area_merge",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792055826905,
+      "tag": "0002_comment_via_agent",
+      "breakpoints": true
     }
   ]
 }

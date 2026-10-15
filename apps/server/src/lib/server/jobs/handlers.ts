@@ -209,7 +209,18 @@ async function runFinalize(rec: typeof recording.$inferSelect, attempts: number)
     }
     // image captures: thumbnail from the shown image
     if (!hasVideo) {
-      const { main } = pickScreenshots(await db.select().from(asset).where(eq(asset.recordingId, id)));
+      const all = await db.select().from(asset).where(eq(asset.recordingId, id));
+      const { main } = pickScreenshots(all);
+      // a DOM replay sends a still of the page as its card image (J-158)
+      const still = main ? null : all.find((a) => a.kind === 'thumb');
+      if (still) {
+        const src = join(dir, 'still');
+        await writeFile(src, await getBytes(still.s3Key));
+        const thumb = join(dir, 'thumb.webp');
+        await imageThumb(src, thumb);
+        thumbKey = keys.final(id, 'thumb.webp');
+        await putFile(thumbKey, thumb, 'image/webp');
+      }
       if (main) {
         const src = join(dir, 'shot');
         await writeFile(src, await getBytes(main.s3Key));

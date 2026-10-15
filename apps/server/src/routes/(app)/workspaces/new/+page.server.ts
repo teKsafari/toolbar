@@ -6,8 +6,10 @@ import { invitation, organization } from '#lib/server/db/schema/index.ts';
 import { createWorkspace } from '#lib/server/auth/workspaces.ts';
 
 /** J-221: create a workspace, or join one you were invited to. */
-export const load = async ({ locals }) => {
-  const u = locals.user!;
+export const load = async ({ locals, url }) => {
+  // the page resets to the root layout (+page@.svelte), so it checks the session itself
+  if (!locals.user) redirect(303, `/login?next=${encodeURIComponent(url.pathname)}`);
+  const u = locals.user;
   const invites = await db
     .select({ id: invitation.id, workspace: organization.name, role: invitation.role })
     .from(invitation)

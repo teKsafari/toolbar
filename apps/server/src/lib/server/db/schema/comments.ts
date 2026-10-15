@@ -26,6 +26,8 @@ export const comment = pgTable(
     resolvedBy: uuid('resolved_by').references(() => user.id, { onDelete: 'set null' }),
     /** Opaque per-browser id of an anonymous author, so the same visitor's reactions match. */
     anonKey: text('anon_key'),
+    /** The agent that wrote the comment for its user over MCP: the OAuth client's name (J-151). */
+    viaAgent: text('via_agent'),
   },
   (t) => [index('comment_recording_idx').on(t.recordingId, t.createdAt)],
 );

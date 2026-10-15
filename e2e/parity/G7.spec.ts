@@ -88,7 +88,12 @@ function sql(q: string): string[] {
 /** Object keys in Garage under rec/<id>/ (the compose stack's default dev keys). */
 async function garageKeys(recId: string): Promise<string[]> {
   const req = createRequire(path.join(ROOT, 'apps/server/package.json'));
-  const { S3Client, ListObjectsV2Command } = req('@aws-sdk/client-s3') as typeof import('@aws-sdk/client-s3');
+  // the S3 client is the server's dependency, loaded from there (e2e has no types for it)
+  type S3Mod = {
+    S3Client: new (o: Record<string, unknown>) => { send(c: unknown): Promise<{ Contents?: { Key?: string }[] }>; destroy(): void };
+    ListObjectsV2Command: new (o: Record<string, unknown>) => unknown;
+  };
+  const { S3Client, ListObjectsV2Command } = req('@aws-sdk/client-s3') as S3Mod;
   const s3 = new S3Client({
     endpoint: process.env.S3_TEST_ENDPOINT ?? 'http://localhost:3900',
     region: 'garage',

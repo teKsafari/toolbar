@@ -21,6 +21,8 @@ export const commentSchema = z.object({
   anonymous: z.boolean(),
   /** shown with a letter avatar for anonymous comments */
   displayName: z.string(),
+  /** the agent that wrote it for its author over MCP, e.g. "Claude Code" (J-151); null for people */
+  viaAgent: z.string().nullable().optional(),
   /** Markdown; mentions as `@[Name](user:<uuid>)` */
   body: z.string(),
   /** playback time in ms (J-127); null for untimed comments */

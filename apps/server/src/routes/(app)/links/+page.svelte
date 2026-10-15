@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusNow } from '#lib/components/focus.ts';
   // Recording links (J-167, J-223, J-126, J-241): rows with a thumbnail mosaic, name with an
   // in-place rename, creator, uses, a folder chip that retargets the link, share (copy), open the
   // captures made through it, and delete. Status, sort and creator filters; a new-link popover.
@@ -132,7 +133,7 @@
 <div class="top">
   <div>
     <h1>Recording links</h1>
-    <p class="muted lead">Send a link; whoever opens it records their screen with no extension and no account. The recording lands here and you get an email.</p>
+    <p class="muted lead">Send a link; whoever opens it records their screen with no extension and no account. The recording lands here.</p>
   </div>
   {#if canEdit}
     <Popover bind:open={newOpen} label="New recording link" placement="bottom-end">
@@ -143,8 +144,7 @@
         <form class="nl" onsubmit={create} data-testid="new-link-form">
           <strong>New recording link</strong>
           <label>Name <span class="opt">(optional)</span>
-            <!-- svelte-ignore a11y_autofocus -->
-            <input type="text" bind:value={newName} placeholder="Support inbox" maxlength="200" autofocus data-testid="new-link-name" />
+            <input type="text" bind:value={newName} placeholder="Support inbox" maxlength="200" use:focusNow data-testid="new-link-name" />
           </label>
           <label>Save recordings in
             <select bind:value={newFolder} data-testid="new-link-folder">
@@ -200,11 +200,10 @@
         <div class="main">
           <div class="namerow">
             {#if editing === l.id}
-              <!-- svelte-ignore a11y_autofocus -->
               <input
                 class="rename"
                 bind:value={editName}
-                autofocus
+               use:focusNow
                 aria-label="Link name"
                 onkeydown={(e) => {
                   if (e.key === 'Enter') saveName(l);
@@ -241,10 +240,12 @@
         <div class="acts">
           <Popover label="Share link" placement="bottom-end">
             {#snippet trigger({ toggle, open, id })}
-              <Button size="sm" icon="link" onclick={toggle} aria-expanded={open} aria-controls={id} data-testid="link-share">Share</Button>
+              <!-- one click copies the link and shows it, with the other share options (J-167) -->
+              <Button size="sm" icon="link" onclick={() => { if (!open) void copy(l); toggle(); }} aria-expanded={open} aria-controls={id} data-testid="link-share">Share</Button>
             {/snippet}
             {#snippet children({ close })}
               <div class="share">
+                <p class="copied" data-testid="link-copied"><DIcon name="check" size={13} />Link copied</p>
                 <code>{l.url}</code>
                 <Button size="sm" icon="copy" onclick={() => (copy(l), close())} data-testid="link-copy">Copy link</Button>
                 <Button size="sm" variant="ghost" icon="mic" onclick={async () => { if (await copyText(preset(l, true))) toasts.success('Link with voice on copied'); close(); }}>Copy with voice on</Button>
@@ -341,6 +342,7 @@
   .dom { display: flex; align-items: center; gap: 8px; font-size: var(--nb-text-sm); color: var(--nb-text-muted); }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--nb-danger); flex: none; }
   .share { display: flex; flex-direction: column; gap: 8px; width: min(320px, calc(100vw - 40px)); padding: 4px; }
+  .copied { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: var(--nb-text-md); color: var(--nb-success); }
   .share code { font-size: var(--nb-text-sm); overflow-wrap: anywhere; }
   .hint { margin: 0; font-size: var(--nb-text-xs); color: var(--nb-text-faint); }
   .hint code { font-size: inherit; }

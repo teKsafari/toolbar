@@ -1,5 +1,7 @@
 <script lang="ts">
-  // A filter button that opens a searchable multi-select popover (J-160).
+  import { focusNow } from '#lib/components/focus.ts';
+  // A filter button that opens a searchable multi-select popover (J-160). A pick applies the
+  // filter and closes the menu, so one filter costs two clicks; Shift+click keeps it open to pick more.
   import { Popover } from '@toolbar/ui';
   import DIcon from './DIcon.svelte';
   import UserAvatar from './UserAvatar.svelte';
@@ -22,8 +24,9 @@
   let q = $state('');
   const shown = $derived(options.filter((o) => !q.trim() || `${o.label} ${o.sub ?? ''}`.toLowerCase().includes(q.trim().toLowerCase())));
 
-  function toggle(v: string) {
+  function toggle(v: string, e: MouseEvent, close: () => void) {
     onchange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
+    if (!e.shiftKey && !e.ctrlKey && !e.metaKey) close();
   }
 </script>
 
@@ -33,14 +36,13 @@
       {label}{#if selected.length}<span class="n">{selected.length}</span>{/if}<DIcon name="chevron-down" size={12} />
     </button>
   {/snippet}
-  {#snippet children()}
+  {#snippet children({ close })}
     <div class="ms" role="listbox" aria-multiselectable="true" aria-label={label}>
       {#if searchable && options.length > 5}
-        <!-- svelte-ignore a11y_autofocus -->
-        <input class="q" bind:value={q} placeholder="Search" aria-label="Search {label.toLowerCase()}" autofocus />
+        <input class="q" bind:value={q} placeholder="Search" aria-label="Search {label.toLowerCase()}" use:focusNow />
       {/if}
       {#each shown as o (o.value)}
-        <button role="option" aria-selected={selected.includes(o.value)} class="opt" onclick={() => toggle(o.value)} data-value={o.value}>
+        <button role="option" aria-selected={selected.includes(o.value)} class="opt" onclick={(e) => toggle(o.value, e, close)} data-value={o.value}>
           <span class="box">{#if selected.includes(o.value)}<DIcon name="check" size={12} />{/if}</span>
           {#if o.avatar}<UserAvatar name={o.avatar.name} image={o.avatar.image} size={20} />{/if}
           <span class="l">{o.label}</span>

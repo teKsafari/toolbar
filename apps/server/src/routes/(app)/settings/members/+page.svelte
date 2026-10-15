@@ -88,7 +88,6 @@
 
 <div class="head">
   <h1>Members</h1>
-  {#if data.canInvite}<Button variant="primary" icon="plus" onclick={() => (inviteOpen = true)} data-testid="add-members">Add members</Button>{/if}
 </div>
 
 <Section title="Invite link" description="Anyone with this link joins as a creator. It expires after 29 days; reset it to stop the old one." testid="invite-link-section">
@@ -111,14 +110,18 @@
 </Section>
 
 <Section title={`${members.length} ${members.length === 1 ? 'member' : 'members'}`} testid="member-section">
+  {#snippet actions()}
+    <!-- beside the members table heading, where the list it adds to is (J-173) -->
+    {#if data.canInvite}<Button variant="primary" icon="plus" onclick={() => (inviteOpen = true)} data-testid="add-members">Add members</Button>{/if}
+  {/snippet}
   {#if members.length > 6}<input class="filter" type="text" bind:value={filter} placeholder="Find a member" aria-label="Find a member" />{/if}
   <div class="tablewrap">
     <table data-testid="member-table">
-      <thead><tr><th>Name</th><th>Role</th><th>Last active</th><th><span class="sr">Actions</span></th></tr></thead>
+      <thead><tr><th class="name">Name</th><th>Role</th><th class="last">Last active</th><th><span class="sr">Actions</span></th></tr></thead>
       <tbody>
         {#each shown as m (m.userId)}
           <tr data-user={m.userId}>
-            <td>
+            <td class="name">
               <span class="who">
                 <UserAvatar name={m.person.name} image={m.person.image} size={30} />
                 <span class="col"><span class="n">{m.person.name}{#if m.userId === data.me}<span class="you">you</span>{/if}</span><span class="e">{m.person.email}</span></span>
@@ -145,7 +148,7 @@
                 <span class="rolestatic">{roleLabel[m.role]}{#if m.isOwner}<span class="own">owner</span>{/if}</span>
               {/if}
             </td>
-            <td class="muted">{m.lastActiveAt ? relativeTime(m.lastActiveAt) : 'Not yet'}</td>
+            <td class="muted last">{m.lastActiveAt ? relativeTime(m.lastActiveAt) : 'Not yet'}</td>
             <td class="act">
               {#if m.userId === data.me || admin}
                 <Popover label="Member actions" placement="bottom-end">
@@ -217,15 +220,25 @@
   .linkrow { display: flex; gap: 8px; }
   .linkrow input { flex: 1; min-width: 0; height: 34px; font-family: var(--nb-font-mono); font-size: var(--nb-text-sm); }
   .filter { height: 32px; max-width: 280px; }
-  .tablewrap { overflow-x: auto; }
+  /* The table fits its column, so the role and row menus open outside it instead of being cut
+     off by a scroll box (J-222); on a phone the last-active column goes (J-124, J-173). */
+  .tablewrap { overflow: visible; }
   table { width: 100%; border-collapse: collapse; }
+  .name { width: 100%; max-width: 0; }
+  .last { white-space: nowrap; }
+  @media (max-width: 560px) {
+    .last { display: none; }
+    td { padding: 8px 4px; }
+  }
   th { text-align: left; font-size: var(--nb-text-xs); color: var(--nb-text-faint); font-weight: var(--nb-weight-semibold); padding: 6px 8px; border-bottom: 1px solid var(--nb-border); }
   td { padding: 8px; border-bottom: 1px solid var(--nb-border); vertical-align: middle; }
   tr:last-child td { border-bottom: 0; }
   .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .col { display: flex; flex-direction: column; min-width: 0; }
   .n { font-weight: var(--nb-weight-medium); display: inline-flex; align-items: center; gap: 6px; }
-  .e { font-size: var(--nb-text-sm); color: var(--nb-text-muted); overflow: hidden; text-overflow: ellipsis; }
+  .e { font-size: var(--nb-text-sm); color: var(--nb-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .role, .rolestatic { white-space: nowrap; }
   .you, .own { font-size: var(--nb-text-xs); padding: 0 6px; border-radius: var(--nb-radius-pill); background: var(--nb-surface-sunken); color: var(--nb-text-muted); font-weight: var(--nb-weight-normal); }
   .role { all: unset; display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: var(--nb-radius-md); cursor: pointer; }
   .role:hover { background: var(--nb-surface-sunken); }

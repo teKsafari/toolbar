@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusNow } from '#lib/components/focus.ts';
   // Title and description under the media (J-110, J-111, J-116, J-135): click the title, type,
   // Enter saves and the tab title follows; the description saves on blur, keeps lists and bold,
   // takes @mentions, and its time links seek the player. Read-only for share viewers.
@@ -95,8 +96,7 @@
 
 <div class="td">
   {#if editingTitle}
-    <!-- svelte-ignore a11y_autofocus -->
-    <input class="title-in" bind:value={titleDraft} onkeydown={titleKey} onblur={commitTitle} aria-label="Title" autofocus maxlength="500" data-testid="title-input" />
+    <input class="title-in" bind:value={titleDraft} onkeydown={titleKey} onblur={commitTitle} aria-label="Title" use:focusNow maxlength="500" data-testid="title-input" />
   {:else}
     <h1 class="title" class:editable={v.canEdit} data-testid="title">
       {#if v.canEdit}

@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { focusNow } from '#lib/components/focus.ts';
+  /** autofocus that works when a click opened the field (J-163) */
+  const maybeFocus = (node: HTMLElement, on: boolean) => (on ? focusNow(node) : undefined);
   // Textarea with an @ member picker (J-135). Arrow keys move, Enter or Tab picks, Escape closes.
   import type { MentionDraft } from './mentions.svelte.ts';
   import Avatar from './Avatar.svelte';
@@ -79,13 +82,12 @@
 </script>
 
 <div class="wrap">
-  <!-- svelte-ignore a11y_autofocus -->
   <textarea
     bind:this={el}
     bind:value={draft.text}
     {placeholder}
     {rows}
-    {autofocus}
+    use:maybeFocus={autofocus}
     aria-label={label}
     oninput={() => { detect(); autosize(); }}
     onclick={detect}

@@ -46,7 +46,7 @@ test('E: recording link from the popup; a recipient with no extension records an
       await page.waitForLoadState('networkidle');
       await expect(page.getByRole('heading', { name })).toBeVisible();
       await expect(page.getByTestId('choose-screen')).toHaveAttribute('aria-checked', 'true'); // screen only by default
-      await page.getByTestId('recorder-start').click();
+      await page.getByTestId('choose-screen').click(); // the tile starts the recording (J-017)
       if (mode === 'picker') {
         // for a page the picker is a dialog in the tab, open on the tab list: Entire Screen, the thumbnail, Share
         expect(await pickEntireScreenInPage(), 'the share picker opened').toBeGreaterThan(0);
