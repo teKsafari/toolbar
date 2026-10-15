@@ -1,8 +1,8 @@
 <script lang="ts">
   // The capture menu (J-001, J-019, J-026, J-035, J-239, J-011, J-014). Rows: screenshot,
-  // record, instant replay (when on) and recording link. The session decides which rows live.
+  // record, instant replay (when on) and recording link, then Start trace (Part 2). The session decides which rows live.
   import { Icon, Segmented } from '@toolbar/ui';
-  import { popupActions, type RecordMode } from '@toolbar/shared/ext';
+  import { popupActions, type RecordMode, type TraceState } from '@toolbar/shared/ext';
   import { store } from '../lib/store.svelte';
   import { send, errorText } from '../../capture.content/ui/send';
   import CaptureRow from '../lib/CaptureRow.svelte';
@@ -52,6 +52,29 @@
       return;
     }
     return run(send('capture', { mode: 'replay', tabId }));
+  }
+
+  // Part 2 traces: one trace at a time, beside any capture (lib/bg/trace.ts)
+  let trace = $state<TraceState | null>(null);
+  let traceBusy = $state(false);
+  $effect(() => {
+    void send('trace.get', {}).then((r) => {
+      if (r.ok) trace = r.trace;
+    });
+  });
+  const traceHere = $derived(!!trace && trace.tabId === tabId);
+  const traceLabel = $derived(
+    traceBusy ? (trace ? 'Stopping trace...' : 'Starting trace...') : trace ? (traceHere ? 'Stop trace' : 'Stop trace (other tab)') : 'Start trace',
+  );
+  async function toggleTrace() {
+    if (traceBusy) return;
+    traceBusy = true;
+    try {
+      if (trace) await run(send('trace.stop', {}));
+      else await run(send('trace.start', { tabId }));
+    } finally {
+      traceBusy = false;
+    }
   }
 
   async function setRecordMode(m: RecordMode) {
@@ -164,6 +187,15 @@
       <button class="help" type="button" aria-label="How recording links work" data-link-help onclick={(e) => { e.stopPropagation(); store.screen = 'link-help'; }}>
         <Icon name="help" size={16} />
       </button>
+    {/snippet}
+  </CaptureRow>
+
+  <!-- Part 2: a trace of this tab's actions, separate from the capture rows above -->
+  <CaptureRow id={trace ? 'trace-stop' : 'trace'} icon={trace ? 'stop' : 'eye'} label={traceLabel} tone={trace ? 'danger' : 'default'} disabled={traceBusy} onclick={toggleTrace}>
+    {#snippet extra()}
+      {#if trace}
+        <span class="badge" data-trace-badge title="Actions so far in this trace">{trace.spans} {trace.spans === 1 ? 'action' : 'actions'}</span>
+      {/if}
     {/snippet}
   </CaptureRow>
 

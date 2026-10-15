@@ -10,6 +10,7 @@ import { createRrwebRecorder } from './rrweb.ts';
 import type { Command, Transport } from './transport.ts';
 import { recordUserEvents } from './user-events.ts';
 import { watchPageWeight } from './page-weight.ts';
+import { watchCanvases } from './canvas-sample.ts';
 
 export interface StartIsolatedOptions {
   transport: Transport;
@@ -91,7 +92,9 @@ export function startIsolatedWorld({ transport, win = window as Window & typeof 
   }, win);
 
   const users = recordUserEvents({ emit: (u) => emit('user', u), onHide: flush, frame: top ? 'top' : ctx.replace(/-i$/, ''), win });
-  if (dom) observeDom((d) => emit('dom', d), win);
+  if (dom) observeDom((d) => emit('dom', d), win, 100, { texts: () => preset !== 'production' });
+  // canvas pixels around actions, only while a recording or trace is attached (packages/trace)
+  const canvases = watchCanvases((s) => emit('canvas.sample', s), win);
   const rrweb = createRrwebRecorder((batch, full) => {
     flush(); // keep events and rrweb roughly in order across the two streams
     transport.sendRrweb?.(batch, full);
@@ -141,6 +144,7 @@ export function startIsolatedWorld({ transport, win = window as Window & typeof 
         attached.add(c.recordingId);
         if (rrweb.running) rrweb.checkout();
         syncRrweb();
+        canvases.start();
         break;
       case 'detach':
         users.flushInputs();
@@ -148,6 +152,7 @@ export function startIsolatedWorld({ transport, win = window as Window & typeof 
         rrweb.flush();
         flush();
         syncRrweb();
+        if (!attached.size) canvases.stop();
         break;
       case 'checkout':
       case 'snapshot':

@@ -15,6 +15,7 @@ export const TYPE_FILTERS = [
   { value: 'screenshot', label: 'Screenshot', kinds: ['screenshot'] },
   { value: 'video', label: 'Video', kinds: ['video', 'screen', 'link'] },
   { value: 'replay', label: 'Instant replay', kinds: ['replay'] },
+  { value: 'trace', label: 'Trace', kinds: ['trace'] },
 ] as const satisfies readonly { value: string; label: string; kinds: readonly RecordingKind[] }[];
 export type TypeFilter = (typeof TYPE_FILTERS)[number]['value'];
 
@@ -130,7 +131,7 @@ export function durationLabel(ms: number | null | undefined): string | null {
 export function fallbackTitle(c: { title: string; authorName: string | null; kind: RecordingKind; recordingLinkName?: string | null }): string {
   if (c.title.trim()) return c.title;
   const who = c.authorName?.split(' ')[0] ?? (c.recordingLinkName ? 'A guest' : 'Someone');
-  const what = c.kind === 'screenshot' ? 'screenshot' : c.kind === 'replay' ? 'replay' : 'recording';
+  const what = c.kind === 'screenshot' ? 'screenshot' : c.kind === 'replay' ? 'replay' : c.kind === 'trace' ? 'trace' : 'recording';
   return `${who}'s ${what}`;
 }
 

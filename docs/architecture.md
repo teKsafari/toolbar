@@ -154,7 +154,7 @@ How Part 2 derives its outputs from this schema with no capture change (`package
 | span start (action) | `user` click/input/key(Enter, Ctrl+Enter), `nav`, `annotation`, `marker` (voice) |
 | span effects | `net.*` by `rid`, `console`, `error`, `dom`, `user` scroll/focus/select, `shot` |
 | close rules (500 ms quiet, 2.5 s, 10 s) | `t` plus the set of open `rid`s |
-| outcome `dead` vs `silent` on canvas | Part 2 adds one kind, `canvas.sample` (rect + perceptual hash before/after), which is additive |
+| outcome `dead` vs `silent` on canvas | Part 2 adds one kind, `canvas.sample` (rect, hash before and after, changed-pixel share), which is additive (D-120) |
 | `caused_by` | overlapping open windows; confidence from timing and `ctx` |
 | `console.jsonl`, `network.jsonl`, `raw/network.har` | filter and map (`packages/shared/src/har.ts`) |
 | `keyframes/`, `outline/` | `shot` (reason keyframe) and `dom.rects` |

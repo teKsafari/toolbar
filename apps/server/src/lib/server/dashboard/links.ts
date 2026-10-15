@@ -189,7 +189,7 @@ export function rateLimited(key: string, max = 10, windowMs = 10 * 60_000) {
 export async function recorderCreate(
   db: Db,
   token: string,
-  body: { clientId: string; kind: 'screenshot' | 'video' | 'replay' | 'screen' | 'link'; startedAt: number; env?: unknown; note?: string; folder?: string; ref?: string },
+  body: { clientId: string; kind: 'screenshot' | 'video' | 'replay' | 'screen' | 'link' | 'trace'; startedAt: number; env?: unknown; note?: string; folder?: string; ref?: string },
 ) {
   const l = await linkByToken(db, token);
   let folderId = l.folderId;

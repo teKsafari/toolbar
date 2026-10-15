@@ -18,6 +18,7 @@ import { editorAreaRoutes } from './areas/editor.ts';
 import { viewerAreaRoutes } from './areas/viewer.ts';
 import { dashboardAreaRoutes } from './areas/dashboard.ts';
 import { agentAreaRoutes } from './areas/agent.ts';
+import { traceAreaRoutes } from './areas/trace.ts';
 
 export const ROUTE_LIST = [
   ...captureRoutes,
@@ -37,6 +38,7 @@ export const ROUTE_LIST = [
   ...viewerAreaRoutes,
   ...dashboardAreaRoutes,
   ...agentAreaRoutes,
+  ...traceAreaRoutes,
 ] as const;
 
 type AnyRoute = (typeof ROUTE_LIST)[number];

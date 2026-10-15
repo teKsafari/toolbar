@@ -294,6 +294,33 @@ export interface DomSummary {
   text: number;
   /** At most five changed-region rects. */
   rects: Rect[];
+  /**
+   * Up to five short snippets (80 chars) of text that changed or was added, scrubbed; absent
+   * under the production masking preset. Span outcomes use them to tell a shown error from a
+   * failure the page kept quiet about (packages/trace).
+   */
+  texts?: string[];
+}
+
+/**
+ * Pixels of a canvas around one reviewer action (Part 2 traces): a canvas redraw is no DOM
+ * change, so a span compares these before calling an action dead or silent. Emitted only while
+ * a recording or trace is attached.
+ */
+export interface CanvasSample {
+  phase: 'before' | 'after';
+  /** Selector of the canvas element, stable within a document. */
+  key: string;
+  /** Canvas box, CSS px, page coordinates. */
+  rect: Rect;
+  /** FNV-1a hash of the downscaled pixels; null when the canvas cannot be read (tainted). */
+  hash: string | null;
+  /** Every sampled pixel is transparent (an empty canvas, or WebGL without a kept buffer). */
+  blank?: boolean;
+  /** After samples: share of sampled pixels that differ from the before sample (0 to 1). */
+  diff?: number;
+  /** Time of the action (pointerdown or key) the sample belongs to. */
+  at: Ms;
 }
 
 export interface RrwebRef {
@@ -352,6 +379,7 @@ export interface EventDataMap {
   shot: Shot;
   annotation: AnnotationRef;
   marker: Marker;
+  'canvas.sample': CanvasSample;
 }
 
 export type EventKind = keyof EventDataMap;
@@ -373,6 +401,7 @@ export const EVENT_KINDS = [
   'shot',
   'annotation',
   'marker',
+  'canvas.sample',
 ] as const satisfies readonly EventKind[];
 
 export type CaptureEvent = { [K in EventKind]: Envelope<K, EventDataMap[K]> }[EventKind];
