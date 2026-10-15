@@ -1076,8 +1076,25 @@ test('S1.5 recording link from the popup', async () => {
 
 // ================================================================ S1.6
 
+/**
+ * The rig server's sign-in (docs/parity/fix-round-2.md, "Rerun setup"): the parity accounts sign in
+ * with the dev-only password and the mock OIDC provider. Both default to off since J-217, so a
+ * restart that passed only the caller's variables left the server, and every later group, without
+ * them. Values in the environment win, so a run can still point the rig elsewhere.
+ */
+const RIG_SERVER_ENV: Record<string, string> = {
+  AUTH_DEV_PASSWORD: '1',
+  OIDC_1_ID: 'company',
+  OIDC_1_NAME: 'Company SSO',
+  OIDC_1_CLIENT_ID: 'toolbar',
+  OIDC_1_CLIENT_SECRET: 'dev',
+  OIDC_1_DISCOVERY_URL: 'http://oidc.localhost:3311/company/.well-known/openid-configuration',
+  AUTH_ALLOWED_DOMAINS: 'example.com',
+};
+
 function compose(env: Record<string, string>) {
-  execFileSync('docker', ['compose', 'up', '-d', 'server'], { cwd: ROOT, env: { ...process.env, ...env }, stdio: 'ignore', timeout: 300_000 });
+  const base = Object.fromEntries(Object.entries(RIG_SERVER_ENV).map(([k, v]) => [k, process.env[k] || v]));
+  execFileSync('docker', ['compose', 'up', '-d', 'server'], { cwd: ROOT, env: { ...process.env, ...base, ...env }, stdio: 'ignore', timeout: 300_000 });
 }
 
 async function healthy() {
