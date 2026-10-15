@@ -11,7 +11,7 @@
   import type { ReviewItem } from '@toolbar/shared/ext';
   import { setGuard, swallowClicksFor } from '../ui/guard';
   import { review as r, type Tool } from './state.svelte';
-  import { pinPoint, samePage, typingIn } from './page';
+  import { pinPoint, samePage, setOwnRoot, typingIn } from './page';
   import Pill from './Pill.svelte';
   import Composer from './Composer.svelte';
   import ItemList from './ItemList.svelte';
@@ -22,7 +22,10 @@
   }
   let { blocked }: Props = $props();
 
+  let anchor: HTMLSpanElement | undefined = $state();
   onMount(() => {
+    const root = anchor?.getRootNode();
+    if (root instanceof ShadowRoot) setOwnRoot(root);
     void r.init();
     const bump = () => r.tick++;
     addEventListener('scroll', bump, { passive: true, capture: true });
@@ -165,6 +168,7 @@
   {/if}
 {/snippet}
 
+<span bind:this={anchor} hidden></span>
 {#if !blocked}
   <!-- drawings and text highlights, in document coordinates -->
   {#if (showPins && here.length) || r.drawing || r.draft?.shapes.length || r.draft?.marks?.length}

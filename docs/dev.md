@@ -186,4 +186,5 @@ Points that keep the runs deterministic:
 | Jobs | register handlers with `registerJob()` in `apps/server/src/lib/server/jobs/worker.ts`, enqueue with `enqueue()` |
 | Viewer, dashboard, settings | `apps/server/src/routes/(app)/**`, share page `apps/server/src/routes/s/[token]` |
 | Transcription | `apps/server/src/lib/server/transcribe/index.ts` |
+| Reviewer toolbar (Part 2) | page UI `apps/extension/entrypoints/capture.content/review/`, worker `apps/extension/lib/bg/review.ts`, contracts `packages/shared/src/areas/reviewer.ts`, `api/areas/reviewer.ts`, `ext/areas/reviewer.ts`, server `apps/server/src/lib/server/feedback/`, viewer list `apps/server/src/lib/components/feedback/`; e2e `e2e/tests/reviewer/` (D-117 to D-123) |
 | Shared UI | `packages/ui/src/lib/*`, tokens in `packages/ui/src/tokens.ts` (then `pnpm --filter @toolbar/ui gen:tokens`) |

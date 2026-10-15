@@ -393,6 +393,13 @@ test('Start trace and Stop trace from the pill: notes made during the trace go o
   expect(it).toMatchObject({ kind: 'element', comment: 'Export is dead during the trace', target: { testId: 'dead' } });
   const detail = await (await page.request.get(`${SERVER_URL}/api/v1/recordings/${res.recordingId}`)).json();
   expect(detail.kind).toBe('trace');
+  // the note is an action of the trace: its span engine got an annotation event
+  await expect
+    .poll(async () => {
+      const r = await page.request.get(`${SERVER_URL}/api/v1/recordings/${res.recordingId}/spans`);
+      return r.ok() ? ((await r.json()).items as { action: { type: string } }[]).filter((s) => s.action.type === 'annotation').length : -1;
+    }, { timeout: 30_000 })
+    .toBe(1);
 });
 
 test('the reviewer toolbar steps aside while screenshot mode owns the page, and comes back after', async ({ context, sw }) => {

@@ -128,9 +128,17 @@ export function shapesBox(shapes: FeedbackShape[]): Rect | null {
   return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
 }
 
+let ownRoot: ShadowRoot | null = null;
+/** Our shadow root. In release builds it is closed, so a window listener's composedPath() stops at the host. */
+export function setOwnRoot(r: ShadowRoot | null) {
+  ownRoot = r;
+}
+
 /** True when a key event comes from a field the person types in (page or ours). */
 export function typingIn(e: Event): boolean {
-  const el = (e.composedPath?.()[0] ?? e.target) as HTMLElement | null;
+  let el = (e.composedPath?.()[0] ?? e.target) as HTMLElement | null;
+  // inside a closed shadow root the path ends at the host: ask the root what has focus
+  if (el && ownRoot && el === ownRoot.host) el = (ownRoot.activeElement as HTMLElement | null) ?? el;
   if (!el || typeof el.tagName !== 'string') return false;
   const tag = el.tagName.toLowerCase();
   if (tag === 'textarea' || tag === 'select') return true;
