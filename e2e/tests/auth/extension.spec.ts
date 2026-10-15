@@ -1,8 +1,10 @@
 // X-05: extension sign-in through chrome.identity.launchWebAuthFlow + PKCE against SERVER_URL.
-// Needs the test build made with WXT_SERVER_URL=$SERVER_URL.
+// Needs the test build made with WXT_SERVER_URL=$SERVER_URL, and the server's OIDC provider set to
+// the mock of e2e/fixtures/oidc.ts.
 import { EXT_ID, expect, test } from '../../fixtures/extension.ts';
 import type { Page } from '@playwright/test';
-import { SERVER, hydrated, showPassword, signInWithPassword, uniqueEmail } from './helpers.ts';
+import { SERVER, hydrated, signIn, uniqueEmail } from './helpers.ts';
+import { mockProviderLogin } from '../../fixtures/oidc.ts';
 
 declare const chrome: {
   runtime: { sendMessage(m: unknown): Promise<unknown> };
@@ -17,7 +19,7 @@ async function bg<T = Record<string, unknown>>(page: Page, msg: Record<string, u
 test('X-05: signed in on the web, the extension connects in one step and shows under connected browsers', async ({ context }) => {
   const email = uniqueEmail(undefined, 'ext');
   const web = await context.newPage();
-  await signInWithPassword(web, email, 'extension test pass');
+  await signIn(web, email);
 
   const ext = await context.newPage();
   await ext.goto(`chrome-extension://${EXT_ID}/popup.html`);
@@ -71,10 +73,9 @@ test('X-05: signed out, the auth window shows the login page and returns to the 
   await win.waitForURL(/\/login\?next=%2Fext%2Fconnect/);
   await expect(win.getByRole('heading', { name: /Connect the .* extension/ })).toBeVisible();
   await hydrated(win);
-  await showPassword(win);
-  await win.getByLabel('Work email').fill(email);
-  await win.getByLabel('Password').fill('extension window pass');
-  await win.getByRole('button', { name: 'Continue', exact: true }).click();
+  // the one provider button, then the mock provider's login (D-114)
+  await win.locator('[data-provider]').click();
+  await mockProviderLogin(win, email);
   expect(await signIn).toMatchObject({ ok: true, user: { email } });
   expect(await bg(ext, { type: 'auth.signOut' })).toMatchObject({ ok: true });
   await ext.close();
@@ -92,10 +93,9 @@ test('X-05: the popup shows sign in when signed out, then the account after the 
   const win = await authWindow;
   await win.waitForURL(/\/login\?next=%2Fext%2Fconnect/);
   await hydrated(win);
-  await showPassword(win);
-  await win.getByLabel('Work email').fill(email);
-  await win.getByLabel('Password').fill('popup flow pass');
-  await win.getByRole('button', { name: 'Continue', exact: true }).click();
+  // the one provider button, then the mock provider's login (D-114)
+  await win.locator('[data-provider]').click();
+  await mockProviderLogin(win, email);
 
   await expect(popup.getByTestId('signed-in')).toContainText(email);
   await expect(popup.getByTestId('signed-out')).toHaveCount(0);

@@ -6,9 +6,9 @@ import { createServer, type IncomingMessage } from 'node:http';
 import { DISPLAY } from '../../fixtures/extension.ts';
 import { callbackHost } from '../../fixtures/net.ts';
 import { SERVER, hydrated, showPassword, uniqueEmail } from '../auth/helpers.ts';
+import { signInOidc } from '../../fixtures/oidc.ts';
 
 export { SERVER, uniqueEmail };
-export const PASSWORD = 'toolbar-e2e-password';
 
 export async function launch(): Promise<Browser> {
   return chromium.launch({
@@ -33,8 +33,17 @@ export async function newContext(browser: Browser, opts: { width?: number; heigh
   return ctx;
 }
 
-/** Sign in (or sign up: the first password sign-in creates the account and a workspace). */
-export async function signIn(page: Page, email: string, password = PASSWORD) {
+/**
+ * Sign in, or sign up: the first sign-in creates the account and a workspace. A new address goes
+ * through the mock OIDC provider (D-114); a seeded account (dana@toolbar.test) has only a
+ * password, which needs AUTH_DEV_PASSWORD=1 on the server.
+ */
+export async function signIn(page: Page, email: string, password?: string) {
+  if (!password) {
+    await signInOidc(page, SERVER, email);
+    await hydrated(page);
+    return;
+  }
   await page.goto(`${SERVER}/login`);
   await hydrated(page);
   await showPassword(page);

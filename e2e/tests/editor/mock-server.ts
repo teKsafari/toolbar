@@ -22,6 +22,8 @@ export interface MockState {
   ai: { status: number; body: unknown; delayMs: number };
   aiCalls: number;
   bootstrapCalls: string[];
+  /** paused features the mock server reports as on; the editor tests run with them on */
+  features: { ai: boolean; trackers: boolean; slack: boolean };
   close(): Promise<void>;
 }
 
@@ -33,7 +35,7 @@ const person = { id: '019a0000-0000-7000-8000-000000000001', name: 'Dana Reviewe
 const ws = (id: string, name: string) => ({ id, name, slug: name.toLowerCase().replace(/\s+/g, '-'), logoUrl: null, role: 'admin', isOwner: true, memberCount: 2, createdAt: '2026-10-14T00:00:00.000Z' });
 const folder = (id: string, workspaceId: string, name: string) => ({ id, shortId: id.slice(-4), workspaceId, name, parentId: null, private: false, captureCount: 0, createdBy: person, createdAt: '2026-10-14T00:00:00.000Z' });
 
-export function bootstrapFor(workspaceId: string | null, aiAvailable = true) {
+export function bootstrapFor(workspaceId: string | null, aiAvailable = true, features = { ai: true, trackers: true, slack: true }) {
   const active = workspaceId ?? WS1;
   return {
     user: person,
@@ -47,8 +49,9 @@ export function bootstrapFor(workspaceId: string | null, aiAvailable = true) {
     settings: {},
     limits: { chunkBytes: 4194304, maxRecordingMs: null, aiAvailable },
     serverVersion: 'mock',
-    // the AI tests run against a server with the paused AI feature on (FEATURE_AI)
-    features: { ai: true },
+    // the AI and destination tests run against a server with the paused features on (FEATURE_AI,
+    // FEATURE_TRACKERS, FEATURE_SLACK); a test turns them off through state.features
+    features,
   };
 }
 
@@ -63,6 +66,7 @@ export async function startMock(port: number): Promise<MockState> {
     ai: { status: 503, body: { error: 'unavailable' }, delayMs: 0 },
     aiCalls: 0,
     bootstrapCalls: [],
+    features: { ai: true, trackers: true, slack: true },
     close: async () => {},
   };
   const server = http.createServer(async (req, res) => {
@@ -80,7 +84,7 @@ export async function startMock(port: number): Promise<MockState> {
     if (req.method === 'GET' && u.pathname === '/api/v1/ext/bootstrap') {
       const w = u.searchParams.get('workspaceId');
       state.bootstrapCalls.push(w ?? '');
-      return json(200, bootstrapFor(w, state.ai.status !== 503));
+      return json(200, bootstrapFor(w, state.ai.status !== 503, state.features));
     }
     if (req.method === 'POST' && u.pathname === '/api/v1/recordings') {
       const body = JSON.parse(raw.toString());

@@ -2,6 +2,7 @@
 import { test, expect, type Browser, type Page } from '@playwright/test';
 import { mailTo } from '../auth/helpers.ts';
 import { SERVER, go, json, launch, me, newContext, signIn, toast, uniqueEmail } from './helpers.ts';
+import { featureOn } from '../../fixtures/features.ts';
 
 // One account and page for the whole file; a failure skips the rest instead of re-running setup.
 test.describe.configure({ mode: 'serial' });
@@ -99,8 +100,12 @@ test('J-017, J-126: a signed-out recipient records screen and voice, adds a note
   const target = folders.items.find((f) => f.name === 'From customers')!;
   const list = await json<{ items: { id: string; title: string; source: string; kind: string }[] }>(page, 'GET', `/api/v1/recordings?folderId=${target.id}`);
   expect(list.items[0]).toMatchObject({ title: 'Checkout total is wrong', source: 'recording-link', kind: 'link' });
-  const issues = await json<{ items: { key: string }[] }>(page, 'GET', `/api/v1/recordings/${list.items[0]!.id}/issues`);
-  expect(issues.items.map((i) => i.key)).toContain('acme/shop#12'); // J-241: the ticket links back
+  // linked issues (J-241, FEATURE_TRACKERS) and the owner's mail (FEATURE_EMAIL) are paused (docs/scope.md)
+  if (await featureOn('trackers')) {
+    const issues = await json<{ items: { key: string }[] }>(page, 'GET', `/api/v1/recordings/${list.items[0]!.id}/issues`);
+    expect(issues.items.map((i) => i.key)).toContain('acme/shop#12'); // J-241: the ticket links back
+  }
+  if (!(await featureOn('email'))) return;
   const mail = await mailTo(page.request, email, /New recording from "Support inbox"/);
   expect(mail.text).toContain('The total jumps after I add the pen.');
   expect(mail.text).toContain(`/c/${list.items[0]!.id}`);

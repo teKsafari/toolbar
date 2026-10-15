@@ -10,6 +10,12 @@
 # xclip, ImageMagick and ffmpeg. Displays: AREA_DISPLAY (default :101) and FLOWS_DISPLAY
 # (default :120); never :99. The stack runs with AUTH_RATE_LIMIT=off, because the suites sign in
 # many test accounts from one address. Logs land in e2e/runs/.
+#
+# Sign-in goes through the mock OIDC provider of the `dev` compose profile (D-114), with an
+# allowlist that admits the *.test addresses the suites use. AUTH_DEV_PASSWORD=1 stays on for the
+# seeded accounts (dana@ and sam@toolbar.test), which have only a password. Paused features stay
+# off, so their tests skip with "paused (docs/scope.md)"; MAIL=1 turns FEATURE_EMAIL on with
+# Mailpit (profile `mail`), and FEATURES="FEATURE_AI=1 FEATURE_TRACKERS=1 ..." sets others.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
@@ -31,9 +37,14 @@ pnpm --filter @toolbar/cli build >/dev/null || exit 1
 # behind, and some area tests count what a workspace holds.
 fresh() {
   step "stack"
-  if [ "${KEEP:-0}" != 1 ]; then docker compose down -v || exit 1; fi
-  # password sign-in is for dev and tests only (docs/scope.md); the suites sign in with it
-  AUTH_DEV_PASSWORD=1 AUTH_RATE_LIMIT=off docker compose up --build -d || exit 1
+  if [ "${KEEP:-0}" != 1 ]; then docker compose --profile dev --profile mail down -v || exit 1; fi
+  local profiles=(--profile dev) mail=()
+  if [ "${MAIL:-0}" = 1 ]; then profiles+=(--profile mail); mail=(FEATURE_EMAIL=1 SMTP_URL=smtp://mailpit:1025); fi
+  # shellcheck disable=SC2086
+  env "${mail[@]}" ${FEATURES:-} \
+    OIDC_ISSUER=http://oidc.localhost:3311/toolbar OIDC_CLIENT_ID=toolbar OIDC_CLIENT_SECRET=dev OIDC_PROVIDER_NAME="Dev SSO" \
+    ALLOWED_EMAIL_DOMAINS=test AUTH_DEV_PASSWORD=1 AUTH_RATE_LIMIT=off \
+    docker compose "${profiles[@]}" up --build -d || exit 1
   for _ in $(seq 1 120); do curl -sf localhost:3000/api/health >/dev/null && break; sleep 2; done
   curl -sf localhost:3000/api/health >/dev/null || { echo "server not healthy" >&2; exit 1; }
   curl -sf localhost:5173/ >/dev/null || { echo "lab not answering on :5173 (systemctl --user start toolbar-lab)" >&2; exit 1; }

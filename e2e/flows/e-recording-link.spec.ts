@@ -8,9 +8,9 @@
 // then (docs/spikes.md S2). It runs on a display of its own; throughPicker retries a crash twice
 // in a fresh browser, then falls back to fake media and annotates the test.
 import { chromium } from '@playwright/test';
-import { BrowserCrash, FAKE_MEDIA, SERVER, api, clipboard, expect, labPage, linkIn, mailTo, openPopup, pickEntireScreenInPage, saveShot, test, throughPicker, waitReady, withPrivateDisplay, xshot } from './fixture.ts';
+import { BrowserCrash, FAKE_MEDIA, SERVER, api, clipboard, expect, featureOn, labPage, linkIn, mailTo, openPopup, pickEntireScreenInPage, saveShot, test, throughPicker, waitReady, withPrivateDisplay, xshot } from './fixture.ts';
 
-test('E: recording link from the popup; a recipient with no extension records and sends; the sender gets mail', async ({ tb, context }) => {
+test('E: recording link from the popup; a recipient with no extension records and sends; the sender gets the capture', async ({ tb, context }) => {
   // Sender: popup, recording-link row, a name, create (3 clicks and typing)
   const lab = await labPage(context);
   const popup = await openPopup(context, lab);
@@ -70,11 +70,27 @@ test('E: recording link from the popup; a recipient with no extension records an
     }
   }));
 
-  // Sender: the mail names the link and carries the note and the capture
-  const mail = await mailTo(context, tb.email, new RegExp(`New recording from "${name}"`), 60_000);
-  expect(mail.text).toContain(note);
-  const captureUrl = linkIn(mail.text, `${SERVER}/c/`);
-  const id = captureUrl.split('/c/')[1]!.split(/[?#]/)[0]!;
+  // Sender: with FEATURE_EMAIL a mail names the link and carries the note and the capture; mail
+  // is paused by default (docs/scope.md), so the capture is found in the sender's list instead
+  let id: string;
+  let captureUrl: string;
+  if (await featureOn('email')) {
+    const mail = await mailTo(context, tb.email, new RegExp(`New recording from "${name}"`), 60_000);
+    expect(mail.text).toContain(note);
+    captureUrl = linkIn(mail.text, `${SERVER}/c/`);
+    id = captureUrl.split('/c/')[1]!.split(/[?#]/)[0]!;
+  } else {
+    let hit: { id: string; title: string; description?: string } | undefined;
+    await expect
+      .poll(async () => {
+        const list = await api<{ items: { id: string; title: string; source: string; description?: string }[] }>(context, 'GET', '/api/v1/recordings?source=recording-link');
+        hit = (list.body.items ?? []).find((r) => r.source === 'recording-link' && (r.title.includes(name) || (r.description ?? '').includes(note)));
+        return !!hit;
+      }, { timeout: 60_000, message: 'the recording-link capture in the sender list' })
+      .toBe(true);
+    id = hit!.id;
+    captureUrl = `${SERVER}/c/${id}`;
+  }
   await waitReady(context, id, 180_000);
   const rec = await api<{ kind: string; title: string; recordingLinkId?: string | null }>(context, 'GET', `/api/v1/recordings/${id}`);
   expect(rec.status).toBe(200);

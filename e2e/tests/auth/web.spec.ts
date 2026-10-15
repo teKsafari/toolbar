@@ -1,8 +1,11 @@
 // Auth area, web app (J-217, X-06, J-221, J-123, J-234, J-125, J-124, J-148). Runs against
-// SERVER_URL with Mailpit on :8025; needs no extension.
+// SERVER_URL with the mock OIDC provider (e2e/fixtures/oidc.ts); the mail parts need
+// FEATURE_EMAIL and Mailpit on :8025 (compose profile `mail`), the password test
+// AUTH_DEV_PASSWORD=1. Needs no extension.
 import { execFileSync } from 'node:child_process';
 import { test, expect, chromium, type Browser, type Page } from '@playwright/test';
-import { SERVER, api, firstUrl, hydrated, mailTo, showPassword, signInByMail, signInWithPassword, uniqueEmail } from './helpers.ts';
+import { SERVER, api, firstUrl, hydrated, mailTo, showPassword, signIn, signInByMail, signInWithPassword, uniqueEmail } from './helpers.ts';
+import { featureOn, skipUnlessFeature } from '../../fixtures/features.ts';
 
 let browser: Browser;
 test.beforeAll(async () => {
@@ -28,28 +31,39 @@ function setAutoApprove(workspaceId: string, on: boolean) {
 type Ws = { id: string; name: string; role: string; isOwner: boolean };
 const workspaces = async (p: Page) => (await api<{ items: Ws[]; activeId: string }>(p, 'GET', '/api/v1/workspaces')).body;
 
-test('J-217 / X-06: login page, magic link sign-up, personal workspace as admin', async () => {
+test('J-217 / X-06 / D-114: one "Sign in with" button, OIDC sign-up, personal workspace as admin', async () => {
   const page = await freshPage();
   await page.goto(`${SERVER}/login`);
   await hydrated(page);
   await expect(page.getByRole('heading', { name: /Sign in to/ })).toBeVisible();
-  const cont = page.getByRole('button', { name: 'Continue', exact: true });
-  await expect(cont).toBeDisabled();
-  await page.getByLabel('Work email').fill('not-an-email');
-  await expect(cont).toBeDisabled();
-  // No Apple button, ever (skip list); provider buttons only when configured.
-  await expect(page.getByRole('button', { name: /Apple/ })).toHaveCount(0);
+  // the owner's scope: one OIDC provider; no Google, GitHub or Apple buttons
+  await expect(page.locator('[data-provider]')).toHaveCount(1);
+  await expect(page.locator('[data-provider]')).toHaveText(/Sign in with /);
+  await expect(page.getByRole('button', { name: /Apple|GitHub|Continue with Google/ })).toHaveCount(0);
 
   const email = uniqueEmail(undefined, 'mira');
-  await signInByMail(page, email);
+  await signIn(page, email);
   await page.waitForURL(`${SERVER}/`);
   const ws = await workspaces(page);
   expect(ws.items).toHaveLength(1);
   expect(ws.items[0]).toMatchObject({ role: 'admin', isOwner: true, name: expect.stringContaining('workspace') });
   expect(ws.activeId).toBe(ws.items[0]!.id);
   await expect(page.getByTestId('workspace-menu')).toContainText(ws.items[0]!.name);
+  expect((await api<{ email: string }>(page, 'GET', '/api/v1/me')).body.email).toBe(email);
+});
 
-  // The link is single use.
+test('J-217: magic link sign-up; the link is single use', async () => {
+  await skipUnlessFeature(test, 'email');
+  const page = await freshPage();
+  await page.goto(`${SERVER}/login`);
+  await hydrated(page);
+  const cont = page.getByRole('button', { name: 'Continue', exact: true });
+  await expect(cont).toBeDisabled();
+  await page.getByLabel('Work email').fill('not-an-email');
+  await expect(cont).toBeDisabled();
+  const email = uniqueEmail(undefined, 'mira');
+  await signInByMail(page, email);
+  await page.waitForURL(`${SERVER}/`);
   const mail = await mailTo(page.request, email, /Sign in/);
   const again = await freshPage();
   await again.goto(firstUrl(mail.text, `${SERVER}/api/auth/magic-link/verify`));
@@ -57,8 +71,10 @@ test('J-217 / X-06: login page, magic link sign-up, personal workspace as admin'
   await expect(again.getByRole('alert')).toContainText(/already used|expired/);
 });
 
-test('J-217: password sign-up and sign-in on the same form', async () => {
+test('J-217: password sign-up and sign-in on the same form (AUTH_DEV_PASSWORD only)', async () => {
   const page = await freshPage();
+  await page.goto(`${SERVER}/login`);
+  test.skip(!(await page.getByRole('button', { name: 'Use a password instead' }).or(page.getByLabel('Password')).count()), 'development only: needs AUTH_DEV_PASSWORD=1 on the server (docs/scope.md)');
   const email = uniqueEmail(undefined, 'pat');
   await signInWithPassword(page, email, 'correct horse battery');
   expect((await api<{ email: string }>(page, 'GET', '/api/v1/me')).body.email).toBe(email);
@@ -82,7 +98,7 @@ test('X-06: /api/v1 without a session is 401', async ({ request }) => {
 
 test('J-221: workspace menu, create a workspace, it becomes active', async () => {
   const page = await freshPage();
-  await signInByMail(page, uniqueEmail(undefined, 'cora'));
+  await signIn(page, uniqueEmail(undefined, 'cora'));
   await page.getByTestId('workspace-menu').click();
   await page.getByRole('menuitem', { name: 'Create or join a workspace' }).click();
   await hydrated(page);
@@ -92,7 +108,7 @@ test('J-221: workspace menu, create a workspace, it becomes active', async () =>
   const domainBox = page.getByRole('checkbox');
   await expect(domainBox).toBeChecked();
   await page.getByLabel('Workspace name').fill('Zephyr support');
-  await expect(page.locator('.avatar')).toHaveText('Z');
+  await expect(page.locator('.namerow')).toContainText('Z'); // the avatar's initial
   await expect(next).toBeEnabled();
   await next.click();
   await page.waitForURL(/\/\?created=1/);
@@ -113,14 +129,15 @@ test('J-221: workspace menu, create a workspace, it becomes active', async () =>
 
 test('J-123 / J-234 / J-124: invite modal, email invite as viewer, invite link as creator, seats enforced', async () => {
   const admin = await freshPage();
-  await signInByMail(admin, uniqueEmail(undefined, 'ada'));
+  await signIn(admin, uniqueEmail(undefined, 'ada'));
   const wsId = (await workspaces(admin)).activeId;
 
   await admin.getByTestId('invite-button').click();
   const dlg = admin.getByTestId('invite-dialog');
   await expect(dlg.getByLabel('Invite link')).toHaveValue(new RegExp(`${SERVER}/invite/`));
   const linkUrl = await dlg.getByLabel('Invite link').inputValue();
-  const inviteBtn = dlg.getByRole('button', { name: 'Invite', exact: true });
+  // "Invite" with mail on, "Copy invite link" while mail is paused (FEATURE_EMAIL off, J-123)
+  const inviteBtn = dlg.getByTestId('invite-submit');
   await expect(inviteBtn).toBeDisabled();
   const viewerEmail = uniqueEmail(undefined, 'vic');
   await dlg.getByLabel('Email address').fill('vic@');
@@ -131,14 +148,19 @@ test('J-123 / J-234 / J-124: invite modal, email invite as viewer, invite link a
   await inviteBtn.click();
   await expect(dlg.getByText(viewerEmail)).toBeVisible();
 
-  // The invitee gets the mail, signs in from the join page and joins as viewer.
-  const mail = await mailTo(admin.request, viewerEmail, /invited you/);
-  const joinUrl = firstUrl(mail.text, `${SERVER}/invite/`);
+  // The invitee gets the person's own link: by mail with FEATURE_EMAIL, else from the inviter,
+  // whose dialog copied it (invites by link, docs/scope.md). They sign in from the join page.
+  let joinUrl: string;
+  if (await featureOn('email')) joinUrl = firstUrl((await mailTo(admin.request, viewerEmail, /invited you/)).text, `${SERVER}/invite/`);
+  else {
+    const pending = await api<{ items: { id: string; email: string }[] }>(admin, 'GET', `/api/v1/workspaces/${wsId}/invites`);
+    joinUrl = `${SERVER}/invite/${pending.body.items.find((i) => i.email === viewerEmail)!.id}`;
+  }
   const viewer = await freshPage();
   await viewer.goto(joinUrl);
   await expect(viewer.getByRole('heading', { name: /Join/ })).toBeVisible();
   await viewer.getByRole('link', { name: 'Sign in to join' }).click();
-  await signInByMail(viewer, viewerEmail, new URL(joinUrl).pathname);
+  await signIn(viewer, viewerEmail, new URL(joinUrl).pathname);
   await hydrated(viewer);
   await viewer.getByRole('button', { name: /^Join/ }).click();
   await viewer.waitForURL(/joined=1/);
@@ -163,7 +185,7 @@ test('J-123 / J-234 / J-124: invite modal, email invite as viewer, invite link a
 
   // J-234: someone joining through the link comes in as creator.
   const linker = await freshPage();
-  await signInByMail(linker, uniqueEmail(undefined, 'lin'));
+  await signIn(linker, uniqueEmail(undefined, 'lin'));
   await linker.goto(linkUrl);
   await hydrated(linker);
   await linker.getByRole('button', { name: /^Join/ }).click();
@@ -180,27 +202,28 @@ test('J-123 / J-234 / J-124: invite modal, email invite as viewer, invite link a
   expect((await linker.request.get(`${SERVER}/api/v1/invites/${new URL(linkUrl).pathname.split('/').pop()}`)).status()).toBe(404);
 });
 
-test('J-125: join by email domain lands as viewer and mails the admins', async () => {
+test('J-125: join by email domain lands as viewer (and mails the admins with FEATURE_EMAIL)', async () => {
   const domain = `dom-${Date.now().toString(36)}.test`;
   const admin = await freshPage();
   const adminEmail = uniqueEmail(domain, 'boss');
-  await signInByMail(admin, adminEmail);
+  await signIn(admin, adminEmail);
   const created = await api<{ id: string }>(admin, 'POST', '/api/v1/workspaces', { name: 'Domain crew', domainJoin: true });
   expect(created.status).toBe(201);
 
   const newbie = await freshPage();
   const newbieEmail = uniqueEmail(domain, 'newbie');
-  await signInByMail(newbie, newbieEmail);
+  await signIn(newbie, newbieEmail);
   const ws = await workspaces(newbie);
   expect(ws.items.find((w) => w.id === created.body.id)).toMatchObject({ role: 'viewer' });
   expect(ws.activeId).toBe(created.body.id);
+  if (!(await featureOn('email'))) return; // the admins' mail is paused (docs/scope.md)
   const note = await mailTo(admin.request, adminEmail, /joined Domain crew/);
   expect(note.text).toContain(newbieEmail);
 });
 
 test('J-148: personal token, shown once with its prefix; read-only refuses a write', async () => {
   const page = await freshPage();
-  await signInByMail(page, uniqueEmail(undefined, 'tok'));
+  await signIn(page, uniqueEmail(undefined, 'tok'));
   await page.goto(`${SERVER}/settings/tokens`);
   await hydrated(page);
   await page.getByRole('button', { name: 'Create token' }).click();

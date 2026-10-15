@@ -2,6 +2,7 @@
 import { expect, test } from '@playwright/test';
 import { allowClipboard, captureUrl, clipboard, IDS, open, ready, reseed, SERVER, shareUrl, signIn, videoTime } from './helpers.ts';
 import { budget } from '../../fixtures/budget.ts';
+import { featureOn } from '../../fixtures/features.ts';
 
 test.beforeAll(() => reseed());
 test.afterAll(() => reseed());
@@ -56,11 +57,14 @@ test.describe('member', () => {
     await open(page, captureUrl(IDS.video));
     await expect(page.getByTestId('home')).toHaveAttribute('href', '/');
     await expect(page.getByTestId('folder-chip')).toHaveText('All captures');
-    await expect(page.getByTestId('send-split')).toBeVisible();
     await expect(page.getByTestId('copy-split')).toBeVisible();
-    await page.getByTestId('send-caret').click();
-    for (const name of ['Connect GitHub', 'Connect GitLab', 'Connect Slack', 'Set up a webhook']) await expect(page.getByRole('menuitem', { name })).toBeVisible();
-    await page.keyboard.press('Escape');
+    // send to app is a tracker feature, paused unless FEATURE_TRACKERS is on (docs/scope.md)
+    if (await featureOn('trackers')) {
+      await expect(page.getByTestId('send-split')).toBeVisible();
+      await page.getByTestId('send-caret').click();
+      for (const name of ['Connect GitHub', 'Connect GitLab', 'Connect Slack', 'Set up a webhook']) await expect(page.getByRole('menuitem', { name })).toBeVisible();
+      await page.keyboard.press('Escape');
+    } else await expect(page.getByTestId('send-split')).toHaveCount(0);
     await page.getByTestId('more').click();
     await expect(page.getByRole('menuitem', { name: 'Delete' })).toBeVisible();
     await page.getByRole('menuitem', { name: 'Move to folder' }).click();

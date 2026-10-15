@@ -2,6 +2,7 @@
 import { test, expect, type Browser, type Page } from '@playwright/test';
 import { createHmac } from 'node:crypto';
 import { SERVER, go, json, launch, listener, me, newContext, signIn, toast, uniqueEmail } from './helpers.ts';
+import { featureOn, serverFeatures, skipUnlessFeature } from '../../fixtures/features.ts';
 
 // One account and page for the whole file; a failure skips the rest instead of re-running setup.
 test.describe.configure({ mode: 'serial' });
@@ -33,10 +34,19 @@ test('J-171, J-168: settings has its own layout with a back link and grouped nav
   await expect(page).toHaveURL(`${SERVER}/settings/workspace`);
   const nav = page.getByRole('navigation', { name: 'Settings' });
   for (const g of ['Workspace', 'Apps and tools', 'Account']) await expect(nav.getByText(g, { exact: true })).toBeVisible();
-  for (const l of ['General', 'Members', 'Integrations', 'SDK', 'Webhooks', 'MCP', 'CLI', 'Profile', 'Notifications']) await expect(nav.getByRole('link', { name: l, exact: true })).toBeVisible();
+  // pages of paused features (docs/scope.md) are in the nav only with their flag on
+  const on = await serverFeatures();
+  const integrations = on.has('trackers') || on.has('slack');
+  const paused = { Integrations: integrations, CLI: on.has('cli'), Notifications: on.has('email') };
+  for (const l of ['General', 'Members', 'Integrations', 'SDK', 'Webhooks', 'MCP', 'CLI', 'Profile', 'Notifications']) {
+    const link = nav.getByRole('link', { name: l, exact: true });
+    if (paused[l as keyof typeof paused] === false) await expect(link).toHaveCount(0);
+    else await expect(link).toBeVisible();
+  }
   // apps and tools in Jam's order: integrations, SDK, MCP, CLI, webhooks (then our API page)
   const tools = await nav.locator('a[data-testid^="settings-nav-"]').evaluateAll((as) => as.map((a) => a.getAttribute('data-testid')!.slice(13)));
-  expect(tools.slice(tools.indexOf('integrations'), tools.indexOf('api') + 1)).toEqual(['integrations', 'sdk', 'mcp', 'cli', 'webhooks', 'api']);
+  const order = ['integrations', 'sdk', 'mcp', 'cli', 'webhooks', 'api'].filter((t) => (t === 'integrations' ? integrations : t === 'cli' ? on.has('cli') : true));
+  expect(tools.slice(tools.indexOf(order[0]!), tools.indexOf('api') + 1)).toEqual(order);
   await nav.getByRole('link', { name: 'SDK', exact: true }).click();
   await expect(page.getByTestId('sdk-snippet')).toContainText('window.toolbar?.setMetadata');
   await page.getByTestId('sdk-copy').click();
@@ -52,22 +62,30 @@ test('J-172, J-120, J-156, J-178: general settings save at once and nothing is p
   await page.getByTestId('ws-name').press('Enter');
   await expect.poll(async () => (await json<{ name: string }>(page, 'GET', `/api/v1/workspaces/${wsId}`)).name).toBe('Pen Pals');
   await page.getByTestId('ws-default-access').selectOption('workspace');
-  await page.getByTestId('ws-ai').click();
-  await page.getByTestId('ws-auto-delete').selectOption('90');
-  await expect.poll(async () => (await json<{ settings: Record<string, unknown> }>(page, 'GET', `/api/v1/workspaces/${wsId}`)).settings).toMatchObject({ defaultLinkAccess: 'workspace', aiEnabled: false, autoDeleteDays: 90 });
+  // the AI switch (FEATURE_AI) and auto-delete (FEATURE_ADMIN_EXTRAS) are paused (docs/scope.md)
+  const ai = await featureOn('ai');
+  const extras = await featureOn('adminExtras');
+  if (ai) await page.getByTestId('ws-ai').click();
+  else await expect(page.getByTestId('ws-ai')).toHaveCount(0);
+  if (extras) await page.getByTestId('ws-auto-delete').selectOption('90');
+  else await expect(page.getByTestId('ws-auto-delete')).toHaveCount(0);
+  await expect
+    .poll(async () => (await json<{ settings: Record<string, unknown> }>(page, 'GET', `/api/v1/workspaces/${wsId}`)).settings)
+    .toMatchObject({ defaultLinkAccess: 'workspace', ...(ai ? { aiEnabled: false } : {}), ...(extras ? { autoDeleteDays: 90 } : {}) });
   await expect(page.locator('.badge')).toHaveCount(0); // no plan badges
   await go(page, '/settings/workspace');
-  await expect(page.getByTestId('ws-ai')).toHaveAttribute('aria-checked', 'false');
+  if (ai) await expect(page.getByTestId('ws-ai')).toHaveAttribute('aria-checked', 'false');
   await expect(page.getByTestId('workspace-menu')).toHaveCount(0);
   await go(page, '/');
   await expect(page.getByTestId('workspace-menu')).toContainText('Pen Pals');
   // the member who is not an admin sees the page but cannot change it
   await go(other, '/settings/workspace');
   await expect(other.getByTestId('ws-name')).toBeDisabled();
-  await expect(other.getByTestId('ws-ai')).toBeDisabled();
+  if (ai) await expect(other.getByTestId('ws-ai')).toBeDisabled();
 });
 
 test('J-178: the audit log lists settings and role changes', async () => {
+  await skipUnlessFeature(test, 'adminExtras');
   await json(page, 'PATCH', `/api/v1/workspaces/${wsId}/members/${otherId}`, { role: 'viewer' });
   await json(page, 'PATCH', `/api/v1/workspaces/${wsId}/members/${otherId}`, { role: 'creator' });
   await go(page, '/settings/audit');
@@ -110,6 +128,7 @@ test('J-173, J-222: members page: invite link with copy and reset, restrict invi
 });
 
 test('J-136: notification toggles save at once and turn-off-all gates them', async () => {
+  await skipUnlessFeature(test, 'email');
   await go(page, '/settings/notifications');
   const saved = page.waitForResponse((r) => r.url().endsWith('/api/v1/me/settings') && r.request().method() === 'PATCH');
   await page.getByTestId('notify-firstView').click();
@@ -129,6 +148,7 @@ test('J-136: notification toggles save at once and turn-off-all gates them', asy
 });
 
 test('J-139, J-251: integrations grid: search, connect Slack through an incoming webhook, and it belongs to this workspace', async () => {
+  await skipUnlessFeature(test, 'trackers', 'slack');
   const slack = await listener();
   try {
     await go(page, '/settings/integrations');

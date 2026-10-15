@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, chromium } from '@playwright/test';
 import { SERVER } from '../auth/helpers.ts';
+import { featureOn, pausedReason } from '../../fixtures/features.ts';
 
 const CLI = new URL('../../../packages/cli/dist/open-toolbar.mjs', import.meta.url).pathname;
 const LAB = process.env.LAB_URL ?? 'http://localhost:5173';
@@ -19,10 +20,13 @@ const env = { ...process.env, TOOLBAR_SERVER: SERVER, TOOLBAR_TOKEN: TOKEN, TOOL
 const cli = (...args: string[]) => JSON.parse(execFileSync(process.execPath, [CLI, ...args], { env, encoding: 'utf8', cwd: dir, timeout: 120_000 })) as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const labUp = await fetch(LAB).then((r) => r.ok, () => false);
+// the command-line tool is paused (docs/scope.md)
+const cliOn = await featureOn('cli');
 
 test.describe.configure({ mode: 'serial' });
 // the J-245 run records its own trace
 test.use({ trace: 'off' });
+test.skip(!cliOn, pausedReason('cli'));
 test.skip(!existsSync(CLI) || !TOKEN || !labUp, 'needs the CLI build, TOOLBAR_E2E_TOKEN and the lab app');
 
 test('J-244 open-toolbar create --json: numbered marks drawn in, notes in the description', async () => {

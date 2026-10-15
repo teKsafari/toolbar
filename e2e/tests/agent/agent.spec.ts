@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, chromium, type Browser, type Page } from '@playwright/test';
 import { SERVER, hydrated, signInWithPassword } from '../auth/helpers.ts';
+import { skipUnlessFeature } from '../../fixtures/features.ts';
 
 const DANA = { email: 'dana@toolbar.test', password: 'toolbar-dev-password' };
 const SHARE_C3 = process.env.AGENT_SHARE_TOKEN ?? 'SFq1xBEGwjZnpQ2jmqx2-g';
@@ -105,6 +106,7 @@ test('J-147 connected agents: listed after connecting; remove revokes at once', 
 });
 
 test('J-155 CLI page: install, sign in and skill commands; install routes serve', async () => {
+  await skipUnlessFeature(test, 'cli');
   await page.goto(`${SERVER}/settings/cli`);
   await hydrated(page);
   await expect(page.getByTestId('cli-install')).toHaveText(`curl -fsSL ${SERVER}/cli/install.sh | sh`);
@@ -121,6 +123,7 @@ test('J-155 CLI page: install, sign in and skill commands; install routes serve'
 const CLI = new URL('../../../packages/cli/dist/open-toolbar.mjs', import.meta.url).pathname;
 
 test('J-155 open-toolbar login through the browser, then open-toolbar ls lists captures', async () => {
+  await skipUnlessFeature(test, 'cli');
   test.skip(!existsSync(CLI), 'build the CLI first: pnpm --filter @toolbar/cli build');
   const env = { ...process.env, TOOLBAR_CONFIG: join(mkdtempSync(join(tmpdir(), 'tb-e2e-')), 'config.json'), TOOLBAR_TOKEN: '', TOOLBAR_SERVER: '' };
   const child = spawn(process.execPath, [CLI, 'login', '--server', SERVER, '--no-open'], { env });
@@ -144,6 +147,7 @@ test('J-155 open-toolbar login through the browser, then open-toolbar ls lists c
 });
 
 test('J-148 read-only CLI key: 30 days, shown once with its prefix, reads work and a write is refused', async () => {
+  await skipUnlessFeature(test, 'cli');
   test.skip(!existsSync(CLI), 'build the CLI first: pnpm --filter @toolbar/cli build');
   await page.goto(`${SERVER}/settings/tokens`);
   await hydrated(page);

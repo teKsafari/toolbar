@@ -4,6 +4,7 @@ import { test, expect, type Browser, type Page } from '@playwright/test';
 import { NEW_CAPTURE_EVENT } from '@toolbar/shared/areas/dashboard';
 import { mailTo } from '../auth/helpers.ts';
 import { SERVER, go, json, launch, me, newContext, signIn, toast, uniqueEmail } from './helpers.ts';
+import { featureOn } from '../../fixtures/features.ts';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -90,13 +91,17 @@ test('J-122: folder share popover copies the link, invites by email and sets gen
   await expect(page.getByTestId('folder-invite')).toBeDisabled();
   await page.getByTestId('folder-invite-email').fill(guest);
   await page.getByTestId('folder-invite').click();
-  await toast(page, `Invited ${guest}`);
+  // mail is paused unless FEATURE_EMAIL is on (docs/scope.md): the person sees the folder at sign-in
+  const mailOn = await featureOn('email');
+  await toast(page, mailOn ? `Invited ${guest}` : `Added ${guest}. They see this folder when they sign in.`);
   await expect(page.getByTestId('folder-people')).toContainText(guest);
   await expect(page.getByTestId('folder-people')).toContainText('Invited');
   await page.getByTestId('folder-access').selectOption('private');
   await expect.poll(async () => (await json<{ access: string }>(page, 'GET', `/api/v1/folders/${f.shortId}/share`)).access).toBe('private');
-  const mail = await mailTo(page.request, guest, /shared "Shared work"/);
-  expect(mail.text).toContain(`/f/${f.shortId}`);
+  if (mailOn) {
+    const mail = await mailTo(page.request, guest, /shared "Shared work"/);
+    expect(mail.text).toContain(`/f/${f.shortId}`);
+  }
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('folder-title')).toContainText('Shared work');
   // the folder now shows a lock in the sidebar

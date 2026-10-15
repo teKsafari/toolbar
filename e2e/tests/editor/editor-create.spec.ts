@@ -194,6 +194,22 @@ test('destination menu: share link default, GitHub, GitLab, Slack and webhook, n
   expect(mock.finalizes[0]!.body.destination).toEqual({ type: 'integration', integrationId: MOCK_IDS.GH, fields: { repo: 'lab/shop' } });
 });
 
+test('paused trackers and Slack (docs/scope.md): no destination picker, create sends the share link', async ({ page, sw }) => {
+  mock.features = { ai: false, trackers: false, slack: false };
+  try {
+    await signIn(sw, mock.url);
+    const id = await seedDraft(sw);
+    await openEditorTab(page, id);
+    await expect(page.getByTestId('workspace')).toBeVisible();
+    await expect(page.getByTestId('destination')).toHaveCount(0);
+    await page.getByTestId('create').click();
+    await expect.poll(() => mock.finalizes.length).toBe(1);
+    expect(mock.finalizes[0]!.body.destination ?? { type: 'link' }).toEqual({ type: 'link' });
+  } finally {
+    mock.features = { ai: true, trackers: true, slack: true };
+  }
+});
+
 test('workspace picker switches folders, integrations and the target workspace (J-080, J-251)', async ({ page, sw }) => {
   await signIn(sw, mock.url);
   const id = await seedDraft(sw);

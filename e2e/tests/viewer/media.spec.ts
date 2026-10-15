@@ -3,11 +3,12 @@
 import { expect, test } from '@playwright/test';
 import { allowClipboard, captureUrl, open, clipboard, IDS, ready, reseed, shareUrl, signIn, videoTime } from './helpers.ts';
 import { budget } from '../../fixtures/budget.ts';
+import { featureOn, pausedReason } from '../../fixtures/features.ts';
 
 test.beforeAll(() => reseed());
 
 /** Chapters are an AI feature, paused unless the server runs with FEATURE_AI=1 (docs/scope.md). */
-const AI = process.env.E2E_FEATURE_AI === '1';
+const AI = process.env.E2E_FEATURE_AI === '1' || (await featureOn('ai'));
 
 test.describe('member page', () => {
   test.beforeEach(async ({ context }) => {
@@ -170,7 +171,7 @@ test.describe('member page', () => {
   });
 
   test('J-096 chapters menu seeks; the bar is split at chapter edges', async ({ page }) => {
-    test.skip(!AI, 'paused: FEATURE_AI is off (docs/scope.md)');
+    test.skip(!AI, pausedReason('ai'));
     await open(page, captureUrl(IDS.video));
     await ready(page);
     await expect(page.getByTestId('chapter-split')).toHaveCount(1);

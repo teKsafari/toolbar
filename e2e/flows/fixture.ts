@@ -14,6 +14,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { privateDisplay } from '../fixtures/xvfb.ts';
+import { mockProviderLogin } from '../fixtures/oidc.ts';
+export { signInOidc } from '../fixtures/oidc.ts';
+export { featureOn, pausedReason } from '../fixtures/features.ts';
 
 export const EXT_ID = 'fmongfmimgdafigcahdpofnmmhljpnei';
 export const DISPLAY = process.env.E2E_DISPLAY ?? ':120';
@@ -33,7 +36,6 @@ export const SHOTS = path.join(ROOT, 'e2e/flows-shots');
 const run = Date.now().toString(36);
 /** Second CDP client for the action popup; 9224 to 9226 belong to the shared browser. */
 const CDP_PORT = Number(process.env.FLOWS_CDP_PORT ?? 9341);
-export const PASSWORD = 'toolbar flows password';
 
 /** A capture made by a flow, as the share link and the API know it. */
 export interface Made {
@@ -379,8 +381,9 @@ export function saveShot(name: string) {
 
 /**
  * Connect the extension the way a new user does: popup, Sign in, the auth window opens on the
- * login page, the user creates an account with an email and a password, the window closes and
- * the popup shows the account. Leaves the web session signed in too (the window shares the
+ * login page, the user clicks "Sign in with <provider>" and logs in at the identity provider (the
+ * mock OIDC server of the compose `dev` profile, e2e/fixtures/oidc.ts; D-114), the window closes
+ * and the popup shows the account. Leaves the web session signed in too (the window shares the
  * profile's cookies).
  */
 export async function connectExtension(context: BrowserContext, email: string) {
@@ -394,13 +397,12 @@ export async function connectExtension(context: BrowserContext, email: string) {
   await win.waitForURL(/\/login\?next=%2Fext%2Fconnect/);
   await expect(win.getByRole('heading', { name: /Connect the open-toolbar extension/ })).toBeVisible();
   await hydrated(win);
-  await expect(async () => {
-    if (!(await win.getByLabel('Password').isVisible())) await win.getByRole('button', { name: 'Use a password instead' }).click({ timeout: 2000 });
-    await expect(win.getByLabel('Password')).toBeVisible({ timeout: 1000 });
-  }).toPass({ timeout: 30_000 });
-  await win.getByLabel('Work email').fill(email);
-  await win.getByLabel('Password').fill(PASSWORD);
-  await win.getByRole('button', { name: 'Continue', exact: true }).click();
+  const provider = win.locator('[data-provider]');
+  await expect(provider, 'the server needs the mock OIDC provider: scripts/e2e-all.sh, or OIDC_* in e2e/fixtures/oidc.ts').toHaveCount(1);
+  await expect(provider).toHaveText(/Sign in with /);
+  await win.screenshot({ path: saveShot('o-login') });
+  await provider.click();
+  await mockProviderLogin(win, email, 'Flow Reviewer');
   await expect(popup.getByTestId('signed-in')).toContainText(email, { timeout: 30_000 });
   return { lab, popup };
 }

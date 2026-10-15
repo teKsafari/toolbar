@@ -23,6 +23,9 @@ declare namespace chrome {
   namespace commands {
     function getAll(): Promise<{ name?: string; shortcut?: string; description?: string }[]>;
   }
+  namespace action {
+    function getTitle(details: { tabId?: number }): Promise<string>;
+  }
   namespace runtime {
     function reload(): void;
     function sendMessage(msg: unknown): Promise<unknown>;

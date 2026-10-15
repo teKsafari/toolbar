@@ -15,6 +15,7 @@ import { openEditorInPage, seedDraft, getDraft } from '../editor/helpers.ts';
 import { launch, json } from '../dashboard/helpers.ts';
 import { hydrated, mailTo } from '../auth/helpers.ts';
 import { SERVER, account, clipboard, connectGithub, connectSlack, expect, githubMock, setExtSettings, signInExtension, slackMock, type Account, type GitHubMock } from './helpers.ts';
+import { featureOn, skipUnlessFeature } from '../../fixtures/features.ts';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const chrome: any;
@@ -165,6 +166,8 @@ test.describe('trackers', () => {
   let gh: GitHubMock;
   let ghId: string;
   test.beforeAll(async () => {
+    // issue trackers, send to app and linked issues are paused (docs/scope.md)
+    await skipUnlessFeature(test, 'trackers');
     gh = await githubMock();
     ghId = await connectGithub(acct, gh, 'acme/shop');
   });
@@ -248,6 +251,7 @@ test.describe('trackers', () => {
   });
 
   test('J-137: the Slack destination posts to the incoming webhook at create', async ({ context, sw }) => {
+    await skipUnlessFeature(test, 'slack');
     const sl = await slackMock();
     try {
       await connectSlack(acct, sl.url);
@@ -275,6 +279,7 @@ test.describe('trackers', () => {
   });
 
   test('J-138, J-140: the capture page sends to a connected app through the field form; a workspace with none offers connect items; signed out it is hidden', async () => {
+    await skipUnlessFeature(test, 'slack');
     // a capture of this account, made through the upload API
     const page = acct.page;
     const TITLE = 'Coupon field rejects valid codes';
@@ -330,8 +335,10 @@ test.describe('trackers', () => {
     await expect(ap.getByTestId('viewer-header')).toBeVisible();
     await expect(ap.getByTestId('send-split')).toHaveCount(0);
     await anon.close();
-    const mail = await mailTo(page.request, acct.email, new RegExp(`viewed "${TITLE}"`));
-    expect(mail.text).toContain(`/c/${cap.id}`);
+    if (await featureOn('email')) {
+      const mail = await mailTo(page.request, acct.email, new RegExp(`viewed "${TITLE}"`));
+      expect(mail.text).toContain(`/c/${cap.id}`);
+    }
     await other.page.context().close();
   });
 });

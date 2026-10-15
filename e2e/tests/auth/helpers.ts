@@ -1,5 +1,6 @@
-// Helpers for the auth e2e specs: Mailpit lookups, unique addresses, API calls with a page's cookies.
+// Helpers for the auth e2e specs: OIDC sign-in, Mailpit lookups (FEATURE_EMAIL), unique addresses, API calls with a page's cookies.
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { signInOidc } from '../../fixtures/oidc.ts';
 
 export const SERVER = process.env.SERVER_URL ?? 'http://localhost:3000';
 export const MAILPIT = process.env.MAILPIT_URL ?? 'http://localhost:8025';
@@ -38,7 +39,15 @@ export const firstUrl = (text: string, prefix = SERVER) => {
   return m[0].replace(/&amp;/g, '&');
 };
 
-/** Sign in through the login page with a mailed link (J-217). Leaves the page signed in. */
+/**
+ * Sign in through the mock OIDC provider (D-114): the server's one "Sign in with ..." button.
+ * Creates the account on first use. Leaves the page signed in.
+ */
+export async function signIn(page: Page, email: string, next = '/') {
+  await signInOidc(page, SERVER, email, { next });
+}
+
+/** Sign in through the login page with a mailed link (J-217, needs FEATURE_EMAIL). Leaves the page signed in. */
 export async function signInByMail(page: Page, email: string, next = '/') {
   await page.goto(`${SERVER}/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`);
   await hydrated(page);
