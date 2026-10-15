@@ -5,11 +5,12 @@
   // submits or redoes. J-126: ?title=&folder=&ref=&mic=1 preset the page. J-200: a refused or
   // missing microphone shows how to allow it and offers to record without voice.
   import { onDestroy } from 'svelte';
-  import { PRODUCT_NAME } from '@toolbar/shared';
+  import { page } from '$app/state';
+  import BrandMark from '#lib/components/BrandMark.svelte';
+  const brandName = $derived(page.data.brand?.name ?? 'open-toolbar');
   import { Button, Icon } from '@toolbar/ui';
   import DIcon from '#lib/components/dashboard/DIcon.svelte';
   import { MicUnavailableError, ScreenRecorder, micPermission, submitRecording, type Recording } from '#lib/components/dashboard/recorder.ts';
-  import { page } from '$app/state';
   import { focusNow } from '#lib/components/focus.ts';
 
   let { data } = $props();
@@ -200,7 +201,7 @@
 </svelte:head>
 
 <main class="rp" data-testid="recorder" data-phase={phase}>
-  <header><span class="brand"><Icon name="logo" size={20} />{PRODUCT_NAME}</span></header>
+  <header><span class="brand"><BrandMark size={20} />{brandName}</span></header>
 
   {#if data.state !== 'ok' || !data.info}
     <section class="card center" data-testid="recorder-unavailable">

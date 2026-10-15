@@ -3,7 +3,8 @@
   // active workspace. A quiet cancel link sits under the button.
   import { Button, Icon } from '@toolbar/ui';
   import { page } from '$app/state';
-  import { PRODUCT_NAME } from '@toolbar/shared';
+  import BrandMark from '#lib/components/BrandMark.svelte';
+  const brandName = $derived(page.data.brand?.name ?? 'open-toolbar');
 
   let { data, form } = $props();
   let workspaceId = $state('');
@@ -15,12 +16,12 @@
   const act = (name: string) => `${page.url.search || '?'}${page.url.search ? '&' : ''}/${name}`;
 </script>
 
-<svelte:head><title>Connect {data.client.name} · {PRODUCT_NAME}</title></svelte:head>
+<svelte:head><title>Connect {data.client.name} · {brandName}</title></svelte:head>
 
 <main class="consent">
-  <div class="brand"><span class="mark"><Icon name="logo" size={22} /></span> {PRODUCT_NAME}</div>
+  <div class="brand"><BrandMark size={28} /> {brandName}</div>
   <section class="card" data-testid="mcp-consent">
-    <h1><span class="client" data-testid="mcp-client-name">{data.client.name}</span> wants to use your {PRODUCT_NAME} account</h1>
+    <h1><span class="client" data-testid="mcp-client-name">{data.client.name}</span> wants to use your {brandName} account</h1>
     <p class="muted">Signed in as {data.user.email}. The agent will act as you in the workspace you pick.</p>
 
     <form method="POST" action={act('approve')} onsubmit={() => (busy = true)}>
@@ -56,7 +57,6 @@
 <style>
   .consent { min-height: 100vh; display: grid; grid-template-columns: min(420px, 100%); place-content: center; gap: var(--nb-space-5); padding: var(--nb-space-6); background: var(--nb-bg); }
   .brand { display: flex; align-items: center; gap: var(--nb-space-2); font-weight: var(--nb-weight-semibold); font-size: var(--nb-text-lg); justify-content: center; }
-  .mark { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: var(--nb-radius-md); background: var(--nb-accent); color: var(--nb-on-accent); }
   .card { justify-self: center; width: min(420px, 100%); background: var(--nb-surface); border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); box-shadow: var(--nb-shadow-md); padding: var(--nb-space-6); display: grid; gap: var(--nb-space-4); }
   h1 { font-size: var(--nb-text-xl); line-height: var(--nb-leading-tight); margin: 0; }
   .client { color: var(--nb-accent-text); }

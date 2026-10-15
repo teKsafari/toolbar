@@ -22,6 +22,8 @@ export const keys = {
   asset: (rec: string | null, id: string) => k(rec ? `rec/${rec}/assets/${id}` : `assets/${id}`),
   /** prefix of everything a capture owns, for purge */
   recording: (rec: string) => k(`rec/${rec}/`),
+  /** instance logo and its renditions by content hash (D-112) */
+  brand: (hash: string, name: string) => k(`brand/${hash}/${name}`),
 };
 
 export async function s3Ping(): Promise<void> {

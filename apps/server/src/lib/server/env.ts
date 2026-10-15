@@ -89,7 +89,8 @@ export function loadEnv() {
       },
     },
     smtpUrl: read('SMTP_URL', 'smtp://localhost:1025'),
-    mailFrom: read('MAIL_FROM', 'open-toolbar <noreply@localhost>'),
+    /** empty: `<instance name> <noreply@<PUBLIC_URL host>>` (D-112) */
+    mailFrom: read('MAIL_FROM'),
     transcribe: {
       provider: read('TRANSCRIBE_PROVIDER', 'whispercpp') as 'whispercpp' | 'openai-compatible' | 'none',
       whisperUrl: read('WHISPER_URL', 'http://localhost:8080'),
@@ -123,6 +124,21 @@ export function loadEnv() {
        */
       rateLimit: flag('AUTH_RATE_LIMIT', read('NODE_ENV', 'development') === 'production'),
     },
+    /**
+     * Instance branding (D-112). Each set value wins over the admin UI and locks that field there.
+     * Empty: the stored value, else the default (open-toolbar, the rectangle, ink 600).
+     */
+    brand: {
+      name: read('APP_NAME'),
+      logoUrl: read('APP_LOGO_URL'),
+      logoDarkUrl: read('APP_LOGO_DARK_URL'),
+      accent: read('APP_ACCENT'),
+    },
+    /** Instance admins by verified email, comma separated; empty means the first account (D-112). */
+    adminEmails: read('ADMIN_EMAILS')
+      .split(/[\s,]+/)
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
     worker: flag('WORKER', true),
     migrateOnStart: flag('MIGRATE_ON_START', true),
     testMode: flag('TEST_MODE', false),

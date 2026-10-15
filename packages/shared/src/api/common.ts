@@ -62,6 +62,9 @@ export const ERROR_STATUS = {
   last_admin: 409,
   expired: 410,
   revoked: 410,
+  // instance branding (D-112)
+  locked_by_env: 409,
+  invalid_image: 422,
 } as const;
 export type ErrorCode = keyof typeof ERROR_STATUS;
 export const ERROR_CODES = Object.keys(ERROR_STATUS) as ErrorCode[];

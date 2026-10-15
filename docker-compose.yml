@@ -29,7 +29,7 @@ services:
       STT_URL: ${STT_URL:-}
       STT_API_KEY: ${STT_API_KEY:-}
       SMTP_URL: ${SMTP_URL:-smtp://mailpit:1025}
-      MAIL_FROM: ${MAIL_FROM:-open-toolbar <noreply@localhost>}
+      MAIL_FROM: ${MAIL_FROM:-}
       EXTENSION_IDS: ${EXTENSION_IDS:-fmongfmimgdafigcahdpofnmmhljpnei}
       AUTH_DEV_PASSWORD: ${AUTH_DEV_PASSWORD:-}
       AUTH_EMAIL_PASSWORD: ${AUTH_EMAIL_PASSWORD:-}
@@ -61,6 +61,12 @@ services:
       AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-20000}
       MAX_RECORDING_MIN: ${MAX_RECORDING_MIN:-}
       SUPPORT_RECORDING_LINK: ${SUPPORT_RECORDING_LINK:-}
+      # instance branding (docs/branding.md): set values win over Settings > Server
+      APP_NAME: ${APP_NAME:-}
+      APP_LOGO_URL: ${APP_LOGO_URL:-}
+      APP_LOGO_DARK_URL: ${APP_LOGO_DARK_URL:-}
+      APP_ACCENT: ${APP_ACCENT:-}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
     depends_on:
       postgres: { condition: service_healthy }
       garage: { condition: service_healthy }

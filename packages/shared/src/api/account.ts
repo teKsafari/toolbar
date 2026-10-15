@@ -6,6 +6,7 @@ import { api, defineRoute, idSchema, isoSchema, okSchema, personSchema } from '.
 import { workspaceSchema } from './workspaces.ts';
 import { folderSchema } from './folders.ts';
 import { integrationSchema } from './integrations.ts';
+import { brandingSchema } from './branding.ts';
 
 // ---------- me ----------
 
@@ -332,6 +333,8 @@ export const extBootstrapSchema = z.object({
   features: z.object({ ai: z.boolean() }).optional(),
   /** recording link to the server admin for the popup menu's report-a-problem item (J-177); env SUPPORT_RECORDING_LINK */
   supportRecordingLink: z.string().nullable().optional(),
+  /** the server's instance branding (D-112); the extension shows it after sign-in */
+  branding: brandingSchema.optional(),
 });
 export type ExtBootstrap = z.infer<typeof extBootstrapSchema>;
 

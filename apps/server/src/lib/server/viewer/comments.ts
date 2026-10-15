@@ -1,7 +1,6 @@
 // Comments: threads, timestamps, reactions, resolve, mentions, attachments and the live stream
 // (J-127 to J-135). Owner: viewer area.
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
-import { PRODUCT_NAME } from '@toolbar/shared';
 import { REACTION_KEYS, type Comment, type CommentThread, type ReactionKey } from '@toolbar/shared/api';
 import { mentionsIn, plainText } from '@toolbar/ui/viewer';
 import { db } from '#lib/server/db/index.ts';
@@ -11,6 +10,7 @@ import { sendMail } from '#lib/server/mail.ts';
 import { emailAllowed } from '#lib/server/dashboard/core.ts';
 import { fail, type ViewerCtx } from './access.ts';
 import { mediaBase } from './detail.ts';
+import { currentBrand } from '../branding/index.ts';
 
 type Row = typeof comment.$inferSelect;
 type Person = { id: string; name: string; email: string; image: string | null };
@@ -192,7 +192,7 @@ export async function notifyMentions(ctx: ViewerCtx, row: { id: string; body: st
     const link = `${env.publicUrl}/c/${ctx.rec.id}${row ? `?comment=${row.id}` : ''}`;
     const text = `${by} mentioned you in ${where} on "${ctx.rec.title || 'Untitled capture'}".\n\n${row ? plainText(row.body) + '\n\n' : ''}Open it: ${link}\n`;
     // J-136: the mentions email follows the member's notification settings
-    if (await emailAllowed(db, m.id, 'mentions')) await sendMail(m.email, `${by} mentioned you on ${PRODUCT_NAME}`, text);
+    if (await emailAllowed(db, m.id, 'mentions')) await sendMail(m.email, `${by} mentioned you on ${currentBrand().name}`, text);
     await db.insert(notification).values({ userId: m.id, type: 'mention', recordingId: ctx.rec.id, payload: { commentId: row?.id ?? null, by } });
     sent.push(m.email);
   }

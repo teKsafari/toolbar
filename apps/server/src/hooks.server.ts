@@ -12,6 +12,8 @@ import { registerDashboard } from '#lib/server/dashboard/register.ts';
 import { markdownUrlOf, shareMarkdownResponse, wantsMarkdown } from '#lib/server/mcp/markdown.ts';
 import { restIdentityOfMcpToken } from '#lib/server/mcp/oauth.ts';
 import { MCP_TOKEN_PREFIX } from '@toolbar/shared/areas/agent';
+import { getBrand } from '#lib/server/branding/index.ts';
+import { brandHead } from '#lib/server/branding/head.ts';
 
 export const init: ServerInit = async () => {
   const unsafe = assertSafeSecrets();
@@ -28,6 +30,8 @@ export const init: ServerInit = async () => {
     console.log('[server] job worker started');
   }
   registerDashboard();
+  if (!env.adminEmails.length && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(env.publicUrl))
+    console.warn('[server] ADMIN_EMAILS is empty: the first account on this server becomes the instance admin (branding). Set ADMIN_EMAILS.');
 };
 
 const securityHeaders: Handle = async ({ event, resolve }) => {
@@ -99,4 +103,16 @@ const authenticate: Handle = async ({ event, resolve }) => {
   return svelteKitHandler({ event, resolve, auth, building });
 };
 
-export const handle = sequence(securityHeaders, authenticate, apiGate, shareMarkdown);
+/**
+ * Instance branding (D-112): the resolved brand on locals, and the favicons, site name and accent
+ * written into app.html's `%brand.head%`, so the first paint is already branded.
+ */
+const brand: Handle = async ({ event, resolve }) => {
+  if (event.url.pathname === '/api/health') return resolve(event);
+  const b = await getBrand(db);
+  event.locals.brand = b;
+  const head = brandHead(b);
+  return resolve(event, { transformPageChunk: ({ html }) => html.replace('%brand.head%', head) });
+};
+
+export const handle = sequence(securityHeaders, brand, authenticate, apiGate, shareMarkdown);

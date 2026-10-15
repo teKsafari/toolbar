@@ -7,6 +7,7 @@ export * from './folders.ts';
 export * from './workspaces.ts';
 export * from './integrations.ts';
 export * from './account.ts';
+export * from './branding.ts';
 export * from './routes.ts';
 export * from './areas/server-core.ts';
 export * from './areas/auth.ts';

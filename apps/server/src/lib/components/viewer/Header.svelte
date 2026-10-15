@@ -8,7 +8,9 @@
   // paused feature (docs/scope.md, FEATURE_TRACKERS and FEATURE_SLACK): hidden while both are off.
   import { goto } from '$app/navigation';
   import { Button, toasts } from '@toolbar/ui';
-  import { PRODUCT_NAME } from '@toolbar/shared';
+  import { page } from '$app/state';
+  import BrandMark from '#lib/components/BrandMark.svelte';
+  const brandName = $derived(page.data.brand?.name ?? 'open-toolbar');
   import type { Integration, LinkedIssue } from '@toolbar/shared/api';
   import TrackerFields from '#lib/components/dashboard/TrackerFields.svelte';
   import FormModal from '#lib/components/dashboard/Modal.svelte';
@@ -154,7 +156,7 @@
       <Menu items={moreItems} onpick={() => (menu = null)} label="Capture actions" />
     </Dropdown>
   {:else}
-    <a class="brand" href="/" aria-label={PRODUCT_NAME}><VIcon name="logo" size={20} /><span>{PRODUCT_NAME}</span></a>
+    <a class="brand" href="/" aria-label={brandName}><BrandMark size={20} /><span>{brandName}</span></a>
   {/if}
   <span class="grow"></span>
   {#if !v.data.me}

@@ -71,3 +71,14 @@ export const folderMember = pgTable(
   },
   (t) => [uniqueIndex('folder_member_user_uq').on(t.folderId, t.userId), index('folder_member_email_idx').on(t.email)],
 );
+
+/**
+ * Instance-wide settings an instance admin changes in the UI (D-112). One row per key; the
+ * `branding` row holds `brandingStoredSchema` (packages/shared/src/api/branding.ts).
+ */
+export const instanceSetting = pgTable('instance_setting', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+  updatedBy: uuid('updated_by').references(() => user.id, { onDelete: 'set null' }),
+});

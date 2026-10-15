@@ -1,14 +1,20 @@
 // Email bodies the dashboard area sends: folder invites (J-122), recording link used (J-017,
 // J-126), account deletion notice (J-225). Plain text first, a small HTML twin second.
 
+import { currentBrand } from '../branding/index.ts';
+import { env } from '../env.ts';
+
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 function html(lines: string[], button?: { label: string; url: string }) {
   const body = lines.map((l) => `<p style="margin:0 0 12px">${esc(l)}</p>`).join('');
+  const b = currentBrand();
   const btn = button
-    ? `<p style="margin:16px 0"><a href="${esc(button.url)}" style="display:inline-block;padding:10px 16px;border-radius:8px;background:#3446cf;color:#fff;text-decoration:none;font-weight:600">${esc(button.label)}</a></p>`
+    ? `<p style="margin:16px 0"><a href="${esc(button.url)}" style="display:inline-block;padding:10px 16px;border-radius:8px;background:${b.accent};color:${b.onAccent};text-decoration:none;font-weight:600">${esc(button.label)}</a></p>`
     : '';
-  return `<div style="font:14px/1.5 system-ui,sans-serif;color:#1d1b18;max-width:520px">${body}${btn}</div>`;
+  // a PNG, since most mail clients show no SVG; the name stays readable with images blocked (D-112)
+  const head = `<p style="margin:0 0 16px;display:flex;align-items:center;gap:8px"><img src="${esc(env.publicUrl)}/brand/email.png?v=${b.version}" height="32" alt="" style="height:32px;width:auto"> <b>${esc(b.name)}</b></p>`;
+  return `<div style="font:14px/1.5 system-ui,sans-serif;color:#1d1b18;max-width:520px">${head}${body}${btn}</div>`;
 }
 
 export interface Mail {

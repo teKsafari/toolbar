@@ -12,6 +12,7 @@ import { env } from '../env.ts';
 import { createCaptureRecord } from '../upload/service.ts';
 import { seatOf, visibleCapturesWhere } from '../share/access.ts';
 import { iso, mediaUrl, peopleById, UUID } from './core.ts';
+import { firstAccountId } from '../auth/instance.ts';
 
 export type LinkRow = typeof recordingLink.$inferSelect;
 
@@ -236,8 +237,9 @@ export const SUPPORT_LINK_NAME = 'Problem reports';
 export async function supportLinkUrl(db: Db, envValue = process.env.SUPPORT_RECORDING_LINK): Promise<string | null> {
   if (envValue === 'off') return null;
   if (envValue) return envValue;
-  const [admin] = await db.select({ id: user.id }).from(user).orderBy(asc(user.createdAt), asc(user.id)).limit(1);
-  if (!admin) return null;
+  const adminId = await firstAccountId(db);
+  if (!adminId) return null;
+  const admin = { id: adminId };
   const [ws] = await db
     .select({ id: organization.id })
     .from(organization)

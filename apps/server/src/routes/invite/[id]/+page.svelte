@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button, Icon } from '@toolbar/ui';
-  import { PRODUCT_NAME } from '@toolbar/shared';
+  import { page } from '$app/state';
+  const brandName = $derived(page.data.brand?.name ?? 'open-toolbar');
 
   let { data, form } = $props();
   const inv = $derived(data.invite);
@@ -9,13 +10,13 @@
   let busy = $state(false);
 </script>
 
-<svelte:head><title>Join {inv.workspaceName} · {PRODUCT_NAME}</title></svelte:head>
+<svelte:head><title>Join {inv.workspaceName} · {brandName}</title></svelte:head>
 
 <main class="join">
   <span class="avatar" aria-hidden="true">{inv.workspaceName.slice(0, 1).toUpperCase()}</span>
   <h1>Join {inv.workspaceName}</h1>
   <p class="muted">
-    {#if inv.inviterName}{inv.inviterName} invited you to this {PRODUCT_NAME} workspace.{:else}You were invited to this {PRODUCT_NAME} workspace.{/if}
+    {#if inv.inviterName}{inv.inviterName} invited you to this {brandName} workspace.{:else}You were invited to this {brandName} workspace.{/if}
     You join as a {seat}.
   </p>
 

@@ -98,6 +98,8 @@ Builds:
 | `pnpm --filter @toolbar/extension build:test` | `apps/extension/.output/chrome-mv3-test` | open shadow root, `globalThis.__tb` in the worker |
 | `WXT_OUT_SUFFIX=-121 WXT_TEST_HOOKS=1 pnpm --filter @toolbar/extension exec wxt build` | `apps/extension/.output/chrome-mv3-test-121` | the test build in a folder of its own, for a run beside others (`E2E_EXT_BUILD=chrome-mv3-test-121`) |
 
+A build with your own name and icon: `WXT_APP_NAME=... WXT_APP_ICON=<svg or png>` in front of any of these (`docs/branding.md`). `node apps/extension/scripts/icons.ts` re-renders the packaged icons from `apps/extension/assets/icon.svg`.
+
 Load it unpacked:
 
 1. Build one of the above.

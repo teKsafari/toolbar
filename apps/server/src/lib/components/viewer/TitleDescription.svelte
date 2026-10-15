@@ -4,7 +4,8 @@
   // Enter saves and the tab title follows; the description saves on blur, keeps lists and bold,
   // takes @mentions, and its time links seek the player. Read-only for share viewers.
   import { toasts } from '@toolbar/ui';
-  import { PRODUCT_NAME } from '@toolbar/shared';
+  import { page } from '$app/state';
+  const brandName = $derived(page.data.brand?.name ?? 'open-toolbar');
   import { figmaEmbedUrl, figmaLink, renderMarkdown } from '@toolbar/ui/viewer';
   import VIcon from './VIcon.svelte';
   import Avatar from './Avatar.svelte';
@@ -25,7 +26,7 @@
   const shownTitle = $derived(v.detail.title || 'Untitled capture');
 
   $effect(() => {
-    document.title = `${shownTitle} | ${PRODUCT_NAME}`;
+    document.title = `${shownTitle} | ${brandName}`;
   });
 
   async function save(patch: { title?: string; description?: string }) {

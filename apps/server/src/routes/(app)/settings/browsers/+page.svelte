@@ -1,7 +1,8 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { Button, Icon } from '@toolbar/ui';
-  import { PRODUCT_NAME } from '@toolbar/shared';
+  import { page } from '$app/state';
+  const brandName = $derived(page.data.brand?.name ?? 'open-toolbar');
   import { ago } from '#lib/components/auth/time.ts';
 
   let { data, form } = $props();
@@ -9,7 +10,7 @@
 
 <svelte:head><title>Connected browsers · Settings</title></svelte:head>
 <h1>Connected browsers</h1>
-<p class="muted">Browsers where the {PRODUCT_NAME} extension is signed in to your account. Disconnect one to sign it out at once.</p>
+<p class="muted">Browsers where the {brandName} extension is signed in to your account. Disconnect one to sign it out at once.</p>
 
 {#if data.devices.length}
   <ul class="list" data-testid="device-list">

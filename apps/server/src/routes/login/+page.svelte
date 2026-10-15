@@ -2,7 +2,9 @@
   // Sign-in and sign-up on one page (J-217): provider buttons, an or-divider, then work email.
   // Continue mails a one-time link; "Use a password" swaps in a password field instead.
   import { Button, Icon } from '@toolbar/ui';
-  import { PRODUCT_NAME } from '@toolbar/shared';
+  import { page } from '$app/state';
+  import BrandMark from '#lib/components/BrandMark.svelte';
+  const brandName = $derived(page.data.brand?.name ?? 'open-toolbar');
 
   let { data, form } = $props();
   let usePassword = $state(false);
@@ -23,10 +25,10 @@
   };
 </script>
 
-<svelte:head><title>Sign in · {PRODUCT_NAME}</title></svelte:head>
+<svelte:head><title>Sign in · {brandName}</title></svelte:head>
 
 <main class="login">
-  <div class="brand"><span class="mark"><Icon name="logo" size={22} /></span> {PRODUCT_NAME}</div>
+  <div class="brand"><BrandMark size={28} /> {brandName}</div>
 
   {#if form?.sent}
     <section class="sent" aria-live="polite">
@@ -42,7 +44,7 @@
       </form>
     </section>
   {:else}
-    <h1>{data.fromExtension ? `Connect the ${PRODUCT_NAME} extension` : `Sign in to ${PRODUCT_NAME}`}</h1>
+    <h1>{data.fromExtension ? `Connect the ${brandName} extension` : `Sign in to ${brandName}`}</h1>
     <p class="sub">New here? The same steps create your account.</p>
 
     {#if opts.providers.length}
@@ -97,10 +99,6 @@
     gap: var(--nb-space-3);
   }
   .brand { display: flex; align-items: center; gap: 8px; font-weight: var(--nb-weight-semibold); font-size: var(--nb-text-lg); margin-bottom: var(--nb-space-4); }
-  .mark {
-    display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: var(--nb-radius-lg);
-    background: var(--nb-accent); color: var(--nb-on-accent);
-  }
   h1 { font-size: var(--nb-text-xl); margin: 0; }
   .sub { margin: -4px 0 var(--nb-space-2); color: var(--nb-text-muted); }
   .providers { display: flex; flex-direction: column; gap: var(--nb-space-2); }

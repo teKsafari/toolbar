@@ -1,10 +1,10 @@
 <script lang="ts">
   // Deleted or unknown capture (J-205): one plain centred line, no header and no link home.
   import { page } from '$app/state';
-  import { PRODUCT_NAME } from '@toolbar/shared';
+  const brandName = $derived(page.data.brand?.name ?? 'open-toolbar');
 </script>
 
-<svelte:head><title>Not found | {PRODUCT_NAME}</title></svelte:head>
+<svelte:head><title>Not found | {brandName}</title></svelte:head>
 <main class="nf" data-testid="not-found">{page.status === 404 ? 'This capture could not be found.' : (page.error?.message ?? 'Something went wrong.')}</main>
 
 <style>

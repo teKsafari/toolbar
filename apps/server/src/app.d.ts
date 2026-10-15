@@ -7,6 +7,8 @@ declare global {
       session: Session['session'] | null;
       /** Set when the request authenticated with `Authorization: Bearer tb_...`. */
       apiToken: { id: string; kind: 'device' | 'personal'; scopes?: string[] } | null;
+      /** instance branding, resolved per request from a one-minute cache (D-112) */
+      brand: import('#lib/server/branding/resolve.ts').Brand;
     }
     interface Error {
       code?: string;

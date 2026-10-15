@@ -3,7 +3,6 @@
 // invite link is one random token per workspace in `workspace_invite_link`, sealed for redisplay.
 import { randomBytes } from 'node:crypto';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
-import { PRODUCT_NAME } from '@toolbar/shared';
 import type { SeatRole } from '@toolbar/shared/api';
 import { INVITE_EMAIL_DAYS, INVITE_LINK_DAYS } from '@toolbar/shared/areas/auth';
 import type { Db } from '../db/index.ts';
@@ -13,6 +12,7 @@ import { env } from '../env.ts';
 import { sendMail } from '../mail.ts';
 import { hashToken } from '../tokens.ts';
 import { addMember, getSettings, setActiveWorkspace } from './workspaces.ts';
+import { currentBrand } from '../branding/index.ts';
 
 export type InviteRole = 'creator' | 'viewer';
 export type InviteStatus = 'pending' | 'accepted' | 'canceled' | 'expired';
@@ -87,10 +87,10 @@ export async function createInvites(
     const seat = opts.role === 'viewer' ? 'a viewer (view and comment)' : 'a creator (capture, comment and organise)';
     await sendMail(
       email,
-      `${opts.inviter.name} invited you to ${org.name} on ${PRODUCT_NAME}`,
-      `${opts.inviter.name} (${opts.inviter.email}) invited you to join ${org.name} on ${PRODUCT_NAME} as ${seat}.\n\n` +
+      `${opts.inviter.name} invited you to ${org.name} on ${currentBrand().name}`,
+      `${opts.inviter.name} (${opts.inviter.email}) invited you to join ${org.name} on ${currentBrand().name} as ${seat}.\n\n` +
         `Join: ${url}\n\nThe invitation expires on ${expiresAt.toDateString()}.`,
-      `<p>${esc(opts.inviter.name)} (${esc(opts.inviter.email)}) invited you to join <b>${esc(org.name)}</b> on ${PRODUCT_NAME} as ${seat}.</p>` +
+      `<p>${esc(opts.inviter.name)} (${esc(opts.inviter.email)}) invited you to join <b>${esc(org.name)}</b> on ${currentBrand().name} as ${seat}.</p>` +
         `<p><a href="${url}">Join ${esc(org.name)}</a></p><p style="color:#666">The invitation expires on ${expiresAt.toDateString()}.</p>`,
     );
     out.push(inviteDto(row!, opts.inviter));

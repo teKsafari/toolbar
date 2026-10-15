@@ -1,7 +1,7 @@
 // Workspaces (Better Auth organizations): membership, seat roles, settings, the active workspace,
 // creation and join by email domain (X-06, J-124, J-125, J-168, J-221). Owner: auth area.
 import { and, asc, count, eq, inArray, sql } from 'drizzle-orm';
-import { PRODUCT_NAME, uuidv7 } from '@toolbar/shared';
+import { uuidv7 } from '@toolbar/shared';
 import { roleAtLeast, seatRoleOf, workspaceSettingsSchema, type SeatRole, type Workspace, type WorkspaceSettings } from '@toolbar/shared/api';
 import { DEFAULT_WORKSPACE_SETTINGS, joinableDomain } from '@toolbar/shared/areas/auth';
 import type { Db } from '../db/index.ts';
@@ -9,6 +9,7 @@ import { member, organization, user } from '../db/schema/index.ts';
 import { sendMail } from '../mail.ts';
 import { emailAllowed } from '../dashboard/core.ts';
 import { env } from '../env.ts';
+import { currentBrand } from '../branding/index.ts';
 
 export type StoredSettings = Omit<WorkspaceSettings, 'name' | 'logoUrl'>;
 
@@ -204,7 +205,7 @@ export async function joinByDomain(db: Db, u: { id: string; email: string; name:
         sendMail(
           addr,
           `${who} joined ${w.name}`,
-          `${who} signed up with your email domain and joined ${w.name} on ${PRODUCT_NAME} as a viewer.\n\n` +
+          `${who} signed up with your email domain and joined ${w.name} on ${currentBrand().name} as a viewer.\n\n` +
             `Change their seat on the members page: ${env.publicUrl}/settings/members`,
         ).catch((e: unknown) => console.warn('[auth] domain-join mail failed', e)),
       ),

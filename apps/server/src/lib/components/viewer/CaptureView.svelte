@@ -3,7 +3,8 @@
   // comments; right dev tools panel (about 38%) behind a draggable splitter; the panel hides
   // (J-091) and at phone width the page is one column with a toggle between the two (J-115).
   import { onMount } from 'svelte';
-  import { PRODUCT_NAME } from '@toolbar/shared';
+  import { page } from '$app/state';
+  const brandName = $derived(page.data.brand?.name ?? 'open-toolbar');
   import { call } from './api.ts';
   import './panel.css';
   import Header from './Header.svelte';
@@ -82,7 +83,7 @@
   }
 </script>
 
-<svelte:head><title>{v.detail.title || 'Untitled capture'} | {PRODUCT_NAME}</title></svelte:head>
+<svelte:head><title>{v.detail.title || 'Untitled capture'} | {brandName}</title></svelte:head>
 
 <div class="page" class:dragging data-hydrated={hydrated ? '' : undefined}>
   <Header />

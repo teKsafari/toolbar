@@ -1,7 +1,6 @@
 // Workspace settings (J-120, J-156, J-172, J-178), members and seats (J-173, J-222, J-249),
 // profile and account deletion (J-175, J-225), onboarding (J-169).
 import { and, asc, count, desc, eq, inArray, isNull, lt, max, ne, sql } from 'drizzle-orm';
-import { PRODUCT_NAME } from '@toolbar/shared';
 import { seatRoleOf, type Member, type SeatRole, type WorkspaceSettings } from '@toolbar/shared/api';
 import { ONBOARDING_STEPS } from '@toolbar/shared/areas/dashboard';
 import type { Db } from '../db/index.ts';
@@ -25,6 +24,7 @@ import { purgeMedia, assetUrl } from '../upload/service.ts';
 import { sendMail } from '../mail.ts';
 import { accountDeletedMail } from '../mail-templates/index.ts';
 import { audit, iso, patchRawSettings, personOf, settingsRow } from './core.ts';
+import { currentBrand } from '../branding/index.ts';
 
 // ---------- workspace ----------
 
@@ -276,7 +276,7 @@ export async function deleteAccount(db: Db, userId: string) {
   await db.delete(apiToken).where(eq(apiToken.userId, userId));
   await db.delete(user).where(eq(user.id, userId));
   if (u?.email) {
-    const m = accountDeletedMail({ name: u.email, workspaces: plan.erase.map((w) => w.name), product: PRODUCT_NAME });
+    const m = accountDeletedMail({ name: u.email, workspaces: plan.erase.map((w) => w.name), product: currentBrand().name });
     await sendMail(u.email, m.subject, m.text, m.html).catch(() => {});
   }
   return plan.erase.map((w) => w.id);

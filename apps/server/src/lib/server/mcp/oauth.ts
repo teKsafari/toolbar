@@ -9,6 +9,7 @@ import { MCP_CLIENT_PREFIX, MCP_SCOPES, MCP_TOKEN_PREFIX, MCP_TTL, type McpScope
 import type { Db } from '../db/index.ts';
 import { mcpAuthCode, mcpClient, mcpGrant, mcpToken, organization, user } from '../db/schema/index.ts';
 import { env } from '../env.ts';
+import { currentBrand } from '#lib/server/branding/index.ts';
 
 const sha = (s: string) => createHash('sha256').update(s).digest();
 const rand = (n = 32) => randomBytes(n).toString('base64url');
@@ -42,7 +43,7 @@ export function protectedResourceMetadata() {
     authorization_servers: [issuer()],
     scopes_supported: [...MCP_SCOPES],
     bearer_methods_supported: ['header'],
-    resource_name: 'open-toolbar captures',
+    resource_name: `${currentBrand().name} captures`,
   };
 }
 

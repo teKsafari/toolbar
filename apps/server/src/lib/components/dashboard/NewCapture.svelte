@@ -2,7 +2,9 @@
   // J-018: the header's new-capture button asks the extension to open its capture menu on this
   // page. Without the extension it explains how to get it and lists the shortcuts.
   import { Button, Popover } from '@toolbar/ui';
-  import { COMMANDS, PRODUCT_NAME } from '@toolbar/shared';
+  import { COMMANDS } from '@toolbar/shared';
+  import { page } from '$app/state';
+  const brandName = $derived(page.data.brand?.name ?? 'open-toolbar');
   import { NEW_CAPTURE_EVENT, EXTENSION_MARK_ATTR } from '@toolbar/shared/areas/dashboard';
   import DIcon from './DIcon.svelte';
 
@@ -26,7 +28,7 @@
   {#snippet children({ close })}
     <div class="np" data-testid="new-capture-help">
       <strong>Capture with the extension</strong>
-      <p>The {PRODUCT_NAME} extension takes screenshots, records the tab or screen and saves console and network logs with them.</p>
+      <p>The {brandName} extension takes screenshots, records the tab or screen and saves console and network logs with them.</p>
       <ul>
         <li><DIcon name="screenshot" size={14} />Screenshot <kbd>{COMMANDS['screenshot-mode'].key}</kbd></li>
         <li><DIcon name="record" size={14} />Record the tab <kbd>{COMMANDS['record-tab'].key}</kbd></li>

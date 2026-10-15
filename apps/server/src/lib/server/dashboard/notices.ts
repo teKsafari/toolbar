@@ -4,7 +4,6 @@
 // A sweep every two seconds compares recording rows with `capture_notice`, so no other
 // area has to call in. `auto-delete` (J-178) archives captures older than a workspace's limit.
 import { and, eq, gt, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
-import { PRODUCT_NAME } from '@toolbar/shared';
 import type { WebhookPayload } from '@toolbar/shared/api';
 import type { Db } from '../db/index.ts';
 import { captureNotice, captureView, job, organization, recording, recordingLink, user } from '../db/schema/index.ts';
@@ -16,6 +15,7 @@ import { syncTextRefs } from '../integrations/index.ts';
 import { deleteCapture } from '../upload/service.ts';
 import { readSettings } from '../auth/workspaces.ts';
 import { audit, captureUrl, emailAllowed, mediaUrl, personOf, type RecordingRow } from './core.ts';
+import { currentBrand } from '../branding/index.ts';
 
 export const NOTICE_EVERY_MS = 2000;
 
@@ -50,7 +50,7 @@ export async function onCreated(db: Db, r: RecordingRow) {
       .where(eq(recordingLink.id, r.recordingLinkId));
     if (l?.email && l.createdBy && (await emailAllowed(db, l.createdBy, 'recordingLinkUsed'))) {
       const note = (r.metadata as { note?: string } | null)?.note ?? (r.description || null);
-      const m = recordingLinkUsedMail({ linkName: l.name || 'Recording link', captureUrl: captureUrl(r.id), note, product: PRODUCT_NAME });
+      const m = recordingLinkUsedMail({ linkName: l.name || 'Recording link', captureUrl: captureUrl(r.id), note, product: currentBrand().name });
       await sendMail(l.email, m.subject, m.text, m.html).catch((e) => console.warn('[dashboard] link-used mail failed', e));
     }
   }
@@ -72,7 +72,7 @@ export async function notifyFirstView(db: Db, r: Pick<RecordingRow, 'id' | 'titl
   if (!(await emailAllowed(db, r.authorUserId, 'firstView'))) return null;
   const [a] = await db.select({ email: user.email }).from(user).where(eq(user.id, r.authorUserId));
   if (!a?.email) return null;
-  const m = firstViewMail({ viewer: viewer.name || 'Someone', title: r.title || 'Untitled capture', captureUrl: captureUrl(r.id), product: PRODUCT_NAME });
+  const m = firstViewMail({ viewer: viewer.name || 'Someone', title: r.title || 'Untitled capture', captureUrl: captureUrl(r.id), product: currentBrand().name });
   await sendMail(a.email, m.subject, m.text, m.html);
   return a.email;
 }

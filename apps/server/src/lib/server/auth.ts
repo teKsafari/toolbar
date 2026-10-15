@@ -14,6 +14,7 @@ import { magicLink } from 'better-auth/plugins/magic-link';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { getRequestEvent } from '$app/server';
 import { uuidv7, PRODUCT_NAME } from '@toolbar/shared';
+import { currentBrand } from './branding/index.ts';
 import { db } from './db/index.ts';
 import * as schema from './db/schema/index.ts';
 import { env } from './env.ts';
@@ -55,9 +56,9 @@ const plugins = [
     async sendMagicLink({ email, url }) {
       await sendMail(
         email,
-        `Sign in to ${PRODUCT_NAME}`,
-        `Open this link to sign in to ${PRODUCT_NAME} at ${env.publicUrl}:\n\n${url}\n\nIt works once and expires in 15 minutes. If you did not ask for it, ignore this email.`,
-        `<p>Open this link to sign in to ${PRODUCT_NAME} at ${env.publicUrl}:</p><p><a href="${url}">Sign in to ${PRODUCT_NAME}</a></p>` +
+        `Sign in to ${currentBrand().name}`,
+        `Open this link to sign in to ${currentBrand().name} at ${env.publicUrl}:\n\n${url}\n\nIt works once and expires in 15 minutes. If you did not ask for it, ignore this email.`,
+        `<p>Open this link to sign in to ${currentBrand().name} at ${env.publicUrl}:</p><p><a href="${url}">Sign in to ${currentBrand().name}</a></p>` +
           `<p style="color:#666">It works once and expires in 15 minutes. If you did not ask for it, ignore this email.</p>`,
       );
     },
@@ -84,7 +85,7 @@ const plugins = [
 ];
 
 export const auth = betterAuth({
-  appName: PRODUCT_NAME,
+  appName: env.brand.name || PRODUCT_NAME,
   baseURL: env.publicUrl,
   basePath: '/api/auth',
   secret: env.authSecret,

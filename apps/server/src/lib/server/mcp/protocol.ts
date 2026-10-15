@@ -9,6 +9,7 @@ import { principalFrom } from './access.ts';
 import { resourceMetadataUrl } from './oauth.ts';
 import { callTool, toolList } from './tools.ts';
 import type { McpPrincipal } from './oauth.ts';
+import { currentBrand } from '#lib/server/branding/index.ts';
 
 type Id = string | number | null;
 interface RpcRequest {
@@ -18,7 +19,8 @@ interface RpcRequest {
   params?: Record<string, unknown>;
 }
 
-const INSTRUCTIONS = `${PRODUCT_NAME} holds bug captures: video or screenshot of a web page with its console, network, user events and comments. When the user pastes a capture link, call get_capture first and follow its guide: failing requests and errors, then frames at the failure time, then the fix. When you have fixed the bug, leave a create_comment on the capture with the cause and the fix. Ask the user before any delete.`;
+const onBrand = () => (currentBrand().name === PRODUCT_NAME ? '' : ` (on ${currentBrand().name})`);
+const instructions = () => `${PRODUCT_NAME}${onBrand()} holds bug captures: video or screenshot of a web page with its console, network, user events and comments. When the user pastes a capture link, call get_capture first and follow its guide: failing requests and errors, then frames at the failure time, then the fix. When you have fixed the bug, leave a create_comment on the capture with the cause and the fix. Ask the user before any delete.`;
 
 const rpcError = (id: Id, code: number, message: string, data?: unknown) => ({ jsonrpc: '2.0' as const, id, error: { code, message, ...(data ? { data } : {}) } });
 const rpcResult = (id: Id, result: unknown) => ({ jsonrpc: '2.0' as const, id, result });
@@ -37,8 +39,8 @@ export async function handleRpc(db: Db, principal: McpPrincipal, msg: RpcRequest
       return rpcResult(id, {
         protocolVersion: negotiate(msg.params?.protocolVersion),
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: MCP_SERVER_NAME, title: PRODUCT_NAME, version: '0.1.0' },
-        instructions: INSTRUCTIONS,
+        serverInfo: { name: MCP_SERVER_NAME, title: currentBrand().name, version: '0.1.0' },
+        instructions: instructions(),
       });
     case 'ping':
       return rpcResult(id, {});

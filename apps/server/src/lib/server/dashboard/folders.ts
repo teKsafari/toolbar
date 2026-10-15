@@ -1,6 +1,5 @@
 // Folders (J-162 to J-166) and folder sharing (J-122, writes the J-237 tables server-core reads).
 import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
-import { PRODUCT_NAME } from '@toolbar/shared';
 import type { z } from 'zod';
 import { roleAtLeast, type Folder, type SeatRole, type folderShareSchema } from '@toolbar/shared/api';
 import type { Db } from '../db/index.ts';
@@ -12,6 +11,7 @@ import { env } from '../env.ts';
 import { audit, emailAllowed, ensureShortIds, findFolder, newShortId, peopleById, type FolderRow } from './core.ts';
 import { bulkDelete } from './captures.ts';
 import { folderInviteMail } from '../mail-templates/index.ts';
+import { currentBrand } from '../branding/index.ts';
 
 export const folderUrl = (f: { shortId: string | null; id: string }) => `${env.publicUrl}/f/${f.shortId ?? f.id}`;
 
@@ -180,7 +180,7 @@ export async function updateFolderShare(
     }
     // J-136: an existing account that turned off "shared with me" gets no email; new addresses always do.
     if (u && !(await emailAllowed(db, u.id, 'sharedWithMe'))) continue;
-    const mail = folderInviteMail({ inviter: actor.name, folder: f.name, url: folderUrl(f), product: PRODUCT_NAME });
+    const mail = folderInviteMail({ inviter: actor.name, folder: f.name, url: folderUrl(f), product: currentBrand().name });
     await sendMail(email, mail.subject, mail.text, mail.html).catch((e) => console.warn('[dashboard] folder invite mail failed', e));
   }
   if (body.remove?.length) await db.delete(folderMember).where(and(eq(folderMember.folderId, f.id), inArray(folderMember.userId, body.remove)));

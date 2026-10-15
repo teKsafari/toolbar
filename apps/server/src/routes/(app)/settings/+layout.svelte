@@ -41,6 +41,7 @@
         ['browsers', 'Connected browsers'],
       ],
     },
+    ...(data.instanceAdmin ? [{ label: 'Instance', items: [['server', 'Server']] }] : []),
   ] as { label: string; items: [string, string][] }[]);
   const here = $derived(page.url.pathname.split('/')[2] ?? '');
 </script>

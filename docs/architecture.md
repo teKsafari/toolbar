@@ -231,6 +231,7 @@ ext_auth_code     code_hash PK, user_id, code_challenge, redirect_uri, expires_a
 job               id, type, payload jsonb, run_at, attempts, locked_until?, last_error?, created_at
 integration       id, organization_id, type, config jsonb (secrets encrypted), created_by          -- per catalogue rows
 notification      id, user_id, type, recording_id?, payload jsonb, read_at?
+instance_setting  key PK, value jsonb, updated_at, updated_by?                                   -- 'branding' (D-112, docs/branding.md)
 ```
 
 Part 2 tables, additive: `project` (organization_id, name, origins text[], masking_preset, body_allowlist text[], span_timeouts jsonb), `reviewer_rule` (project_id, type: email_domain|idp_group, value), `feedback_resolution` (recording_id, resolved_by, at).

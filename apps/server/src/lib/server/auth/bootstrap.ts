@@ -9,6 +9,7 @@ import { folder, integration, recording, user } from '../db/schema/index.ts';
 import { activeWorkspaceId, listWorkspaces } from './workspaces.ts';
 import { supportLinkUrl } from '../dashboard/links.ts';
 import { env } from '../env.ts';
+import { brandingDto, getBrand } from '../branding/index.ts';
 
 type Person = { id: string; name: string; email: string; image: string | null };
 
@@ -88,5 +89,6 @@ export async function extBootstrap(db: Db, me: Person, opts: { workspaceId?: str
     features: { ai: aiFeature },
     // J-177: the menu's "report a problem" opens a recording link to the server admin
     supportRecordingLink: await supportLinkUrl(db).catch(() => null),
+    branding: brandingDto(await getBrand(db)),
   };
 }
