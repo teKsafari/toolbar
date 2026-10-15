@@ -3,9 +3,9 @@
   // server; the auth area runs the flow behind auth.signIn.
   import { browser } from 'wxt/browser';
   import { Button, Icon } from '@toolbar/ui';
-  import { PRODUCT_NAME } from '@toolbar/shared/constants';
   import { store } from '../lib/store.svelte';
   import { send, errorText } from '../../capture.content/ui/send';
+  import { brand } from '../../../lib/brand.svelte';
 
   let busy = $state(false);
   let error = $state('');
@@ -22,7 +22,7 @@
 <div class="out" data-screen="signed-out" data-testid="signed-out">
   <Icon name="logo" size={32} />
   <p><strong>Sign in to start capturing</strong></p>
-  <p class="muted">{PRODUCT_NAME} saves your captures to <span class="mono" data-server-url>{store.serverUrl}</span>.</p>
+  <p class="muted">{brand.name} saves your captures to <span class="mono" data-server-url>{store.serverUrl}</span>.</p>
   <Button variant="primary" loading={busy} onclick={signIn} data-sign-in>Sign in</Button>
   {#if error}<p class="err" role="alert">{error}</p>{/if}
   <button class="change" type="button" onclick={() => browser.runtime.openOptionsPage()}>Use another server</button>

@@ -4,8 +4,8 @@
   // Talks to the service worker only (auth.state, auth.signIn, auth.signOut).
   import { browser } from 'wxt/browser';
   import { Button, Icon } from '@toolbar/ui';
-  import { PRODUCT_NAME } from '@toolbar/shared/constants';
   import type { BgResult } from '@toolbar/shared/ext';
+  import { brand } from '../brand.svelte';
 
   let { onchange }: { onchange?: (signedIn: boolean) => void } = $props();
   type State = Extract<BgResult<'auth.state'>, { ok: true }>;
@@ -38,7 +38,7 @@
 
 {#if auth && !auth.signedIn}
   <section class="card" data-testid="signed-out">
-    <p class="lead">Sign in to save captures to your {PRODUCT_NAME} workspace.</p>
+    <p class="lead">Sign in to save captures to your {brand.name} workspace.</p>
     <Button variant="primary" size="lg" class="wide" loading={busy} onclick={signIn}>Sign in</Button>
     <p class="server" title={auth.serverUrl}>{new URL(auth.serverUrl).host}</p>
     {#if error}<p class="err" role="alert">{error}</p>{/if}

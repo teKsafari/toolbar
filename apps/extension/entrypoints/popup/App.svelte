@@ -5,7 +5,6 @@
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { Icon } from '@toolbar/ui';
-  import { PRODUCT_NAME } from '@toolbar/shared/constants';
   import { store } from './lib/store.svelte';
   import Menu from './lib/Menu.svelte';
   import Main from './screens/Main.svelte';
@@ -18,6 +17,8 @@
   import Restricted from './screens/Restricted.svelte';
   import SignedOut from './screens/SignedOut.svelte';
   import AccountCard from '../../lib/auth/AccountCard.svelte';
+  import BrandLogo from '../../lib/ui/BrandLogo.svelte';
+  import { brand } from '../../lib/brand.svelte';
 
   onMount(() => {
     store.listen();
@@ -36,7 +37,7 @@
 
 <main data-popup data-loading={store.loading}>
   <header>
-    <span class="brand"><Icon name="logo" size={18} /> {PRODUCT_NAME}</span>
+    <span class="brand" data-brand-name><BrandLogo size={18} /> {brand.name}</span>
     <span class="actions">
       {#if draftCount > 0 && !restricted}
         <button

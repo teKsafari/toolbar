@@ -105,6 +105,19 @@ export interface UploadProgress {
   updatedAt: number;
 }
 
+/** The server's brand as the extension keeps it (D-112): icons as PNG data URLs, fetched once per version. */
+export interface BrandCache {
+  version: string;
+  serverUrl: string;
+  name: string;
+  accent: string;
+  onAccent: string;
+  defaultLogo: boolean;
+  /** the light logo as a data URL (SVG or PNG); shown only in extension pages, through <img> */
+  logo: string | null;
+  icons: Partial<Record<'16' | '32' | '48' | '128', string>>;
+}
+
 /** Keys and value types. Prefix "tb:" keeps them apart from anything WXT stores. */
 export const STORAGE = {
   // chrome.storage.local: survives restarts
@@ -118,6 +131,8 @@ export const STORAGE = {
   micGranted: { area: 'local', key: 'tb:mic-granted' },
   /** heavy-page thresholds (J-011); unset means LIMITS.heavyPageNodes and heavyPageMutationsPerSec */
   heavyThresholds: { area: 'local', key: 'tb:heavy-thresholds' },
+  /** the signed-in server's name, accent and icons (D-112); removed at sign-out */
+  branding: { area: 'local', key: 'tb:branding' },
   // chrome.storage.session: survives worker restarts, not browser restarts
   session: { area: 'session', key: 'tb:session' },
   replay: { area: 'session', key: 'tb:replay' },
@@ -136,6 +151,7 @@ export interface StorageValues {
   installId: string;
   micGranted: boolean;
   heavyThresholds: { nodes?: number; mutationsPerSec?: number } | null;
+  branding: BrandCache | null;
   session: CaptureSession;
   replay: ReplayState;
   uploads: Record<string, UploadProgress>;

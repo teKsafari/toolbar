@@ -7,6 +7,7 @@ import { CAPTURE_PORT, type BgRequest, type PortMessage } from '../lib/messages'
 import { TEST_HOOKS } from '../lib/flags';
 import { registerAuth } from '../lib/bg/auth';
 import { migrateStorage } from '../lib/migrate';
+import { brandState, registerBrand } from '../lib/bg/brand';
 import { setupCapture } from '../lib/bg/capture';
 import { registerUi } from '../lib/bg/ui';
 import { registerDraftHandlers } from '../lib/bg/drafts';
@@ -14,6 +15,7 @@ import { registerDashboard } from '../lib/bg/dashboard';
 
 export default defineBackground(() => {
   void migrateStorage();
+  registerBrand();
   registerAuth();
   registerUi();
   registerDashboard();
@@ -63,6 +65,7 @@ export default defineBackground(() => {
       ready: () => ready.then((r) => r.map((s) => s.id)),
       stats: () => structuredClone(stats),
       events: () => recent.slice(),
+      brand: () => ({ ...brandState }),
     };
   }
 });

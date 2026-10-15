@@ -12,6 +12,7 @@
 // with setCaptureDriver(). Until then every media call fails with not_implemented.
 import { browser } from 'wxt/browser';
 import { migrateStorage } from '../migrate';
+import { applyBrandIcon, setIconBusy } from './brand';
 import { DEFAULT_SERVER_URL, uuidv7, type RecordingKind } from '@toolbar/shared';
 import {
   DEFAULT_USER_SETTINGS,
@@ -311,11 +312,13 @@ async function updateActionIcon(s: CaptureSession) {
   const recording = s.state === 'recording' || s.state === 'starting';
   try {
     if (recording && !iconIsRecording) {
+      setIconBusy(true);
       await browser.action.setIcon({ imageData: { 16: cameraImage(16), 32: cameraImage(32) } as never });
       await browser.action.setTitle({ title: 'Recording: click to stop' });
     } else if (!recording && iconIsRecording) {
-      await browser.action.setIcon({ path: { 16: '/icon/16.png', 32: '/icon/32.png', 48: '/icon/48.png', 128: '/icon/128.png' } });
-      await browser.action.setTitle({ title: browser.runtime.getManifest().name });
+      // back to the server's brand when signed in, else the packaged icon and name (D-112)
+      setIconBusy(false);
+      await applyBrandIcon();
     }
     iconIsRecording = recording;
     stats.icon = recording ? 'camera' : 'default';

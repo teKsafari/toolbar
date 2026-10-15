@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { MANIFEST_KEY } from '../wxt.config';
+import { MANIFEST_KEY, buildName } from '../wxt.config';
 import { CAPTURE_SCRIPTS } from '../lib/registration';
 
 /** Chrome derives the id from sha256 of the DER public key, first 32 hex digits mapped 0-f to a-p. */
@@ -16,5 +16,13 @@ describe('manifest', () => {
 
   it('registers one MAIN and one ISOLATED capture script', () => {
     expect(CAPTURE_SCRIPTS.map((s) => s.world).sort()).toEqual(['ISOLATED', 'MAIN']);
+  });
+
+  it('takes the build name from WXT_APP_NAME, default open-toolbar (D-112)', () => {
+    expect(buildName(undefined)).toBe('open-toolbar');
+    expect(buildName('  ')).toBe('open-toolbar');
+    expect(buildName('Acme Review')).toBe('Acme Review');
+    expect(() => buildName('<b>')).toThrow();
+    expect(() => buildName('x'.repeat(61))).toThrow();
   });
 });

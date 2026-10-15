@@ -6,6 +6,9 @@ import './editor.css';
 import { Editor } from '@toolbar/ui/editor';
 import { EDITOR_FRAME_TAG } from '@toolbar/shared/ext';
 import { createHost } from './host';
+import { brandPage } from '../../lib/ui/page-brand.svelte';
+
+brandPage((n) => `${n} draft`);
 
 const draftId = new URLSearchParams(location.search).get('draft') ?? '';
 const host = await createHost(draftId);

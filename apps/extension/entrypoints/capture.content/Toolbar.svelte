@@ -16,6 +16,7 @@
   import RecordingBar from './ui/RecordingBar.svelte';
   import LiveDraw from './ui/LiveDraw.svelte';
   import LiveBlur from './ui/LiveBlur.svelte';
+  import { applyAccent, brand, loadBrand } from '../../lib/brand.svelte';
 
   let root: HTMLDivElement | undefined = $state();
   let host: Element | null = $state(null);
@@ -88,13 +89,19 @@
     };
   });
 
+  // the signed-in server's accent on the bar, toasts and screenshot mode (D-112)
+  loadBrand();
+  $effect(() => {
+    if (root) applyAccent(root, brand.accent, brand.onAccent);
+  });
+
   // tools end with the recording
   $effect(() => {
     if (!live && ui.tool) ui.tool = null;
   });
 </script>
 
-<div class="nb-ui" data-nb-ui data-session={s.state} bind:this={root}>
+<div class="nb-ui" data-nb-ui data-session={s.state} data-nb-brand={brand.name} bind:this={root}>
   {#if s.state === 'arming-screenshot'}
     {#key s.armedAt}
       <ScreenshotMode delaySec={s.delaySec} />

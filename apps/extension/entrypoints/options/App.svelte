@@ -4,8 +4,10 @@
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { Button, Icon } from '@toolbar/ui';
-  import { DEFAULT_SERVER_URL, PRODUCT_NAME } from '@toolbar/shared/constants';
+  import { DEFAULT_SERVER_URL } from '@toolbar/shared/constants';
   import { STORAGE } from '@toolbar/shared/ext';
+  import BrandLogo from '../../lib/ui/BrandLogo.svelte';
+  import { brand } from '../../lib/brand.svelte';
 
   const fallback = (import.meta.env.WXT_SERVER_URL as string | undefined) || DEFAULT_SERVER_URL;
   let value = $state('');
@@ -38,10 +40,10 @@
 </script>
 
 <main>
-  <h1><Icon name="logo" size={22} /> {PRODUCT_NAME} options</h1>
+  <h1><BrandLogo size={22} /> {brand.name} options</h1>
   <form onsubmit={save}>
     <label for="server">Server address</label>
-    <p class="hint">Your self-hosted {PRODUCT_NAME} server. Captures, links and sign-in go there.</p>
+    <p class="hint">Your self-hosted {brand.name} server. Captures, links and sign-in go there.</p>
     <div class="row">
       <input id="server" type="url" bind:value placeholder={fallback} data-server-input />
       <Button type="submit" variant="primary" data-server-save>Save</Button>
