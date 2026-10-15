@@ -198,6 +198,10 @@ export const captureDetailSchema = captureSummarySchema.extend({
   videoOffsetMs: z.number(),
   /** Custom metadata from window.toolbar.setMetadata (J-073), at most 10 KB */
   metadata: z.record(z.string(), z.unknown()).nullable(),
+  /** The project whose origin the page was on (D-117); null for captures made before projects or outside one. */
+  project: z.object({ id: idSchema, name: z.string() }).nullable().optional(),
+  /** Masking preset applied in the browser when the capture was made (D-119). */
+  maskingPreset: z.enum(['staging', 'production', 'none']).nullable().optional(),
 });
 export type CaptureDetail = z.infer<typeof captureDetailSchema>;
 

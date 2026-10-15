@@ -17,6 +17,22 @@ export interface PopupContext {
   heavy: boolean;
   /** the page is on the replay blocked-sites list (J-012) */
   replayBlocked: boolean;
+  /** D-120: may the extension run here, and what is missing (absent in older workers) */
+  site?: SiteAccess;
+}
+
+/** The popup's view of host access for the tab's page (D-117, D-120). */
+export interface SiteAccess {
+  /** the project whose origins cover the page */
+  project: { id: string; name: string; maskingPreset: 'staging' | 'production' } | null;
+  /** capture scripts may run on this page */
+  allowed: boolean;
+  /** match patterns of the user's project origins that still lack host access */
+  missing: string[];
+  /** how many projects the signed-in user has across workspaces */
+  projectCount: number;
+  /** a test build in Part 1 mode, where every site is allowed */
+  allSites: boolean;
 }
 
 /** Extra service-worker requests: `'name': { req: {...}; res: {...} }`. */

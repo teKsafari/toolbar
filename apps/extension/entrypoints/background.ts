@@ -2,7 +2,9 @@
 // Recording, screenshots, uploads and the instant-replay ring are filled in by the area agents.
 import { browser } from 'wxt/browser';
 import type { CaptureEvent, CommandName } from '@toolbar/shared';
-import { injectIntoOpenTabs, registerCaptureScripts } from '../lib/registration';
+import { syncRegistration } from '../lib/registration';
+import { registerScope } from '../lib/bg/scope';
+import { scope } from '../lib/scope';
 import { CAPTURE_PORT, type BgRequest, type PortMessage } from '../lib/messages';
 import { TEST_HOOKS } from '../lib/flags';
 import { registerAuth } from '../lib/bg/auth';
@@ -22,14 +24,16 @@ export default defineBackground(() => {
   const stats = { ports: 0, events: 0, byKind: {} as Record<string, number>, commands: [] as string[], pages: [] as string[] };
   const recent: CaptureEvent[] = [];
 
-  const ready = registerCaptureScripts().catch((e: unknown) => {
+  // D-120: capture scripts run on the granted project origins only (lib/scope.ts)
+  registerScope();
+  const ready = syncRegistration().catch((e: unknown) => {
     console.error('[toolbar] content script registration failed', e);
     throw e;
   });
   registerDraftHandlers();
-  browser.runtime.onInstalled.addListener(() => void registerCaptureScripts().then(injectIntoOpenTabs, () => undefined));
+  browser.runtime.onInstalled.addListener(() => void syncRegistration().catch(() => undefined));
   setupCapture();
-  browser.runtime.onStartup.addListener(() => void registerCaptureScripts());
+  browser.runtime.onStartup.addListener(() => void syncRegistration().catch(() => undefined));
 
   browser.runtime.onConnect.addListener((port) => {
     if (port.name !== CAPTURE_PORT) return;
@@ -62,7 +66,11 @@ export default defineBackground(() => {
 
   if (TEST_HOOKS) {
     (globalThis as unknown as { __tb: unknown }).__tb = {
-      ready: () => ready.then((r) => r.map((s) => s.id)),
+      ready: () => ready.then(() => browser.scripting.getRegisteredContentScripts()).then((r) => r.map((s) => s.id)),
+      // D-120: what the extension may run on, and what is registered
+      scope: () => scope(),
+      registered: () => browser.scripting.getRegisteredContentScripts(),
+      sync: () => syncRegistration(),
       stats: () => structuredClone(stats),
       events: () => recent.slice(),
       brand: () => ({ ...brandState }),

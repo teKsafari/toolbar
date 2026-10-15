@@ -17,6 +17,7 @@
 //   editor iframe <-> content host   window.postMessage   EditorFrameMessage (tag EDITOR_FRAME_TAG)
 import type { CaptureEvent, Rect } from '../events.ts';
 import type { ExtBootstrap, ExtensionSettings } from '../api/account.ts';
+import type { BodyPolicy } from '../projects.ts';
 import type { FinalizeCaptureBody } from '../api/captures.ts';
 import type { LinkedIssue } from '../api/captures.ts';
 import type { Person } from '../api/common.ts';
@@ -58,7 +59,7 @@ export type PortCommand =
   | { type: 'ring'; enabled: boolean; minutes: number }
   /** take an rrweb full snapshot now (start of a recording, replay cut point) */
   | { type: 'checkout' }
-  | { type: 'config'; captureUserEvents: boolean; maskingPreset: 'staging' | 'production' | 'none' };
+  | { type: 'config'; captureUserEvents: boolean; maskingPreset: 'staging' | 'production' | 'none'; bodyPolicy?: BodyPolicy };
 
 // ---------- requests to the service worker ----------
 

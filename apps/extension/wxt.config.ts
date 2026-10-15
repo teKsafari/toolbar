@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { COMMANDS, PRODUCT_NAME } from '@toolbar/shared';
+import { DEFAULT_SERVER_URL } from '@toolbar/shared/constants';
 import { ICON_SIZES, renderIcons } from './scripts/icons';
 
 // Test builds (WXT_TEST_HOOKS=1) render the in-page UI in an open shadow root and expose
@@ -42,6 +43,18 @@ export function buildName(raw = process.env.WXT_APP_NAME): string {
   return name;
 }
 const appName = buildName();
+
+/**
+ * Host access (D-120). A release build asks at install for its own server only; every site it
+ * records on is an optional permission the person grants from a click, for the origins of their
+ * projects. Test builds also hold <all_urls>, so the area suites run without a permission prompt
+ * (captureVisibleTab needs <all_urls> or activeTab); their capture scripts still follow
+ * lib/scope.ts.
+ */
+export function serverPattern(raw = process.env.WXT_SERVER_URL): string {
+  return `${new URL(raw || DEFAULT_SERVER_URL).origin}/*`;
+}
+export const OPTIONAL_HOSTS = ['http://*/*', 'https://*/*'];
 const appIcon = process.env.WXT_APP_ICON ? resolve(process.env.WXT_APP_ICON) : null;
 const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 
@@ -58,8 +71,9 @@ export default defineConfig({
     description: 'Capture bugs with console, network, user actions, screenshots, video and voice.',
     key: MANIFEST_KEY,
     minimum_chrome_version: '116',
-    // Part 1 replicates Jam: all sites. Part 2 moves these to optional_host_permissions.
-    host_permissions: ['<all_urls>'],
+    // D-120: the server only; project origins are optional and granted from a click
+    host_permissions: testHooks ? ['<all_urls>'] : [serverPattern()],
+    optional_host_permissions: OPTIONAL_HOSTS,
     permissions: [
       'activeTab',
       'scripting',
@@ -83,6 +97,12 @@ export default defineConfig({
     // WXT takes the popup's <title> (the %APP_NAME% placeholder) for the action title
     'build:manifestGenerated': (_wxt, manifest) => {
       if (manifest.action) manifest.action.default_title = appName;
+      // D-120: WXT adds the matches of runtime-registered scripts to host_permissions; set them
+      // here, after it. The server-page script runs on the build's server only (a server chosen on
+      // the options page gets it at runtime, lib/bg/scope.ts).
+      manifest.host_permissions = testHooks ? ['<all_urls>'] : [serverPattern()];
+      manifest.optional_host_permissions = OPTIONAL_HOSTS;
+      for (const cs of manifest.content_scripts ?? []) if (cs.js?.some((f) => f.includes('toolbar-web'))) cs.matches = [serverPattern()];
     },
     // WXT_APP_ICON: the rendered icons replace public/icon/*.png in this build's output only
     'build:publicAssets': async (_wxt, files) => {

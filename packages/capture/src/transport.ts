@@ -1,13 +1,15 @@
 // The only exit of the capture code (architecture section 2). The extension implements it
 // with chrome.runtime ports; the Part 2 injector implements it with fetch to the server.
 import type { CaptureEvent, MaskingPreset } from '@toolbar/shared';
+import type { BodyPolicy } from '@toolbar/shared/projects';
 
 export type Command =
   | { type: 'start'; recordingId: string; mode: 'video' | 'screen' | 'replay' | 'screenshot' }
   | { type: 'stop'; recordingId: string }
   | { type: 'snapshot' }
   | { type: 'flush' }
-  | { type: 'config'; maskingPreset?: MaskingPreset; captureUserEvents?: boolean }
+  /** `bodyPolicy`: which request and response bodies the project's preset keeps (D-117) */
+  | { type: 'config'; maskingPreset?: MaskingPreset; captureUserEvents?: boolean; bodyPolicy?: BodyPolicy }
   /** stream into a recording from now on: rrweb starts (with a full snapshot) if it is off */
   | { type: 'attach'; recordingId: string; t0: number }
   | { type: 'detach'; recordingId: string }

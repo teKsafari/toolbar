@@ -189,6 +189,8 @@ export interface NetRequest {
   headers?: Headers;
   body?: string;
   bodyTruncated?: boolean;
+  /** The body was left out by the project's masking preset (Part 2 "Privacy", D-117). */
+  bodyOmitted?: 'masking';
   initiator?: NetInitiator;
   source: NetSource;
   /** GraphQL operation in the request body (J-064). */
@@ -216,6 +218,8 @@ export interface NetResponse {
   headers?: Headers;
   body?: string;
   truncated?: boolean;
+  /** The body was left out by the project's masking preset (D-117). */
+  bodyOmitted?: 'masking';
   contentType?: string;
   encodedSize?: number;
   timing?: NetTiming;
@@ -242,6 +246,8 @@ export interface WsEvent {
   url?: string;
   data?: string;
   truncated?: boolean;
+  /** The payload was left out by the project's masking preset (D-117). */
+  bodyOmitted?: 'masking';
   code?: number;
   reason?: string;
   /** Binary frame: `data` is absent and `length` holds its size (J-066). */
@@ -257,6 +263,8 @@ export interface SseEvent {
   url?: string;
   event?: string;
   data?: string;
+  /** The payload was left out by the project's masking preset (D-117). */
+  bodyOmitted?: 'masking';
   lastEventId?: string;
 }
 

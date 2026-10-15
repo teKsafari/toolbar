@@ -33,7 +33,15 @@
     }
     const origin = url.origin;
     if (origin === new URL(fallback).origin) await browser.storage.local.remove(STORAGE.serverUrl.key);
-    else await browser.storage.local.set({ [STORAGE.serverUrl.key]: origin });
+    else {
+      // D-120: the manifest grants the build's server only; another server is asked for here, from the click
+      const granted = await browser.permissions.request({ origins: [`${origin}/*`] }).catch(() => false);
+      if (!granted) {
+        error = `The extension needs access to ${url.host} to sign in and upload there.`;
+        return;
+      }
+      await browser.storage.local.set({ [STORAGE.serverUrl.key]: origin });
+    }
     value = origin;
     saved = 'Saved. Sign in again from the popup if you changed servers.';
   }

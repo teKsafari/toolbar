@@ -10,6 +10,7 @@ import { workspaceRoutes } from './workspaces.ts';
 import { integrationRoutes } from './integrations.ts';
 import { accountRoutes } from './account.ts';
 import { brandingRoutes } from './branding.ts';
+import { projectRoutes } from './projects.ts';
 import { serverCoreAreaRoutes } from './areas/server-core.ts';
 import { authAreaRoutes } from './areas/auth.ts';
 import { captureAreaRoutes } from './areas/capture.ts';
@@ -28,6 +29,7 @@ export const ROUTE_LIST = [
   ...integrationRoutes,
   ...accountRoutes,
   ...brandingRoutes,
+  ...projectRoutes,
   // per-area additions (src/api/areas/<area>.ts)
   ...serverCoreAreaRoutes,
   ...authAreaRoutes,

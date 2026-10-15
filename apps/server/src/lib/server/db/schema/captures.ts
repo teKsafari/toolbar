@@ -6,6 +6,7 @@ import { bigint, boolean, index, integer, jsonb, pgTable, primaryKey, real, text
 import { bytea, id, ts, created, updated } from './columns.ts';
 import { user, organization } from './auth.ts';
 import { folder } from './dashboard.ts';
+import { project } from './projects.ts';
 
 export const recording = pgTable(
   'recording',
@@ -59,6 +60,11 @@ export const recording = pgTable(
     createdAt: created(),
     updatedAt: updated(),
     deletedAt: ts('deleted_at'),
+    // ---- Part 2 (D-117, D-119) ----
+    /** project whose origin the page was on */
+    projectId: uuid('project_id').references(() => project.id, { onDelete: 'set null' }),
+    /** masking preset the browser applied: staging, production or none (no project) */
+    maskingPreset: text('masking_preset', { enum: ['staging', 'production', 'none'] }),
   },
   (t) => [
     index('recording_org_created_idx').on(t.organizationId, t.createdAt),

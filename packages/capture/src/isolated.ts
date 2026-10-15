@@ -2,7 +2,8 @@
 // bridge, records user events, DOM summaries, env info and (on demand) rrweb, applies redaction
 // before anything leaves the page, and hands batches to a Transport.
 import { createEmitter, documentToken, type CaptureEvent, type EventKind, type EventDataMap, type MaskingPreset } from '@toolbar/shared/events';
-import { redactEvent } from '@toolbar/shared/redact';
+import { createRedactor } from '@toolbar/shared/redact';
+import { OPEN_BODY_POLICY, type BodyPolicy } from '@toolbar/shared/projects';
 import { acceptMainBridge, isMainReply, type MainReply } from './bridge.ts';
 import { observeDom } from './dom-summary.ts';
 import { collectEnv } from './env.ts';
@@ -24,6 +25,13 @@ export interface StartIsolatedOptions {
   extVersion?: string;
   /** Timing of page-weight reports (J-011); tests shorten it. */
   pageWeight?: { firstMs?: number; everyMs?: number };
+  /**
+   * Hold every event until the first `config` command names the masking preset and body policy
+   * (D-119), so nothing leaves the page under the wrong preset. The extension sets it; the queue
+   * keeps the newest `heldMax` events.
+   */
+  awaitConfig?: boolean;
+  heldMax?: number;
 }
 
 export interface IsolatedHandle {
@@ -37,7 +45,7 @@ export interface IsolatedHandle {
   readonly ctx: string;
 }
 
-export function startIsolatedWorld({ transport, win = window as Window & typeof globalThis, batchMs = 50, dom = true, env, extVersion, pageWeight }: StartIsolatedOptions): IsolatedHandle {
+export function startIsolatedWorld({ transport, win = window as Window & typeof globalThis, batchMs = 50, dom = true, env, extVersion, pageWeight, awaitConfig = false, heldMax = 2000 }: StartIsolatedOptions): IsolatedHandle {
   const top = (() => {
     try {
       return win.top === win;
@@ -47,7 +55,22 @@ export function startIsolatedWorld({ transport, win = window as Window & typeof 
   })();
   const ctx = top ? 'top-i' : `f${Math.random().toString(36).slice(2, 7)}-i`;
   const make = createEmitter(ctx, undefined, documentToken());
-  let preset: MaskingPreset = 'staging';
+  // Until the preset is known, describe targets under the strictest one: an early click must not
+  // carry page text that the project's preset would mask.
+  let preset: MaskingPreset = awaitConfig ? 'production' : 'staging';
+  let bodyPolicy: BodyPolicy = OPEN_BODY_POLICY;
+  let configured = !awaitConfig;
+  let held: CaptureEvent[] = [];
+  const redact = createRedactor(
+    () => bodyPolicy,
+    () => {
+      try {
+        return win.location.href;
+      } catch {
+        return undefined;
+      }
+    },
+  );
   let pending: CaptureEvent[] = [];
   let timer: ReturnType<typeof setTimeout> | null = null;
   let received = 0;
@@ -65,9 +88,14 @@ export function startIsolatedWorld({ transport, win = window as Window & typeof 
     }
   };
   const push = (e: CaptureEvent) => {
+    if (!configured) {
+      held.push(e);
+      if (held.length > heldMax) held.splice(0, held.length - heldMax);
+      return;
+    }
     let out: CaptureEvent;
     try {
-      out = redactEvent(e);
+      out = redact(e);
     } catch {
       return; // never let an unredacted event through
     }
@@ -91,6 +119,7 @@ export function startIsolatedWorld({ transport, win = window as Window & typeof 
   }, win);
 
   const users = recordUserEvents({ emit: (u) => emit('user', u), onHide: flush, frame: top ? 'top' : ctx.replace(/-i$/, ''), win });
+  if (awaitConfig) users.setPreset(preset);
   if (dom) observeDom((d) => emit('dom', d), win);
   const rrweb = createRrwebRecorder((batch, full) => {
     flush(); // keep events and rrweb roughly in order across the two streams
@@ -116,7 +145,9 @@ export function startIsolatedWorld({ transport, win = window as Window & typeof 
 
   const envOnce = (): Promise<EventDataMap['env']> =>
     collectEnv(win, { maskingPreset: preset }).then((e) => (extVersion ? { ...e, extVersion } : e));
-  if (env ?? top) void envOnce().then((e) => emit('env', e)).catch(() => {});
+  const emitEnv = () => void envOnce().then((e) => emit('env', e)).catch(() => {});
+  // with awaitConfig the env event waits for the preset, since it records which one applied
+  if ((env ?? top) && !awaitConfig) emitEnv();
 
   transport.onCommand((c: Command) => {
     switch (c.type) {
@@ -125,13 +156,28 @@ export function startIsolatedWorld({ transport, win = window as Window & typeof 
         rrweb.flush();
         flush();
         break;
-      case 'config':
+      case 'config': {
+        const before = preset;
         if (c.maskingPreset) {
           preset = c.maskingPreset;
           users.setPreset(c.maskingPreset);
         }
+        if (c.bodyPolicy) bodyPolicy = c.bodyPolicy;
         if (c.captureUserEvents !== undefined) users.setEnabled(c.captureUserEvents);
+        // rrweb takes its mask options at start: a new preset restarts it with a full snapshot
+        if (preset !== before && rrweb.running) {
+          rrweb.stop();
+          syncRrweb();
+        }
+        if (!configured) {
+          configured = true;
+          if (env ?? top) emitEnv();
+          const queued = held;
+          held = [];
+          for (const e of queued) push(e);
+        }
         break;
+      }
       case 'ring':
         ringOn = c.enabled;
         syncRrweb();

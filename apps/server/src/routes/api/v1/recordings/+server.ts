@@ -8,6 +8,7 @@ import { authorSnapshot, createCaptureRecord } from '#lib/server/upload/service.
 import { workspaceFor } from '#lib/server/dashboard/core.ts';
 import { listCaptures } from '#lib/server/dashboard/captures.ts';
 import { json } from '@sveltejs/kit';
+import { projectForCapture } from '#lib/server/projects.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -15,7 +16,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const POST = apiRoute(ROUTES['captures.create'], async ({ event, body }) => {
   if (!UUID.test(body.workspaceId)) fail('invalid_body', 'workspaceId is not an id');
   const { userId } = await requireSeat(db, event, body.workspaceId, 'creator');
+  // D-118: the page must be on an origin of one of the workspace's projects
+  const proj = await projectForCapture(db, body.workspaceId, { pageUrl: body.page?.url, kind: body.kind });
+  // D-119: the preset the browser applied, else the project's
+  const applied = (body.env as { maskingPreset?: 'staging' | 'production' | 'none' } | undefined)?.maskingPreset;
   const r = await createCaptureRecord(db, {
+    projectId: proj?.id ?? null,
+    maskingPreset: applied ?? proj?.maskingPreset ?? null,
     organizationId: body.workspaceId,
     clientId: body.clientId,
     kind: body.kind,
