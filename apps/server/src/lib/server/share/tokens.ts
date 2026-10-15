@@ -32,11 +32,23 @@ export async function mintShareLink(
       access: opts.access ?? 'anyone',
       devtools: opts.devtools ?? true,
       createdBy: opts.createdBy ?? null,
-      expiresAt: opts.expiresInDays ? new Date(Date.now() + opts.expiresInDays * 86_400_000) : null,
+      expiresAt: expiryOf(opts.expiresInDays),
     })
     .returning();
   return { row: row!, token };
 }
+
+/**
+ * Expiry of a new link: the days asked for, else SHARE_LINK_DAYS (Part 2 default 14, PLAN "Privacy
+ * and prompt injection"); 0 there keeps Part 1's links that never expire.
+ */
+export function expiryOf(days: number | undefined, now = Date.now()): Date | null {
+  const d = days ?? env.handoff.shareLinkDays;
+  return d ? new Date(now + d * 86_400_000) : null;
+}
+
+/** A link that can serve as the capture's default: any live one when links expire by policy, else one without expiry. */
+const defaultCandidate = (r: Pick<ShareLinkRow, 'expiresAt'>) => (env.handoff.shareLinkDays ? true : !r.expiresAt);
 
 export const tokenOf = (row: Pick<ShareLinkRow, 'tokenEnc'>) => unseal(row.tokenEnc, 'share-token');
 
@@ -73,8 +85,8 @@ export async function ensureDefaultLinks(db: Db, rec: { id: string; access: Shar
     .where(and(eq(shareLink.recordingId, rec.id), isNull(shareLink.revokedAt)))
     .orderBy(asc(shareLink.createdAt));
   const live = rows.filter((r) => isLive(r));
-  let link = live.find((r) => r.devtools && !r.expiresAt);
-  let contentOnly = live.find((r) => !r.devtools && !r.expiresAt);
+  let link = live.find((r) => r.devtools && defaultCandidate(r));
+  let contentOnly = live.find((r) => !r.devtools && defaultCandidate(r));
   if (!link) link = (await mintShareLink(db, rec.id, { access: rec.access, devtools: true, createdBy })).row;
   if (!contentOnly) contentOnly = (await mintShareLink(db, rec.id, { access: rec.access, devtools: false, createdBy })).row;
   const all = await db.select().from(shareLink).where(eq(shareLink.recordingId, rec.id)).orderBy(asc(shareLink.createdAt));
@@ -113,7 +125,7 @@ export async function primaryShareUrl(db: Db, rec: { id: string; access: ShareAc
     .from(shareLink)
     .where(and(eq(shareLink.recordingId, rec.id), eq(shareLink.devtools, true), isNull(shareLink.revokedAt)))
     .orderBy(asc(shareLink.createdAt));
-  const live = rows.find((r) => isLive(r) && !r.expiresAt);
+  const live = rows.find((r) => isLive(r) && defaultCandidate(r));
   if (live) return shareUrlOf(tokenOf(live));
   const { token } = await mintShareLink(db, rec.id, { access: rec.access, devtools: true, createdBy });
   return shareUrlOf(token);

@@ -70,6 +70,10 @@ services:
       APP_LOGO_DARK_URL: ${APP_LOGO_DARK_URL:-}
       APP_ACCENT: ${APP_ACCENT:-}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      # agent hand-off (docs/configuration.md): share link lifetime, OCR of canvas regions
+      SHARE_LINK_DAYS: ${SHARE_LINK_DAYS:-14}
+      OCR_BIN: ${OCR_BIN:-tesseract}
+      OCR_LANGS: ${OCR_LANGS:-eng}
     depends_on:
       postgres: { condition: service_healthy }
       garage: { condition: service_healthy }

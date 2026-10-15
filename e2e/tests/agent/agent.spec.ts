@@ -180,9 +180,12 @@ test('J-153 markdown summary for plain fetches, and the Link header on the HTML'
   const md = await page.request.get(`${SERVER}/s/${SHARE_C3}.md`, { headers: { cookie: '' } });
   expect(md.headers()['content-type']).toContain('text/markdown');
   const text = await md.text();
-  expect(text).toMatch(/^---\ntitle: "Details form rejects valid input"/);
+  // Part 2 (PLAN "Hand-off to the agent", D-HO1): the first line pulls the feedback folder; the
+  // rest is a summary for link holders, with the title fenced as captured text and no comments.
+  expect(text.split('\n')[0]).toMatch(/^curl -fsSL -H "Authorization: Bearer \$TOOLBAR_TOKEN" "[^"]+\/api\/v1\/recordings\/[0-9a-f-]{36}\/folder" \| tar xz$/);
+  expect(text).toContain('```text captured source="title" author="Dana Reviewer"\nDetails form rejects valid input\n```');
   expect(text).toContain('Signals:');
-  expect(text).toContain('## Comments');
+  expect(text).not.toContain('## Comments');
   expect(text).toContain(`${SERVER}/mcp`);
   const neg = await page.request.get(`${SERVER}/s/${SHARE_C3}`, { headers: { accept: 'text/markdown' } });
   expect(await neg.text()).toBe(text);

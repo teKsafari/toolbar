@@ -37,6 +37,7 @@ import { REACTION_KEYS, setReaction } from './reactions.ts';
 import { publish } from '../viewer/comments.ts';
 import type { McpPrincipal } from './oauth.ts';
 import { authorSnapshot } from '../auth/author.ts';
+import { HANDOFF_TOOLS } from './handoff-tools.ts';
 
 export type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
 export interface ToolResult {
@@ -968,6 +969,8 @@ export const TOOLS: ToolDef[] = [
   createLink,
   updateLink,
   deleteLink,
+  // agent hand-off: the feedback folder and resolving (PLAN "Hand-off to the agent")
+  ...HANDOFF_TOOLS,
 ];
 
 export const toolByName = new Map(TOOLS.map((t) => [t.name, t]));

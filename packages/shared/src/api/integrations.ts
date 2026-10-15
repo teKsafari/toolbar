@@ -192,7 +192,11 @@ export const listLinkedIssues = defineRoute({
 
 // ---------- outgoing webhooks ----------
 
-export const WEBHOOK_EVENTS = ['capture.created', 'capture.deleted', 'comment.created'] as const;
+/**
+ * `feedback.created` fires with `capture.created` and carries the hand-off (folder URL, pull
+ * command); `feedback.resolved` fires when someone or an agent marks the feedback resolved.
+ */
+export const WEBHOOK_EVENTS = ['capture.created', 'capture.deleted', 'comment.created', 'feedback.created', 'feedback.resolved'] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
 
 /**
@@ -331,6 +335,17 @@ export const webhookPayloadSchema = z.object({
       createdAt: isoSchema,
     }),
     comment: z.object({ id: idSchema, body: z.string(), tMs: z.number().nullable(), author: personSchema.nullable() }).optional(),
+    /** feedback.created and feedback.resolved: how an agent gets the folder */
+    feedback: z
+      .object({
+        folderUrl: z.string(),
+        pullCommand: z.string(),
+        skillUrl: z.string(),
+        resolution: z
+          .object({ resolvedAt: isoSchema, resolvedBy: personSchema.nullable(), note: z.string().nullable(), commit: z.string().nullable(), via: z.string().nullable() })
+          .nullable(),
+      })
+      .optional(),
   }),
 });
 export type WebhookPayload = z.infer<typeof webhookPayloadSchema>;

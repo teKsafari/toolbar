@@ -120,6 +120,15 @@ export function loadEnv() {
       sttApiKey: read('STT_API_KEY'),
       sttModel: read('STT_MODEL', 'whisper-1'),
     },
+    /** Agent hand-off (PLAN "Hand-off to the agent"). */
+    handoff: {
+      /** Days a new share link stays live (Part 2: 14); 0 means links never expire (Part 1 behaviour). */
+      shareLinkDays: Math.max(0, Number(read('SHARE_LINK_DAYS', '14')) || 0),
+      /** OCR of canvas regions for text/ in the folder: the tesseract binary, or `off`. */
+      ocrBin: read('OCR_BIN', 'tesseract'),
+      /** tesseract languages, `+` separated (the image ships eng and swa). */
+      ocrLangs: read('OCR_LANGS', 'eng'),
+    },
     extensionIds: read('EXTENSION_IDS').split(/[\s,]+/).filter(Boolean),
     auth: {
       /**

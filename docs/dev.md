@@ -18,7 +18,7 @@ Internal packages ship TypeScript source (`exports` point at `src/*.ts`); Vite a
 
 ## Requirements
 
-Node 24, pnpm 11.27 (`corepack enable` picks it up from `packageManager`; where Node lives in a read-only store, as on NixOS, `corepack enable` fails: use `corepack pnpm@11.27.0 ...`, `npm i -g pnpm@11.27.0`, or a pnpm already on `PATH`), Docker with compose. For e2e: Xvfb, and openbox if you want the screen picker (on this VM: `nix profile add nixpkgs#xorg.xvfb nixpkgs#openbox`).
+Node 24, pnpm 11.27 (`corepack enable` picks it up from `packageManager`; where Node lives in a read-only store, as on NixOS, `corepack enable` fails: use `corepack pnpm@11.27.0 ...`, `npm i -g pnpm@11.27.0`, or a pnpm already on `PATH`), Docker with compose. For e2e: Xvfb, and openbox if you want the screen picker (on this VM: `nix profile add nixpkgs#xorg.xvfb nixpkgs#openbox`). For OCR in the feedback folder outside Docker: tesseract with English data (on NixOS `nixpkgs#tesseract` carries every language, about 1 GB; `tesseract.override { enableLanguages = [ "eng" ]; }` is small); without it `text/` is left out.
 
 ## Ports
 
@@ -186,4 +186,5 @@ Points that keep the runs deterministic:
 | Jobs | register handlers with `registerJob()` in `apps/server/src/lib/server/jobs/worker.ts`, enqueue with `enqueue()` |
 | Viewer, dashboard, settings | `apps/server/src/routes/(app)/**`, share page `apps/server/src/routes/s/[token]` |
 | Transcription | `apps/server/src/lib/server/transcribe/index.ts` |
+| Agent hand-off (feedback folder, share markdown, skill, resolve) | `apps/server/src/lib/server/handoff/*`, text and README in `packages/shared/src/areas/handoff.ts`, skill `skills/open-toolbar-feedback/SKILL.md` (regenerate with `node scripts/gen-skill.ts`), e2e `e2e/tests/handoff` (needs `TOOLBAR_E2E_TOKEN`) |
 | Shared UI | `packages/ui/src/lib/*`, tokens in `packages/ui/src/tokens.ts` (then `pnpm --filter @toolbar/ui gen:tokens`) |

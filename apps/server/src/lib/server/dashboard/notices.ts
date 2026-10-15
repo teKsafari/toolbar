@@ -11,6 +11,7 @@ import { enqueue } from '../jobs/queue.ts';
 import { sendMail } from '../mail.ts';
 import { firstViewMail, recordingLinkUsedMail } from '../mail-templates/index.ts';
 import { dispatch } from '../webhooks/index.ts';
+import { feedbackPayload } from '../handoff/payload.ts';
 import { syncTextRefs } from '../integrations/index.ts';
 import { deleteCapture } from '../upload/service.ts';
 import { readSettings } from '../auth/workspaces.ts';
@@ -19,7 +20,7 @@ import { currentBrand } from '../branding/index.ts';
 
 export const NOTICE_EVERY_MS = 2000;
 
-function capturePayload(r: RecordingRow): WebhookPayload['data']['capture'] {
+export function capturePayload(r: RecordingRow): WebhookPayload['data']['capture'] {
   const media: string[] = [];
   if (r.kind === 'screenshot') media.push(mediaUrl(r.id, 'screenshot'));
   else media.push(mediaUrl(r.id, 'video'));
@@ -40,6 +41,8 @@ function capturePayload(r: RecordingRow): WebhookPayload['data']['capture'] {
 
 export async function onCreated(db: Db, r: RecordingRow) {
   await dispatch(db, r.organizationId, 'capture.created', { capture: capturePayload(r) });
+  // the agent hand-off: the same capture with the folder an agent pulls (PLAN "Hand-off to the agent")
+  await dispatch(db, r.organizationId, 'feedback.created', { capture: capturePayload(r), feedback: feedbackPayload(r.id, null) });
   await audit(db, { workspaceId: r.organizationId, actorId: r.authorUserId, action: 'capture.created', target: { type: 'capture', id: r.id, label: r.title || null }, details: { kind: r.kind, source: r.source } });
   await syncTextRefs(db, r).catch(() => {});
   if (r.recordingLinkId) {
