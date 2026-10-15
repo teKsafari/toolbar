@@ -251,8 +251,11 @@
 
   async function discard() {
     clearTimeout(saveTimer);
-    await host.discard().catch(() => {});
+    // the editor goes at once (J-088); the discard request is already on its way to the worker,
+    // which deletes the draft whether or not this frame is still there to hear the answer
+    const gone = host.discard().catch(() => {});
     host.close('discarded');
+    await gone;
   }
 
   async function saveForLater() {
