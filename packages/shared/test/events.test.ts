@@ -41,6 +41,7 @@ describe('schema round trip', () => {
     make('shot', { assetId: 'a', reason: 'user' }),
     make('annotation', { annotationId: 'n', op: 'create' }),
     make('marker', { type: 'mark' }),
+    make('canvas.sample', { phase: 'after', key: 'canvas', rect: { x: 0, y: 0, w: 10, h: 10 }, hash: '0a1b2c3d', diff: 0.25, at: 1 }),
   ];
 
   it('has a sample for every kind', () => {

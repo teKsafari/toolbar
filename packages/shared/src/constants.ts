@@ -13,7 +13,7 @@ export const BRIDGE_TAG = '__tb';
 export const DEFAULT_SERVER_URL = 'http://localhost:3000';
 export const API_PREFIX = '/api/v1';
 
-export const RECORDING_KINDS = ['screenshot', 'video', 'replay', 'screen', 'link'] as const;
+export const RECORDING_KINDS = ['screenshot', 'video', 'replay', 'screen', 'link', 'trace'] as const;
 export type RecordingKind = (typeof RECORDING_KINDS)[number];
 
 export const RECORDING_STATUSES = ['uploading', 'processing', 'ready', 'failed'] as const;

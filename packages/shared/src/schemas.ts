@@ -158,6 +158,7 @@ export const eventDataSchemas = {
     attrs: z.number().int(),
     text: z.number().int(),
     rects: z.array(rectSchema).max(5),
+    texts: z.array(z.string().max(200)).max(5).optional(),
   }),
   rrweb: z.object({ chunk: z.number().int(), first: z.number(), last: z.number() }),
   media: z.object({
@@ -182,6 +183,15 @@ export const eventDataSchemas = {
     label: z.string().optional(),
     /** the selected area of an area screenshot, CSS px in the viewport (J-209) */
     rect: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }).optional(),
+  }),
+  'canvas.sample': z.object({
+    phase: z.enum(['before', 'after']),
+    key: z.string(),
+    rect: rectSchema,
+    hash: z.string().nullable(),
+    blank: z.boolean().optional(),
+    diff: z.number().min(0).max(1).optional(),
+    at: z.number(),
   }),
 } as const satisfies Record<(typeof EVENT_KINDS)[number], z.ZodType>;
 

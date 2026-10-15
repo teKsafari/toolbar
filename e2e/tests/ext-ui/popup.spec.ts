@@ -18,10 +18,12 @@ test('J-001 J-193: the popup lists screenshot, record and recording link under a
   const popup = await openPopup(context, tabId);
   expect(Date.now() - t0).toBeLessThan(budget(1700));
   expect(await popup.evaluate(() => (globalThis as { __tbPopupPaintMs?: number }).__tbPopupPaintMs)).toBeLessThan(budget(1700));
-  await expect(popup.locator('[data-row]')).toHaveCount(3);
+  // Jam's three rows, then the Part 2 trace row (D-117)
+  await expect(popup.locator('[data-row]')).toHaveCount(4);
   await expect(popup.locator('[data-row]').nth(0)).toHaveAttribute('data-row', 'screenshot');
   await expect(popup.locator('[data-row]').nth(1)).toHaveAttribute('data-row', 'record');
   await expect(popup.locator('[data-row]').nth(2)).toHaveAttribute('data-row', 'link');
+  await expect(popup.locator('[data-row]').nth(3)).toHaveAttribute('data-row', 'trace');
   await expect(popup.locator('[data-home]')).toBeVisible();
   await expect(popup.locator('[data-menu-button]')).toBeVisible();
   // rows are about 370x40, 8 px apart
@@ -38,7 +40,7 @@ test('J-001: with instant replay on, a replay row joins the menu; J-182 the repl
   await freshState(sw, { settings: { instantReplay: true } });
   const { page, tabId } = await labPage(context);
   const popup = await openPopup(context, tabId);
-  await expect(popup.locator('[data-row]')).toHaveCount(4);
+  await expect(popup.locator('[data-row]')).toHaveCount(5); // with the trace row (D-117)
   await expect(popup.locator('[data-row]').nth(2)).toHaveAttribute('data-row', 'replay');
   await popup.close();
   await sw.evaluate((id) => __tbUi.command('instant-replay', id), tabId);

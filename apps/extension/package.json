@@ -16,6 +16,7 @@
   "dependencies": {
     "@toolbar/capture": "workspace:*",
     "@toolbar/shared": "workspace:*",
+    "@toolbar/trace": "workspace:*",
     "@toolbar/ui": "workspace:*",
     "perfect-freehand": "1.2.3"
   },

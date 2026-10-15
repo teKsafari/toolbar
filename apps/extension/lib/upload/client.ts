@@ -62,7 +62,7 @@ async function call<T>(auth: UploadAuthLike, name: RouteName, params: Record<str
 
 export interface CreateCaptureInput {
   clientId: string;
-  kind: 'screenshot' | 'video' | 'replay' | 'screen' | 'link';
+  kind: 'screenshot' | 'video' | 'replay' | 'screen' | 'link' | 'trace';
   workspaceId: string;
   folderId?: string;
   page: { url: string; title: string };
