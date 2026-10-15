@@ -90,18 +90,22 @@ export function installEditorHost(container: HTMLElement): EditorHostHandle {
     } else if (m.type === 'create-failed') {
       doneCreating();
     } else if (m.type === 'close') {
-      doneCreating();
       const id = draftId;
       close();
       ensureToaster();
       if (m.reason === 'created') {
         // J-089: with open-in-new-tab off nothing opens; J-140: a tracker failure still saved the capture
         const opened = m.opened !== false;
-        if (m.copied === false) toasts.success(opened ? 'Capture created. It opened in a new tab; copy the link there.' : 'Capture created. Copy its link from your captures.');
-        else toasts.success(opened ? 'Link copied. The capture opened in a new tab.' : 'Link copied.');
+        const done = m.copied === false
+          ? opened ? 'Capture created. It opened in a new tab; copy the link there.' : 'Capture created. Copy its link from your captures.'
+          : opened ? 'Link copied. The capture opened in a new tab.' : 'Link copied.';
+        // the progress toast turns into the done toast in place (J-086)
+        if (creating !== null) toasts.update(creating, { kind: 'success', message: done });
+        else toasts.success(done);
+        creating = null;
         if (m.issueError) toasts.error(`The capture is saved, but filing the issue failed: ${m.issueError}`, { duration: 10_000 });
-      }
-      else if (m.reason === 'saved' && id)
+      } else doneCreating();
+      if (m.reason === 'saved' && id)
         toasts.show('Saved to your drafts', {
           duration: 6000,
           action: { label: 'View', run: () => void browser.runtime.sendMessage({ type: 'draft.open', draftId: id }) },
