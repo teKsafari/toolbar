@@ -1,6 +1,8 @@
 <script lang="ts">
   // J-148: create-key dialog with name, expiry (7, 30, 90 days or a year) and read-only or
-  // read-write per surface (CLI, MCP). The secret has a fixed prefix and shows once.
+  // read-write per surface (MCP and the HTTP API; Jam's two rows are MCP and its CLI, both
+  // read-only by default). The `cli` field sets the API scopes, which the paused CLI also uses
+  // (docs/scope.md). The secret has a fixed prefix and shows once.
   import { enhance } from '$app/forms';
   import { Button, Icon } from '@toolbar/ui';
   import { TOKEN_SCOPE_LABELS } from '@toolbar/shared/areas/auth';
@@ -9,8 +11,9 @@
   let { data, form } = $props();
   let dialog: HTMLDialogElement | undefined = $state();
   let name = $state('');
+  let mcp = $state('read');
   let cli = $state('read');
-  let mcp = $state('none');
+  const apiLabel = $derived(data.features.cli ? 'HTTP API and CLI' : 'HTTP API');
   let copied = $state(false);
   const created = $derived(form && 'created' in form ? form.created : null);
 
@@ -29,7 +32,7 @@
   <h1>API tokens</h1>
   <Button variant="primary" icon="plus" onclick={() => dialog?.showModal()}>Create token</Button>
 </div>
-<p class="muted">Personal tokens let the CLI and agents act as you. Treat them like a password.</p>
+<p class="muted">Personal tokens let agents and scripts act as you, over MCP and the HTTP API. Treat them like a password.</p>
 
 {#if created}
   <div class="once" role="status" data-testid="token-secret">
@@ -73,7 +76,7 @@
   >
     <h2 id="tok-title">Create a token</h2>
     <label for="tok-name">Name</label>
-    <input id="tok-name" type="text" name="name" maxlength="100" placeholder="Laptop CLI" bind:value={name} required />
+    <input id="tok-name" type="text" name="name" maxlength="100" placeholder="Laptop agent" bind:value={name} required />
     <label for="tok-exp">Expires</label>
     <select id="tok-exp" name="expires">
       <option value="7">In 7 days</option>
@@ -83,16 +86,16 @@
       <option value="never">Never</option>
     </select>
     <fieldset>
-      <legend>CLI</legend>
-      <label class="radio"><input type="radio" name="cli" value="read" bind:group={cli} /> Read only</label>
-      <label class="radio"><input type="radio" name="cli" value="write" bind:group={cli} /> Read and write</label>
-      <label class="radio"><input type="radio" name="cli" value="none" bind:group={cli} /> No access</label>
-    </fieldset>
-    <fieldset>
       <legend>MCP</legend>
       <label class="radio"><input type="radio" name="mcp" value="read" bind:group={mcp} /> Read only</label>
       <label class="radio"><input type="radio" name="mcp" value="write" bind:group={mcp} /> Read and write</label>
       <label class="radio"><input type="radio" name="mcp" value="none" bind:group={mcp} /> No access</label>
+    </fieldset>
+    <fieldset>
+      <legend>{apiLabel}</legend>
+      <label class="radio"><input type="radio" name="cli" value="read" bind:group={cli} /> Read only</label>
+      <label class="radio"><input type="radio" name="cli" value="write" bind:group={cli} /> Read and write</label>
+      <label class="radio"><input type="radio" name="cli" value="none" bind:group={cli} /> No access</label>
     </fieldset>
     <div class="actions">
       <Button onclick={() => dialog?.close()}>Cancel</Button>

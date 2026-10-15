@@ -210,7 +210,7 @@ test('J-148: personal token, shown once with its prefix; read-only refuses a wri
   const secretBox = page.getByTestId('token-secret');
   await expect(secretBox).toContainText('tb_pat_');
   const secret = (await secretBox.locator('code').textContent())!.trim();
-  await expect(page.getByText('CLI, read only')).toBeVisible();
+  await expect(page.getByText('HTTP API, read only')).toBeVisible();
 
   const auth = { authorization: `Bearer ${secret}` };
   const me = await page.request.get(`${SERVER}/api/v1/me`, { headers: auth });

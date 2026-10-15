@@ -54,10 +54,13 @@ export function tokenAllows(scopes: readonly string[], surface: TokenSurface, ne
   return need === 'read' && scopes.includes(`${surface}:read`);
 }
 
-/** Labels for the token dialog (J-148): read-only or read-write per surface. */
+/**
+ * Labels for the token dialog (J-148): read-only or read-write per surface. The `cli:*` scopes
+ * gate the HTTP API (the paused CLI calls it too, D-070), so the dialog names them after the API.
+ */
 export const TOKEN_SCOPE_LABELS: Record<TokenScope, string> = {
-  'cli:read': 'CLI, read only',
-  'cli:write': 'CLI, read and write',
+  'cli:read': 'HTTP API, read only',
+  'cli:write': 'HTTP API, read and write',
   'mcp:read': 'MCP, read only',
   'mcp:write': 'MCP, read and write',
 };

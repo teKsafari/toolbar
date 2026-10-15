@@ -87,7 +87,7 @@ export async function authorize(
   if (token?.kind === 'personal') {
     const need = neededScope(route);
     if (!tokenAllows(token.scopes ?? [], 'cli', need))
-      return { code: 'forbidden', message: `This token is not allowed to ${need === 'write' ? 'make changes' : 'read'} (needs cli:${need}).` };
+      return { code: 'forbidden', message: `This token is not allowed to ${need === 'write' ? 'make changes' : 'read'} over the HTTP API (needs cli:${need}).` };
   }
   const ws = params.workspaceId;
   if (route.role && ws && z.uuid().safeParse(ws).success) {

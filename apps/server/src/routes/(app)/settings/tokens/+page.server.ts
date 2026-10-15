@@ -3,7 +3,7 @@ import { createTokenBodySchema, TOKEN_SCOPES } from '@toolbar/shared/api';
 import { db } from '#lib/server/db/index.ts';
 import { createApiToken, listApiTokens, revokeApiToken, tokenInfo } from '#lib/server/tokens.ts';
 
-/** J-148: personal tokens for the CLI and MCP; the secret shows once, after create. */
+/** J-148: personal tokens for MCP and the HTTP API (`cli:*` scopes); the secret shows once, after create. */
 export const load = async ({ locals }) => ({ tokens: await listApiTokens(db, locals.user!.id, 'personal') });
 
 export const actions = {
@@ -11,7 +11,7 @@ export const actions = {
     const f = await request.formData();
     const days = String(f.get('expires') ?? '30');
     const cli = String(f.get('cli') ?? 'read');
-    const mcp = String(f.get('mcp') ?? 'none');
+    const mcp = String(f.get('mcp') ?? 'read');
     const scopes = [
       ...(cli === 'read' ? ['cli:read'] : cli === 'write' ? ['cli:write'] : []),
       ...(mcp === 'read' ? ['mcp:read'] : mcp === 'write' ? ['mcp:write'] : []),
