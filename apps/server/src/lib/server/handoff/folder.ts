@@ -15,6 +15,7 @@ import { assembleFolder, type BuiltFolder, type FolderData, type FolderIo } from
 import { cropRegion, flatten, frameToCss, sizeOf, toCssPixels } from './images.ts';
 import { ocrAvailable, ocrPng } from './ocr.ts';
 import { deriveSpans } from './spans.ts';
+import { feedbackItemsOf } from './items.ts';
 import { tarGz } from './tar.ts';
 import sharp from 'sharp';
 
@@ -45,6 +46,7 @@ export async function collectFolder(db: Db, rec: RecordingRow): Promise<FolderDa
     .where(and(eq(recordingChunk.recordingId, rec.id), eq(recordingChunk.stream, 'rrweb')))
     .orderBy(asc(recordingChunk.seq));
   const [res] = await db.select().from(feedbackResolution).where(eq(feedbackResolution.recordingId, rec.id));
+  const items = await feedbackItemsOf(db, rec.id);
   const events = await loadEvents(db, rec);
   const hasVideo = streams.some((s) => s.name === 'video' && !!s.finalKey);
   const prepared = events ? prepare(events, rec.startedAt?.getTime() ?? null, hasVideo) : null;
@@ -90,7 +92,32 @@ export async function collectFolder(db: Db, rec: RecordingRow): Promise<FolderDa
       comment: a.comment,
       author: name ?? email ?? rec.authorName ?? 'reviewer',
       createdAt: a.createdAt,
-    })),
+    })).concat(
+      items.map((it) => ({
+        id: it.id,
+        assetId: it.cropAssetId,
+        t: it.t,
+        shapes: it.shapes,
+        target: (it.target as TargetRef | null) ?? null,
+        // the locator work package puts a full packet in target (it has routeFiles)
+        locator: it.target && 'routeFiles' in it.target ? it.target : null,
+        comment: it.comment || null,
+        author: it.authorName ?? it.authorEmail ?? rec.authorName ?? 'reviewer',
+        createdAt: it.createdAt,
+        item: {
+          n: it.n,
+          kind: it.kind,
+          quote: it.quote,
+          intent: it.intent,
+          severity: it.severity,
+          status: it.status,
+          voiceText: it.transcriptStatus === 'done' ? it.transcriptText : null,
+          context: it.context,
+          page: it.page,
+          cropRect: it.cropRect,
+        },
+      })),
+    ),
     comments: comments.map(({ c, name, email }) => ({
       id: c.id,
       parentId: c.parentId,
@@ -147,7 +174,9 @@ async function fingerprint(db: Db, rec: RecordingRow): Promise<string> {
   const [t] = await db.select({ u: transcript.updatedAt }).from(transcript).where(eq(transcript.recordingId, rec.id)).orderBy(desc(transcript.updatedAt)).limit(1);
   const [r] = await db.select({ at: feedbackResolution.resolvedAt }).from(feedbackResolution).where(eq(feedbackResolution.recordingId, rec.id));
   const [a] = await db.select({ n: sql<number>`count(*)::int` }).from(asset).where(eq(asset.recordingId, rec.id));
-  return [rec.id, rec.updatedAt.getTime(), c?.n, String(c?.last ?? ''), t?.u?.getTime() ?? '', r?.at?.getTime() ?? '', a?.n].join('|');
+  const items = await feedbackItemsOf(db, rec.id);
+  const itemsKey = items.map((i) => `${i.n}:${i.status}:${i.transcriptStatus ?? ''}`).join(',');
+  return [rec.id, rec.updatedAt.getTime(), c?.n, String(c?.last ?? ''), t?.u?.getTime() ?? '', r?.at?.getTime() ?? '', a?.n, itemsKey].join('|');
 }
 
 export async function folderOf(db: Db, rec: RecordingRow): Promise<Cached> {

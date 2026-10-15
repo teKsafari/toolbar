@@ -16,6 +16,8 @@ import { handleMcpPost } from '../src/lib/server/mcp/protocol.ts';
 import { attempt, createHook, verify } from '../src/lib/server/webhooks/index.ts';
 import { reopenFeedback, resolutionOf, resolveFeedback } from '../src/lib/server/handoff/resolve.ts';
 import { collectFolder } from '../src/lib/server/handoff/folder.ts';
+import { assembleFolder } from '../src/lib/server/handoff/assemble.ts';
+import { sql } from 'drizzle-orm';
 import { expiryOf, mintShareLink, primaryShareUrl } from '../src/lib/server/share/tokens.ts';
 
 const base = process.env.DATABASE_URL ?? 'postgres://toolbar:toolbar@localhost:5432/toolbar';
@@ -139,5 +141,42 @@ describe.skipIf(!reachable)('hand-off (integration)', () => {
     const refused = await tool(vic.secret, 'get_feedback_folder', { capture: `http://localhost/s/${token}` });
     expect(refused.isError).toBe(true);
     expect(refused.content[0]!.text).toMatch(/summary only|seat/);
+  });
+
+  it('reviewer toolbar pins become annotations, and resolving some pins leaves the capture open', async () => {
+    // the reviewer-ui work package owns this table; create it here when this tree does not have it
+    await db.execute(sql`create table if not exists feedback_item (
+      id uuid primary key default uuidv7(), recording_id uuid not null, client_id uuid not null, n integer not null, kind text not null,
+      comment text not null default '', quote text, target jsonb, anchor jsonb, shapes jsonb not null default '[]'::jsonb, crop_asset_id uuid,
+      crop_rect jsonb, voice_asset_id uuid, voice_duration_ms integer, transcript_status text, transcript_vtt text, transcript_text text,
+      transcript_language text, transcript_error text, context jsonb, page jsonb not null, intent text not null default 'fix',
+      severity text not null default 'important', status text not null default 'pending', t bigint not null, author_user_id uuid,
+      author_name text, author_email text, author_issuer text, author_subject text, created_at timestamptz not null default now())`);
+    const page = JSON.stringify({ url: 'https://app.test/lessons/1', title: 'Lesson 1', viewport: { w: 800, h: 600 }, scroll: { x: 0, y: 0 }, dpr: 1 });
+    const target = JSON.stringify({ selector: 'button#run', tag: 'button', name: 'Run', rect: { x: 10, y: 20, w: 60, h: 30 } });
+    await db.execute(sql`insert into feedback_item (recording_id, client_id, n, kind, comment, quote, target, page, t, severity, author_name, context)
+      values (${ids.rec}, ${crypto.randomUUID()}, 1, 'element', 'Run does nothing', null, ${target}::jsonb, ${page}::jsonb, ${Date.now()}, 'blocking', 'Dana', ${JSON.stringify({ windowMs: 60000, errors: [{ t: 1, kind: 'error', text: 'TypeError' }], failedRequests: [] })}::jsonb),
+             (${ids.rec}, ${crypto.randomUUID()}, 2, 'text', 'Typo here', 'Andka', null, ${page}::jsonb, ${Date.now() + 1000}, 'suggestion', 'Dana', null)`);
+    const [rec] = await db.select().from(schema.recording).where(eq(schema.recording.id, ids.rec));
+    const data = await collectFolder(db, rec!);
+    expect(data.annotations.map((a) => a.item?.n)).toEqual([1, 2]);
+    const none = async () => {
+      throw new Error('no io');
+    };
+    const f = await assembleFolder(data, { bytes: none, toCss: none, flatten: none, crop: none, size: none, ocr: async () => null, ocrAvailable: async () => false });
+    const paths = f.files.map((x) => x.path);
+    expect(paths).toEqual(expect.arrayContaining(['annotations/a01.locator.json', 'annotations/a01.shapes.json', 'annotations/a02.locator.json']));
+    expect(JSON.parse(String(f.files.find((x) => x.path === 'annotations/a01.locator.json')!.data)).selector).toBe('button#run');
+    expect(f.readme).toContain('captured source="element pin 1 = a01 (fix, blocking, pending; 1 error and 0 failed requests in the 60 s before, in feedback.json)" author="Dana"');
+    expect(f.readme).toMatch(/captured source="highlighted text of a02" author="page"[^\n]*\nAndka\n/);
+    const fb = JSON.parse(String(f.files.find((x) => x.path === 'feedback.json')!.data));
+    expect(fb.annotations[0]).toMatchObject({ pin: 1, kind: 'element', severity: 'blocking', status: 'pending' });
+
+    await reopenFeedback(db, ids.rec);
+    const some = await resolveFeedback(db, rec!, ids.dana, { note: 'Run fixed', items: [1] }, 'API');
+    expect(some).toMatchObject({ resolved: false, itemsResolved: [1], itemsOpen: 1 });
+    const rest = await resolveFeedback(db, rec!, ids.dana, { note: 'Typo fixed', items: [2] }, 'API');
+    expect(rest).toMatchObject({ resolved: true, itemsResolved: [2], itemsOpen: 0, note: 'Typo fixed' });
+    expect((await resolutionOf(db, ids.rec)).itemsOpen).toBe(0);
   });
 });

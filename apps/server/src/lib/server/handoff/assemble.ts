@@ -48,6 +48,19 @@ export interface AnnotationIn {
   comment: string | null;
   author: string;
   createdAt: Date;
+  /** a reviewer toolbar item (feedback_item): pin number, kind, tags, status; its crop is 1x with the drawing in */
+  item?: {
+    n: number;
+    kind: string;
+    quote: string | null;
+    intent: string;
+    severity: string;
+    status: string;
+    voiceText: string | null;
+    context: unknown;
+    page: unknown;
+    cropRect: Rect | null;
+  };
 }
 
 export interface CommentIn {
@@ -286,10 +299,11 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
     if (asset) {
       try {
         const raw = await io.bytes(asset.s3Key);
-        const drawn = a.shapes.length ? await io.flatten(raw, a.shapes) : raw;
+        // toolbar items arrive drawn and at 1x; editor annotations carry shapes in image pixels
+        const drawn = a.shapes.length && !a.item ? await io.flatten(raw, a.shapes) : raw;
         const src = await io.size(raw);
-        // locator crops are 1x already; editor crops are device pixels
-        const factor = crop?.w ? src.width / crop.w : dpr;
+        // locator and toolbar crops are 1x already; editor crops are device pixels
+        const factor = a.item ? (a.item.cropRect?.w ? src.width / a.item.cropRect.w : 1) : crop?.w ? src.width / crop.w : dpr;
         const css = await io.toCss(drawn, factor);
         scale = src.width ? css.width / src.width : 1;
         image = `annotations/${n}.png`;
@@ -302,6 +316,7 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
     }
     const rect = (a.locator?.rect as Rect | undefined) ?? a.target?.rect ?? null;
     const origin = rect && crop ? { x: rect.x, y: rect.y } : null;
+    const pageSpace = !!a.item || !!origin;
     add(
       `annotations/${n}.shapes.json`,
       JSON.stringify(
@@ -309,10 +324,15 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
           annotation: a.id,
           locator: `${n}.locator.json`,
           image,
-          space: origin ? 'page' : 'image',
-          note: origin ? 'Coordinates are page CSS pixels (the locator rect is the origin of the crop).' : 'Coordinates are pixels of the annotation image before scaling to 1x; its place on the page is the locator rect.',
+          space: pageSpace ? 'page' : 'image',
+          note: a.item
+            ? 'Coordinates are document CSS pixels (from the top left of the page); cropRect is the part of the page the image shows.'
+            : origin
+              ? 'Coordinates are page CSS pixels (the locator rect is the origin of the crop).'
+              : 'Coordinates are pixels of the annotation image before scaling to 1x; its place on the page is the locator rect.',
           imageScale: scale,
-          shapes: shapesToPage(a.shapes, origin, origin ? scale : 1),
+          ...(a.item ? { cropRect: a.item.cropRect } : {}),
+          shapes: a.item ? a.shapes : shapesToPage(a.shapes, origin, origin ? scale : 1),
         },
         null,
         2,
@@ -323,7 +343,20 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
     add(`annotations/${n}.locator.json`, JSON.stringify(locator, null, 2), `annotation ${n}: selector, text, role, classes, route and candidate route files`, 'application/json');
     if (a.assetId) annFile.set(a.id, image ?? `annotations/${n}.locator.json`);
     else annFile.set(a.id, `annotations/${n}.locator.json`);
-    annJson.push({ n, id: a.id, author: a.author, atMs: a.t != null ? off(a.t) : null, comment: a.comment, image, shapes: `annotations/${n}.shapes.json`, locator: `annotations/${n}.locator.json`, imageSize });
+    annJson.push({
+      n,
+      id: a.id,
+      author: a.author,
+      atMs: a.t != null ? off(a.t) : null,
+      comment: a.comment,
+      image,
+      shapes: `annotations/${n}.shapes.json`,
+      locator: `annotations/${n}.locator.json`,
+      imageSize,
+      ...(a.item
+        ? { pin: a.item.n, kind: a.item.kind, quote: a.item.quote, intent: a.item.intent, severity: a.item.severity, status: a.item.status, voiceTranscript: a.item.voiceText, context: a.item.context, page: a.item.page }
+        : {}),
+    });
   }
 
   // ---- keyframes ----
@@ -417,7 +450,14 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
     notHappened.sort((a, b) => a.atMs - b.atMs);
   }
   // reviewer notes in time: annotations and voice cues
-  for (const a of annJson) if (!d.spans && a.atMs != null) timeline.push({ atMs: a.atMs as number, outcome: 'annotation', text: `${a.n}${a.comment ? `: ${String(a.comment).split('\n')[0]}` : ''}`, files: [String(a.image ?? a.locator)] });
+  // reviewer notes no span names (a toolbar item, or a capture without spans) get a line of their own
+  const onSpan = new Set(timeline.flatMap((e) => e.files ?? []));
+  for (const a of annJson) {
+    const file = String(a.image ?? a.locator);
+    if (a.atMs == null || onSpan.has(file)) continue;
+    timeline.push({ atMs: a.atMs as number, outcome: a.pin != null ? String(a.kind) : 'annotation', text: `${a.n}${a.pin != null ? ` (pin ${a.pin}, ${a.intent}, ${a.severity})` : ''}${a.comment ? `: ${String(a.comment).split('\n')[0]}` : ''}`, files: [file] });
+  }
+  timeline.sort((x, y) => x.atMs - y.atMs);
   if (!d.spans) {
     for (const kf of keyframes) if (kf.atMs != null) timeline.push({ atMs: kf.atMs, outcome: 'image', text: kf.reason, files: [kf.file] });
     timeline.sort((a, b) => a.atMs - b.atMs);
@@ -451,7 +491,21 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
   const words: ReviewerWords[] = [];
   if (d.rec.title) words.push({ source: 'title', author: reviewer, text: d.rec.title });
   if (d.rec.description) words.push({ source: 'description', author: reviewer, text: d.rec.description });
-  for (const a of annJson) if (a.comment) words.push({ source: `annotation ${a.n}`, author: String(a.author), atMs: a.atMs as number | null, text: String(a.comment), ref: String(a.image ?? a.locator) });
+  for (const a of annJson) {
+    const ref = String(a.image ?? a.locator);
+    const atMs = a.atMs as number | null;
+    if (a.pin != null) {
+      const ctx = a.context as { errors?: unknown[]; failedRequests?: unknown[] } | null;
+      const ne = ctx?.errors?.length ?? 0;
+      const nf = ctx?.failedRequests?.length ?? 0;
+      const extra = ne || nf ? `; ${ne} ${ne === 1 ? 'error' : 'errors'} and ${nf} failed ${nf === 1 ? 'request' : 'requests'} in the 60 s before, in feedback.json` : '';
+      const label = `${a.kind} pin ${a.pin} = ${a.n} (${a.intent}, ${a.severity}, ${a.status}${extra})`;
+      if (a.comment) words.push({ source: label, author: String(a.author), atMs, text: String(a.comment), ref });
+      if (a.quote) words.push({ source: `highlighted text of ${a.n}`, author: 'page', atMs, text: String(a.quote), ref });
+      if (a.voiceTranscript) words.push({ source: `voice note ${a.n}`, author: String(a.author), atMs, text: String(a.voiceTranscript), ref });
+      if (!a.comment && !a.quote && !a.voiceTranscript) words.push({ source: label, author: String(a.author), atMs, text: '(no words; see the image)', ref });
+    } else if (a.comment) words.push({ source: `annotation ${a.n}`, author: String(a.author), atMs, text: String(a.comment), ref });
+  }
   const voiceNotes = new Map<string, TranscriptIn>();
   for (const t of d.transcripts) if (t.stream.startsWith('voice:')) voiceNotes.set(t.stream.slice(6), t);
   const ordered = [...d.comments].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());

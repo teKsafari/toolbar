@@ -26,6 +26,10 @@ export const resolutionSchema = z.object({
   commit: z.string().nullable(),
   /** the MCP client or "API" that resolved it */
   via: z.string().nullable(),
+  /** reviewer toolbar pins this call marked resolved (POST only) */
+  itemsResolved: z.array(z.number().int()).optional(),
+  /** reviewer toolbar pins still pending or acknowledged */
+  itemsOpen: z.number().int().nonnegative().default(0),
 });
 export type Resolution = z.infer<typeof resolutionSchema>;
 
@@ -34,6 +38,11 @@ export const resolveBodySchema = z.object({
   note: z.string().trim().max(4000).optional(),
   /** commit or PR that fixed it */
   commit: z.string().trim().max(200).optional(),
+  /**
+   * Pin numbers of reviewer toolbar items this fix closes. Without it every open item is resolved
+   * with the capture; with it, the capture counts as resolved once no item is left open.
+   */
+  items: z.array(z.number().int().positive()).max(500).optional(),
 });
 
 const params = z.object({ id: idSchema });
@@ -106,7 +115,7 @@ export const resolveFeedback = defineRoute({
   status: 200,
   area: 'agent',
   tasks: ['P2-handoff'],
-  summary: 'Mark the feedback resolved, with a note on the cause and fix and the commit; fires the feedback.resolved webhook.',
+  summary: 'Mark the feedback resolved, with a note on the cause and fix and the commit, or only some reviewer toolbar pins (items); fires the feedback.resolved webhook once the capture is resolved.',
 });
 
 export const reopenFeedback = defineRoute({

@@ -75,11 +75,12 @@ export const getFeedbackFile = define({
 export const resolveFeedbackTool = define({
   name: 'resolve_feedback',
   title: 'Mark feedback resolved',
-  description: 'Mark a capture\'s feedback resolved once the fix is in: a short note on the cause and the fix, and the commit or PR. Fires the feedback.resolved webhook. Needs the creator seat or higher.',
+  description: 'Mark a capture\'s feedback resolved once the fix is in: a short note on the cause and the fix, and the commit or PR. Pass items to close only some of the reviewer\'s pins; the capture counts as resolved when none is left open. Fires the feedback.resolved webhook. Needs the creator seat or higher.',
   input: z.object({
     capture,
     note: z.string().trim().min(1).max(4000).describe('The cause and the fix, in one or two sentences.'),
     commit: z.string().trim().max(200).optional().describe('Commit SHA or PR link of the fix.'),
+    items: z.array(z.number().int().positive()).max(500).optional().describe('Pin numbers of the reviewer\'s toolbar items this fix closes (feedback.json annotations[].pin). Leave out to resolve the whole capture and every open pin.'),
     intent,
   }),
   write: true,
@@ -87,7 +88,7 @@ export const resolveFeedbackTool = define({
   async run(ctx, a): Promise<ToolResult> {
     const c = await resolveCapture(ctx.db, ctx.principal, a.capture, 'comment');
     if (!c.seat || !roleAtLeast(c.seat, 'creator')) fail('forbidden', 'Resolving feedback needs the creator seat or higher.');
-    const r = await resolveFeedback(ctx.db, c.rec, ctx.principal.userId, { note: a.note, commit: a.commit }, ctx.principal.clientName ?? 'MCP');
+    const r = await resolveFeedback(ctx.db, c.rec, ctx.principal.userId, { note: a.note, commit: a.commit, items: a.items }, ctx.principal.clientName ?? 'MCP');
     return { content: [text(JSON.stringify(r))] };
   },
 });

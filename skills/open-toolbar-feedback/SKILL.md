@@ -51,4 +51,6 @@ curl -fsS -X POST -H "Authorization: Bearer $TOOLBAR_TOKEN" -H "content-type: ap
   -d '{"note":"<cause and fix>","commit":"<sha>"}' "$TOOLBAR_SERVER/api/v1/recordings/<id>/resolve"
 ```
 
+When the reviewer left numbered pins (`annotations[].pin` in feedback.json) and your fix covers only some of them, add `"items":[1,3]` to the body: those pins close, and the feedback counts as resolved once no pin is left open.
+
 The MCP server at `$TOOLBAR_SERVER/mcp` offers the same folder (`get_feedback_folder`, `get_feedback_file`) and `resolve_feedback`, for agents connected to it.

@@ -213,7 +213,7 @@ function wordsBlock(words: ReviewerWords[], maxChars: number): string[] {
     let t = w.text;
     if (t.length > maxChars) t = `${t.slice(0, maxChars)}\n[cut at ${maxChars} characters; the full text is in feedback.json${w.source.startsWith('voice') ? ' and voice/transcript.vtt' : ''}]`;
     const where = [w.atMs != null ? `at ${fmtOffset(w.atMs)}` : null, w.ref ? `see ${w.ref}` : null].filter(Boolean).join(', ');
-    out.push(`**${oneLine(w.source, 40)}** by ${code(w.author, 120)}${where ? ` (${where})` : ''}:`, '', fence(t, { source: w.source, author: w.author, atMs: w.atMs, ref: w.ref }), '');
+    out.push(`**${oneLine(w.source, 160)}** by ${code(w.author, 120)}${where ? ` (${where})` : ''}:`, '', fence(t, { source: w.source, author: w.author, atMs: w.atMs, ref: w.ref }), '');
   }
   return out;
 }
@@ -267,7 +267,11 @@ function renderOnce(r: ReadmeInput, maxLines: number, maxChars: number): string 
       ...entriesBlock(r.notHappened, 'trace: what did not happen', Math.max(10, Math.floor(maxLines / 2))),
       '',
     );
-  } else L.push('Every action had a visible effect: no `dead`, `stuck` or `silent` span.', '');
+  } else
+    L.push(
+      r.timelineSource === 'spans' ? 'Every action had a visible effect: no `dead`, `stuck` or `silent` span.' : 'No request failed or stayed unanswered. This capture has no interaction spans, so actions without an effect cannot be told apart here.',
+      '',
+    );
 
   L.push('## Timeline', '');
   if (r.timeline.length) {
@@ -420,6 +424,8 @@ Fix the cause in the code and run the project's tests. Then tell the server, wit
 curl -fsS -X POST -H "Authorization: Bearer $${TOKEN_ENV}" -H "content-type: application/json" \\
   -d '{"note":"<cause and fix>","commit":"<sha>"}' "${srv}/api/v1/recordings/<id>/resolve"
 \`\`\`
+
+When the reviewer left numbered pins (\`annotations[].pin\` in feedback.json) and your fix covers only some of them, add \`"items":[1,3]\` to the body: those pins close, and the feedback counts as resolved once no pin is left open.
 
 The MCP server at \`${srv}/mcp\` offers the same folder (\`get_feedback_folder\`, \`get_feedback_file\`) and \`resolve_feedback\`, for agents connected to it.
 `;
