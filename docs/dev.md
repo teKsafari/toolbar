@@ -40,7 +40,7 @@ Node 24, pnpm 11.27 (`corepack enable` picks it up from `packageManager`; where 
 ## Full stack in Docker
 
 ```sh
-docker compose up --build          # or -d; first run builds the server image and downloads the whisper model
+docker compose --profile whisper up --build   # or -d; first run builds the server image and downloads the whisper model
 curl -s localhost:3000/api/health  # {"ok":true,"checks":{"db":{"ok":true},"s3":{"ok":true},"whisper":...}}
 ```
 
@@ -57,7 +57,7 @@ The dev-only password sign-in stays available with `AUTH_DEV_PASSWORD=1`: sign i
 
 Paused features (docs/scope.md) stay hidden unless their flag is set to 1: `FEATURE_EMAIL`, `FEATURE_TRACKERS`, `FEATURE_SLACK`, `FEATURE_CLI`, `FEATURE_AI`, `FEATURE_ADMIN_EXTRAS`. `/api/health` lists the ones that are on (`features`), and e2e tests of a paused feature read it and skip with "paused (docs/scope.md)" while the flag is off (`e2e/fixtures/features.ts`). Mail needs `FEATURE_EMAIL=1` and `SMTP_URL`; Mailpit comes with the `mail` profile: `FEATURE_EMAIL=1 SMTP_URL=smtp://mailpit:1025 docker compose --profile mail up -d`.
 
-Compose works with no `.env`: every variable has a dev default. For anything beyond localhost, run `scripts/gen-secrets.sh https://your.host` to write `.env` with random secrets (`.env.example` lists every variable). The server refuses to start on a non-localhost `PUBLIC_URL` with dev secrets. Sign-in rate limits (3 tries per 10 s per address) are on in the image; `AUTH_RATE_LIMIT=off` turns them off for an e2e run.
+Compose works with no `.env`: every variable has a dev default. Whisper is optional and sits in the `whisper` profile (`.env.example` turns it on with `COMPOSE_PROFILES=whisper`; `pnpm stack` and `scripts/e2e-all.sh` start it). Postgres, Garage, whisper and Mailpit publish their ports on `127.0.0.1` only; the mock OIDC provider stays on all interfaces because the server container reaches it through the host gateway. `docker-compose.coolify.yml` is the Coolify variant (`docs/configuration.md`, "Coolify"). For anything beyond localhost, run `scripts/gen-secrets.sh https://your.host` to write `.env` with random secrets (`.env.example` lists every variable). The server refuses to start on a non-localhost `PUBLIC_URL` with dev secrets. Sign-in rate limits (3 tries per 10 s per address) are on in the image; `AUTH_RATE_LIMIT=off` turns them off for an e2e run.
 
 `docker compose down -v` wipes the database, the bucket and the whisper model.
 
@@ -108,6 +108,8 @@ Builds:
 | `pnpm --filter @toolbar/extension build:test` | `apps/extension/.output/chrome-mv3-test` | open shadow root, `globalThis.__tb` in the worker |
 | `WXT_OUT_SUFFIX=-121 WXT_TEST_HOOKS=1 pnpm --filter @toolbar/extension exec wxt build` | `apps/extension/.output/chrome-mv3-test-121` | the test build in a folder of its own, for a run beside others (`E2E_EXT_BUILD=chrome-mv3-test-121`) |
 
+Release zips for Chrome (unpacked and Web Store) and Firefox: `scripts/release-extension.sh` writes them to `dist/` (`docs/extension-release.md`).
+
 A build with your own name and icon: `WXT_APP_NAME=... WXT_APP_ICON=<svg or png>` in front of any of these (`docs/branding.md`). `node apps/extension/scripts/icons.ts` re-renders the packaged icons from `apps/extension/assets/icon.svg`.
 
 Load it unpacked:
@@ -152,7 +154,7 @@ KEEP=1 scripts/e2e-all.sh                  # keep the running stack and its data
 
 The script does, in order:
 
-1. `docker compose down -v`, then `docker compose --profile dev up --build -d` with the mock OIDC provider configured (`OIDC_ISSUER=http://oidc.localhost:3311/toolbar`, `OIDC_CLIENT_ID=toolbar`, `OIDC_CLIENT_SECRET=dev`), `ALLOWED_EMAIL_DOMAINS=test`, `AUTH_DEV_PASSWORD=1` (for the seeded accounts) and `AUTH_RATE_LIMIT=off`, and waits for `/api/health`. Rate limits are off because the suites sign in many test accounts from one address, and Better Auth allows 3 sign-ins per 10 s per address in production. `MAIL=1` adds the `mail` profile with `FEATURE_EMAIL=1`; `FEATURES="FEATURE_AI=1 ..."` turns on other paused features, whose tests otherwise skip.
+1. `docker compose down -v`, then `docker compose --profile dev --profile whisper up --build -d` with the mock OIDC provider configured (`OIDC_ISSUER=http://oidc.localhost:3311/toolbar`, `OIDC_CLIENT_ID=toolbar`, `OIDC_CLIENT_SECRET=dev`), `ALLOWED_EMAIL_DOMAINS=test`, `AUTH_DEV_PASSWORD=1` (for the seeded accounts) and `AUTH_RATE_LIMIT=off`, and waits for `/api/health`. Rate limits are off because the suites sign in many test accounts from one address, and Better Auth allows 3 sign-ins per 10 s per address in production. `MAIL=1` adds the `mail` profile with `FEATURE_EMAIL=1`; `FEATURES="FEATURE_AI=1 ..."` turns on other paused features, whose tests otherwise skip.
 2. `pnpm --filter @toolbar/server db:seed` against the compose database (the server's defaults point at it). The seed prints a personal token; the script passes it as `TOOLBAR_E2E_TOKEN`, so `agent/cli-create.spec.ts` runs instead of skipping.
 3. Builds the release extension, the test extension and the CLI (`packages/cli/dist/open-toolbar.mjs`).
 4. Runs the area suites, then the flows. With `RUNS=n` it repeats steps 1, 2 and 4 n times. Logs go to `e2e/runs/area-N.log` and `e2e/runs/flows-N.log`; HTML reports to `e2e/playwright-report` and `e2e/playwright-report-flows`; flow screenshots to `e2e/flows-shots/`.

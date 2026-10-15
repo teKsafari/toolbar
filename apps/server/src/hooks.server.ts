@@ -33,6 +33,8 @@ export const init: ServerInit = async () => {
   registerDashboard();
   if (!env.adminEmails.length && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(env.publicUrl))
     console.warn('[server] ADMIN_EMAILS is empty: the first account on this server becomes the instance admin (branding). Set ADMIN_EMAILS.');
+  if (!env.auth.oidc && !env.auth.emailPassword)
+    console.warn('[server] No sign-in method: set OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET (docs/configuration.md, "Sign-in").');
 };
 
 const securityHeaders: Handle = async ({ event, resolve }) => {

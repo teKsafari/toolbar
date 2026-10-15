@@ -1,0 +1,122 @@
+# open-toolbar on Coolify (docs/configuration.md, "Coolify").
+#
+# In Coolify: + New, pick this Git repository, Build strategy "Compose", Docker Compose Location
+# /docker-compose.coolify.yml. Coolify builds the server and Garage images from the repository,
+# generates the secrets below (SERVICE_PASSWORD_*, SERVICE_HEX_*), gives the server a domain
+# (SERVICE_URL_SERVER_3000, routed by Coolify's proxy to port 3000) and asks for the values
+# marked required (:?) before the first deploy: the OIDC provider and ALLOWED_EMAIL_DOMAINS.
+# Register <your domain>/api/auth/callback/oidc as the redirect URI at the provider.
+#
+# No service publishes a host port and no Traefik labels are set: Coolify adds the proxy labels
+# for the server's domain. Every other variable of docs/configuration.md can be added under
+# Environment Variables with the same name once it is listed below; the defaults here match
+# docker-compose.yml.
+
+services:
+  server:
+    build: { context: ., dockerfile: apps/server/Dockerfile }
+    environment:
+      # Coolify: the server's public URL, routed to port 3000 inside the container
+      SERVICE_URL_SERVER_3000: /
+      PUBLIC_URL: ${SERVICE_URL_SERVER_3000}
+      BETTER_AUTH_SECRET: ${SERVICE_PASSWORD_64_AUTH}
+      # required: the OIDC provider and who may sign in (docs/configuration.md, "Sign-in")
+      OIDC_ISSUER: ${OIDC_ISSUER:?}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?}
+      ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS:?}
+      OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-}
+      OIDC_SCOPES: ${OIDC_SCOPES:-}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      EXTENSION_IDS: ${EXTENSION_IDS:-fmongfmimgdafigcahdpofnmmhljpnei}
+      # internal services of this stack
+      DATABASE_URL: postgres://toolbar:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/toolbar
+      S3_ENDPOINT: http://garage:3900
+      S3_REGION: garage
+      S3_BUCKET: toolbar
+      S3_ACCESS_KEY_ID: GK000000000000000000000000
+      S3_SECRET_ACCESS_KEY: ${SERVICE_HEX_64_S3SECRET}
+      TRANSCRIBE_PROVIDER: ${TRANSCRIBE_PROVIDER:-whispercpp}
+      WHISPER_URL: http://whisper:8080
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}
+      # optional (docs/configuration.md): branding, transcription, uploads
+      APP_NAME: ${APP_NAME:-}
+      APP_LOGO_URL: ${APP_LOGO_URL:-}
+      APP_LOGO_DARK_URL: ${APP_LOGO_DARK_URL:-}
+      APP_ACCENT: ${APP_ACCENT:-}
+      STT_URL: ${STT_URL:-}
+      STT_API_KEY: ${STT_API_KEY:-}
+      STT_MODEL: ${STT_MODEL:-}
+      BODY_SIZE_LIMIT: ${BODY_SIZE_LIMIT:-210M}
+      MAX_RECORDING_MIN: ${MAX_RECORDING_MIN:-}
+    depends_on:
+      postgres: { condition: service_healthy }
+      garage: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: toolbar
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES}
+      POSTGRES_DB: toolbar
+    volumes: [pg:/var/lib/postgresql]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U toolbar -d toolbar"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  garage:
+    # the image bakes in deploy/garage.toml, so no file has to be bind-mounted from the repository
+    build: { context: ./deploy, dockerfile: garage.Dockerfile }
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    environment:
+      GARAGE_CONFIG_FILE: /etc/garage.toml
+      GARAGE_RPC_SECRET: ${SERVICE_HEX_64_GARAGERPC}
+      GARAGE_ADMIN_TOKEN: ${SERVICE_PASSWORD_64_GARAGEADMIN}
+      GARAGE_DEFAULT_ACCESS_KEY: GK000000000000000000000000
+      GARAGE_DEFAULT_SECRET_KEY: ${SERVICE_HEX_64_S3SECRET}
+      GARAGE_DEFAULT_BUCKET: toolbar
+    volumes:
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    healthcheck:
+      test: ["CMD", "/garage", "bucket", "info", "toolbar"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+    restart: unless-stopped
+
+  # Local transcription (whisper.cpp, CPU, no key). The first start downloads the model, which
+  # takes minutes. To use a hosted model instead, set TRANSCRIBE_PROVIDER and remove this service.
+  whisper:
+    image: ghcr.io/ggml-org/whisper.cpp:main@sha256:9f6bf30782c0c4f431571a7e3da572a84769aec6381580df0249e252dfc0aa18
+    entrypoint: ["bash", "-c"]
+    command:
+      - >-
+        [ -f /models/ggml-$${WHISPER_MODEL}.bin ] || /app/models/download-ggml-model.sh $${WHISPER_MODEL} /models;
+        exec whisper-server --host 0.0.0.0 --port 8080 --convert -m /models/ggml-$${WHISPER_MODEL}.bin
+    environment:
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}
+    volumes: [whisper-models:/models]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 300s
+    restart: unless-stopped
+
+volumes:
+  pg: {}
+  garage-meta: {}
+  garage-data: {}
+  whisper-models: {}
