@@ -35,6 +35,7 @@ import {
   shadowOne,
   shadowQuery,
   signIn,
+  networkColumns,
   sleep,
   toScreen,
   until,
@@ -512,12 +513,28 @@ async function viewerChecks(ev: Evidence, context: BrowserContext, id: string, c
       consoleish++;
       await row.locator('button.main').click();
       await sleep(60);
-      if (await row.locator('.stack').count()) withStack++;
-      if (await row.locator('.src a').count()) withLink++;
+      if (await row.locator('[data-testid="stack-frames"] li, .stack').count()) withStack++;
+      if (await row.locator('[data-testid="stack-frames"] a, .src a').count()) withLink++;
     }
+    // the opened object and array rows (J-055, J-056 review): frames only, no argument block, no wire form
+    const opened: Record<string, unknown> = {};
+    for (const prefix of ['info: object', 'warn: deprecated call', 'debug: nested']) {
+      const row = cap.locator('[data-testid="console-list"] [data-row-index]', { hasText: prefix }).first();
+      if (!(await row.count())) continue;
+      const detail = row.locator('.detail');
+      opened[prefix] = {
+        message: rowText((await row.locator('.msg').textContent()) ?? ''),
+        argumentBlocks: await detail.locator('pre').count(),
+        wireForm: /"?\$t"?\s*:/.test((await detail.textContent()) ?? ''),
+        messageRepeated: ((await detail.textContent()) ?? '').includes(prefix),
+        frames: await detail.locator('[data-testid="stack-frames"] li').evaluateAll((els) => els.map((e) => (e.textContent ?? '').trim())),
+      };
+    }
+    const objRow = cap.locator('[data-testid="console-list"] [data-row-index]', { hasText: 'info: object' }).first();
+    if (await objRow.count()) await objRow.scrollIntoViewIfNeeded();
     await cap.screenshot({ path: ev.file('console-expanded') });
     const objectRow = rows.find((r) => r.msg.startsWith('info: object'))?.msg ?? null;
-    return { uiRows: rows.length, apiRows: c.consoleRows.length, chips, perLevel, objectRowText: objectRow, consoleRowsExpanded: consoleish, withStack, withCallSiteLink: withLink, rows: rows.map((r) => `${r.kind}/${r.level}: ${r.msg}`) };
+    return { uiRows: rows.length, apiRows: c.consoleRows.length, chips, perLevel, objectRowText: objectRow, consoleRowsExpanded: consoleish, withStack, withCallSiteLink: withLink, opened, rows: rows.map((r) => `${r.kind}/${r.level}: ${r.msg}`) };
   });
   await probe(ev, 'viewer-typeerror (J-057)', async () => {
     const row = cap.locator('[data-testid="console-list"] [data-row-index]', { hasText: 'TypeError' }).first();
@@ -537,8 +554,10 @@ async function viewerChecks(ev: Evidence, context: BrowserContext, id: string, c
     );
     const find = (s: string) => rows.find((r) => r.cells.some((x) => x.includes(s)));
     const typeChips = await cap.locator('[data-testid^="type-"]').evaluateAll((els) => els.map((e) => (e.textContent ?? '').trim()));
+    const alignment = await networkColumns(cap);
     return {
       columns: cols,
+      alignment,
       typeChips,
       uiRows: rows.length,
       apiRows: c.network.length,

@@ -38,6 +38,7 @@ import {
   screencast,
   secs,
   signIn,
+  networkColumns,
   sleep,
   until,
   waitReady,
@@ -579,6 +580,7 @@ test('S4.1 video capture page (N1)', async () => {
       await tab(cap, 'network');
       if (await cap.getByTestId('close-detail').isVisible().catch(() => false)) await cap.getByTestId('close-detail').click();
       const total = (await rowTexts(cap, 'network-list')).length;
+      const alignment = await networkColumns(cap);
       const chips = await cap.locator('[data-testid^="type-"]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-testid')!, (e.textContent ?? '').trim()] as [string, string]));
       const perChip: Record<string, { label: string; rows: number }> = {};
       for (const [tid, lab] of chips) {
@@ -609,9 +611,14 @@ test('S4.1 video capture page (N1)', async () => {
       const api = (await col('c-name')).map((s) => s.trim());
       await cap.screenshot({ path: ev.file('13-filter-api') });
       await cap.getByTestId('network-filter').fill('');
-      return { total, chips: perChip, errorsOnly: errs, sortStatusAsc: statusAsc, sortStatusDesc: statusDesc, sortTimeAsc: timeAsc, filterApi: { rows: api.length, names: api } };
+      return { total, alignment, chips: perChip, errorsOnly: errs, sortStatusAsc: statusAsc, sortStatusDesc: statusDesc, sortTimeAsc: timeAsc, filterApi: { rows: api.length, names: api } };
     });
-    ev.set('step13-shots-overflow', await shoot4(ev, context, id, '13-network', (c) => tab(c, 'network')));
+    const align13: Record<string, unknown> = {};
+    ev.set('step13-shots-overflow', await shoot4(ev, context, id, '13-network', async (c) => {
+      await tab(c, 'network');
+      align13[String(c.viewportSize()?.width)] = await networkColumns(c);
+    }));
+    ev.set('step13-alignment-per-width (J-058, J-105)', align13);
 
     // 14. Submit order row: the list collapses, the detail pane
     const submitRow = () => cap.locator('[data-testid="network-list"] [data-row-index]', { hasText: '/api/fail' }).first();

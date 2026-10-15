@@ -1,0 +1,312 @@
+{
+  "G3 S3.1 viewer-network (1440, light)": {
+    "columns": 10,
+    "maxDeltaPx": 0,
+    "clipped": [],
+    "cols": [
+      {
+        "col": "index",
+        "label": "#",
+        "headX": 911,
+        "cellX": 911,
+        "clipped": false
+      },
+      {
+        "col": "name",
+        "label": "Name",
+        "headX": 935,
+        "cellX": 935,
+        "clipped": false
+      },
+      {
+        "col": "method",
+        "label": "Method",
+        "headX": 1045,
+        "cellX": 1045,
+        "clipped": false
+      },
+      {
+        "col": "status",
+        "label": "Status",
+        "headX": 1091,
+        "cellX": 1091,
+        "clipped": false
+      },
+      {
+        "col": "domain",
+        "label": "Domain",
+        "headX": 1133,
+        "cellX": 1133,
+        "clipped": false
+      },
+      {
+        "col": "type",
+        "label": "Type",
+        "headX": 1183,
+        "cellX": 1183,
+        "clipped": false
+      },
+      {
+        "col": "frame",
+        "label": "Frame",
+        "headX": 1223,
+        "cellX": 1223,
+        "clipped": false
+      },
+      {
+        "col": "size",
+        "label": "Size",
+        "headX": 1261,
+        "cellX": 1261,
+        "clipped": false
+      },
+      {
+        "col": "time",
+        "label": "Time",
+        "headX": 1309,
+        "cellX": 1309,
+        "clipped": false
+      },
+      {
+        "col": "waterfall",
+        "label": "Waterfall",
+        "headX": 1357,
+        "cellX": 1357,
+        "clipped": false
+      }
+    ]
+  },
+  "G4 S4.1 step 13 (1440, light)": {
+    "columns": 10,
+    "maxDeltaPx": 0,
+    "clipped": [],
+    "cols": [
+      {
+        "col": "index",
+        "label": "#",
+        "headX": 911,
+        "cellX": 911,
+        "clipped": false
+      },
+      {
+        "col": "name",
+        "label": "Name",
+        "headX": 935,
+        "cellX": 935,
+        "clipped": false
+      },
+      {
+        "col": "method",
+        "label": "Method",
+        "headX": 1045,
+        "cellX": 1045,
+        "clipped": false
+      },
+      {
+        "col": "status",
+        "label": "Status",
+        "headX": 1091,
+        "cellX": 1091,
+        "clipped": false
+      },
+      {
+        "col": "domain",
+        "label": "Domain",
+        "headX": 1133,
+        "cellX": 1133,
+        "clipped": false
+      },
+      {
+        "col": "type",
+        "label": "Type",
+        "headX": 1183,
+        "cellX": 1183,
+        "clipped": false
+      },
+      {
+        "col": "frame",
+        "label": "Frame",
+        "headX": 1223,
+        "cellX": 1223,
+        "clipped": false
+      },
+      {
+        "col": "size",
+        "label": "Size",
+        "headX": 1261,
+        "cellX": 1261,
+        "clipped": false
+      },
+      {
+        "col": "time",
+        "label": "Time",
+        "headX": 1309,
+        "cellX": 1309,
+        "clipped": false
+      },
+      {
+        "col": "waterfall",
+        "label": "Waterfall",
+        "headX": 1357,
+        "cellX": 1357,
+        "clipped": false
+      }
+    ]
+  },
+  "G4 S4.1 step 13 shots per width": {
+    "390": {
+      "columns": 10,
+      "maxDeltaPx": 0,
+      "clipped": [],
+      "cols": [
+        {
+          "col": "index",
+          "label": "#",
+          "headX": 22,
+          "cellX": 22,
+          "clipped": false
+        },
+        {
+          "col": "name",
+          "label": "Name",
+          "headX": 46,
+          "cellX": 46,
+          "clipped": false
+        },
+        {
+          "col": "method",
+          "label": "Method",
+          "headX": 127,
+          "cellX": 127,
+          "clipped": false
+        },
+        {
+          "col": "status",
+          "label": "Status",
+          "headX": 173,
+          "cellX": 173,
+          "clipped": false
+        },
+        {
+          "col": "domain",
+          "label": "Domain",
+          "headX": 215,
+          "cellX": 215,
+          "clipped": false
+        },
+        {
+          "col": "type",
+          "label": "Type",
+          "headX": 265,
+          "cellX": 265,
+          "clipped": false
+        },
+        {
+          "col": "frame",
+          "label": "Frame",
+          "headX": 305,
+          "cellX": 305,
+          "clipped": false
+        },
+        {
+          "col": "size",
+          "label": "Size",
+          "headX": 343,
+          "cellX": 343,
+          "clipped": false
+        },
+        {
+          "col": "time",
+          "label": "Time",
+          "headX": 391,
+          "cellX": 391,
+          "clipped": false
+        },
+        {
+          "col": "waterfall",
+          "label": "Waterfall",
+          "headX": 439,
+          "cellX": 439,
+          "clipped": false
+        }
+      ]
+    },
+    "1440": {
+      "columns": 10,
+      "maxDeltaPx": 0,
+      "clipped": [],
+      "cols": [
+        {
+          "col": "index",
+          "label": "#",
+          "headX": 911,
+          "cellX": 911,
+          "clipped": false
+        },
+        {
+          "col": "name",
+          "label": "Name",
+          "headX": 935,
+          "cellX": 935,
+          "clipped": false
+        },
+        {
+          "col": "method",
+          "label": "Method",
+          "headX": 1045,
+          "cellX": 1045,
+          "clipped": false
+        },
+        {
+          "col": "status",
+          "label": "Status",
+          "headX": 1091,
+          "cellX": 1091,
+          "clipped": false
+        },
+        {
+          "col": "domain",
+          "label": "Domain",
+          "headX": 1133,
+          "cellX": 1133,
+          "clipped": false
+        },
+        {
+          "col": "type",
+          "label": "Type",
+          "headX": 1183,
+          "cellX": 1183,
+          "clipped": false
+        },
+        {
+          "col": "frame",
+          "label": "Frame",
+          "headX": 1223,
+          "cellX": 1223,
+          "clipped": false
+        },
+        {
+          "col": "size",
+          "label": "Size",
+          "headX": 1261,
+          "cellX": 1261,
+          "clipped": false
+        },
+        {
+          "col": "time",
+          "label": "Time",
+          "headX": 1309,
+          "cellX": 1309,
+          "clipped": false
+        },
+        {
+          "col": "waterfall",
+          "label": "Waterfall",
+          "headX": 1357,
+          "cellX": 1357,
+          "clipped": false
+        }
+      ]
+    }
+  }
+}

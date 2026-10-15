@@ -190,6 +190,24 @@ export async function pinTheme(page: Page, theme: 'light' | 'dark') {
   return { ...bg, lum };
 }
 
+/**
+ * Network table alignment (J-058, J-105): the left x of each header cell against the first row's
+ * cell of the same column, the largest gap, and the header labels that do not fit their cell.
+ */
+export async function networkColumns(page: Page) {
+  return page.getByTestId('network-list').evaluate((list) => {
+    const row = list.querySelector<HTMLElement>('.nrow');
+    const cols = [...list.querySelectorAll<HTMLElement>('.hrow [data-col]')].map((h) => {
+      const cell = row?.querySelector<HTMLElement>(`[data-col="${h.dataset.col}"]`);
+      const hx = h.getBoundingClientRect().left;
+      const cx = cell ? cell.getBoundingClientRect().left : null;
+      return { col: h.dataset.col!, label: (h.textContent ?? '').trim(), headX: Math.round(hx * 10) / 10, cellX: cx == null ? null : Math.round(cx * 10) / 10, clipped: h.scrollWidth > h.clientWidth + 1 };
+    });
+    const deltas = cols.map((c) => (c.cellX == null ? Infinity : Math.abs(c.headX - c.cellX)));
+    return { columns: cols.length, maxDeltaPx: Math.round(Math.max(0, ...deltas) * 10) / 10, clipped: cols.filter((c) => c.clipped).map((c) => c.label), cols };
+  });
+}
+
 /** Mean of one screen region's RGB, from the X server. */
 export function regionMean(r: { x: number; y: number; w: number; h: number }): [number, number, number] {
   const out = execFileSync('import', ['-window', 'root', '-crop', `${Math.round(r.w)}x${Math.round(r.h)}+${Math.round(r.x)}+${Math.round(r.y)}`, '+repage', '-resize', '1x1!', '-depth', '8', 'txt:-'], {

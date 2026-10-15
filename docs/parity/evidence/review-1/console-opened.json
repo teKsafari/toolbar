@@ -1,0 +1,46 @@
+{
+  "now": {
+    "objectRowText": "info: object {user: {id: 7, roles: [\"admin\", \"editor\"]}, at: 2026-10-15T16:25:39.761Z}",
+    "consoleRowsExpanded": 19,
+    "withStack": 19,
+    "withCallSiteLink": 19,
+    "opened": {
+      "info: object": {
+        "message": "info: object {user: {id: 7, roles: [\"admin\", \"editor\"]}, at: 2026-10-15T16:25:39.761Z}",
+        "argumentBlocks": 0,
+        "wireForm": false,
+        "messageRepeated": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2410",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      "warn: deprecated call": {
+        "message": "warn: deprecated call [\"a\", \"b\", \"c\"]",
+        "argumentBlocks": 0,
+        "wireForm": false,
+        "messageRepeated": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2490",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      },
+      "debug: nested": {
+        "message": "debug: nested {a: {b: {c: {d: \"deep\"}}}}",
+        "argumentBlocks": 0,
+        "wireForm": false,
+        "messageRepeated": false,
+        "frames": [
+          "HTMLButtonElement.O @ 2.DulX4mly.js:1:2603",
+          "HTMLDivElement.ur @ CDHttRas.js:1:23744"
+        ]
+      }
+    }
+  },
+  "before": {
+    "objectRowText": "info: object {user: {id: 7, roles: [\"admin\", \"editor\"]}, at: 2026-10-15T15:03:11.921Z}",
+    "consoleRowsExpanded": 19,
+    "withStack": 0,
+    "withCallSiteLink": 0
+  }
+}
