@@ -347,11 +347,14 @@ export async function finalizeCapture(
 // ---------- assets ----------
 
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+/** voice notes (D-087): what MediaRecorder and common recorders write */
+const VOICE_TYPES = ['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/aac', 'video/webm'];
 const BLOCKED_TYPES = /^(text\/html|image\/svg\+xml|application\/xhtml\+xml|text\/xml|application\/xml)/i;
 
 export function assetTypeAllowed(kind: UploadAssetKind, contentType: string): boolean {
   if (BLOCKED_TYPES.test(contentType)) return false;
   if (kind === 'attachment') return true;
+  if (kind === 'voice') return VOICE_TYPES.includes(contentType);
   return IMAGE_TYPES.includes(contentType);
 }
 

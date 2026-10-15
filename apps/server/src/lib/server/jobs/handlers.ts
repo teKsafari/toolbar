@@ -11,12 +11,14 @@ import { and, asc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import type { CaptureEvent, StreamName } from '@toolbar/shared';
 import type { Trim } from '@toolbar/shared/api';
 import { db as defaultDb, type Db } from '../db/index.ts';
-import { asset, job, recording, recordingChunk, recordingStream, transcript } from '../db/schema/index.ts';
+import { asset, commentAttachment, job, recording, recordingChunk, recordingStream, transcript } from '../db/schema/index.ts';
 import { deleteKeys, getBytes, getObject, keys, putFile, putObjectWith } from '../s3.ts';
 import { computeEventIndex, dedupeEvents, parseNdjson, parseRrwebNdjson, rrwebNdjsonParts, sortEvents, trimEvents, trimRrweb, videoOffsetOf } from '../event-index.ts';
 import { imageThumb, joinWebm, posterFrame, probe, RENDITION_HEIGHTS, renderRendition, trimWebm, withTmp, type Probe } from '../media/ffmpeg.ts';
 import { pickScreenshots, type Rendition } from '../media/proxy.ts';
-import { createTranscriber, parseVtt } from '../transcribe/index.ts';
+import { createTranscriber, parseVtt, transcribeConfig, voiceNoteStream } from '../transcribe/index.ts';
+import { dbLedger, runTranscription } from '../transcribe/run.ts';
+import { decodePcm } from '../transcribe/audio.ts';
 import { deleteStaleLinks } from '../share/tokens.ts';
 import { purgeMedia, sha256hex } from '../upload/service.ts';
 import { enqueue, type JobRow } from './queue.ts';
@@ -386,38 +388,84 @@ async function renditions(payload: unknown) {
   });
 }
 
-// ---------- transcribe (J-074) ----------
+// ---------- transcribe (J-074, D-087) ----------
+
+/** A machine-transcript note in the VTT header, so a reader (or an agent) knows where the text came from. */
+function withNote(vtt: string, r: { model: string; language?: string }) {
+  const note = `NOTE Machine transcript (${r.model}${r.language ? `, language ${r.language}` : ''}). Spoken words, may contain errors.`;
+  return vtt.replace(/^WEBVTT[^\n]*\n/, (h) => `${h}\n${note}\n`);
+}
+
+/** Tell open viewers that a comment's voice-note transcript changed (live comment stream). */
+async function voiceNoteChanged(recordingId: string, assetId: string) {
+  const rows = await db.select({ id: commentAttachment.commentId }).from(commentAttachment).where(eq(commentAttachment.assetId, assetId));
+  if (!rows.length) return;
+  const { publish } = await import('../viewer/comments.ts');
+  for (const r of rows) publish(recordingId, { type: 'updated', id: r.id });
+}
 
 async function transcribe(payload: unknown, j: JobRow) {
   const id = recIdOf(payload);
+  const assetId = (payload as { assetId?: unknown }).assetId;
+  const stream = typeof assetId === 'string' ? voiceNoteStream(assetId) : 'voice';
   const rec = await loadRec(id);
   if (!rec || rec.deletedAt) return;
+  const where = and(eq(transcript.recordingId, id), eq(transcript.stream, stream));
   const t = createTranscriber();
-  if (!t) return;
-  const [s] = await db
-    .select()
-    .from(recordingStream)
-    .where(and(eq(recordingStream.recordingId, id), eq(recordingStream.name, 'voice')));
-  if (!s?.finalKey) return;
+  if (!t) {
+    await db.update(transcript).set({ status: 'skipped', error: 'transcription is off on this server' }).where(where);
+    return;
+  }
+  let source: { key: string; mime: string } | null = null;
+  if (typeof assetId === 'string') {
+    const [a] = await db.select().from(asset).where(eq(asset.id, assetId));
+    if (a && a.kind === 'voice' && (!a.recordingId || a.recordingId === id)) source = { key: a.s3Key, mime: a.contentType };
+  } else {
+    const [s] = await db
+      .select()
+      .from(recordingStream)
+      .where(and(eq(recordingStream.recordingId, id), eq(recordingStream.name, 'voice')));
+    if (s?.finalKey) source = { key: s.finalKey, mime: 'audio/webm' };
+  }
+  if (!source) return;
   await db
     .insert(transcript)
-    .values({ recordingId: id, stream: 'voice', provider: t.id, status: 'running' })
+    .values({ recordingId: id, stream, provider: t.id, status: 'running' })
     .onConflictDoUpdate({ target: [transcript.recordingId, transcript.stream], set: { status: 'running', provider: t.id, error: null } });
   try {
-    const audio = await getBytes(s.finalKey);
-    const r = await t.transcribe({ audio, mime: 'audio/webm' });
-    const language = r.language ?? null;
+    const audio = await getBytes(source.key);
+    let durationMs = await withTmp(async (dir) => {
+      const f = join(dir, 'voice');
+      await writeFile(f, audio);
+      return (await probe(f).catch(() => null))?.durationMs ?? null;
+    });
+    // MediaRecorder files (voice notes) carry no duration in their header: measure by decoding,
+    // and hand the PCM on so the chunked path does not decode twice
+    let pcm: Int16Array | undefined;
+    if (durationMs === null) {
+      pcm = await decodePcm(audio);
+      durationMs = Math.round((pcm.length / 16_000) * 1000);
+    }
+    const out = await runTranscription(t, { audio, mime: source.mime, durationMs, pcm }, transcribeConfig(), dbLedger(db));
+    if (out.status === 'skipped') {
+      await db.update(transcript).set({ status: 'skipped', model: t.model, error: out.reason }).where(where);
+      if (typeof assetId === 'string') await voiceNoteChanged(id, assetId);
+      return;
+    }
+    const r = out.result;
     await db
       .update(transcript)
-      .set({ status: 'done', vtt: r.vtt, model: r.model, language, error: null })
-      .where(and(eq(transcript.recordingId, id), eq(transcript.stream, 'voice')));
-    if (aiConfigured() && parseVtt(r.vtt).length && (await aiAllowed(db, rec.organizationId))) await enqueue(db, 'chapters', { recordingId: id });
+      .set({ status: 'done', vtt: withNote(r.vtt, r), model: r.model, language: r.language ?? null, error: null })
+      .where(where);
+    if (typeof assetId === 'string') await voiceNoteChanged(id, assetId);
+    if (stream === 'voice' && aiConfigured() && parseVtt(r.vtt).length && (await aiAllowed(db, rec.organizationId))) await enqueue(db, 'chapters', { recordingId: id });
   } catch (e) {
     const last = j.attempts >= j.max_attempts;
     await db
       .update(transcript)
       .set({ status: last ? 'failed' : 'pending', error: e instanceof Error ? e.message.slice(0, 1000) : String(e) })
-      .where(and(eq(transcript.recordingId, id), eq(transcript.stream, 'voice')));
+      .where(where);
+    if (last && typeof assetId === 'string') await voiceNoteChanged(id, assetId).catch(() => {});
     throw e;
   }
 }
@@ -433,7 +481,7 @@ async function chapters(payload: unknown) {
   const [t] = await db
     .select()
     .from(transcript)
-    .where(and(eq(transcript.recordingId, id), eq(transcript.status, 'done')));
+    .where(and(eq(transcript.recordingId, id), eq(transcript.stream, 'voice'), eq(transcript.status, 'done')));
   const cues = t?.vtt ? parseVtt(t.vtt) : [];
   const list = await aiChapters({ title: rec.title, durationMs: rec.durationMs ?? 0, cues, index: rec.eventIndex as never });
   await db.update(recording).set({ chapters: list }).where(eq(recording.id, id));
@@ -483,7 +531,8 @@ export function registerServerCoreJobs() {
   registerJob('remux-video', remuxVideo, 1);
   registerJob('thumbnail', thumbnail, 2);
   registerJob('renditions', renditions, 1);
-  registerJob('transcribe', transcribe, 1);
+  // whisper.cpp serves one request at a time; a hosted provider takes two recordings at once
+  registerJob('transcribe', transcribe, transcribeConfig().provider === 'openai' ? 2 : 1);
   registerJob('chapters', chapters, 1);
   registerJob('purge-recording', purgeRecording, 2);
   registerJob('expire-shares', expireShares, 1);

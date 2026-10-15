@@ -107,7 +107,7 @@ export const asset = pgTable(
     id: id(),
     recordingId: uuid('recording_id').references(() => recording.id, { onDelete: 'cascade' }),
     kind: text('kind', {
-      enum: ['screenshot', 'crop', 'annotation', 'keyframe', 'thumb', 'attachment', 'comment', 'avatar', 'logo'],
+      enum: ['screenshot', 'crop', 'annotation', 'keyframe', 'thumb', 'attachment', 'comment', 'avatar', 'logo', 'voice'],
     }).notNull(),
     s3Key: text('s3_key').notNull(),
     contentType: text('content_type').notNull(),
@@ -147,12 +147,13 @@ export const transcript = pgTable(
     recordingId: uuid('recording_id')
       .notNull()
       .references(() => recording.id, { onDelete: 'cascade' }),
+    /** `voice` (the capture's microphone track) or `voice:<assetId>` (a comment's voice note) */
     stream: text('stream').notNull().default('voice'),
     provider: text('provider').notNull(),
     model: text('model'),
     language: text('language'),
     vtt: text('vtt'),
-    status: text('status', { enum: ['pending', 'running', 'done', 'failed'] })
+    status: text('status', { enum: ['pending', 'running', 'done', 'failed', 'skipped'] })
       .notNull()
       .default('pending'),
     error: text('error'),

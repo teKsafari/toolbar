@@ -12,6 +12,7 @@ import { fail, type ViewerCtx } from './access.ts';
 import { mediaBase } from './detail.ts';
 import { authorSnapshot } from '../auth/author.ts';
 import { currentBrand } from '../branding/index.ts';
+import { enqueueVoiceNote, voiceNoteTranscripts } from '../transcribe/notes.ts';
 
 type Row = typeof comment.$inferSelect;
 type Person = { id: string; name: string; email: string; image: string | null };
@@ -66,8 +67,10 @@ async function reactionsOf(ids: string[], actor: string | null) {
   return out;
 }
 
-async function attachmentsOf(ids: string[], base: string) {
-  const out = new Map<string, Comment['attachments']>();
+type Atts = { images: Map<string, Comment['attachments']>; voice: Map<string, NonNullable<Comment['voice']>> };
+
+async function attachmentsOf(ids: string[], base: string, recordingId: string): Promise<Atts> {
+  const out: Atts = { images: new Map(), voice: new Map() };
   if (!ids.length) return out;
   const rows = await db
     .select({ commentId: commentAttachment.commentId, position: commentAttachment.position, a: asset })
@@ -75,15 +78,28 @@ async function attachmentsOf(ids: string[], base: string) {
     .innerJoin(asset, eq(asset.id, commentAttachment.assetId))
     .where(inArray(commentAttachment.commentId, ids))
     .orderBy(asc(commentAttachment.position));
+  const voices = rows.filter((r) => r.a.kind === 'voice');
+  const transcripts = await voiceNoteTranscripts(db, recordingId, voices.map((r) => r.a.id));
   for (const r of rows) {
-    const list = out.get(r.commentId) ?? [];
+    if (r.a.kind === 'voice') {
+      if (out.voice.has(r.commentId)) continue;
+      const t = transcripts.get(r.a.id);
+      out.voice.set(r.commentId, {
+        assetId: r.a.id,
+        url: `${base}/${r.a.id}`,
+        contentType: r.a.contentType,
+        transcript: t ? { status: t.status, language: t.language, text: t.text, reason: t.reason } : null,
+      });
+      continue;
+    }
+    const list = out.images.get(r.commentId) ?? [];
     list.push({ id: r.a.id, kind: 'comment', url: `${base}/${r.a.id}`, contentType: r.a.contentType, width: r.a.width, height: r.a.height, bytes: r.a.bytes, name: null });
-    out.set(r.commentId, list);
+    out.images.set(r.commentId, list);
   }
   return out;
 }
 
-function toDto(r: Row, ctx: ViewerCtx, who: Map<string, Person>, reactions: Map<string, Comment['reactions']>, atts: Map<string, Comment['attachments']>): Comment {
+function toDto(r: Row, ctx: ViewerCtx, who: Map<string, Person>, reactions: Map<string, Comment['reactions']>, atts: Atts): Comment {
   const author = r.authorUserId ? who.get(r.authorUserId) : undefined;
   const resolver = r.resolvedBy ? who.get(r.resolvedBy) : undefined;
   // a member's comment keeps its author snapshot (D-114) after the account is deleted
@@ -98,7 +114,8 @@ function toDto(r: Row, ctx: ViewerCtx, who: Map<string, Person>, reactions: Map<
     viaAgent: r.viaAgent ?? null,
     body: r.body,
     tMs: r.tMs,
-    attachments: atts.get(r.id) ?? [],
+    attachments: atts.images.get(r.id) ?? [],
+    voice: atts.voice.get(r.id) ?? null,
     reactions: reactions.get(r.id) ?? [],
     mentions: mentionsIn(r.body),
     createdAt: r.createdAt.toISOString(),
@@ -113,7 +130,7 @@ async function dtos(rows: Row[], ctx: ViewerCtx): Promise<Comment[]> {
   const ids = rows.map((r) => r.id);
   const who = await people(rows.flatMap((r) => [r.authorUserId, r.resolvedBy]));
   const reactions = await reactionsOf(ids, ctx.actor);
-  const atts = await attachmentsOf(ids, mediaBase(ctx.rec, ctx));
+  const atts = await attachmentsOf(ids, mediaBase(ctx.rec, ctx), ctx.rec.id);
   return rows.map((r) => toDto(r, ctx, who, reactions, atts));
 }
 
@@ -151,14 +168,17 @@ export async function createComment(
 ): Promise<Comment> {
   if (!ctx.user && !ctx.anonKey) fail(400, 'invalid_body', 'Anonymous comments need cookies');
   let parentId: string | null = null;
+  let voiceIds: string[] = [];
   if (body.parentId) {
     const p = await commentRecording(body.parentId);
     if (!p || p.recordingId !== ctx.rec.id) fail(404, 'not_found', 'Parent comment not found');
     parentId = p!.parentId ?? p!.id; // one level of replies
   }
   if (body.attachmentAssetIds.length) {
-    const owned = await db.select({ id: asset.id, rec: asset.recordingId }).from(asset).where(inArray(asset.id, body.attachmentAssetIds));
+    const owned = await db.select({ id: asset.id, rec: asset.recordingId, kind: asset.kind }).from(asset).where(inArray(asset.id, body.attachmentAssetIds));
     if (owned.length !== body.attachmentAssetIds.length || owned.some((a) => a.rec && a.rec !== ctx.rec.id)) fail(422, 'invalid_body', 'Unknown attachment');
+    if (owned.filter((a) => a.kind === 'voice').length > 1) fail(422, 'invalid_body', 'A comment holds one voice note');
+    voiceIds = owned.filter((a) => a.kind === 'voice').map((a) => a.id);
   }
   const who = ctx.user ? await authorSnapshot(db, ctx.user.id) : null;
   const [row] = await db
@@ -178,6 +198,11 @@ export async function createComment(
     .returning();
   if (body.attachmentAssetIds.length)
     await db.insert(commentAttachment).values(body.attachmentAssetIds.map((assetId, position) => ({ commentId: row!.id, assetId, position })));
+  if (voiceIds.length) {
+    // a voice note uploaded before the comment joins the capture, so the media route serves it
+    await db.update(asset).set({ recordingId: ctx.rec.id }).where(and(inArray(asset.id, voiceIds), isNull(asset.recordingId)));
+    for (const assetId of voiceIds) await enqueueVoiceNote(db, ctx.rec.id, assetId);
+  }
   void notifyMentions(ctx, row!, [...new Set([...body.mentions, ...mentionsIn(body.body)])]).catch((e) => console.error('[viewer] mention mail failed', e));
   publish(ctx.rec.id, { type: 'created', id: row!.id });
   return (await dtos([row!], ctx))[0]!;

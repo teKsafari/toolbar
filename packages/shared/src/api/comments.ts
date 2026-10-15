@@ -1,7 +1,7 @@
 // Comments on a capture: threads, replies, timestamps, reactions, resolve, live updates.
 import { z } from 'zod';
 import { api, defineRoute, idSchema, isoSchema, okSchema, pageOf, pageQuerySchema, personSchema } from './common.ts';
-import { assetSchema } from './captures.ts';
+import { assetSchema, TRANSCRIPT_STATUSES } from './captures.ts';
 
 /**
  * The eight fixed reactions (J-130), stored and sent by key. The UI draws its own glyph for
@@ -11,6 +11,25 @@ export const REACTION_KEYS = ['thumbs-up', 'thumbs-down', 'heart', 'laugh', 'par
 export type ReactionKey = (typeof REACTION_KEYS)[number];
 
 export const reactionSchema = z.object({ key: z.enum(REACTION_KEYS), count: z.number().int().positive(), mine: z.boolean() });
+
+/** A voice note attached to a comment (D-087): the audio and its machine transcript. */
+export const commentVoiceSchema = z.object({
+  assetId: idSchema,
+  url: z.string(),
+  contentType: z.string(),
+  transcript: z
+    .object({
+      status: z.enum(TRANSCRIPT_STATUSES),
+      /** detected language codes, comma separated */
+      language: z.string().nullable(),
+      /** plain text of the cues once done */
+      text: z.string().nullable(),
+      /** why there is none: the skip reason or the failure */
+      reason: z.string().nullable(),
+    })
+    .nullable(),
+});
+export type CommentVoice = z.infer<typeof commentVoiceSchema>;
 
 export const commentSchema = z.object({
   id: idSchema,
@@ -27,7 +46,10 @@ export const commentSchema = z.object({
   body: z.string(),
   /** playback time in ms (J-127); null for untimed comments */
   tMs: z.number().int().nonnegative().nullable(),
+  /** images; a voice note is in `voice` instead */
   attachments: z.array(assetSchema),
+  /** the voice note, when the comment has one (an asset of kind `voice` among its attachments) */
+  voice: commentVoiceSchema.nullable().optional(),
   reactions: z.array(reactionSchema),
   mentions: z.array(idSchema),
   createdAt: isoSchema,
@@ -68,7 +90,7 @@ export const createCommentBodySchema = z
     /** name for an anonymous comment from a share-link viewer (J-134); ignored when signed in */
     anonName: z.string().max(80).optional(),
   })
-  .refine((c) => c.body.trim() !== '' || c.attachmentAssetIds.length > 0, 'A comment needs text or an image');
+  .refine((c) => c.body.trim() !== '' || c.attachmentAssetIds.length > 0, 'A comment needs text, an image or a voice note');
 
 export const createComment = defineRoute({
   name: 'comments.create',

@@ -66,7 +66,7 @@ export async function captureDetail(ctx: ViewerCtx): Promise<CaptureDetail> {
   const streams = await db.select().from(recordingStream).where(eq(recordingStream.recordingId, rec.id));
   const assets = await db.select().from(asset).where(eq(asset.recordingId, rec.id));
   const anns = await db.select().from(annotation).where(eq(annotation.recordingId, rec.id));
-  const [tr] = await db.select().from(transcript).where(eq(transcript.recordingId, rec.id)).limit(1);
+  const [tr] = await db.select().from(transcript).where(and(eq(transcript.recordingId, rec.id), eq(transcript.stream, 'voice'))).limit(1);
   const rrwebChunks = await db
     .select({ seq: recordingChunk.seq })
     .from(recordingChunk)
@@ -155,7 +155,11 @@ export async function captureDetail(ctx: ViewerCtx): Promise<CaptureDetail> {
 
 /** Parsed transcript cues (WebVTT) for captions and the transcript list (J-074, J-236). */
 export async function transcriptCues(recordingId: string): Promise<{ startMs: number; endMs: number; text: string }[]> {
-  const [tr] = await db.select().from(transcript).where(eq(transcript.recordingId, recordingId)).limit(1);
+  const [tr] = await db
+    .select()
+    .from(transcript)
+    .where(and(eq(transcript.recordingId, recordingId), eq(transcript.stream, 'voice')))
+    .limit(1);
   if (!tr?.vtt || tr.status !== 'done') return [];
   return parseVtt(tr.vtt);
 }

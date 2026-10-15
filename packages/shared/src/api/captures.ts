@@ -26,12 +26,16 @@ export type CaptureSource = (typeof CAPTURE_SOURCES)[number];
 /**
  * Asset kinds accepted by POST /assets: the capture kinds plus uploads that are not capture media.
  * For image captures, `screenshot` is the full viewport and `crop` the area crop (J-003, J-004);
- * either one carries the annotations flattened in (J-051).
+ * either one carries the annotations flattened in (J-051). `voice` is a voice note for a comment
+ * (WebM/Opus or another audio type); attached to a comment, it gets a transcript (D-087).
  */
-export const UPLOAD_ASSET_KINDS = [...ASSET_KINDS, 'attachment', 'comment', 'avatar', 'logo'] as const;
+export const UPLOAD_ASSET_KINDS = [...ASSET_KINDS, 'attachment', 'comment', 'avatar', 'logo', 'voice'] as const;
 export type UploadAssetKind = (typeof UPLOAD_ASSET_KINDS)[number];
 
 export const MAX_ASSET_BYTES = 200 * 1024 * 1024;
+
+/** Transcript states (D-087): `skipped` when the length or monthly limit, or a provider of none, stopped it. */
+export const TRANSCRIPT_STATUSES = ['pending', 'running', 'done', 'failed', 'skipped'] as const;
 
 const recordingIdParams = z.object({ id: idSchema });
 
@@ -190,7 +194,7 @@ export const captureDetailSchema = captureSummarySchema.extend({
   index: eventIndexSchema,
   annotations: z.array(annotationSchema),
   attachments: z.array(assetSchema),
-  transcript: z.object({ status: z.enum(['pending', 'running', 'done', 'failed']), language: z.string().nullable() }).nullable(),
+  transcript: z.object({ status: z.enum(TRANSCRIPT_STATUSES), language: z.string().nullable() }).nullable(),
   chapters: z.array(chapterSchema),
   trim: trimSchema.nullable(),
   linkedIssues: z.array(linkedIssueSchema),
@@ -428,7 +432,7 @@ export const captureStatus = defineRoute({
 
 export const mediaParams = z.object({
   id: idSchema,
-  /** video | video-720 | ... | screenshot | full | thumb | voice | events | rrweb-000 | asset id */
+  /** video | video-720 | ... | screenshot | full | thumb | voice | transcript | transcript-<assetId> (a comment voice note) | events | rrweb-000 | asset id */
   name: z.string().regex(/^[a-z0-9-]+$/),
 });
 
@@ -661,12 +665,18 @@ export const getVideoFrame = defineRoute({
 });
 
 export const transcriptSchema = z.object({
-  status: z.enum(['none', 'pending', 'running', 'done', 'failed']),
+  status: z.enum(['none', ...TRANSCRIPT_STATUSES]),
+  /** detected language codes, most spoken first, comma separated (`sw,en`) */
   language: z.string().nullable(),
   vtt: z.string().nullable(),
   cues: z.array(z.object({ startMs: z.number(), endMs: z.number(), text: z.string() })),
-  /** why there is no transcript: no-voice, provider-off, failed */
+  /** why there is no transcript: no-voice, provider-off, failed, or the skip reason (length or monthly limit) */
   reason: z.string().nullable(),
+});
+
+export const transcriptQuerySchema = z.object({
+  /** a comment's voice note (asset id); without it, the capture's own voice track */
+  asset: idSchema.optional(),
 });
 
 export const getTranscript = defineRoute({
@@ -676,10 +686,11 @@ export const getTranscript = defineRoute({
   auth: 'viewer',
   scope: 'read',
   params: recordingIdParams,
+  query: transcriptQuerySchema,
   response: transcriptSchema,
   area: 'server-core',
   tasks: ['J-074', 'J-236'],
-  summary: 'WebVTT transcript and parsed cues; status none with a reason when there was no voice stream.',
+  summary: 'WebVTT transcript and parsed cues of the voice track, or of a comment voice note with ?asset=<id>; status none with a reason when there was no voice, skipped with the reason when a length or monthly limit stopped it.',
 });
 
 export const aiDraftSchema = z.object({
