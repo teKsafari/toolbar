@@ -142,6 +142,29 @@ describe.skipIf(!reachable)('projects (integration)', () => {
     expect(none.projects).toEqual([]);
   });
 
+  it('injector sign-in (D-134): project origins count while INJECTOR_ORIGINS is empty, the cookie verifies and holds a working token', async () => {
+    const review = await import('../src/lib/server/review/index.ts');
+    const { verifyReview } = await import('../src/lib/server/review/cookie.ts');
+    const { resolveApiToken } = await import('../src/lib/server/tokens.ts');
+    const { env } = await import('../src/lib/server/env.ts');
+    const e = (origins: string[]) => ({ ...env, injector: { secret: 's'.repeat(40), origins, cookieDays: 7 } }) as typeof env;
+    expect(await review.reviewOriginAllowedFor(m.db, maker.id, 'http://localhost:5173', e([]))).toBe(true);
+    expect(await review.reviewOriginAllowedFor(m.db, maker.id, 'https://staging.lab.test', e([]))).toBe(true);
+    expect(await review.reviewOriginAllowedFor(m.db, maker.id, 'http://localhost:5174', e([]))).toBe(false);
+    expect(await review.reviewOriginAllowedFor(m.db, outsider.id, 'http://localhost:5173', e([]))).toBe(false);
+    // the operator's list, when set, is the only list
+    expect(await review.reviewOriginAllowedFor(m.db, maker.id, 'http://localhost:5173', e(['https://nuru.example.org']))).toBe(false);
+    await expect(review.issueReviewCookie(m.db, { userId: outsider.id, origin: 'http://localhost:5173' }, e([]))).rejects.toThrow('origin_not_allowed');
+
+    const { value, expiresAt } = await review.issueReviewCookie(m.db, { userId: maker.id, origin: 'http://localhost:5173' }, e([]));
+    const claims = verifyReview('s'.repeat(40), value, 'http://localhost:5173');
+    expect(claims).toMatchObject({ v: 1, o: 'http://localhost:5173', u: maker.id });
+    expect(claims!.x).toBe(Math.floor(expiresAt.getTime() / 1000));
+    const tok = await resolveApiToken(m.db, claims!.k);
+    expect(tok?.user.id).toBe(maker.id);
+    expect(tok?.kind).toBe('device');
+  });
+
   it('admins switch the preset and the allowlist; removing a project keeps its captures', async () => {
     const [p] = await m.db.select().from(m.schema.project);
     const patch = (u: U, json: unknown) => m.one.PATCH(ev(u, { method: 'PATCH', url: `http://localhost:3000/api/v1/projects/${p!.id}`, json, params: { id: p!.id } }) as never);

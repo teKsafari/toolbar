@@ -25,6 +25,7 @@ playwright-report-flows/
 e2e/flows-shots/
 e2e/parity-shots/
 test-results-parity/
+test-results-injector/
 e2e/.cache/
 coverage/
 e2e/runs/

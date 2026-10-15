@@ -25,6 +25,8 @@ export const SOURCE_LABELS: Record<CaptureSource, string> = {
   'recording-link': 'Recording link',
   upload: 'Upload',
   cli: 'CLI',
+  /** the in-page toolbar the injector adds (D-157) */
+  injector: 'Toolbar on the site',
 };
 
 /** Grid filter state; lives in the URL (J-160) as ?type=a,b&source=a&by=<id>,<id>&link=<id>. */

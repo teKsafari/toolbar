@@ -95,6 +95,10 @@ services:
       SHARE_LINK_DAYS: ${SHARE_LINK_DAYS:-14}
       OCR_BIN: ${OCR_BIN:-tesseract}
       OCR_LANGS: ${OCR_LANGS:-eng}
+      # the injector (apps/injector/README.md): off while INJECTOR_SECRET is empty
+      INJECTOR_SECRET: ${INJECTOR_SECRET:-}
+      INJECTOR_ORIGINS: ${INJECTOR_ORIGINS:-}
+      INJECTOR_COOKIE_DAYS: ${INJECTOR_COOKIE_DAYS:-7}
     depends_on:
       postgres: { condition: service_healthy }
       garage: { condition: service_healthy }

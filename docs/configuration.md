@@ -260,6 +260,16 @@ Paused with `FEATURE_AI` (D-084). With the flag on, any OpenAI-compatible chat e
 | `AI_API_KEY` | empty | `sk-...` | Bearer token, when the endpoint needs one. |
 | `AI_TIMEOUT_MS` | `20000` | `60000` | How long one request may take. Raise it for a slow local model. |
 
+## Injector
+
+The injector (`apps/injector/README.md`, D-157) adds the toolbar to apps behind it for signed-in reviewers, with no extension and no change to the app. The server issues the reviewer cookies it accepts. Reviewers start at `https://<app host>/__toolbar/login`. The injector's own variables (`INJECTOR_UPSTREAMS`, `TOOLBAR_SERVER_URL`, `TOOLBAR_PUBLIC_URL` and others) and its Coolify setup (`deploy/injector/`) are in `apps/injector/README.md`.
+
+| Variable | Default | Example | Purpose and when to change |
+|---|---|---|---|
+| `INJECTOR_SECRET` | empty | output of `openssl rand -base64 48` | HMAC key shared with the injector container, at least 32 characters; set the same value on both. Empty: `/review/start` answers 404 and no cookie is issued. On a public URL the server refuses a shorter value. |
+| `INJECTOR_ORIGINS` | empty | `https://nuru.example.org` | The app origins behind the injector, comma separated. The server signs cookies for these origins only. Empty: the origins of the projects (Settings, Projects) in the reviewer's own workspaces. |
+| `INJECTOR_COOKIE_DAYS` | `7` | `30` | How long a reviewer cookie and its device token last, 1 to 90 days. Each sign-in on a site makes a device token named "Review on <host>" under Settings, Connected browsers; revoking it ends the reviewer's uploads at once and the injection when the cookie expires. |
+
 ## Media tools
 
 | Variable | Default | Example | Purpose and when to change |

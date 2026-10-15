@@ -1,0 +1,12 @@
+{
+  "name": "@toolbar/injector",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "description": "Go reverse proxy that adds the open-toolbar to chosen apps for signed-in reviewers (README.md). The scripts wrap the Go toolchain so pnpm -r covers it.",
+  "scripts": {
+    "build": "go build -o /dev/null .",
+    "check": "test -z \"$(gofmt -l .)\" && go vet ./...",
+    "test": "go test -count=1 ./..."
+  }
+}

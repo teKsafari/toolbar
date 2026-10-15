@@ -1,0 +1,41 @@
+# Coolify: Traefik dynamic configuration for the open-toolbar injector (apps/injector, D-157).
+#
+# Copy to /data/coolify/proxy/dynamic/open-toolbar-injector.yml on the Coolify server (Servers >
+# Proxy > Dynamic Configurations in the UI writes the same folder). Traefik's file provider picks
+# it up without a restart. Traefik v3 syntax, which current Coolify ships; for Traefik v2 replace
+# HeaderRegexp with HeadersRegexp.
+#
+# Only the hosts named here go through the injector, and only for two kinds of request:
+#   - anything under /__toolbar/ (sign-in hand-off, the bundle, the upload relay);
+#   - requests that carry the reviewer cookie (tb_review, or __Host-tb_review on https).
+# Every other request to the same host keeps going straight to the app through the router
+# Coolify made from the app's labels, so visitors never pass through the injector and an injector
+# outage only affects reviewers. The high priority makes these routers win over Coolify's own.
+#
+# Replace nuru.example.org with your app's host (one router per host, or several Host() matchers
+# joined with ||), and keep the names of the entry points and the certificate resolver that your
+# Coolify proxy uses (Coolify's defaults: http, https, letsencrypt).
+http:
+  routers:
+    open-toolbar-injector-nuru:
+      entryPoints:
+        - https
+      rule: >-
+        Host(`nuru.example.org`) &&
+        (PathPrefix(`/__toolbar/`) || HeaderRegexp(`Cookie`, `(^|;\s*)(__Host-)?tb_review=`))
+      priority: 10000
+      service: open-toolbar-injector
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    open-toolbar-injector:
+      loadBalancer:
+        # The injector container's name on the `coolify` network (see docker-compose.injector.yml).
+        servers:
+          - url: http://open-toolbar-injector:8080
+        passHostHeader: true
+        healthCheck:
+          path: /__toolbar/health
+          interval: 10s
+          timeout: 3s

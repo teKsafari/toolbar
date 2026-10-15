@@ -59,6 +59,10 @@ services:
       SHARE_LINK_DAYS: ${SHARE_LINK_DAYS:-14}
       OCR_BIN: ${OCR_BIN:-tesseract}
       OCR_LANGS: ${OCR_LANGS:-eng}
+      # the injector (apps/injector/README.md, deploy/injector/): off while INJECTOR_SECRET is empty
+      INJECTOR_SECRET: ${INJECTOR_SECRET:-}
+      INJECTOR_ORIGINS: ${INJECTOR_ORIGINS:-}
+      INJECTOR_COOKIE_DAYS: ${INJECTOR_COOKIE_DAYS:-7}
       BODY_SIZE_LIMIT: ${BODY_SIZE_LIMIT:-210M}
       MAX_RECORDING_MIN: ${MAX_RECORDING_MIN:-}
     depends_on:

@@ -1,0 +1,26 @@
+# Coolify: the open-toolbar injector as a Docker Compose resource (apps/injector/README.md, D-157).
+#
+# 1. Create a Docker Compose resource from this file (repository build context: the repo root),
+#    and turn on "Connect to Predefined Network" so the container joins the `coolify` network,
+#    where Traefik and your apps' containers are.
+# 2. Leave its domains empty: Traefik reaches it through the dynamic configuration in
+#    traefik-open-toolbar-injector.yml, never through labels.
+# 3. Set the variables below. INJECTOR_SECRET must equal the open-toolbar server's value, and the
+#    server's INJECTOR_ORIGINS must list each app origin, e.g. https://nuru.example.org.
+services:
+  open-toolbar-injector:
+    build:
+      context: .
+      dockerfile: apps/injector/Dockerfile
+    container_name: open-toolbar-injector
+    restart: unless-stopped
+    environment:
+      # app host -> the app container's address on the coolify network, comma separated
+      INJECTOR_UPSTREAMS: ${INJECTOR_UPSTREAMS:?nuru.example.org=http://nuru-app-container:3000}
+      # the open-toolbar server as the injector reaches it (its container on the coolify network)
+      TOOLBAR_SERVER_URL: ${TOOLBAR_SERVER_URL:?http://open-toolbar-server:3000}
+      # the open-toolbar server as browsers reach it
+      TOOLBAR_PUBLIC_URL: ${TOOLBAR_PUBLIC_URL:?https://feedback.example.org}
+      INJECTOR_SECRET: ${INJECTOR_SECRET:?the server's INJECTOR_SECRET}
+    expose:
+      - '8080'

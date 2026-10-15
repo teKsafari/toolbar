@@ -1,0 +1,11 @@
+{
+  "claims": {
+    "v": 1,
+    "o": "https://lab.example.test",
+    "u": "6c1f3b0e-6a0e-4c4e-9b8e-2f1f0d7c9a11",
+    "x": 4102444800,
+    "k": "tb_dev_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  "secret": "vector-secret-not-used-anywhere-0123456789",
+  "value": "tbr1.eyJ2IjoxLCJvIjoiaHR0cHM6Ly9sYWIuZXhhbXBsZS50ZXN0IiwidSI6IjZjMWYzYjBlLTZhMGUtNGM0ZS05YjhlLTJmMWYwZDdjOWExMSIsIngiOjQxMDI0NDQ4MDAsImsiOiJ0Yl9kZXZfQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUEifQ.le1LE9z1gMW7d8D_msT7Pin98k37jzRj4Ab29ba033g"
+}
