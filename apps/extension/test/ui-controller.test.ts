@@ -77,7 +77,7 @@ describe('ui controller', () => {
       setCaptureDriver(d);
       const r = await send({ type: 'capture', mode: 'video', tabId, recordMode: 'tab' });
       expect(r).toMatchObject({ session: { state: 'countdown' } });
-      await vi.advanceTimersByTimeAsync(3100);
+      await vi.advanceTimersByTimeAsync(3300); // the 3 s count, then one repaint before the media starts
       expect((await getSession()).state).toBe('recording');
       await send({ type: 'recording.tool', tool: 'blur' });
       expect((await getSession()) as { pausedAt: number | null }).toMatchObject({ pausedAt: expect.any(Number) });
