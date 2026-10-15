@@ -4,7 +4,8 @@
   // menu (move to folder, delete), send-to-app split button and the copy-link split button.
   // J-138, J-140: send-to-app opens the tracker field form (repo, labels, assignee, milestone from
   // the tracker API, remembered values) for the picked app, or offers connect items when none.
-  // Signed-out viewers see the product mark with sign-in and sign-up only.
+  // Signed-out viewers see the product mark with sign-in and sign-up only. Send to app is a
+  // paused feature (docs/scope.md, FEATURE_TRACKERS and FEATURE_SLACK): hidden while both are off.
   import { goto } from '$app/navigation';
   import { Button, toasts } from '@toolbar/ui';
   import { PRODUCT_NAME } from '@toolbar/shared';
@@ -160,7 +161,7 @@
     <Button variant="ghost" size="sm" onclick={() => goto(`/login?next=${encodeURIComponent(next)}`)} data-testid="sign-in">Sign in</Button>
     <Button variant="primary" size="sm" onclick={() => goto(`/login?mode=signup&next=${encodeURIComponent(next)}`)} data-testid="sign-up">Sign up</Button>
   {:else}
-    {#if member}
+    {#if member && (v.data.sendTo.trackers || v.data.sendTo.slack)}
       <div class="split" data-testid="send-split">
         <button type="button" class="sbtn" onclick={() => (lastSend ? openForm(lastSend) : (menu = 'send'))} data-testid="send-main">
           <VIcon name="external" size={14} />{lastSend ? `Send to ${lastSend.name}` : 'Send to app'}
@@ -178,9 +179,13 @@
                   { id: 'connect', label: 'Manage apps', icon: 'settings', run: () => void goto('/settings/integrations') },
                 ]
               : [
-                  { id: 'connect-github', label: 'Connect GitHub', icon: 'plus', run: () => void goto('/settings/integrations#github') },
-                  { id: 'connect-gitlab', label: 'Connect GitLab', icon: 'plus', run: () => void goto('/settings/integrations#gitlab') },
-                  { id: 'connect-slack', label: 'Connect Slack', icon: 'plus', run: () => void goto('/settings/integrations#slack') },
+                  ...(v.data.sendTo.trackers
+                    ? [
+                        { id: 'connect-github', label: 'Connect GitHub', icon: 'plus', run: () => void goto('/settings/integrations#github') },
+                        { id: 'connect-gitlab', label: 'Connect GitLab', icon: 'plus', run: () => void goto('/settings/integrations#gitlab') },
+                      ]
+                    : []),
+                  ...(v.data.sendTo.slack ? [{ id: 'connect-slack', label: 'Connect Slack', icon: 'plus', run: () => void goto('/settings/integrations#slack') }] : []),
                   { id: 'connect-webhook', label: 'Set up a webhook', icon: 'plus', run: () => void goto('/settings/webhooks') },
                 ]} />
         </Dropdown>

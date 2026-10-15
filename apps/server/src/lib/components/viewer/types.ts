@@ -14,6 +14,8 @@ export interface ViewerData {
   folders: { id: string; name: string }[];
   members: { id: string; name: string; email: string }[];
   integrations: { id: string; type: string; name: string; defaultTarget?: string | null }[];
+  /** send to app (trackers and Slack) is paused unless FEATURE_TRACKERS or FEATURE_SLACK is on (docs/scope.md) */
+  sendTo: { trackers: boolean; slack: boolean };
   cues: { startMs: number; endMs: number; text: string }[];
   /** ?t= in seconds (J-097) */
   startAt: number | null;

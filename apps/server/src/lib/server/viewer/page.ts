@@ -3,6 +3,7 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { asc, eq } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
 import { folder, integration, member, user } from '#lib/server/db/schema/index.ts';
+import { env } from '#lib/server/env.ts';
 import type { ViewerData } from '#lib/components/viewer/types.ts';
 import type { ViewerCtx } from './access.ts';
 import { listThreads } from './comments.ts';
@@ -22,9 +23,13 @@ export async function viewerPageData(event: Pick<RequestEvent, 'url'>, ctx: View
         .where(eq(member.organizationId, ctx.rec.organizationId))
         .orderBy(asc(user.name))
     : [];
-  const integrations = isMember && mode === 'member'
+  // paused features (docs/scope.md): trackers and Slack only with their flags on
+  const allowed = [...(env.features.trackers ? ['github', 'gitlab'] : []), ...(env.features.slack ? ['slack'] : [])];
+  const sendTo = { trackers: env.features.trackers, slack: env.features.slack };
+  const sendToApp = allowed.length > 0;
+  const integrations = isMember && mode === 'member' && sendToApp
     ? (await db.select().from(integration).where(eq(integration.organizationId, ctx.rec.organizationId)))
-        .filter((i) => ['github', 'gitlab', 'slack'].includes(i.type))
+        .filter((i) => allowed.includes(i.type))
         .map((i) => ({
           id: i.id,
           type: i.type,
@@ -48,6 +53,7 @@ export async function viewerPageData(event: Pick<RequestEvent, 'url'>, ctx: View
     folders,
     members,
     integrations,
+    sendTo,
     cues,
     startAt: Number.isFinite(t) && t > 0 ? t : null,
     highlight: highlight && /^[0-9a-f-]{36}$/i.test(highlight) ? highlight : null,
