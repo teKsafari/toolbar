@@ -15,10 +15,11 @@
 // shape list is read, never written, from the draft the editor autosaves to the extension's
 // IndexedDB.
 import { test, expect, type BrowserContext, type Frame, type Page, type Worker } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+  DISPLAY,
   Evidence,
   LAB_URL,
   SERVER,
@@ -712,6 +713,8 @@ test('S2.1 annotated screenshot to a link', async () => {
     return { offset: before.length, inDescription: before.includes('pre-roll'), fieldFocused: document.activeElement === field };
   });
   ev.set('step20-caret', caret20);
+  // paused AI (docs/scope.md, FEATURE_AI off on the rig): no AI switch beside Create (J-182)
+  ev.set('step20-ai-switch', { count: await f.getByTestId('ai-switch').count() });
   setClipboard('before-S2.1');
   await sleep(200);
   const c20 = await calm(60_000);
@@ -723,9 +726,12 @@ test('S2.1 annotated screenshot to a link', async () => {
   void newPage.then(() => (pageAt = Date.now()));
   // first feedback (J-086): the first toast of any kind, polled from the keypress on
   const firstToastP = until(async () => ((await pageToasts(page)).join(' ') || null), 10_000, 30)
-    .then((r) => {
+    .then(async (r) => {
       ev.xshot('21-first-toast', FULL); // the X screen as it is right then: editor and toast
-      return r;
+      // one progress toast (J-086): the page's, and none in the editor frame over it
+      const inPage = (await pageToasts(page)).length;
+      const inEditorFrame = await f.locator('.nb-toast').count().catch(() => null);
+      return { ...r, inPage, inEditorFrame };
     })
     .catch(() => null);
   const linkSeen = await until(async () => (/\/s\//.test(clipboard()) ? clipboard() : ''), 60_000, 40);
@@ -744,6 +750,7 @@ test('S2.1 annotated screenshot to a link', async () => {
     link: linkSeen.value,
     firstToast: firstToast?.value ?? null,
     firstToastAfterMs: firstToast ? firstToast.at - t20 : null,
+    firstToastCount: firstToast ? { inPage: firstToast.inPage, inEditorFrame: firstToast.inEditorFrame } : null,
     toast: toast?.value ?? null,
     toastSeenAfterMs: toast ? toast.at - t20 : null,
     toastShownMs: toast && toastGone ? toastGone.at - toast.at : null,
@@ -914,10 +921,43 @@ test('S2.3 discard a screenshot draft', async () => {
 
   // 4. Escape twice within 0.5 s: the draft goes
   const id2 = await draftIdOf(f);
+  // The editor stamps each Escape it gets, and the frame's detach is stamped as it happens: xdotool
+  // runs without blocking, since with --delay it returns only after both key releases (about
+  // 0.5 s), which floored the old closedMs.
+  await f.evaluate(() => {
+    const w = window as unknown as { __esc: number[] };
+    w.__esc = [];
+    addEventListener('keydown', (e) => e.key === 'Escape' && w.__esc.push(Date.now()), true);
+  });
+  let detachedAt = 0;
+  const onDetach = (fr: Frame) => {
+    if (fr === f && !detachedAt) detachedAt = Date.now();
+  };
+  page.on('framedetached', onDetach);
+  let escAt: number[] = [];
+  const poll = (async () => {
+    // the frame's own stamps, read until it goes
+    for (let i = 0; i < 300 && !detachedAt; i++) {
+      const v = await f.evaluate(() => (window as unknown as { __esc: number[] }).__esc.slice()).catch(() => null);
+      if (v) escAt = v;
+      await sleep(5);
+    }
+  })();
   const t4 = Date.now();
-  xdo('key', '--delay', '250', 'Escape', 'Escape');
+  await new Promise<void>((resolve) => execFile('xdotool', ['key', '--delay', '250', 'Escape', 'Escape'], { env: { ...process.env, DISPLAY } }, () => resolve()));
   const gone4 = await until(async () => !hasEditor(page), 5000, 30).catch(() => null);
-  ev.set('step4-escape-twice', { gapMs: 250, closedMs: gone4 ? gone4.at - t4 : null, draftLeft: !!(await draftById(sw, id2)) });
+  await poll;
+  page.off('framedetached', onDetach);
+  ev.set('step4-escape-twice', {
+    gapMs: 250,
+    closedMs: gone4 ? gone4.at - t4 : null,
+    escapesSeen: escAt.length,
+    keyGapMs: escAt.length > 1 ? escAt[1]! - escAt[0]! : null,
+    goneAfterFirstEscapeMs: detachedAt && escAt[0] ? detachedAt - escAt[0] : null,
+    goneAfterSecondEscapeMs: detachedAt && escAt[1] ? detachedAt - escAt[1] : null,
+    load: load(),
+    draftLeft: !!(await draftById(sw, id2)),
+  });
 
   // 5. the icon: no draft pill
   const popup = await clickIcon(context, page);
@@ -1070,6 +1110,8 @@ test('S2.4 video draft: preview, trim, save for later, create', async () => {
   const cut = await f.getByTestId('cut-start').evaluate((e) => ({ widthPx: Math.round(e.getBoundingClientRect().width), bg: getComputedStyle(e).backgroundColor }));
   const t8a = { length: (await f.getByTestId('length').textContent())?.trim(), trim: await trimNow(), cut };
   ev.xshot('8-trimmed', FULL);
+  // paused AI (docs/scope.md, FEATURE_AI off on the rig): no AI switch beside Create (J-182)
+  ev.set('step8-ai-switch', { count: await f.getByTestId('ai-switch').count() });
   const focus8 = await f.evaluate(() => { const a = document.activeElement as HTMLElement | null; return { testid: a?.getAttribute('data-testid') ?? a?.tagName ?? null, editable: !!a?.isContentEditable }; });
   const undoBtn8 = { undoEnabled: !(await f.getByTestId('trim-undo').isDisabled()), redoEnabled: !(await f.getByTestId('trim-redo').isDisabled()) };
   xkey('ctrl+z');

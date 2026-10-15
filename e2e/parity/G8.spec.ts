@@ -979,10 +979,12 @@ test('S8.3 shortcuts', async () => {
         const frames = await cast.stop();
         const first = firstMatching(frames, t0, await editorBox(f), { ref: frames.filter((x) => x.t <= loadedAt + 1200).pop() });
         const popupShown = await popupOpen(context);
+        // paused AI (docs/scope.md, FEATURE_AI off on the rig): no AI switch beside Create
+        const aiSwitch = await f.getByTestId('ai-switch').count();
         if (run === 1) ev.xshot('4-replay-draft', { x: 0, y: 0, w: 1460, h: 1000 });
         await closeEditor(page);
         await sleep(3000);
-        return { chordToEditorShellDomMs: shellAt - t0, chordToReplayLoadedDomMs: loadedAt - t0, chordToFirstEditorFrameMs: first ? Math.round(first.t - t0) : null, popupShown, load: c.load, reliable: c.reliable };
+        return { chordToEditorShellDomMs: shellAt - t0, chordToReplayLoadedDomMs: loadedAt - t0, chordToFirstEditorFrameMs: first ? Math.round(first.t - t0) : null, popupShown, aiSwitch, load: c.load, reliable: c.reliable };
       }),
     );
   }
