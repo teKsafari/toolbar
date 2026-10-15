@@ -1,0 +1,16 @@
+HTTP/1.1 200 OK
+cache-control: private, no-store
+content-length: 20080
+content-type: text/html
+etag: "yi4kli"
+link: <http://localhost:3000/s/<share-token>.md>; rel="alternate"; type="text/markdown"
+referrer-policy: no-referrer
+set-cookie: <omitted>
+vary: Accept
+x-content-type-options: nosniff
+x-robots-tag: noindex, nofollow
+x-sveltekit-page: true
+Date: <omitted>
+Connection: keep-alive
+Keep-Alive: timeout=5
+

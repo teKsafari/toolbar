@@ -167,16 +167,19 @@ export interface Launched {
 }
 
 /** Chromium with the extension on a fresh profile, the action pinned, window at 0,0. */
-export async function launchNib(opts: { cdpPort?: number; args?: string[] } = {}): Promise<Launched> {
+export async function launchNib(opts: { cdpPort?: number; args?: string[]; userDataDir?: string } = {}): Promise<Launched> {
   if (!fs.existsSync(path.join(EXT_DIR, 'manifest.json'))) throw new Error(`No extension build at ${EXT_DIR}`);
   const free = availableMb();
   if (free < 1600) throw new Error(`only ${free} MB available; a browser needs about 800 MB and 800 MB must stay free`);
   const cdpPort = opts.cdpPort ?? 9361;
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nib-parity-'));
+  // a given profile folder survives close() (G8 S8.4 relaunches it for a cold popup open)
+  const keep = !!opts.userDataDir;
+  const userDataDir = opts.userDataDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'nib-parity-'));
+  const fresh = !fs.existsSync(path.join(userDataDir, 'Default', 'Preferences'));
   fs.mkdirSync(path.join(userDataDir, 'Default'), { recursive: true });
   // developer mode on, as for anyone who loads the extension unpacked: without it a runtime
   // reload (the popup's restart item) leaves the extension disabled
-  fs.writeFileSync(path.join(userDataDir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID], ui: { developer_mode: true } } }));
+  if (fresh) fs.writeFileSync(path.join(userDataDir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID], ui: { developer_mode: true } } }));
   const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
     env: { ...process.env, DISPLAY: xDisplay },
@@ -204,7 +207,7 @@ export async function launchNib(opts: { cdpPort?: number; args?: string[] } = {}
       await (context as BrowserContext & { __cdp?: Browser }).__cdp?.close().catch(() => undefined);
       await context.close().catch(() => undefined);
       await sleep(500); // Chromium's helpers let go of the profile a moment after close
-      fs.rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+      if (!keep) fs.rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
     },
   };
 }
