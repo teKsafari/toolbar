@@ -65,11 +65,14 @@
   const folder = $derived(folders.find((f) => f.id === folderId) ?? null);
   const integrations = $derived((boot?.integrations ?? []).filter((i) => !workspaceId || i.workspaceId === workspaceId));
   const destIntegration = $derived(destination.type === 'integration' ? (integrations.find((i) => i.id === (destination as { integrationId: string }).integrationId) ?? null) : null);
+  // AI is a paused feature (docs/scope.md, D-084): the switch shows only when the server turned
+  // FEATURE_AI on; until the bootstrap answers it stays hidden, so it never flashes
+  const aiFeature = $derived(!!boot?.features?.ai);
   const aiAvailable = $derived(boot ? boot.limits.aiAvailable : true);
   const aiDisabledReason = $derived(
     isImage ? 'AI drafts are for videos and replays' : !aiAvailable || aiReason === 'unavailable' ? 'AI is not set up on this server' : aiReason === 'not-signed-in' ? 'Sign in to use AI drafts' : null,
   );
-  const aiOn = $derived(prefs.ai && !aiDisabledReason);
+  const aiOn = $derived(aiFeature && prefs.ai && !aiDisabledReason);
 
   onMount(() => {
     void init();
@@ -121,7 +124,7 @@
   }
 
   async function fetchAi() {
-    if (ai || aiLoading || isImage || (boot && !boot.limits.aiAvailable)) return;
+    if (ai || aiLoading || isImage || !aiFeature || !boot?.limits.aiAvailable) return;
     aiLoading = true;
     try {
       const r = await host.ai();
@@ -697,6 +700,7 @@
           </Menu>
         {/if}
         <span class="nb-grow"></span>
+        {#if aiFeature}
         <Tip label={aiDisabledReason ?? (aiOn ? 'AI draft on' : 'AI draft off')}>
           <button
             type="button"
@@ -712,6 +716,7 @@
             <span class="nb-track"><span class="nb-knob"></span></span>
           </button>
         </Tip>
+        {/if}
         <button type="button" class="nb-ed-create" disabled={!data || creating} aria-busy={creating} data-testid="create" onclick={() => void create()}>
           {#if creating}<EdIcon name="spinner" size={15} />{/if}
           Create

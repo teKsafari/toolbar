@@ -47,6 +47,8 @@ export function bootstrapFor(workspaceId: string | null, aiAvailable = true) {
     settings: {},
     limits: { chunkBytes: 4194304, maxRecordingMs: null, aiAvailable },
     serverVersion: 'mock',
+    // the AI tests run against a server with the paused AI feature on (FEATURE_AI)
+    features: { ai: true },
   };
 }
 

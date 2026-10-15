@@ -8,6 +8,7 @@ import type { Db } from '../db/index.ts';
 import { folder, integration, recording, user } from '../db/schema/index.ts';
 import { activeWorkspaceId, listWorkspaces } from './workspaces.ts';
 import { supportLinkUrl } from '../dashboard/links.ts';
+import { env } from '../env.ts';
 
 type Person = { id: string; name: string; email: string; image: string | null };
 
@@ -71,7 +72,9 @@ export async function extBootstrap(db: Db, me: Person, opts: { workspaceId?: str
   const stored = await activeWorkspaceId(db, me.id, workspaces);
   const active = opts.workspaceId && workspaces.some((w) => w.id === opts.workspaceId) ? opts.workspaceId : stored;
   const maxMin = Number(process.env.MAX_RECORDING_MIN || 0);
-  const ai = process.env.AI_PROVIDER ?? 'none';
+  // AI is paused unless FEATURE_AI is on (D-084): the editor then hides its AI switch
+  const aiFeature = env.features.ai;
+  const ai = aiFeature ? (process.env.AI_PROVIDER ?? 'none') : 'none';
   return {
     user: me,
     workspaces,
@@ -82,6 +85,7 @@ export async function extBootstrap(db: Db, me: Person, opts: { workspaceId?: str
     settings: DEFAULT_USER_SETTINGS,
     limits: { chunkBytes: LIMITS.chunkBytes, maxRecordingMs: maxMin > 0 ? maxMin * 60_000 : null, aiAvailable: ai !== 'none' && ai !== '' },
     serverVersion: opts.serverVersion,
+    features: { ai: aiFeature },
     // J-177: the menu's "report a problem" opens a recording link to the server admin
     supportRecordingLink: await supportLinkUrl(db).catch(() => null),
   };
