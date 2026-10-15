@@ -239,7 +239,8 @@
       <button type="button" class="ib" onclick={() => jump(5000)} aria-label="Forward 5 seconds" title="Forward 5 s"><VIcon name="skip-forward" size={18} /></button>
       <button type="button" class="ib" onclick={toggleMute} aria-label={muted ? 'Unmute' : 'Mute'} title="Mute (m)"><VIcon name={muted ? 'volume-off' : 'volume'} size={18} /></button>
       <span class="time" data-testid="time">{fmtClock(v.now)} / {fmtClock(v.duration)}</span>
-      {#if v.chapters.length}
+      {#if v.data.chapters && v.chapters.length}
+        <!-- chapters are an AI feature, paused unless FEATURE_AI is on (docs/scope.md, J-092 review) -->
         <Dropdown open={menu === 'chapters'} up onclose={() => (menu = null)}>
           {#snippet trigger()}
             <button type="button" class="txt chap" onclick={() => (menu = menu === 'chapters' ? null : 'chapters')} data-testid="chapter-pill">

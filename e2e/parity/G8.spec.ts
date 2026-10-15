@@ -181,7 +181,7 @@ async function shoot4(ev: Evidence, step: string, open: (w: number, h: number, t
       done = o.done;
       await setup(o.page, w);
       await sleep(500);
-      await o.page.screenshot({ path: ev.file(step, String(w), theme) });
+      await ev.shot(o.page, step, String(w), theme);
       out[`${w}-${theme}`] = await overflowX(o.page);
     } catch (e) {
       out[`${w}-${theme}`] = `error: ${String(e).slice(0, 200)}`;

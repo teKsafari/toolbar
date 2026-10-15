@@ -116,17 +116,17 @@
         <div class="hrow" role="row">
           {#each COLS as c (c.key)}
             {#if !selected || c.key === 'index' || c.key === 'name'}
-              <button type="button" role="columnheader" class="h {c.cls}" onclick={() => sortBy(c.key)} aria-sort={sortKey === c.key ? (sortDir === 1 ? 'ascending' : 'descending') : 'none'}>
+              <button type="button" role="columnheader" class="h {c.cls}" data-col={c.key} onclick={() => sortBy(c.key)} aria-sort={sortKey === c.key ? (sortDir === 1 ? 'ascending' : 'descending') : 'none'}>
                 {c.label}{#if sortKey === c.key && c.key !== 'index'}<VIcon name={sortDir === 1 ? 'chevron-up' : 'chevron-down'} size={10} />{/if}
               </button>
             {/if}
           {/each}
           {#if !selected}
-            {#if v.showTabColumn}<span role="columnheader" class="h c-tab" data-testid="tab-column">Tab</span>{/if}
-            <span role="columnheader" class="h c-f">Frame</span>
-            <button type="button" role="columnheader" class="h c-z" onclick={() => sortBy('size')}>Size</button>
-            <button type="button" role="columnheader" class="h c-ms" onclick={() => sortBy('time')}>Time</button>
-            <span role="columnheader" class="h c-w">Waterfall</span>
+            {#if v.showTabColumn}<span role="columnheader" class="h c-tab" data-col="tab" data-testid="tab-column">Tab</span>{/if}
+            <span role="columnheader" class="h c-f" data-col="frame">Frame</span>
+            <button type="button" role="columnheader" class="h c-z" data-col="size" onclick={() => sortBy('size')}>Size</button>
+            <button type="button" role="columnheader" class="h c-ms" data-col="time" onclick={() => sortBy('time')}>Time</button>
+            <span role="columnheader" class="h c-w" data-col="waterfall">Waterfall</span>
           {/if}
         </div>
         {#if !rows.length}<div class="vp-striped">No requests match these filters.</div>{/if}
@@ -146,18 +146,18 @@
             onclick={() => select(r)}
             onkeydown={(e) => { if (e.key === 'Enter') select(r); }}>
             <button type="button" class="vp-gutter g" onclick={(e) => { e.stopPropagation(); v.seek(r.at, { arm: true }); }} aria-label="Seek to {fmtClock(r.at)}" title="Play from here"><VIcon name="play" size={10} /></button>
-            <span class="c-i" role="cell">{r.index + 1}</span>
-            <span class="c-name" role="cell" title={r.url}><VIcon name={typeIcon(r) as never} size={12} /><span class="ell">{r.path || r.url}{#if r.graphql?.operationName}{' '}<span class="op" data-testid="gql-op">{r.graphql.operationName}</span>{/if}</span></span>
+            <span class="c-i" role="cell" data-col="index">{r.index + 1}</span>
+            <span class="c-name" role="cell" data-col="name" title={r.url}><VIcon name={typeIcon(r) as never} size={12} /><span class="ell">{r.path || r.url}{#if r.graphql?.operationName}{' '}<span class="op" data-testid="gql-op">{r.graphql.operationName}</span>{/if}</span></span>
             {#if !selected}
-              <span class="c-m" role="cell">{r.method}</span>
-              <span class="c-s" role="cell">{r.status ?? (r.state === 'pending' ? 'pending' : (r.error ?? 'failed'))}</span>
-              <span class="c-d" role="cell"><span class="ell">{r.host}</span></span>
-              <span class="c-t" role="cell">{typeLabel(r)}</span>
-              {#if v.showTabColumn}<span class="c-tab" role="cell">{r.tabId ?? ''}</span>{/if}
-              <span class="c-f" role="cell">{r.frame}</span>
-              <span class="c-z" role="cell">{fmtBytes(r.size)}</span>
-              <span class="c-ms" role="cell" title={fmtWallMs(r.t, tz)}>{r.state === 'pending' ? '' : fmtDuration(r.durationMs)}</span>
-              <span class="c-w" role="cell"><span class="wf" class:pend={r.state === 'pending'} style:left="{(r.startAt / span) * 100}%" style:width="{Math.max(0.6, ((r.durationMs ?? span - r.startAt) / span) * 100)}%"></span></span>
+              <span class="c-m" role="cell" data-col="method">{r.method}</span>
+              <span class="c-s" role="cell" data-col="status">{r.status ?? (r.state === 'pending' ? 'pending' : (r.error ?? 'failed'))}</span>
+              <span class="c-d" role="cell" data-col="domain"><span class="ell">{r.host}</span></span>
+              <span class="c-t" role="cell" data-col="type">{typeLabel(r)}</span>
+              {#if v.showTabColumn}<span class="c-tab" role="cell" data-col="tab">{r.tabId ?? ''}</span>{/if}
+              <span class="c-f" role="cell" data-col="frame">{r.frame}</span>
+              <span class="c-z" role="cell" data-col="size">{fmtBytes(r.size)}</span>
+              <span class="c-ms" role="cell" data-col="time" title={fmtWallMs(r.t, tz)}>{r.state === 'pending' ? '' : fmtDuration(r.durationMs)}</span>
+              <span class="c-w" role="cell" data-col="waterfall"><span class="wf" class:pend={r.state === 'pending'} style:left="{(r.startAt / span) * 100}%" style:width="{Math.max(0.6, ((r.durationMs ?? span - r.startAt) / span) * 100)}%"></span></span>
             {/if}
           </div>
         {/each}
@@ -176,13 +176,15 @@
   .tablewrap { flex: 1; min-width: 0; overflow: auto; }
   .split.open .tablewrap { flex: 0 0 34%; max-width: 260px; border-right: 1px solid var(--nb-border); }
   /* All ten columns fit the default panel (535 px at 1440): fixed narrow columns, the name,
-     domain and waterfall share the rest, and every cell truncates (J-058, J-105). */
-  .table { min-width: 440px; }
-  .table.narrow { min-width: 0; }
-  .hrow, .nrow { display: grid; grid-template-columns: 14px 24px minmax(80px, 3fr) 44px 40px minmax(36px, 0.8fr) 36px 34px 48px 46px minmax(36px, 0.8fr); align-items: center; }
-  .table.tabcol .hrow, .table.tabcol .nrow { grid-template-columns: 14px 24px minmax(80px, 3fr) 44px 40px minmax(36px, 0.8fr) 36px 28px 34px 48px 46px minmax(36px, 0.8fr); }
-  .table.narrow .hrow, .table.narrow .nrow { grid-template-columns: 14px 26px minmax(0, 1fr); }
-  .hrow { position: sticky; top: 0; z-index: 1; height: 26px; background: var(--nb-surface); border-bottom: 1px solid var(--nb-border-strong); padding: 0 10px 0 7px; }
+     domain and waterfall share the rest, and every cell truncates (J-058, J-105). The header and
+     the rows take one column template (--cols) and one box (gap, padding, left border), so each
+     header cell starts at the x of its column's body cells (J-058, J-105 review: the rows had a
+     6 px gap and a 3 px border the header lacked, and the drift clipped "Domain" into "Type"). */
+  .table { --cols: 14px 24px minmax(80px, 3fr) 46px 42px minmax(50px, 0.9fr) 40px 38px 48px 48px minmax(56px, 0.7fr); min-width: 504px; }
+  .table.tabcol { --cols: 14px 24px minmax(76px, 3fr) 46px 42px minmax(50px, 0.9fr) 40px 28px 38px 48px 48px minmax(56px, 0.7fr); min-width: 528px; }
+  .table.narrow { --cols: 14px 26px minmax(0, 1fr); min-width: 0; }
+  .hrow, .nrow { display: grid; grid-template-columns: var(--cols); column-gap: 0; align-items: center; padding: 0 10px 0 4px; border-left: 3px solid transparent; }
+  .hrow { position: sticky; top: 0; z-index: 1; height: 26px; background: var(--nb-surface); border-bottom: 1px solid var(--nb-border-strong); }
   .hrow .h:first-child { grid-column: 2; }
   .h { all: unset; display: inline-flex; align-items: center; gap: 2px; min-width: 0; padding-right: 4px; overflow: hidden; text-overflow: ellipsis; font: 600 var(--nb-text-xs) var(--nb-font-sans); color: var(--nb-text-muted); cursor: pointer; white-space: nowrap; }
   .nrow { cursor: pointer; padding-top: 0; min-height: 20px; }

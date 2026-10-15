@@ -6,6 +6,9 @@ import { budget } from '../../fixtures/budget.ts';
 
 test.beforeAll(() => reseed());
 
+/** Chapters are an AI feature, paused unless the server runs with FEATURE_AI=1 (docs/scope.md). */
+const AI = process.env.E2E_FEATURE_AI === '1';
+
 test.describe('member page', () => {
   test.beforeEach(async ({ context }) => {
     await signIn(context);
@@ -53,7 +56,13 @@ test.describe('member page', () => {
     await open(page, captureUrl(IDS.video));
     await expect(page.getByTestId('big-play')).toContainText('0:08');
     await expect(page.getByTestId('time')).toHaveText('0:00 / 0:08');
-    for (const id of ['play', 'download', 'fullscreen', 'quality', 'speed', 'chapter-pill', 'share-at-time']) await expect(page.getByTestId(id)).toBeVisible();
+    for (const id of ['play', 'download', 'fullscreen', 'quality', 'speed', 'share-at-time']) await expect(page.getByTestId(id)).toBeVisible();
+    // J-092 review: the chapters pill is an AI feature and stays hidden while FEATURE_AI is off
+    if (AI) await expect(page.getByTestId('chapter-pill')).toBeVisible();
+    else {
+      await expect(page.getByTestId('chapter-pill')).toHaveCount(0);
+      await expect(page.getByTestId('chapter-split')).toHaveCount(0);
+    }
     await page.getByRole('button', { name: 'Forward 5 seconds' }).click();
     await expect.poll(() => videoTime(page)).toBeCloseTo(5, 0);
     await page.getByRole('button', { name: 'Back 5 seconds' }).click();
@@ -133,7 +142,8 @@ test.describe('member page', () => {
     const pv = page.getByTestId('seek-preview');
     await expect(pv).toBeVisible();
     await expect(pv).toContainText('0:06');
-    await expect(pv).toContainText('Your details');
+    if (AI) await expect(pv).toContainText('Your details');
+    else await expect(pv).not.toContainText('Your details');
     await expect(pv.locator('canvas')).toBeVisible();
   });
 
@@ -160,6 +170,7 @@ test.describe('member page', () => {
   });
 
   test('J-096 chapters menu seeks; the bar is split at chapter edges', async ({ page }) => {
+    test.skip(!AI, 'paused: FEATURE_AI is off (docs/scope.md)');
     await open(page, captureUrl(IDS.video));
     await ready(page);
     await expect(page.getByTestId('chapter-split')).toHaveCount(1);

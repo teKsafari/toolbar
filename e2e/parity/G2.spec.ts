@@ -347,7 +347,7 @@ async function shootCapturePage(ev: Evidence, context: BrowserContext, id: strin
       await cap.goto(`${SERVER}/c/${id}`);
       await cap.waitForLoadState('networkidle').catch(() => undefined);
       await sleep(1500);
-      await cap.screenshot({ path: ev.file(step, String(w), theme) });
+      await ev.shot(cap, step, String(w), theme);
       out[`${w}-${theme}-overflow`] = await cap.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     }
   await cap.close();

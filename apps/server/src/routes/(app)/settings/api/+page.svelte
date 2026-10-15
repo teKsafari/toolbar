@@ -1,11 +1,14 @@
 <script lang="ts">
   // "API" item of the settings nav: the REST API this server offers, for scripts and
   // tools. Tokens come from the API tokens page; the full route table is at /api/v1.
-  import { ROUTE_LIST } from '@toolbar/shared/api';
+  import { ROUTE_LIST, routeListed, type RouteDef } from '@toolbar/shared/api';
   import Section from '#lib/components/dashboard/Section.svelte';
   import { page } from '$app/state';
   const origin = $derived(page.url.origin);
-  const mine = ROUTE_LIST.filter((r) => r.auth !== 'session' && !r.path.startsWith('/s/') && !r.path.startsWith('/rl/') && r.path.startsWith('/api/v1')).slice(0, 400);
+  // Routes of paused features (docs/scope.md: AI drafts, the audit log, integrations and send to
+  // app) show only while their flag is on.
+  const flags = $derived((page.data as { features?: Record<string, boolean> }).features ?? {});
+  const mine = $derived((ROUTE_LIST as readonly RouteDef[]).filter((r) => r.auth !== 'session' && !r.path.startsWith('/s/') && !r.path.startsWith('/rl/') && r.path.startsWith('/api/v1') && routeListed(r, flags)));
 </script>
 
 <svelte:head><title>API · Settings</title></svelte:head>
@@ -16,12 +19,12 @@
   <pre class="ex">curl -H "Authorization: Bearer $NIB_TOKEN" {origin}/api/v1/recordings?limit=5</pre>
   <p>Machine-readable list: <a href={`${origin}/api/v1`} target="_blank" rel="noopener">{origin}/api/v1</a></p>
 </Section>
-<Section title="Endpoints">
+<Section title="Endpoints" description="Routes of paused features (AI drafts, the audit log, integrations) are left out while their flag is off.">
   <div class="tablewrap">
     <table>
       <tbody>
         {#each mine as r (r.name)}
-          <tr><td class="m">{r.method}</td><td><code>{r.path}</code></td><td class="muted">{r.summary}</td></tr>
+          <tr data-route={r.name}><td class="m">{r.method}</td><td><code>{r.path}</code></td><td class="muted">{r.summary}</td></tr>
         {/each}
       </tbody>
     </table>

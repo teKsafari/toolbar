@@ -701,7 +701,8 @@ export const aiDraft = defineRoute({
   errors: ['unauthorized', 'forbidden', 'not_found', 'unavailable'],
   area: 'editor',
   tasks: ['J-083', 'J-230'],
-  summary: 'Ghost title, summary, steps with times and result for a video or replay draft. 503 unavailable when AI_PROVIDER=none or the workspace switch is off.',
+  summary: 'Ghost title, summary, steps with times and result for a video or replay draft. Paused (FEATURE_AI): 503 unavailable while the flag is off, when AI_PROVIDER=none or when the workspace switch is off.',
+  paused: ['ai'],
 });
 
 // ---------- update, delete, bulk ----------
@@ -773,7 +774,7 @@ export const recordView = defineRoute({
   status: 200,
   area: 'viewer',
   tasks: ['J-136', 'J-161'],
-  summary: 'Record a view: feeds the recently viewed palette rows and the first-view email.',
+  summary: 'Record a view: feeds the recently viewed palette rows (and the first-view mail, paused with FEATURE_EMAIL).',
 });
 
 /** Pull a capture id out of a pasted URL or text (MCP and CLI accept either, J-150). */

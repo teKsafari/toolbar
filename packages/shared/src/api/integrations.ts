@@ -68,6 +68,7 @@ export const listIntegrations = defineRoute({
   area: 'dashboard',
   tasks: ['J-139', 'J-251', 'J-079', 'J-138'],
   summary: 'Connected apps of a workspace (the draft destination menu and send-to-app list read this).',
+  paused: ['trackers', 'slack'],
 });
 
 export const connectIntegration = defineRoute({
@@ -84,6 +85,7 @@ export const connectIntegration = defineRoute({
   area: 'dashboard',
   tasks: ['J-139'],
   summary: 'Store a token or webhook URL (encrypted) after a test call; 502 integration_failed when the test fails.',
+  paused: ['trackers', 'slack'],
 });
 
 export const updateIntegration = defineRoute({
@@ -101,6 +103,7 @@ export const updateIntegration = defineRoute({
   area: 'dashboard',
   tasks: ['J-139'],
   summary: 'Rename, rotate the token or URL, or change the default repo or project.',
+  paused: ['trackers', 'slack'],
 });
 
 export const removeIntegration = defineRoute({
@@ -115,6 +118,7 @@ export const removeIntegration = defineRoute({
   area: 'dashboard',
   tasks: ['J-139'],
   summary: 'Disconnect an app.',
+  paused: ['trackers', 'slack'],
 });
 
 /** Picker data for the tracker field form (J-140). */
@@ -139,6 +143,7 @@ export const integrationOptions = defineRoute({
   area: 'dashboard',
   tasks: ['J-140'],
   summary: 'Repos (or projects), labels, assignees and milestones from the tracker API.',
+  paused: ['trackers', 'slack'],
 });
 
 /** Fields of a tracker issue or Slack post. Unknown keys are ignored per type. */
@@ -168,6 +173,7 @@ export const sendToIntegration = defineRoute({
   tasks: ['J-137', 'J-138', 'J-242', 'J-241'],
   summary:
     'File an issue (or post to Slack) for an existing capture. Body per J-242: title, description, console errors, failing requests, URL, time, device and the capture link.',
+  paused: ['trackers', 'slack'],
 });
 
 export const listLinkedIssues = defineRoute({
@@ -181,6 +187,7 @@ export const listLinkedIssues = defineRoute({
   area: 'dashboard',
   tasks: ['J-241'],
   summary: 'Issues filed from the capture or referenced in its text ("org/repo#12").',
+  paused: ['trackers', 'slack'],
 });
 
 // ---------- outgoing webhooks ----------

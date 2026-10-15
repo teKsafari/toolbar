@@ -134,6 +134,28 @@ export class Evidence {
   file(step: string, size: string = '1440', theme = 'light') {
     return path.join(this.dir, `${this.scenario}-${step}-nib-${size}-${theme}.png`);
   }
+  /**
+   * A page shot in one theme. The theme is pinned on the page itself (the emulated colour scheme
+   * plus the app's own `data-theme` switch on <html>), because in the extension's persistent
+   * context a navigation can drop the emulated scheme: 33 "dark" shots of fix rounds 1 to 3 were
+   * byte-identical to their light twins. The page background must then read dark or light, and a
+   * shot must differ from its twin of the other theme taken in this run.
+   */
+  async shot(page: Page, step: string, size: string = '1440', theme: 'light' | 'dark' = 'light', o: { fullPage?: boolean } = {}) {
+    const bg = await pinTheme(page, theme);
+    const out = this.file(step, size, theme);
+    await page.screenshot({ path: out, fullPage: o.fullPage });
+    const twin = this.file(step, size, theme === 'dark' ? 'light' : 'dark');
+    const twinFresh = this.written.has(twin);
+    const same = twinFresh && fs.readFileSync(twin).equals(fs.readFileSync(out));
+    this.themeChecks[path.basename(out)] = { bg, lum: bg.lum, twinCompared: twinFresh, sameAsTwin: same };
+    this.set('theme-checks', this.themeChecks);
+    this.written.add(out);
+    expect(same, `${path.basename(out)} is byte-identical to its ${theme === 'dark' ? 'light' : 'dark'} twin`).toBe(false);
+    return out;
+  }
+  private readonly written = new Set<string>();
+  private readonly themeChecks: Record<string, unknown> = {};
   /** The whole X screen (shows the popup and the closed shadow root), optionally cropped. */
   xshot(step: string, crop?: { x: number; y: number; w: number; h: number }, size = '1440', theme = 'light') {
     const out = this.file(step, size, theme);
@@ -145,6 +167,27 @@ export class Evidence {
   save() {
     fs.writeFileSync(path.join(this.dir, `${this.scenario}.json`), JSON.stringify(this.data, null, 2) + '\n');
   }
+}
+
+/**
+ * Pin a page to one theme: the emulated colour scheme and the app's `data-theme` on <html>
+ * (packages/ui/src/tokens.css honours both). Returns the page background it then reads, and fails
+ * when that background does not match the theme (dark below 80 luminance, light above 180).
+ */
+export async function pinTheme(page: Page, theme: 'light' | 'dark') {
+  await page.emulateMedia({ colorScheme: theme });
+  const bg = await page.evaluate(async (t) => {
+    document.documentElement.setAttribute('data-theme', t);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const pick = (el: Element) => getComputedStyle(el).backgroundColor;
+    const transparent = (c: string) => c === 'rgba(0, 0, 0, 0)' || c === 'transparent';
+    const color = [document.body, document.documentElement, document.querySelector('main')].map((el) => (el ? pick(el) : '')).find((c) => c && !transparent(c)) ?? 'rgba(0, 0, 0, 0)';
+    return { color, dark: matchMedia('(prefers-color-scheme: dark)').matches, attr: document.documentElement.getAttribute('data-theme') };
+  }, theme);
+  const [r, g, b] = (bg.color.match(/[\d.]+/g) ?? ['255', '255', '255']).map(Number) as [number, number, number];
+  const lum = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
+  if (bg.color !== 'rgba(0, 0, 0, 0)') expect(theme === 'dark' ? lum < 80 : lum > 180, `page background ${bg.color} (luminance ${lum}) in ${theme}`).toBe(true);
+  return { ...bg, lum };
 }
 
 /** Mean of one screen region's RGB, from the X server. */

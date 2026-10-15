@@ -107,6 +107,8 @@ export class Viewer {
   }
 
   private computeChapters(): Chapter[] {
+    // AI chapters and the chapters menu are paused unless FEATURE_AI is on (docs/scope.md)
+    if (!this.data.chapters) return [];
     const end = this.duration || 0;
     const given = this.detail.chapters ?? [];
     if (given.length) return given.map((c) => ({ title: c.title, startMs: c.startMs, endMs: c.endMs }));

@@ -16,6 +16,8 @@ export interface ViewerData {
   integrations: { id: string; type: string; name: string; defaultTarget?: string | null }[];
   /** send to app (trackers and Slack) is paused unless FEATURE_TRACKERS or FEATURE_SLACK is on (docs/scope.md) */
   sendTo: { trackers: boolean; slack: boolean };
+  /** the chapters pill, menu and seek-bar splits: paused with FEATURE_AI off (docs/scope.md, J-096) */
+  chapters: boolean;
   cues: { startMs: number; endMs: number; text: string }[];
   /** ?t= in seconds (J-097) */
   startAt: number | null;

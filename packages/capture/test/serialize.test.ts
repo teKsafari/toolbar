@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { serialize, formatArgs } from '../src/serialize.ts';
+import { fmtArgs } from '@toolbar/shared/derive';
 
 describe('serialize', () => {
   it('keeps plain JSON values', () => {
@@ -44,5 +45,39 @@ describe('serialize', () => {
 
   it('formats one-line text for rows', () => {
     expect(formatArgs(['a', 1, { b: 2 }, serialize(new Error('x'))])).toBe('a 1 {"b":2} Error: x');
+  });
+});
+
+describe('serialized values through the viewer formatter (J-055, J-056)', () => {
+  it('prints every tag readably: no wire form reaches the console row', () => {
+    const at = new Date('2026-10-15T03:38:35.057Z');
+    const deep = { a: { b: { c: { d: { e: 1 } } } } };
+    const many = Object.fromEntries(Array.from({ length: 105 }, (_, i) => [`k${i}`, i]));
+    const thrower = Object.defineProperty({}, 'bad', { enumerable: true, get: () => { throw new Error('boom'); } });
+    const args = [
+      { user: { id: 7 }, at },
+      [at, /a+/g, NaN, 12n, undefined, Symbol('s'), () => 1],
+      new Map([['k', at]]),
+      new Set([1, 2]),
+      new Uint8Array(3),
+      Promise.resolve(1),
+      deep,
+      many,
+      thrower,
+      { $t: 'user data' },
+      new Error('lab error object'),
+    ].map((a) => serialize(a));
+    const text = fmtArgs(args);
+    expect(text).not.toMatch(/"?\$t"?\s*:\s*"(date|regexp|number|map|set|typed|promise|more|throws|bigint|symbol|fn|undefined)"/);
+    expect(text).toContain('{user: {id: 7}, at: 2026-10-15T03:38:35.057Z}');
+    expect(text).toContain('[2026-10-15T03:38:35.057Z, /a+/g, NaN, 12n, undefined, Symbol(s), f anonymous()]');
+    expect(text).toContain('Map(1) {"k" => 2026-10-15T03:38:35.057Z}');
+    expect(text).toContain('Set(2) {1, 2}');
+    expect(text).toContain('Uint8Array(3)');
+    expect(text).toContain('Promise');
+    expect(text).toContain('...5 more}');
+    expect(text).toContain('{bad: [Exception: boom]}');
+    expect(text).toContain('{$t: "user data"}');
+    expect(text).toContain('Error: lab error object');
   });
 });

@@ -164,6 +164,19 @@ export interface RouteDef<
   /** Catalogue rows (J-xxx) and foundation tasks (X-xx) this route serves. */
   tasks: readonly string[];
   summary: string;
+  /**
+   * Paused feature flags (docs/scope.md) this route belongs to. The API page and the API index
+   * list it only while one of them is on.
+   */
+  paused?: readonly PausedFeature[];
+}
+
+/** Paused-feature flags as the server's featureFlags() names them (FEATURE_AI is `ai`, and so on). */
+export type PausedFeature = 'email' | 'trackers' | 'slack' | 'cli' | 'ai' | 'adminExtras';
+
+/** Is the route listed under these flags? Routes of paused features show only with a flag on. */
+export function routeListed(r: { paused?: readonly PausedFeature[] }, flags: Partial<Record<PausedFeature, boolean>>): boolean {
+  return !r.paused?.length || r.paused.some((f) => flags[f]);
 }
 
 const empty = z.object({});
@@ -191,6 +204,7 @@ export function defineRoute<
   area: Area;
   tasks?: readonly string[];
   summary: string;
+  paused?: readonly PausedFeature[];
 }): RouteDef<P, Q, B, R> & { name: N } {
   return {
     params: empty as unknown as P,

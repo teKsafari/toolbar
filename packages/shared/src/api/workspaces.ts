@@ -222,7 +222,7 @@ export const createInvites = defineRoute({
   response: z.object({ items: z.array(inviteSchema) }),
   area: 'auth',
   tasks: ['J-123'],
-  summary: 'Invite by email (Mailpit in dev). Forbidden for non-admins when invites are restricted.',
+  summary: 'Invite email addresses; each invitation has its own /invite/:id link to pass on (invite mail is paused with FEATURE_EMAIL). Forbidden for non-admins when invites are restricted.',
 });
 
 export const cancelInvite = defineRoute({
@@ -348,7 +348,8 @@ export const listAudit = defineRoute({
   response: pageOf(auditEntrySchema),
   area: 'dashboard',
   tasks: ['J-178'],
-  summary: 'Audit log: creates, deletes, shares and role changes.',
+  summary: 'Audit log: creates, deletes, shares and role changes. Paused (FEATURE_ADMIN_EXTRAS): 503 unavailable while the flag is off.',
+  paused: ['adminExtras'],
 });
 
 // ---------- search ----------

@@ -1,6 +1,7 @@
 // Extra captures for the viewer e2e suite, on top of the seed (apps/server/scripts/seed.ts):
 //   d1 no requests and no user events (J-231)       d2 recording-link capture without logs (J-206)
 //   d3 desktop recording across two tabs (J-224)   d4 instant replay with a DOM recording (J-100, J-229)
+//   d5 console rows with object, array, Date and Map arguments and call-site stacks (J-055, J-056)
 // Run after the seed: node e2e/tests/viewer/fixtures/extra.ts (reads the worktree .env).
 import { gzipSync } from 'node:zlib';
 import { createEmitter, STREAM_CONTENT_TYPES, type CaptureEvent } from '@toolbar/shared';
@@ -10,7 +11,7 @@ import { keys, putObject } from '../../../../apps/server/src/lib/server/s3.ts';
 import { fixtureEnv, FIXTURE_T0, LAB } from '../../../../apps/server/fixtures/events.ts';
 
 const u = (n: number) => `019a0000-0000-7000-8000-${n.toString(16).padStart(12, '0')}`;
-export const EXTRA = { empty: u(0xd1), link: u(0xd2), desktop: u(0xd3), replay: u(0xd4) };
+export const EXTRA = { empty: u(0xd1), link: u(0xd2), desktop: u(0xd3), replay: u(0xd4), consoleArgs: u(0xd5) };
 const WS = u(0xa1);
 const DANA = u(0x1);
 const RL = u(0x91);
@@ -133,6 +134,24 @@ async function main() {
     await putObject(key, body, 'application/gzip');
     await db.insert(t.recordingStream).values({ recordingId: EXTRA.replay, name: 'rrweb', contentType: STREAM_CONTENT_TYPES.rrweb, lastSeq: 0, totalBytes: body.length, completedAt: new Date() });
     await db.insert(t.recordingChunk).values({ recordingId: EXTRA.replay, stream: 'rrweb', seq: 0, s3Key: key, bytes: body.length, sha256: '0'.repeat(64) });
+  }
+  // d5: a screenshot whose console holds the lab's object, array, Date and Map logs, as the
+  // capture serializer writes them (SERIALIZED_TAG values), each with its call-site stack
+  {
+    const t0 = FIXTURE_T0 + 9_400_000;
+    const tl = timeline(t0);
+    const site = (fn: string, col: number) => `Error\n    at ${fn} (${LAB}/_app/immutable/chunks/2.DulX4mly.js:1:${col})\n    at HTMLButtonElement.onclick (${LAB}/_app/immutable/nodes/0.CDHttRas.js:1:23744)`;
+    tl.emit('top', 'env', fixtureEnv(`${LAB}/`, 'Lab'));
+    tl.emit('top', 'nav', { type: 'load', url: `${LAB}/`, title: 'Lab' });
+    tl.at(300);
+    tl.emit('top', 'console', { level: 'info', args: ['info: object', { user: { id: 7, roles: ['admin', 'editor'] }, at: { $t: 'date', value: '2026-10-15T03:38:35.057Z' } }], stack: site('logObject', 2371) });
+    tl.at(400);
+    tl.emit('top', 'console', { level: 'warn', args: ['warn: deprecated call', ['a', 'b', 'c']], stack: site('logArray', 2402) });
+    tl.at(500);
+    tl.emit('top', 'console', { level: 'log', args: ['log: map', { $t: 'map', size: 1, entries: [['since', { $t: 'date', value: '2026-10-15T03:38:35.057Z' }]] }, { $t: 'regexp', value: '/a+/g' }], stack: site('logMap', 2450) });
+    await db.insert(t.recording).values({ ...base, id: EXTRA.consoleArgs, clientId: u(0xe0d5), kind: 'screenshot', title: 'Console with object arguments', pageUrl: `${LAB}/`, startedAt: new Date(t0), createdAt: new Date(t0 + 1000), updatedAt: new Date(t0 + 1000), env: tl.out[0]!.data });
+    await putEvents(EXTRA.consoleArgs, tl.out);
+    await db.insert(t.asset).values({ recordingId: EXTRA.consoleArgs, kind: 'screenshot', s3Key: keys.asset(C2, u(0xe2)), contentType: 'image/png', width: 1280, height: 720, bytes: 1 });
   }
   console.log('[extra] captures', ids.join(' '));
 }

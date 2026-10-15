@@ -140,7 +140,7 @@ async function shoot4(ev: Evidence, context: BrowserContext, id: string, step: s
     try {
       await setup(cap);
       await sleep(400);
-      await cap.screenshot({ path: ev.file(step, String(w), theme) });
+      await ev.shot(cap, step, String(w), theme);
       out[`${w}-${theme}`] = await overflowX(cap);
     } catch (e) {
       out[`${w}-${theme}`] = `error: ${String(e).slice(0, 160)}`;

@@ -10,12 +10,15 @@ import { member, organization, recording, transcript } from '#lib/server/db/sche
 import { aiConfig, createSummarizer, workspaceAiEnabled } from '#lib/server/ai/index.ts';
 import { loadEvents } from '#lib/server/ai/events.ts';
 import { aiAllowed } from '#lib/server/dashboard/core.ts';
+import { env } from '#lib/server/env.ts';
 import { buildTimeline, vttText } from '#lib/server/ai/timeline.ts';
 
 const route = ROUTES['captures.aiDraft'];
 
 export const POST = async (event) => {
   const user = requireUser(event);
+  // AI features are paused unless FEATURE_AI is on (docs/scope.md, D-084)
+  if (!env.features.ai) return apiError(503, 'unavailable', 'AI features are paused on this server (FEATURE_AI is off)');
   const p = route.params!.safeParse(event.params);
   if (!p.success) return apiError(404, 'not_found', 'No such capture');
   const id = p.data.id;

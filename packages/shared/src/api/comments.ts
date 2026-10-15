@@ -82,7 +82,7 @@ export const createComment = defineRoute({
   errors: ['unauthorized', 'forbidden', 'not_found', 'invalid_body', 'rate_limited'],
   area: 'viewer',
   tasks: ['J-127', 'J-132', 'J-134', 'J-135', 'J-151'],
-  summary: 'Post a comment or reply, optionally pinned to a playback time; mentions email the members.',
+  summary: 'Post a comment or reply, optionally pinned to a playback time; mentions notify in the app (mention mail is paused with FEATURE_EMAIL).',
 });
 
 export const updateComment = defineRoute({

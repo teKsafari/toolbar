@@ -141,7 +141,7 @@ export const updateFolderShare = defineRoute({
   response: folderShareSchema,
   area: 'dashboard',
   tasks: ['J-122', 'J-237'],
-  summary: 'Invite people by email (sends mail), remove people, set general access.',
+  summary: 'Give people access by email address (they see the folder when they sign in; the invitation mail is paused with FEATURE_EMAIL), remove people, set general access.',
 });
 
 // ---------- recording links ----------
@@ -294,7 +294,7 @@ export const recorderCreate = defineRoute({
   area: 'dashboard',
   tasks: ['J-017'],
   summary:
-    'Start a capture through a recording link. The upload token (tb_upl_) authorises chunk, complete, asset and finalize calls for this capture only; finalize emails the link owner.',
+    'Start a capture through a recording link. The upload token (tb_upl_) authorises chunk, complete, asset and finalize calls for this capture only; finalize notifies the link owner by mail only with FEATURE_EMAIL on.',
 });
 
 export const recorderPage = defineRoute({

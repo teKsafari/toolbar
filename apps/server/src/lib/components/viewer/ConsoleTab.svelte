@@ -3,7 +3,7 @@
   // kind chips; hover shows a gutter triangle that seeks and arms a timestamped comment; a row
   // click expands it; the row at the current time is marked while the video plays.
   import { tick } from 'svelte';
-  import { filterConsole, fmtClock, fmtValue, fmtWallMs, presentConsoleChips, stackFrames, type ConsoleKindChip, type ConsoleViewRow } from '@toolbar/ui/viewer';
+  import { filterConsole, fmtClock, fmtWallMs, presentConsoleChips, stackFrames, type ConsoleKindChip, type ConsoleViewRow } from '@toolbar/ui/viewer';
   import VIcon from './VIcon.svelte';
   import Dropdown from './Dropdown.svelte';
   import EmptyState from './EmptyState.svelte';
@@ -52,8 +52,6 @@
         if (row && list) list.scrollTo({ top: row.offsetTop - list.offsetTop, behavior: 'smooth' });
       });
   }
-  /** Arguments worth their own block: objects and arrays. Strings and numbers are in the message already. */
-  const objectArgs = (r: ConsoleViewRow) => (r.args ?? []).filter((a) => typeof a === 'object' && a !== null && !['error', 'date', 'regexp', 'undefined', 'bigint', 'symbol', 'fn'].includes(String((a as Record<string, unknown>).$t ?? '')));
   const icon = (r: ConsoleViewRow) =>
     r.kind === 'navigation' ? 'external' : r.kind === 'click' ? 'select' : r.kind === 'input' ? 'text' : r.kind === 'media' ? 'record' : r.kind === 'network' ? 'network' : r.level === 'error' ? 'warning' : r.level === 'warn' ? 'warning' : 'info';
 
@@ -124,10 +122,9 @@
         {#if open}
           {@const frames = stackFrames(r.stack)}
           <div class="detail">
-            {#each objectArgs(r) as a, j (j)}<pre>{fmtValue(a)}</pre>{/each}
             {#if frames.length}
               <ol class="frames" data-testid="stack-frames">
-                {#each frames as f, j (j)}<li><span class="fn">{f.fn ?? '(anonymous)'}</span> <a href={f.url} target="_blank" rel="noopener noreferrer" title={f.url}>{f.file}:{f.line}:{f.col}</a></li>{/each}
+                {#each frames as f, j (j)}<li><span class="fn">{f.fn ?? '(anonymous)'}</span> @ <a href={f.url} target="_blank" rel="noopener noreferrer" title={f.url}>{f.file}:{f.line}:{f.col}</a></li>{/each}
               </ol>
             {:else if r.stack}<pre class="stack">{r.stack}</pre>
             {:else if r.source}<div class="src">{r.source.fn ?? 'anonymous'} at <a href={r.source.url} target="_blank" rel="noopener noreferrer">{r.source.url.split('/').pop()}:{r.source.line}:{r.source.col}</a></div>{/if}

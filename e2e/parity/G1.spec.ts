@@ -866,7 +866,7 @@ async function runS13(ev: Evidence, b: Launched, mode: 'picker' | 'fake') {
       await cap.goto(`${SERVER}/c/${rec.id}`);
       await cap.waitForLoadState('networkidle').catch(() => undefined);
       await sleep(1500);
-      await cap.screenshot({ path: ev.file('7-capture-page', String(w), theme) });
+      await ev.shot(cap, '7-capture-page', String(w), theme);
       ev.set(`step7-capture-page-${w}-${theme}-overflow`, await cap.evaluate(() => document.documentElement.scrollWidth > window.innerWidth));
     }
   await cap.close();

@@ -4,6 +4,8 @@
 //   J-136: first-view, mention and same-domain sign-up emails follow the notification settings.
 //   J-156: the workspace AI switch stops ghost text (ai-draft route) and chapters (job).
 //   J-177: the extension menu's problem report opens a recording link owned by the server admin.
+//   Paused features (docs/scope.md): ai-draft and the audit API answer 503 unavailable with
+//   FEATURE_AI and FEATURE_ADMIN_EXTRAS off.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import postgres from 'postgres';
 import { execFileSync } from 'node:child_process';
@@ -54,6 +56,8 @@ describe.skipIf(!reachable)('gates (integration)', () => {
     comments: typeof import('../src/lib/server/viewer/comments.ts');
     handlers: typeof import('../src/lib/server/jobs/handlers.ts');
     aiDraft: typeof import('../src/routes/api/v1/recordings/[id]/ai-draft/+server.ts');
+    audit: typeof import('../src/routes/api/v1/workspaces/[workspaceId]/audit/+server.ts');
+    env: typeof import('../src/lib/server/env.ts');
   };
   let llm: { srv: Server; url: string; calls: number };
   const env0 = { ...process.env };
@@ -71,6 +75,8 @@ describe.skipIf(!reachable)('gates (integration)', () => {
     process.env.DATABASE_URL = url.toString();
     process.env.SMTP_URL ??= 'smtp://localhost:1025';
     process.env.FEATURE_EMAIL = '1'; // these gates cover the paused mail code (docs/scope.md)
+    process.env.FEATURE_AI = '1'; // and the paused AI code
+    process.env.FEATURE_ADMIN_EXTRAS = '1'; // and the paused audit log
     execFileSync('node', ['scripts/migrate.ts'], { cwd: new URL('..', import.meta.url).pathname, env: { ...process.env }, stdio: 'ignore' });
     execFileSync('pnpm', ['exec', 'drizzle-kit', 'push', '--force'], { cwd: new URL('..', import.meta.url).pathname, env: { ...process.env }, stdio: 'ignore' });
     m = {
@@ -83,6 +89,8 @@ describe.skipIf(!reachable)('gates (integration)', () => {
       comments: await import('../src/lib/server/viewer/comments.ts'),
       handlers: await import('../src/lib/server/jobs/handlers.ts'),
       aiDraft: await import('../src/routes/api/v1/recordings/[id]/ai-draft/+server.ts'),
+      audit: await import('../src/routes/api/v1/workspaces/[workspaceId]/audit/+server.ts'),
+      env: await import('../src/lib/server/env.ts'),
     };
     // an OpenAI-compatible model that answers every prompt with draft text and two chapters
     llm = { srv: null as unknown as Server, url: '', calls: 0 };
@@ -239,5 +247,42 @@ describe.skipIf(!reachable)('gates (integration)', () => {
     const [row] = await m.db.select().from(m.schema.recording).where((await import('drizzle-orm')).eq(m.schema.recording.id, on.id));
     expect((row!.chapters as { title: string }[]).map((c) => c.title)).toEqual(['Open checkout', 'Submit']);
     expect(llm.calls).toBe(calls0 + 2);
+  });
+
+  it('paused features: ai-draft answers 503 with FEATURE_AI off, the audit API 503 with FEATURE_ADMIN_EXTRAS off', async () => {
+    process.env.AI_PROVIDER = 'openai-compatible';
+    process.env.AI_BASE_URL = llm.url;
+    const u = await mkUser('Pax Paused');
+    const w = await m.ws.createWorkspace(m.db, { userId: u.id, email: u.email, name: 'Paused shop', domainJoin: false });
+    const [rec] = await m.db
+      .insert(m.schema.recording)
+      .values({ clientId: crypto.randomUUID(), organizationId: w.id, kind: 'video', status: 'ready', title: 'Paused', authorUserId: u.id, durationMs: 10_000, finalizedAt: new Date() })
+      .returning();
+    const locals = { user: { id: u.id, name: u.name, email: u.email } };
+    // the flags are getters over process.env
+    const saved = { ai: process.env.FEATURE_AI, extras: process.env.FEATURE_ADMIN_EXTRAS };
+    try {
+      process.env.FEATURE_AI = '';
+      expect(m.env.env.features.ai).toBe(false);
+      const calls0 = llm.calls;
+      const r = await m.aiDraft.POST({ params: { id: rec!.id }, locals, request: new Request('http://x', { method: 'POST' }) } as unknown as RequestEvent<{ id: string }, '/api/v1/recordings/[id]/ai-draft'>);
+      expect(r.status).toBe(503);
+      expect(await r.json()).toMatchObject({ error: 'unavailable' });
+      expect(llm.calls).toBe(calls0);
+
+      const auditGet = () =>
+        m.audit.GET({ params: { workspaceId: w.id }, locals, url: new URL(`http://x/api/v1/workspaces/${w.id}/audit`), request: new Request(`http://x/api/v1/workspaces/${w.id}/audit`) } as unknown as RequestEvent<{ workspaceId: string }, '/api/v1/workspaces/[workspaceId]/audit'>);
+      process.env.FEATURE_ADMIN_EXTRAS = '';
+      const off = await auditGet();
+      expect(off.status).toBe(503);
+      expect(await off.json()).toMatchObject({ error: 'unavailable' });
+      process.env.FEATURE_ADMIN_EXTRAS = '1';
+      const on = await auditGet();
+      expect(on.status).toBe(200);
+      expect(await on.json()).toHaveProperty('items');
+    } finally {
+      process.env.FEATURE_AI = saved.ai;
+      process.env.FEATURE_ADMIN_EXTRAS = saved.extras;
+    }
   });
 });

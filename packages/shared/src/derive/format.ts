@@ -71,31 +71,55 @@ type Tagged = { [SERIALIZED_TAG]: string; [k: string]: unknown };
 const isTagged = (v: unknown): v is Tagged =>
   typeof v === 'object' && v !== null && !Array.isArray(v) && typeof (v as Record<string, unknown>)[SERIALIZED_TAG] === 'string';
 
-/** One serialized console value as short text. Objects become one-line JSON (J-055). */
+/**
+ * One serialized console value as short text, the way a browser console prints it (J-055,
+ * J-056). Objects become one line; tagged values (SERIALIZED_TAG) print as readable values, never
+ * as their wire form: a Date as its ISO string, a RegExp as its source, a Map as Map(n) {k => v}.
+ */
 export function fmtValue(v: unknown, top = true): string {
   if (v === null) return 'null';
   if (typeof v === 'string') return top ? v : JSON.stringify(v);
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
-  if (isTagged(v)) return fmtTagged(v);
+  if (isTagged(v)) return fmtTagged(v, top);
   if (Array.isArray(v)) return `[${v.map((x) => fmtValue(x, false)).join(', ')}]`;
   if (typeof v === 'object') {
-    const parts = Object.entries(v as Record<string, unknown>).map(([k, x]) => `${/^[A-Za-z_$][\w$]*$/.test(k) ? k : JSON.stringify(k)}: ${fmtValue(x, false)}`);
+    const parts: string[] = [];
+    let more: unknown = null;
+    for (const [k0, x] of Object.entries(v as Record<string, unknown>)) {
+      // the serializer renames an own "$t" key to "$t_" and puts the key-cap marker under "$tmore"
+      if (k0 === `${SERIALIZED_TAG}more`) {
+        more = x;
+        continue;
+      }
+      const k = k0 === `${SERIALIZED_TAG}_` ? SERIALIZED_TAG : k0;
+      parts.push(`${/^[A-Za-z_$][\w$]*$/.test(k) ? k : JSON.stringify(k)}: ${fmtValue(x, false)}`);
+    }
+    if (more) parts.push(fmtValue(more, false));
     return `{${parts.join(', ')}}`;
   }
   return String(v);
 }
 
-function fmtTagged(v: Tagged): string {
+function fmtTagged(v: Tagged, top: boolean): string {
   switch (v[SERIALIZED_TAG]) {
     case 'error':
       return `${String(v.name ?? 'Error')}: ${String(v.message ?? '')}`;
     case 'node': {
       const t = v.target as { tag?: string; elId?: string; classes?: string[] } | undefined;
-      return `<${t?.tag ?? 'node'}${t?.elId ? `#${t.elId}` : ''}${t?.classes?.length ? '.' + t.classes.join('.') : ''}>`;
+      return `<${t?.tag ?? (typeof v.name === 'string' ? v.name : 'node')}${t?.elId ? `#${t.elId}` : ''}${t?.classes?.length ? '.' + t.classes.join('.') : ''}>`;
     }
     case 'map':
-    case 'set':
-      return `${v[SERIALIZED_TAG] === 'map' ? 'Map' : 'Set'}(${String(v.size ?? '?')})`;
+    case 'set': {
+      const name = `${v[SERIALIZED_TAG] === 'map' ? 'Map' : 'Set'}(${String(v.size ?? '?')})`;
+      const entries = Array.isArray(v.entries) ? v.entries : null;
+      if (!entries) return name;
+      const items =
+        v[SERIALIZED_TAG] === 'map'
+          ? entries.map((e) => (Array.isArray(e) ? `${fmtValue(e[0], false)} => ${fmtValue(e[1], false)}` : fmtValue(e, false)))
+          : entries.map((e) => fmtValue(e, false));
+      if (typeof v.size === 'number' && v.size > entries.length) items.push(`...${v.size - entries.length} more`);
+      return `${name} {${items.join(', ')}}`;
+    }
     case 'typed':
       return `${String(v.type)}(${String(v.length)})`;
     case 'fn':
@@ -103,20 +127,32 @@ function fmtTagged(v: Tagged): string {
     case 'date':
     case 'regexp':
       return String(v.value ?? '');
+    case 'number':
+      return String(v.value ?? 'NaN');
     case 'undefined':
       return 'undefined';
     case 'bigint':
       return `${String(v.value)}n`;
     case 'symbol':
       return `Symbol(${String(v.desc ?? '')})`;
+    case 'promise':
+      return 'Promise';
+    case 'throws':
+      return `[Exception: ${String(v.message ?? '')}]`;
     case 'cycle':
       return '[Circular]';
     case 'more':
+      // depth cap: Array(3) or Object {...}; key cap: ...12 more
+      if (v.kind === 'array') return `Array(${String(v.length ?? '?')})`;
+      if (v.kind === 'object') return `${String(v.name ?? 'Object')} {...}`;
       return `...${String(v.keys)} more`;
     case 'trunc':
-      return `${String(v.head)}... (${String(v.bytes)} bytes)`;
-    default:
-      return JSON.stringify(v);
+      return top ? `${String(v.head)}... (${String(v.bytes)} bytes)` : `${JSON.stringify(String(v.head))}... (${String(v.bytes)} bytes)`;
+    default: {
+      // an unknown tag: its fields without the tag, never the wire form
+      const rest = Object.entries(v).filter(([k]) => k !== SERIALIZED_TAG);
+      return `${String(v[SERIALIZED_TAG])} {${rest.map(([k, x]) => `${k}: ${fmtValue(x, false)}`).join(', ')}}`;
+    }
   }
 }
 

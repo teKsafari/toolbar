@@ -318,7 +318,7 @@ async function shootTabs(ev: Evidence, context: BrowserContext, id: string, step
       const cap = await openCapture(context, id, [w, h], theme);
       for (const t of tabs) {
         await tab(cap, t);
-        await cap.screenshot({ path: ev.file(`${step}-${t}`, String(w), theme) });
+        await ev.shot(cap, `${step}-${t}`, String(w), theme);
         overflow[`${t}-${w}-${theme}`] = await cap.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       }
       await cap.close();
@@ -853,7 +853,7 @@ test('S3.2 sockets, streams and slow pages', async () => {
         await cap.getByTestId('sub-response').click();
         await sleep(300);
       }
-      await cap.screenshot({ path: ev.file('3-ws-subtab', String(w), theme) });
+      await ev.shot(cap, '3-ws-subtab', String(w), theme);
       overflow[`${w}-${theme}`] = await cap.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       await cap.close();
     }

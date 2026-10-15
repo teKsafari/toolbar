@@ -129,6 +129,20 @@ describe('console', () => {
     expect(fmtValue({ $t: 'undefined' })).toBe('undefined');
   });
 
+  it('prints tagged values readably at any depth, never in their wire form (J-055, J-056 review)', () => {
+    const at = '2026-10-15T03:38:35.057Z';
+    expect(fmtValue({ user: { id: 7, roles: ['admin'] }, at: { $t: 'date', value: at } })).toBe(`{user: {id: 7, roles: ["admin"]}, at: ${at}}`);
+    expect(fmtValue([{ $t: 'regexp', value: '/a+/g' }, { $t: 'number', value: 'NaN' }, { $t: 'bigint', value: '12' }])).toBe('[/a+/g, NaN, 12n]');
+    expect(fmtValue({ $t: 'map', size: 3, entries: [['a', 1], ['b', { $t: 'date', value: at }]] })).toBe(`Map(3) {"a" => 1, "b" => ${at}, ...1 more}`);
+    expect(fmtValue({ $t: 'set', size: 1, entries: [{ $t: 'undefined' }] })).toBe('Set(1) {undefined}');
+    expect(fmtValue({ deep: { $t: 'more', kind: 'object', name: 'Cart' }, list: { $t: 'more', kind: 'array', length: 4 } })).toBe('{deep: Cart {...}, list: Array(4)}');
+    expect(fmtValue({ a: 1, $tmore: { $t: 'more', keys: 12 } })).toBe('{a: 1, ...12 more}');
+    expect(fmtValue({ $t_: 'own key', p: { $t: 'promise' }, g: { $t: 'throws', message: 'boom' } })).toBe('{$t: "own key", p: Promise, g: [Exception: boom]}');
+    expect(fmtValue({ $t: 'node', name: 'div' })).toBe('<div>');
+    expect(fmtValue({ x: { $t: 'something-new', a: 1 } })).toBe('{x: something-new {a: 1}}');
+    for (const v of [{ $t: 'date', value: at }, { $t: 'map', size: 0, entries: [] }, { $t: 'something-new', a: 1 }]) expect(fmtValue({ v })).not.toContain('$t');
+  });
+
   it('keeps a video paused row between started and stopped (J-233)', () => {
     const ev = sortEvents(commentedEvents());
     const m = buildTimeMap(ev, FIXTURE_T0 + 7_200_000, true);

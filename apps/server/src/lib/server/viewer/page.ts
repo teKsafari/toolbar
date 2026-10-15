@@ -54,6 +54,8 @@ export async function viewerPageData(event: Pick<RequestEvent, 'url'>, ctx: View
     members,
     integrations,
     sendTo,
+    // the chapters pill and menu are an AI feature, paused unless FEATURE_AI is on (docs/scope.md)
+    chapters: env.features.ai,
     cues,
     startAt: Number.isFinite(t) && t > 0 ? t : null,
     highlight: highlight && /^[0-9a-f-]{36}$/i.test(highlight) ? highlight : null,

@@ -133,6 +133,82 @@ test('J-105 network table: chips, filter, errors only, sort, pink failed rows', 
   await expect(rows.filter({ hasText: '/api/sync' }).locator('.c-s')).toHaveText('pending');
 });
 
+/** Left x of each header cell and of the first row's cell of the same column, by data-col. */
+async function columnEdges(page: Page) {
+  return page.getByTestId('network-list').evaluate((list) => {
+    const head = [...list.querySelectorAll<HTMLElement>('.hrow [data-col]')];
+    const row = list.querySelector<HTMLElement>('.nrow');
+    return head.map((h) => {
+      const cell = row?.querySelector<HTMLElement>(`[data-col="${h.dataset.col}"]`);
+      return { col: h.dataset.col!, head: h.getBoundingClientRect().left, cell: cell ? cell.getBoundingClientRect().left : null, label: h.textContent?.trim() ?? '', clipped: h.scrollWidth > h.clientWidth + 1 };
+    });
+  });
+}
+
+function expectAligned(edges: Awaited<ReturnType<typeof columnEdges>>, cols: number) {
+  expect(edges.map((e) => e.col)).toHaveLength(cols);
+  for (const e of edges) {
+    expect(e.cell, `${e.col}: body cell`).not.toBeNull();
+    expect(Math.abs(e.head - e.cell!), `${e.col}: header x ${e.head} vs body x ${e.cell}`).toBeLessThanOrEqual(1);
+  }
+}
+
+test('J-058 J-105 network header cells start at their body columns at 1440 and 390', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page, captureUrl(IDS.video));
+  await ready(page);
+  await tab(page, 'network');
+  const wide = await columnEdges(page);
+  expectAligned(wide, 10);
+  // every label reads in full at the default panel width ("Domain" used to run into "Type")
+  expect(wide.filter((e) => e.clipped).map((e) => e.label)).toEqual([]);
+  // the desktop recording's extra Tab column and the two-column list beside the detail pane
+  await open(page, captureUrl(IDS.desktop));
+  await ready(page);
+  await tab(page, 'network');
+  expectAligned(await columnEdges(page), 11);
+  await page.getByTestId('network-list').locator('.nrow').first().click();
+  expectAligned(await columnEdges(page), 2);
+  // phone width: the panel scrolls sideways and the columns still line up
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, captureUrl(IDS.video));
+  await ready(page);
+  if (await page.getByTestId('narrow-devtools').isVisible()) await page.getByTestId('narrow-devtools').click();
+  await tab(page, 'network');
+  const narrow = await columnEdges(page);
+  expectAligned(narrow, 10);
+  expect(narrow.filter((e) => e.clipped).map((e) => e.label)).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
+});
+
+test('J-055 J-056 an expanded console row shows its call-site frames, not the arguments again', async ({ page }) => {
+  await open(page, captureUrl(IDS.consoleArgs));
+  await tab(page, 'console');
+  const list = page.getByTestId('console-list');
+  const at = '2026-10-15T03:38:35.057Z';
+  const obj = list.locator('.vp-row').filter({ hasText: 'info: object' });
+  await expect(obj.locator('.msg')).toHaveText(`info: object {user: {id: 7, roles: ["admin", "editor"]}, at: ${at}}`);
+  await expect(list.locator('.vp-row').filter({ hasText: 'log: map' }).locator('.msg')).toHaveText(`log: map Map(1) {"since" => ${at}} /a+/g`);
+  await expect(list).not.toContainText('$t');
+  for (const [text, fn, col] of [['info: object', 'logObject', 2371], ['warn: deprecated call', 'logArray', 2402], ['log: map', 'logMap', 2450]] as const) {
+    const row = list.locator('.vp-row').filter({ hasText: text });
+    await row.locator('.main').click();
+    const detail = row.locator('.detail');
+    await expect(detail).toBeVisible();
+    // the frames only: no block repeating the arguments, no wire encoding
+    await expect(detail.locator('pre')).toHaveCount(0);
+    await expect(detail).not.toContainText('$t');
+    await expect(detail).not.toContainText(text);
+    const frames = detail.getByTestId('stack-frames').locator('li');
+    await expect(frames).toHaveCount(2);
+    await expect(frames.nth(0)).toHaveText(`${fn} @ 2.DulX4mly.js:1:${col}`);
+    await expect(frames.nth(1)).toHaveText('HTMLButtonElement.onclick @ 0.CDHttRas.js:1:23744');
+    await expect(frames.nth(0).locator('a')).toHaveAttribute('href', 'http://localhost:5173/_app/immutable/chunks/2.DulX4mly.js');
+    // the opened message wraps in full on its one line
+    await expect(row.locator('.msg')).toHaveClass(/wrap/);
+  }
+});
+
 test('J-106 J-185 detail pane: two-column list, sub-tabs, status dot, masked headers, sockets', async ({ page }) => {
   await open(page, captureUrl(IDS.video));
   await ready(page);
@@ -168,7 +244,7 @@ test('J-062 J-066 socket frames: length, regex and direction filters, detail, bi
   await page.getByTestId('sub-response').click();
   const frames = page.getByTestId('frame');
   await expect(frames).toHaveCount(4);
-  await expect(frames.nth(1)).toContainText('sent');
+  await expect(frames.nth(1).locator('.op')).toHaveAttribute('aria-label', 'sent'); // the list shows an arrow, its label names the direction
   await expect(frames.nth(1).getByTestId('frame-length')).toHaveText('16 B');
   // binary frame: size only
   await expect(frames.nth(3).getByTestId('frame-data')).toHaveText('Binary frame, 2.0 kB');

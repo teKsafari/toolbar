@@ -5,6 +5,7 @@ import {
   ERROR_STATUS,
   ROUTE_LIST,
   ROUTES,
+  routeListed,
   buildPath,
   matchPath,
   pathParams,
@@ -118,3 +119,27 @@ describe('contract schemas', () => {
     expect(userSettingsSchema.parse(DEFAULT_USER_SETTINGS)).toEqual(DEFAULT_USER_SETTINGS);
   });
 });
+
+describe('paused routes (docs/scope.md)', () => {
+  const off = { email: false, trackers: false, slack: false, cli: false, ai: false, adminExtras: false };
+  const listed = (flags: typeof off) => new Set<string>(ROUTE_LIST.filter((r) => routeListed(r, flags)).map((r) => r.name));
+
+  it('hides ai-draft, the audit log, integrations and send to app while every flag is off', () => {
+    const names = listed(off);
+    for (const n of ['captures.aiDraft', 'workspaces.audit', 'integrations.list', 'integrations.connect', 'integrations.send', 'integrations.linkedIssues']) expect(names.has(n), n).toBe(false);
+    for (const n of ['captures.list', 'webhooks.create', 'folders.updateShare', 'agent.captureBrief']) expect(names.has(n), n).toBe(true);
+  });
+
+  it('lists each paused route once its flag is on', () => {
+    expect(listed({ ...off, ai: true }).has('captures.aiDraft')).toBe(true);
+    expect(listed({ ...off, adminExtras: true }).has('workspaces.audit')).toBe(true);
+    expect(listed({ ...off, slack: true }).has('integrations.send')).toBe(true);
+    expect(listed({ ...off, trackers: true }).has('integrations.options')).toBe(true);
+  });
+
+  it('claims no mail where mail is paused', () => {
+    const mailClaims = ROUTE_LIST.filter((r) => /\b(sends mail|emails? the|Mailpit)\b/i.test(r.summary)).map((r) => r.name);
+    expect(mailClaims).toEqual([]);
+  });
+});
+
