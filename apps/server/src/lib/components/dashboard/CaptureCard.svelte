@@ -19,7 +19,7 @@
     dragIds: () => string[];
   }
   let { c, selected, selecting, ontoggle, dragIds }: Props = $props();
-  const dur = $derived(c.kind === 'screenshot' ? null : durationLabel(c.durationMs));
+  const dur = $derived(c.kind === 'screenshot' || c.kind === 'feedback' ? null : durationLabel(c.durationMs));
   const title = $derived(fallbackTitle(c));
 
   async function copy(e: MouseEvent) {
@@ -67,7 +67,7 @@
     {#if c.thumbUrl}
       <img src={c.thumbUrl} alt="" loading="lazy" draggable="false" />
     {:else}
-      <span class="ph"><DIcon name={c.kind === 'screenshot' ? 'image' : 'video'} size={28} /></span>
+      <span class="ph"><DIcon name={c.kind === 'screenshot' || c.kind === 'feedback' ? 'image' : 'video'} size={28} /></span>
     {/if}
     {#if c.status !== 'ready'}<span class="state">{c.status === 'failed' ? 'Failed' : 'Processing'}</span>{/if}
     {#if c.recordingLinkId}<span class="chip" title={c.recordingLinkName ?? 'Recording link'}><DIcon name="link" size={12} />{c.recordingLinkName ?? 'Recording link'}</span>{/if}

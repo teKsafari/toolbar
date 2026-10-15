@@ -96,6 +96,13 @@ export const icons = {
   bug: ['<rect x="7.5" y="8" width="9" height="11.5" rx="4.5"/>', '<path d="M9.5 8a2.5 2.5 0 0 1 5 0M12 12v7.5M3.5 13h4M16.5 13h4M4.5 8.5l3 1.5M19.5 8.5l-3 1.5M4.5 18.5l3-1.5M19.5 18.5l-3-1.5"/>'],
   grip: ['<circle cx="9" cy="7" r="1.2" fill="currentColor" stroke="none"/>', '<circle cx="15" cy="7" r="1.2" fill="currentColor" stroke="none"/>', '<circle cx="9" cy="12" r="1.2" fill="currentColor" stroke="none"/>', '<circle cx="15" cy="12" r="1.2" fill="currentColor" stroke="none"/>', '<circle cx="9" cy="17" r="1.2" fill="currentColor" stroke="none"/>', '<circle cx="15" cy="17" r="1.2" fill="currentColor" stroke="none"/>'],
   'mic-denied': ['<rect x="9" y="3" width="6" height="11" rx="3"/>', '<path d="M5.5 11a6.5 6.5 0 0 0 9 6M12 17.5V21"/>', '<path d="M17 15.5l4 4M21 15.5l-4 4"/>'],
+  // reviewer toolbar (Part 2)
+  list: ['<path d="M9 6.5h11M9 12h11M9 17.5h11"/>', '<circle cx="4.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>', '<circle cx="4.5" cy="12" r="1" fill="currentColor" stroke="none"/>', '<circle cx="4.5" cy="17.5" r="1" fill="currentColor" stroke="none"/>'],
+  send: ['<path d="M4 11.5 20 4l-6.5 16-2.5-6.5z"/>', '<path d="m11 13.5 9-9.5"/>'],
+  'eye-off': ['<path d="M9.9 6a9.6 9.6 0 0 1 2.1-.25C18 5.75 21.25 12 21.25 12a16 16 0 0 1-2.6 3.4M6.4 7.4A15.5 15.5 0 0 0 2.75 12S6 18.25 12 18.25a9.3 9.3 0 0 0 4.4-1.1"/>', '<path d="M10.1 10.1a2.75 2.75 0 0 0 3.8 3.8M4 4l16 16"/>'],
+  freehand: ['<path d="M3.5 16.5c2-4.5 4-7 5.5-7s1 4.5 3 4.5 3-6.5 5-6.5 2.5 3 3.5 4.5"/>'],
+  pin: ['<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/>', '<circle cx="12" cy="10" r="2.25"/>'],
+  trace: ['<circle cx="5" cy="17" r="2"/>', '<circle cx="12" cy="7" r="2"/>', '<circle cx="19" cy="14" r="2"/>', '<path d="m6.2 15.3 4.6-6.6M13.6 8.4l4 4.2"/>'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconName = keyof typeof icons;

@@ -1,6 +1,6 @@
 // Recording links (J-015, J-017, J-126, J-167, J-223) and the public recorder endpoints.
 import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
-import { randomToken } from '@toolbar/shared';
+import { randomToken, type RecordingKind } from '@toolbar/shared';
 import type { RecordingLink, SeatRole } from '@toolbar/shared/api';
 import { refOfUrl } from '@toolbar/shared/areas/dashboard';
 import type { Db } from '../db/index.ts';
@@ -189,7 +189,7 @@ export function rateLimited(key: string, max = 10, windowMs = 10 * 60_000) {
 export async function recorderCreate(
   db: Db,
   token: string,
-  body: { clientId: string; kind: 'screenshot' | 'video' | 'replay' | 'screen' | 'link'; startedAt: number; env?: unknown; note?: string; folder?: string; ref?: string },
+  body: { clientId: string; kind: RecordingKind; startedAt: number; env?: unknown; note?: string; folder?: string; ref?: string },
 ) {
   const l = await linkByToken(db, token);
   let folderId = l.folderId;

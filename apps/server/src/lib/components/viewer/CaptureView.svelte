@@ -15,6 +15,7 @@
   import Comments from './Comments.svelte';
   import DevTools from './DevTools.svelte';
   import VIcon from './VIcon.svelte';
+  import FeedbackList from '../feedback/FeedbackList.svelte';
   import { provideViewer, Viewer } from './viewer.svelte.ts';
   import type { CaptureDetail } from '@toolbar/shared/api';
   import type { ViewerData } from './types.ts';
@@ -96,6 +97,7 @@
   <main class="layout" class:solo={!showDev} class:show-dev-narrow={v.narrowView === 'devtools' && showDev} bind:this={main} style:--right="{rightPct}%" onpointermove={onDrag} onpointerup={endDrag}>
     <div class="left" bind:this={left}>
       <div class="leftin">
+        {#if v.detail.kind !== 'feedback' || v.detail.media.screenshot || v.detail.media.rrwebUrls.length}
         <div class="media" data-testid="media">
           {#if v.detail.status !== 'ready' && v.detail.status !== 'failed'}
             <div class="processing" data-testid="processing"><VIcon name="spinner" size={20} />Still processing. This page updates by itself when the capture is ready.</div>
@@ -111,6 +113,8 @@
             <div class="processing">No media in this capture.</div>
           {/if}
         </div>
+        {/if}
+        <FeedbackList recordingId={v.detail.id} primary={v.detail.kind === 'feedback'} />
         <TitleDescription />
         <Comments scroller={() => left} />
       </div>

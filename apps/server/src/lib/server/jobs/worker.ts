@@ -92,6 +92,7 @@ export function startWorker(db: Db, { pollMs = 1000, log = console, registerDefa
     if (registerDefaults) {
       const { registerServerCoreJobs, ensureRecurringJobs } = await import('./handlers.ts');
       registerServerCoreJobs();
+      (await import('../feedback/service.ts')).registerFeedbackJobs();
       await ensureRecurringJobs(db).catch((e) => log.error('[jobs] recurring jobs:', e));
     }
     const n = await releaseStaleLocks(db, workerId).catch(() => 0);

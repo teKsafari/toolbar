@@ -28,7 +28,7 @@ export type CaptureSource = (typeof CAPTURE_SOURCES)[number];
  * For image captures, `screenshot` is the full viewport and `crop` the area crop (J-003, J-004);
  * either one carries the annotations flattened in (J-051).
  */
-export const UPLOAD_ASSET_KINDS = [...ASSET_KINDS, 'attachment', 'comment', 'avatar', 'logo'] as const;
+export const UPLOAD_ASSET_KINDS = [...ASSET_KINDS, 'attachment', 'comment', 'avatar', 'logo', 'feedback', 'voice-note'] as const;
 export type UploadAssetKind = (typeof UPLOAD_ASSET_KINDS)[number];
 
 export const MAX_ASSET_BYTES = 200 * 1024 * 1024;

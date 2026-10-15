@@ -352,6 +352,8 @@ const BLOCKED_TYPES = /^(text\/html|image\/svg\+xml|application\/xhtml\+xml|text
 export function assetTypeAllowed(kind: UploadAssetKind, contentType: string): boolean {
   if (BLOCKED_TYPES.test(contentType)) return false;
   if (kind === 'attachment') return true;
+  // reviewer toolbar voice notes (MediaRecorder: WebM or Ogg Opus, MP4 on Safari)
+  if (kind === 'voice-note') return /^audio\/(webm|ogg|mp4|mpeg|wav)$/.test(contentType);
   return IMAGE_TYPES.includes(contentType);
 }
 
