@@ -1,0 +1,12 @@
+HTTP/1.1 200 OK
+cache-control: private, no-store
+content-type: text/markdown; charset=utf-8
+link: <http://localhost:3000/s/<share-token>>; rel="canonical"; type="text/html"
+referrer-policy: no-referrer
+vary: Accept
+x-content-type-options: nosniff
+x-robots-tag: noindex, nofollow
+Date: <omitted>
+Connection: keep-alive
+Keep-Alive: timeout=5
+

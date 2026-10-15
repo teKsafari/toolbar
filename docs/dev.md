@@ -43,7 +43,9 @@ docker compose up --build          # or -d; first run builds the server image an
 curl -s localhost:3000/api/health  # {"ok":true,"checks":{"db":{"ok":true},"s3":{"ok":true},"whisper":...}}
 ```
 
-Open http://localhost:3000, sign in with any email and a password of 8+ characters (the account is created on first sign-in, with a personal workspace). Mail goes to http://localhost:8025.
+Open http://localhost:3000. Out of the box the server offers no sign-in method: the scope's sign-in is one OIDC provider (`OIDC_1_*`, docs/scope.md). For development, either start the mock provider (`docker compose --profile dev up -d oidc-mock server` with the `OIDC_1_*` values in `docs/parity/fix-round-1.md`), or turn on the dev-only password sign-in with `AUTH_DEV_PASSWORD=1 docker compose up -d server` and sign in with any email and a password of 8+ characters (the account is created on first sign-in, with a personal workspace). `scripts/e2e-all.sh` sets `AUTH_DEV_PASSWORD=1`.
+
+Paused features (docs/scope.md) stay hidden unless their flag is set to 1: `FEATURE_EMAIL`, `FEATURE_TRACKERS`, `FEATURE_SLACK`, `FEATURE_CLI`, `FEATURE_AI`, `FEATURE_ADMIN_EXTRAS`. Area tests of a paused feature need its flag on the server.
 
 Compose works with no `.env`: every variable has a dev default. For anything beyond localhost, run `scripts/gen-secrets.sh https://your.host` to write `.env` with random secrets (`.env.example` lists every variable). The server refuses to start on a non-localhost `PUBLIC_URL` with dev secrets. Sign-in rate limits (3 tries per 10 s per address) are on in the image; `AUTH_RATE_LIMIT=off` turns them off for an e2e run.
 
