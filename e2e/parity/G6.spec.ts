@@ -357,10 +357,13 @@ test('S6.1 grid, hover, filters and the palette', async () => {
     await resp;
     await page.waitForFunction((pp) => location.search.includes(`${pp}=`) && !document.querySelector('[aria-busy="true"]') && !!(document.querySelector('[data-testid="capture-grid"]') || document.querySelector('[data-testid="no-results"]')), param, { polling: 'raf' });
     const ms = Date.now() - t0;
-    await page.keyboard.press('Escape');
+    await sleep(200);
+    // J-160: the menu closes on the pick; Escape only when it is still open
+    const stillOpen = await option.isVisible().catch(() => false);
+    if (stillOpen) await page.keyboard.press('Escape');
     await sleep(200);
     const total = txt(await page.getByTestId('grid-total').textContent().catch(() => ''));
-    filterRuns.push({ filter: label, ms, seconds: secs(ms), load: c.load, reliable: c.reliable, total, clicks: 2, keys: 'Escape' });
+    filterRuns.push({ filter: label, ms, seconds: secs(ms), load: c.load, reliable: c.reliable, total, clicks: 2, menuClosedOnPick: !stillOpen, keys: stillOpen ? 'Escape' : 'none' });
   };
   await probe(ev, 'step3-filters', async () => {
     await pickFilter('filter-type', page.getByRole('option', { name: 'Video' }), 'type', 'type: Video');
@@ -524,11 +527,14 @@ test('S6.2 folders', async () => {
   const ev = new Evidence(GROUP, 'S6.2');
   const { context } = await getRig();
   const ws = await activate(context, MAIN_WS);
-  const n5 = N5();
   // N4 lives in the workspace "Parity"; step 4 needs two cards on this workspace's grid, so a
   // second screenshot of this workspace (the S3.3 pre-roll screenshot) stands in for it there.
-  const stand = (await listCaps(context, `workspaceId=${ws.id}&folderId=all&limit=100&kinds=screenshot`)).items.find((c) => c.title === 'parity S3.3 pre-roll');
+  const shotsHere = (await listCaps(context, `workspaceId=${ws.id}&folderId=all&limit=100&kinds=screenshot`)).items;
+  const stand = shotsHere.find((c) => c.title === 'parity S3.3 pre-roll');
   if (!stand) throw new Error('no "parity S3.3 pre-roll" capture to stand in for N4');
+  // Since J-081 a fresh draft opens on the workspace picked last, so N5 (S2.2, after S2.1 picked
+  // "Parity") can live in "Parity" too; another screenshot of this workspace stands in for it then.
+  const n5 = shotsHere.some((c) => c.id === N5()) ? N5() : shotsHere.find((c) => c.id !== stand.id && /^parity S3\.3/.test(c.title))?.id ?? shotsHere.find((c) => c.id !== stand.id)!.id;
   // setup for a repeatable run: drop folders a broken run left, put both cards back on the grid
   for (const f of await folders(context, ws.id)) if (/^parity-(s1|tmp2?|warn)$/.test(f.name)) await api(context, 'DELETE', `/api/v1/folders/${f.id}`);
   await api(context, 'POST', '/api/v1/recordings/bulk', { action: 'move', ids: [n5, stand.id], folderId: null });
@@ -819,13 +825,18 @@ async function pickEntireScreen(display: string, timeout = 15_000): Promise<numb
   }
   await sleep(500);
   execFileSync('import', ['-window', 'root', path.join(SHOTS, GROUP, 'S6.3-4-picker-nib-1440-light.png')], { env: { ...process.env, DISPLAY: display } });
-  clickOn(display, left + 491, top + 96);
-  await sleep(1000);
+  // the Entire Screen tab is underlined in blue when the picker opens on it (displaySurface hint, J-017)
+  const blue = ([r, , b]: number[]) => b! > 150 && r! < 120;
+  const onScreenPane = [107, 108, 109, 110, 111, 112].some((dy) => blue(pixel(display, left + 491, top + dy)));
+  if (!onScreenPane) {
+    clickOn(display, left + 491, top + 96);
+    await sleep(1000);
+  }
   clickOn(display, left + 170, top + 225);
   await sleep(300);
   clickOn(display, left + 610 - 57, top + 574);
   for (let i = 0; i < 50; i++) {
-    if (!dimmed(pixel(display, left - 30, top + 300))) return 3;
+    if (!dimmed(pixel(display, left - 30, top + 300))) return onScreenPane ? 2 : 3;
     await sleep(100);
   }
   throw new Error('the share picker stayed open after Share');
@@ -883,14 +894,16 @@ test('S6.3 recording links page, a recipient recording (N6), the workspace menu'
 
   // 2. copy the link
   const linkUrl = await probe(ev, 'step2-copy', async () => {
-    await row.getByTestId('link-share').click();
-    await page.getByTestId('link-copy').waitFor();
-    await page.screenshot({ path: ev.file('2-share-popover') });
+    // J-167: the Share click itself copies the link and shows it
     const t0 = Date.now();
-    await page.getByTestId('link-copy').click();
+    await row.getByTestId('link-share').click();
     const toast = await waitToast(page, /Link copied/, t0);
+    await page.getByTestId('link-copy').waitFor();
+    const shown = txt(await page.getByTestId('link-copied').textContent().catch(() => ''));
+    await page.screenshot({ path: ev.file('2-share-popover') });
     const clip = await readClipboard(page);
-    return { ...toast, clipboard: clip, matchesApi: clip === (await linkState()).url, clicks: 2 };
+    await page.keyboard.press('Escape');
+    return { ...toast, shown, clipboard: clip, matchesApi: clip === (await linkState()).url, clicks: 1 };
   });
   const url = (linkUrl as { clipboard?: string } | null)?.clipboard || (await linkState()).url;
   ev.set('step2-recorder-shots', await shoot4(ev, '2-recorder', anonOpen(url)));
@@ -964,10 +977,14 @@ test('S6.3 recording links page, a recipient recording (N6), the workspace menu'
       await rec.getByTestId('recorder-preview').waitFor();
       await sleep(500);
       await rec.screenshot({ path: ev.file('4-review') });
-      await rec.getByTestId('recorder-note').click();
-      clicks++;
+      // the note has the focus on review (J-017): type without a click when it does
+      const noteFocused = await rec.getByTestId('recorder-note').evaluate((e) => document.activeElement === e).catch(() => false);
+      if (!noteFocused) {
+        await rec.getByTestId('recorder-note').click();
+        clicks++;
+      }
       await rec.keyboard.type('parity recipient');
-      steps.push('note "parity recipient"');
+      steps.push(`note "parity recipient"${noteFocused ? ' (field had the focus)' : ' (1 click into the field)'}`);
       const tSend = Date.now();
       await rec.getByTestId('recorder-submit').click();
       clicks++;
