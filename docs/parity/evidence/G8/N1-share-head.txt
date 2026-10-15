@@ -1,8 +1,8 @@
 HTTP/1.1 200 OK
 cache-control: private, no-store
-content-length: 20080
+content-length: 20391
 content-type: text/html
-etag: "yi4kli"
+etag: "qb284p"
 link: <http://localhost:3000/s/<share-token>.md>; rel="alternate"; type="text/markdown"
 referrer-policy: no-referrer
 set-cookie: <omitted>

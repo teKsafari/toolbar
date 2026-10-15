@@ -5,7 +5,7 @@ type: "video"
 captured_on: "http://localhost:5173/"
 page_title: "Lab"
 image: "http://localhost:3000/s/<share-token>/media/thumb"
-duration_ms: 134115
+duration_ms: 80568
 browser: "Chrome 153.0.8010.12"
 os: "Linux"
 viewport: "1440x900"
@@ -13,12 +13,12 @@ screen: "1460x1000"
 time_zone: "America/New_York"
 locale: "en-US"
 author: "parity"
-created: "2026-10-15T05:39:17.668Z"
+created: "2026-10-15T09:54:57.259Z"
 ---
 
 # parity S3.1 lab
 
-Signals: 4 console errors, 3 failed requests, 1 with a 5xx status, 0 requests never answered, 17 interactions.
+Signals: 4 console errors, 4 failed requests, 1 with a 5xx status, 0 requests never answered, 27 interactions.
 
 ## More detail
 
