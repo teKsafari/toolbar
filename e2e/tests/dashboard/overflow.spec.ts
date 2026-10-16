@@ -131,3 +131,88 @@ for (const colorScheme of ['light', 'dark'] as const) {
     });
   }
 }
+
+/**
+ * The help menu (owner report, dark theme): the 240 px menu sat in the sidebar's scroll container
+ * (a 250 px column, 12 px padding each side), so it stuck out past the content box. The sidebar
+ * scrolled sideways, its right edge clipped the shortcut keys and the theme switch, and
+ * "Capture menu (extension)" squeezed its kbd onto two lines. The menu now opens in the top
+ * layer, anchored to the button and clamped to the viewport. A short viewport makes the sidebar
+ * scroll vertically, which takes its scrollbar out of the content box as on the owner's screen.
+ */
+async function helpMenu(page: Page) {
+  return page.evaluate(() => {
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    const menu = document.querySelector<HTMLElement>('[data-testid="help-menu"]')!;
+    const m = menu.getBoundingClientRect();
+    /** Lines the element's text takes (icons left out). */
+    const lines = (el: Element) => {
+      const tops = new Set<number>();
+      const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+        if (!n.textContent?.trim()) continue;
+        const range = document.createRange();
+        range.selectNodeContents(n);
+        for (const r of range.getClientRects()) if (r.width > 0) tops.add(Math.round(r.top));
+      }
+      return tops.size;
+    };
+    /** Inside the viewport, and the element itself paints at both ends (no ancestor clips it). */
+    const shown = (el: HTMLElement) => {
+      const r = el.getBoundingClientRect();
+      const inside = r.left >= -0.5 && r.top >= -0.5 && r.right <= vw + 0.5 && r.bottom <= vh + 0.5;
+      // the left and right ends at mid-height: inside a pill's rounded corners
+      const pts = [
+        [r.left + 2, r.top + r.height / 2],
+        [r.right - 2, r.top + r.height / 2],
+      ];
+      const painted = pts.every(([x, y]) => {
+        const hit = document.elementFromPoint(x, y);
+        return !!hit && (hit === el || el.contains(hit));
+      });
+      const round = (n: number) => Math.round(n * 10) / 10;
+      return { left: round(r.left), right: round(r.right), height: round(r.height), inside, painted };
+    };
+    const kbds = [...menu.querySelectorAll<HTMLElement>('kbd')].map((k) => ({ text: k.textContent ?? '', lines: lines(k), ...shown(k) }));
+    const theme = [...menu.querySelectorAll<HTMLElement>('[data-theme-choice]')].map((b) => ({ text: b.textContent ?? '', lines: lines(b), ...shown(b) }));
+    return { vw, vh, menu: { left: m.left, right: m.right, top: m.top, bottom: m.bottom, width: m.width }, kbds, theme };
+  });
+}
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  for (const width of [1600, 1440, 1280, 1024, 768, 390]) {
+    const height = width <= 390 ? 844 : 480;
+    test(`help menu fits at ${width}x${height}, ${colorScheme}`, async () => {
+      const ctx = await browser.newContext({ storageState: storage, viewport: { width, height }, colorScheme });
+      const page = await ctx.newPage();
+      await go(page, '/');
+      if (width <= 860) await page.getByTestId('menu-button').click();
+      await page.getByTestId('help-button').click();
+      await expect(page.getByTestId('help-menu')).toBeVisible();
+      await expect(page.locator('[data-testid="help-menu"] kbd')).toHaveCount(3);
+      // measure after the open animation (a 0.97 scale) ends
+      await page.getByTestId('help-menu').evaluate((el) => Promise.all(el.parentElement!.getAnimations().map((a) => a.finished)));
+      const h = await helpMenu(page);
+      const over = await overflow(page);
+      console.log(`[help] ${width}x${height} ${colorScheme}`, JSON.stringify({ overflow: over, ...h }));      expect(over, `help menu open at ${width} ${colorScheme}`).toEqual(NONE);
+      expect(h.menu.left).toBeGreaterThanOrEqual(0);
+      expect(h.menu.right).toBeLessThanOrEqual(h.vw);
+      expect(h.menu.top).toBeGreaterThanOrEqual(0);
+      expect(h.menu.bottom).toBeLessThanOrEqual(h.vh);
+      for (const k of [...h.kbds, ...h.theme]) {
+        expect(k.lines, `"${k.text}" wraps at ${width} ${colorScheme}`).toBe(1);
+        expect(k.inside, `"${k.text}" leaves the viewport at ${width} ${colorScheme}: ${k.left}..${k.right}`).toBe(true);
+        expect(k.painted, `"${k.text}" is covered or clipped at ${width} ${colorScheme}`).toBe(true);
+      }
+      // one line each, so every kbd has the same height
+      expect(new Set(h.kbds.map((k) => k.height)).size, `kbd heights at ${width} ${colorScheme}: ${h.kbds.map((k) => k.height)}`).toBe(1);
+      // the theme switch works from the top layer, and Escape closes the menu
+      await page.locator('[data-theme-choice="dark"]').click();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+      await page.keyboard.press('Escape');
+      await expect(page.getByTestId('help-menu')).toBeHidden();
+      await ctx.close();
+    });
+  }
+}
