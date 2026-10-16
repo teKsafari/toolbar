@@ -58,6 +58,7 @@ Each setting is in one of five places (D-194). **Required** values boot the serv
 | `TRANSCRIBE_PROVIDER`, `TRANSCRIBE_API_KEY`, `OPENAI_API_KEY`, `TRANSCRIBE_MODEL`, `TRANSCRIBE_BASE_URL`, `TRANSCRIBE_LANGUAGE`, `TRANSCRIBE_TIMESTAMPS`, `TRANSCRIBE_CHUNK_SECONDS`, `TRANSCRIBE_CONCURRENCY` | Settings > Server, Transcription | Read per job, so an admin can switch provider, try it with Test connection and roll back without a deploy. The key is sealed at rest. |
 | `TRANSCRIBE_MAX_MINUTES`, `TRANSCRIBE_MONTHLY_MINUTES` | Settings > Server, Limits | Cost caps an admin tunes as usage grows. |
 | `MAX_RECORDING_MIN` | Settings > Server, Capture defaults | Read when the extension loads its bootstrap. |
+| `SITE_ACCESS` | Settings > Server, Capture defaults | Where the extension captures (D-200). Read per request and sent in the extension's bootstrap, so a switch reaches each extension within 10 minutes, or at a popup open once its copy is a minute old. |
 | (no variable) masking preset and trace step window for new projects | Settings > Server, Capture defaults, and Workspace | Instance defaults that each workspace admin can replace for their workspace. |
 | `SHARE_LINK_DAYS`, `EXPORT_MAX_MB`, `SUPPORT_RECORDING_LINK` | Settings > Server, Sharing and export | Policies read per request. |
 | (no variable) recording link uploads per address | Settings > Server, Limits | Abuse limit of the public recording links, read per request. |
@@ -86,7 +87,7 @@ Instance admins (`ADMIN_EMAILS`, or the first account when it is empty) see Sett
 |---|---|
 | Sign-in | The provider and its redirect URI, read-only from the environment, with Test discovery URL; allowed email domains, the button name, scopes |
 | Transcription | Provider (off, local whisper.cpp, an OpenAI-compatible endpoint), API key, model, endpoint, whisper.cpp URL, languages, timestamps, chunk length, parallel requests, with Test connection |
-| Capture defaults | Masking preset and trace step window for new projects, longest recording |
+| Capture defaults | Site access (all sites, or project origins only), masking preset and trace step window for new projects, longest recording |
 | Sharing and export | Share link lifetime, export page size, the extension's "report a problem" link |
 | Limits | Longest audio transcribed, hosted transcription minutes per month, recording link uploads per address in 10 minutes |
 
@@ -102,6 +103,19 @@ Settings are stored in the `instance_setting` table, row `instance`.
 ### Workspace settings
 
 Settings, General has a New projects section for workspace admins: the masking preset and trace step window a new project starts with. Empty follows the instance's Capture defaults. Existing projects keep their own values; an API client that leaves them out of `POST /api/v1/workspaces/<id>/projects` gets these defaults.
+
+### Site access
+
+Settings > Server, Capture defaults, Site access picks where the extension captures (D-200). `SITE_ACCESS` sets it from the environment and locks the field.
+
+| Mode | The extension | The server |
+|---|---|---|
+| All sites (`all`, the default) | Right after sign-in the popup shows one screen that explains the request, and Chrome asks once for the optional host permissions `http://*/*` and `https://*/*`. The capture scripts then run on every site except this server and the reviewer's blocked sites. The options page can ask again or remove the access. | The first capture on an origin with no project makes one in the capture's workspace: named after the host, with that one origin, and the workspace's masking preset and trace step window (else the instance's). |
+| Project origins only (`projects`) | On a page of a project, the popup's Allow asks Chrome for the origins of all the person's projects; nowhere else does a script run (D-126). | A capture from an origin outside the workspace's projects gets 403 `origin_not_allowed`. Nothing is made automatically. |
+
+In both modes a project lists exact origins (`https://staging.nuru.sh`, `http://localhost:5173`) and domains (`*.nuru.sh` covers nuru.sh and every subdomain, over https only unless `http://*.nuru.sh` is listed too). An exact origin wins over a domain, and a longer domain over a shorter one. Admins edit the list in Settings > Projects or on the project's page, and merge two projects there: the second one's origins and captures move into the first, which keeps its own preset and step window. The sidebar lists the projects with their captures.
+
+`SITE_ACCESS` has a row in the tables on this page like every Settings > Server variable, and `apps/server/test/config-docs.test.ts` fails if it loses it.
 
 ## How to read the tables
 
@@ -122,6 +136,7 @@ Each row gives the variable, its default, an example, and what it does with when
 | `MIGRATE_ON_START` | `1` | `0` | Applies database migrations at start. Set `0` when you run `pnpm --filter @toolbar/server db:migrate` yourself before a deploy. |
 | `MIGRATIONS_DIR` | `./drizzle` next to the server | `/app/drizzle` | Where the migration files live. Only for a custom image layout. |
 | `MAX_RECORDING_MIN` | empty (no cap) | `15` | Settings > Server, Capture defaults. Longest recording in minutes; the extension's timer stops there. Set it to keep recordings short on a small server. |
+| `SITE_ACCESS` | `all` | `projects` | Settings > Server, Capture defaults (D-200). `all`: after sign-in the extension asks Chrome once for every site and captures anywhere but this server and the reviewer's blocked sites; the first capture on an origin makes a project for it, which an admin can merge with others. `projects`: the strict mode, where the extension captures only on origins listed in projects, each approved in Chrome, and the server refuses captures from other origins (`origin_not_allowed`) and makes no project by itself. Set `projects` when reviewers must not record outside the apps an admin named. See [Site access](#site-access). |
 | `SUPPORT_RECORDING_LINK` | empty | `https://feedback.example.com/r/abc`, or `off` | Settings > Server, Sharing and export. Where the extension menu's "report a problem" goes. Empty: a "Problem reports" recording link owned by the server's first account, made on first use. `off` hides it. |
 | `NODE_ENV` | `production` in the image, `development` in `pnpm dev` | `production` | Turns on production behaviour: sign-in rate limits, no response-shape checks in the share routes. Leave it to the image. |
 

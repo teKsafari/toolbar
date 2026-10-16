@@ -8,6 +8,7 @@ import { folderSchema } from './folders.ts';
 import { integrationSchema } from './integrations.ts';
 import { brandingSchema } from './branding.ts';
 import { projectScopeSchema } from './projects.ts';
+import { PROJECT_PRESETS, SITE_ACCESS_MODES } from '../projects.ts';
 
 // ---------- me ----------
 
@@ -345,6 +346,19 @@ export const extBootstrapSchema = z.object({
    * to their origins and runs its capture scripts there only.
    */
   projects: z.array(projectScopeSchema).optional(),
+  /**
+   * Site access (D-200). `all`: the extension asks once for every site and registers its capture
+   * scripts everywhere but the server itself; a new origin's capture uses `defaults` of its
+   * workspace (the project the server then makes starts with them). `projects`: the strict mode
+   * of D-126. Absent: `projects`.
+   */
+  siteAccess: z
+    .object({
+      mode: z.enum(SITE_ACCESS_MODES),
+      /** masking preset and trace step window a new project of each workspace starts with */
+      defaults: z.array(z.object({ workspaceId: idSchema, maskingPreset: z.enum(PROJECT_PRESETS), traceOpenMs: z.number().int() })),
+    })
+    .optional(),
 });
 export type ExtBootstrap = z.infer<typeof extBootstrapSchema>;
 

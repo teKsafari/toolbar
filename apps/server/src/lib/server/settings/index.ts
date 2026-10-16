@@ -81,6 +81,10 @@ function fromEnv(key: InstanceKey, v: string): unknown {
       const t = v.toLowerCase();
       return t === 'chunked' || t === 'native' ? t : 'auto';
     }
+    case 'siteAccess': {
+      const s = v.toLowerCase();
+      return s === 'all' || s === 'projects' ? s : undefined;
+    }
     case 'transcribeBaseUrl':
     case 'whisperUrl':
       return v.replace(/\/+$/, '');
@@ -139,6 +143,8 @@ export function defaultOf<K extends InstanceKey>(key: K): Values[K] {
     transcribeChunkSeconds: () => 30,
     transcribeConcurrency: () => 4,
     maxRecordingMin: () => null,
+    // D-200: one Chrome prompt for every site, a project per captured origin
+    siteAccess: () => 'all',
     defaultMaskingPreset: () => 'staging',
     defaultTraceOpenMs: () => TRACE_OPEN_MS.default,
     shareLinkDays: () => 14,

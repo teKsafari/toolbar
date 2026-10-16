@@ -141,4 +141,26 @@ export const deleteProject = defineRoute({
   summary: 'Remove a project. Its captures stay; the extension stops running on its origins.',
 });
 
-export const projectRoutes = [listProjects, createProject, updateProject, deleteProject] as const;
+export const mergeProjectsBodySchema = z.object({
+  /** the project merged into this one; it is removed afterwards */
+  from: idSchema,
+});
+
+export const mergeProjects = defineRoute({
+  name: 'projects.merge',
+  method: 'POST',
+  path: api('/projects/:id/merge'),
+  auth: 'member',
+  role: 'admin',
+  scope: 'write',
+  params: z.object({ id: idSchema }),
+  body: mergeProjectsBodySchema,
+  response: z.object({ project: projectSchema, movedCaptures: z.number().int() }),
+  status: 200,
+  errors: ['not_found', 'invalid_body'],
+  area: 'dashboard',
+  tasks: ['D-200'],
+  summary: 'Merge another project of the same workspace into this one: its origins and captures move here and it is removed.',
+});
+
+export const projectRoutes = [listProjects, createProject, updateProject, deleteProject, mergeProjects] as const;

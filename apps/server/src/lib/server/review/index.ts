@@ -5,8 +5,7 @@
 import type { Db } from '../db/index.ts';
 import { env } from '../env.ts';
 import { createApiToken } from '../tokens.ts';
-import { projectForUrl } from '@toolbar/shared/projects';
-import { projectsOfUser } from '../projects.ts';
+import { reviewOriginAllowed as originAccess } from '../projects/access.ts';
 import { normalizeOrigin, signReview } from './cookie.ts';
 
 export const MIN_SECRET_LENGTH = 32;
@@ -29,7 +28,10 @@ export function reviewOriginAllowed(origin: string | null, e = env): origin is s
 export async function reviewOriginAllowedFor(db: Db, userId: string, origin: string | null, e = env): Promise<boolean> {
   if (!origin) return false;
   if (e.injector.origins.length) return reviewOriginAllowed(origin, e);
-  return !!projectForUrl(await projectsOfUser(db, userId), `${origin}/`);
+  // D-200: the shared origin check; a review cookie also needs a project that names the origin,
+  // since in `all` mode every origin is allowed for capture
+  const access = await originAccess(db, origin, userId);
+  return access.allowed && !!access.projectId;
 }
 
 export async function issueReviewCookie(db: Db, opts: { userId: string; origin: string; now?: number }, e = env): Promise<{ value: string; expiresAt: Date }> {

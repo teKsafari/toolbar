@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   allOrigins,
   allowlistMatches,
+  autoProjectOf,
+  bestOriginFor,
   bodyAllowed,
+  mergeOrigins,
+  originSpecificity,
+  pageOrigin,
+  SITE_ACCESS_MODES,
   bodyPolicyOf,
   matchPatternOf,
   normalizeAllowlistEntry,
@@ -70,6 +76,73 @@ describe('projects', () => {
   });
   it('lists every origin once', () => {
     expect(allOrigins([...projects, { id: 'c', origins: ['http://localhost:5173'] }])).toEqual(['http://localhost:5173', 'https://*.nuru.test', 'https://nuru.test']);
+  });
+});
+
+describe('matching precedence (D-200)', () => {
+  // listed oldest first, as the server and the bootstrap list them: the wildcard project is older
+  const projects = [
+    { id: 'domain', origins: ['https://*.nuru.sh'] },
+    { id: 'apps', origins: ['https://*.apps.nuru.sh'] },
+    { id: 'staging', origins: ['https://staging.nuru.sh'] },
+    { id: 'local-any', origins: ['http://localhost'] },
+    { id: 'local-5173', origins: ['http://localhost:5173'] },
+  ];
+
+  it('an exact origin wins over an older wildcard domain', () => {
+    expect(projectForUrl(projects, 'https://staging.nuru.sh/login')?.id).toBe('staging');
+  });
+  it('the most specific wildcard wins among wildcards', () => {
+    expect(projectForUrl(projects, 'https://x.apps.nuru.sh/')?.id).toBe('apps');
+    expect(projectForUrl(projects, 'https://116.nuru.sh/')?.id).toBe('domain');
+  });
+  it('a wildcard covers the bare domain, over https only', () => {
+    expect(projectForUrl(projects, 'https://nuru.sh/')?.id).toBe('domain');
+    expect(projectForUrl(projects, 'http://nuru.sh/')).toBeNull();
+    expect(projectForUrl([...projects, { id: 'plain', origins: ['http://*.nuru.sh'] }], 'http://staging.nuru.sh/')?.id).toBe('plain');
+  });
+  it('an origin with a port wins over the same host without one', () => {
+    expect(projectForUrl(projects, 'http://localhost:5173/')?.id).toBe('local-5173');
+    expect(projectForUrl(projects, 'http://localhost:5174/')?.id).toBe('local-any');
+  });
+  it('a tie goes to the earlier project', () => {
+    expect(projectForUrl([{ id: 'one', origins: ['https://a.test'] }, { id: 'two', origins: ['https://a.test'] }], 'https://a.test/')?.id).toBe('one');
+  });
+  it('ranks origins', () => {
+    expect(originSpecificity('http://localhost:5173')).toBeGreaterThan(originSpecificity('http://localhost'));
+    expect(originSpecificity('http://localhost')).toBeGreaterThan(originSpecificity('https://*.a.very.long.domain.example.com'));
+    expect(originSpecificity('https://*.a.nuru.sh')).toBeGreaterThan(originSpecificity('https://*.nuru.sh'));
+    expect(originSpecificity('nonsense')).toBe(0);
+    expect(bestOriginFor(['https://*.nuru.sh', 'https://staging.nuru.sh'], 'https://staging.nuru.sh/x')?.origin).toBe('https://staging.nuru.sh');
+    expect(bestOriginFor(['https://*.nuru.sh'], 'https://evil.test/')).toBeNull();
+  });
+});
+
+describe('automatic projects and merging (D-200)', () => {
+  it('names a project after the host and lists the exact origin', () => {
+    expect(autoProjectOf('http://localhost:5173/form?x=1')).toEqual({ name: 'localhost:5173', origins: ['http://localhost:5173'] });
+    expect(autoProjectOf('http://127.0.0.1:5173/')).toEqual({ name: '127.0.0.1:5173', origins: ['http://127.0.0.1:5173'] });
+    expect(autoProjectOf('https://Staging.Nuru.sh:443/a')).toEqual({ name: 'staging.nuru.sh', origins: ['https://staging.nuru.sh'] });
+    expect(autoProjectOf('chrome://extensions')).toBeNull();
+    expect(autoProjectOf('file:///tmp/x.html')).toBeNull();
+    expect(autoProjectOf(null)).toBeNull();
+  });
+  it('reads the page origin of http(s) URLs only', () => {
+    expect(pageOrigin('https://a.test:8443/x')).toBe('https://a.test:8443');
+    expect(pageOrigin('data:text/html,hi')).toBeNull();
+    expect(pageOrigin('not a url')).toBeNull();
+    expect(pageOrigin('https://*.nuru.sh')).toBeNull();
+  });
+  it('merges origins: the first project keeps its order, the second adds what is new', () => {
+    expect(mergeOrigins(['http://localhost:5173'], ['http://127.0.0.1:5173', 'http://localhost:5173'])).toEqual(['http://localhost:5173', 'http://127.0.0.1:5173']);
+    expect(mergeOrigins(['https://nuru.sh'], ['https://*.nuru.sh'])).toEqual(['https://nuru.sh', 'https://*.nuru.sh']);
+  });
+  it('refuses a merge past the origin limit', () => {
+    const many = (p: string) => Array.from({ length: 30 }, (_, i) => `https://${p}${i}.test`);
+    expect(() => mergeOrigins(many('a'), many('b'))).toThrow(RangeError);
+  });
+  it('lists the modes', () => {
+    expect(SITE_ACCESS_MODES).toEqual(['all', 'projects']);
   });
 });
 

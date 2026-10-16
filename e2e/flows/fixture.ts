@@ -8,7 +8,7 @@
 // the release build with its closed shadow root). The in-page bar and toasts are therefore not
 // reachable from here; the specs check outcomes through the clipboard, the editor frame, the
 // server and the web pages instead.
-import { test as base, chromium, expect, type Browser, type BrowserContext, type Frame, type Page, type Worker } from '@playwright/test';
+import { test as base, chromium, expect, request, type Browser, type BrowserContext, type Frame, type Page, type Worker } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -438,8 +438,9 @@ export async function connectExtension(context: BrowserContext, email: string, o
   await mockProviderLogin(win, email, 'Flow Reviewer');
   await expect(popup.getByTestId('signed-in')).toContainText(email, { timeout: 30_000 });
   if (opts.allowLab === false) return { lab, popup };
-  // D-126: the extension records only on project origins the person allowed. A new account has
-  // none: add the lab as a project, then allow it from the popup, as a person does.
+  // D-126, D-200: the extension records only once the person allowed it: every site in `all`
+  // mode, the project origins in the strict mode. Add the lab as a project (so captures carry
+  // the name Lab in both modes), then allow from the popup, as a person does.
   await addProject(context, [LAB_URL]);
   await popup.close();
   const again = await openPopup(context, lab);
@@ -486,11 +487,36 @@ export async function acceptPermissionPrompt(timeout = 10_000) {
   xdo('key', 'Return');
 }
 
-/** In the popup over a project page: click Allow and accept Chrome's prompt; the capture rows return. */
+/**
+ * Switch the server's site access mode (D-200), `null` to reset it to the default. Uses the
+ * context's web session when its account is the instance admin (the first account of a fresh
+ * server), else the seeded admin (dana@toolbar.test, password sign-in, AUTH_DEV_PASSWORD=1).
+ * Returns false when neither may change it, or SITE_ACCESS locks the field.
+ */
+export async function setSiteAccess(context: BrowserContext, mode: 'all' | 'projects' | null): Promise<boolean> {
+  const own = await api(context, 'PATCH', '/api/v1/admin/settings', { siteAccess: mode });
+  if (own.status === 200) return true;
+  const req = await request.newContext({ baseURL: SERVER, extraHTTPHeaders: { origin: SERVER } });
+  try {
+    const signIn = await req.post('/api/auth/sign-in/email', { data: { email: 'dana@toolbar.test', password: 'toolbar-dev-password' }, failOnStatusCode: false });
+    if (!signIn.ok()) return false;
+    const r = await req.patch('/api/v1/admin/settings', { data: { siteAccess: mode }, failOnStatusCode: false });
+    return r.ok();
+  } finally {
+    await req.dispose();
+  }
+}
+
+/**
+ * In the popup over a project page: click Allow and accept Chrome's prompt; the capture rows
+ * return. On a server in `all` mode (D-200, the default) the popup asks once for every site; in
+ * the strict mode for the project origins (D-126).
+ */
 export async function allowFromPopup(context: BrowserContext, popup: Page) {
   const card = popup.getByTestId('site-access');
-  await expect(card).toHaveAttribute('data-state', 'needs-grant', { timeout: 15_000 });
-  await popup.getByTestId('site-allow').click();
+  await expect(card).toHaveAttribute('data-state', /^(needs-grant|needs-all-sites)$/, { timeout: 15_000 });
+  const all = (await card.getAttribute('data-state')) === 'needs-all-sites';
+  await popup.getByTestId(all ? 'site-allow-all' : 'site-allow').click();
   await acceptPermissionPrompt();
   const sw = context.serviceWorkers().find((w) => w.url().startsWith(`chrome-extension://${EXT_ID}/`))!;
   await expect

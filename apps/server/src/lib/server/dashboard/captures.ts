@@ -41,6 +41,7 @@ export function captureFilters(q: Partial<ListQuery>, workspaceId: string, userI
   if (q.sources?.length) parts.push(inArray(recording.source, q.sources));
   if (q.authors?.length) parts.push(inArray(recording.authorUserId, q.authors));
   if (q.recordingLinkId) parts.push(eq(recording.recordingLinkId, q.recordingLinkId));
+  if (q.projectId) parts.push(eq(recording.projectId, q.projectId));
   const issueExists = sql`EXISTS (SELECT 1 FROM linked_issue li WHERE li.recording_id = ${recording.id})`;
   if (q.hasIssue === true) parts.push(issueExists);
   if (q.hasIssue === false) parts.push(sql`NOT ${issueExists}`);
