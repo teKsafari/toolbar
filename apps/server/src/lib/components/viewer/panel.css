@@ -29,7 +29,11 @@
 .vp-row.lvl-error::after { background: var(--nb-danger); }
 .vp-row.lvl-warn::after { background: var(--nb-warning); }
 .vp-row.kind-navigation::after { background: var(--nb-info); }
-.vp-row.future { opacity: 0.55; }
+/* Rows after the playhead step their neutral text down one token instead of fading the row
+   (D-180): on a plain row the text takes text-faint (4.83:1 light, 5.41:1 dark, 4.63:1 and 5.22:1
+   on the hover wash); on a tint text-faint already maps to text-muted above, so the text takes
+   text-muted there. Status text (-text steps) and the timestamps keep their colour, which passes. */
+.vp-row.future { --nb-text: var(--nb-text-faint); --nb-text-body: var(--nb-text-faint); color: var(--nb-text); }
 .vp-row.current { border-left-color: var(--nb-text); }
 .vp-row.current::after { display: none; }
 .vp-row.current::before { content: ''; position: absolute; left: -1px; top: 7px; border: 4px solid transparent; border-left-color: var(--nb-text); }

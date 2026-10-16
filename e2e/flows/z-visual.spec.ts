@@ -125,7 +125,15 @@ test('visual: popup, options and the editor, light and dark', async ({ tb, conte
     await lab.mouse.move(300, 300);
     await lab.mouse.click(310, 305);
     const f = await editorFrame(lab);
+    // the editor is an out-of-process extension iframe, which page.emulateMedia does not reach:
+    // emulate the colour scheme on the frame's own CDP target (D-180)
+    const cdp = await context.newCDPSession(f);
+    await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] });
     await lab.waitForTimeout(500);
+    const ebg = await f.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    const [er, eg, eb] = (ebg.match(/\d+/g) ?? ['255', '255', '255']).map(Number) as [number, number, number];
+    const elum = 0.2126 * er + 0.7152 * eg + 0.0722 * eb;
+    if (ebg !== 'rgba(0, 0, 0, 0)') expect(theme === 'dark' ? elum < 80 : elum > 180, `editor: body ${ebg} in ${theme}`).toBe(true);
     await lab.screenshot({ path: saveShot(`visual-editor-${theme}`) });
     // the destination menu belongs to the tracker picker, paused by owner scope (FEATURE_TRACKERS)
     const menu = f.getByRole('button', { name: /Share link/ }).first();

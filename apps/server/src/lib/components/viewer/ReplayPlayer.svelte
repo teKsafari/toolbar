@@ -155,7 +155,9 @@
 <div class="card" bind:this={card} data-testid="replay-card">
   {#if v.detail.author}<span class="chip"><Avatar name={v.detail.author.name} size={20} />{v.detail.author.name}</span>{/if}
   <div class="stage" bind:this={stage}>
-    <div class="host" bind:this={host} style:width="{size.w}px" style:height="{size.h}px" style:transform="translate(-50%, -50%) scale({scale})" data-testid="replay-stage"></div>
+    <!-- inert: the replayed page is a picture of the session, so Tab and screen readers skip its
+         recorded controls (D-180); the frame stays readable for tests and the clock -->
+    <div class="host" bind:this={host} inert style:width="{size.w}px" style:height="{size.h}px" style:transform="translate(-50%, -50%) scale({scale})" data-testid="replay-stage"></div>
   </div>
   {#if !ready}
     <div class="loading" data-testid="replay-loading">

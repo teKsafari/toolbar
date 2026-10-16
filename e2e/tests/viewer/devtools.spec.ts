@@ -100,6 +100,11 @@ test('J-104 panels follow playback and highlight within 100 ms', async ({ page }
   );
   expect(lag).toBeLessThan(budget(100));
   await expect(page.locator('[data-testid="console-list"] .vp-row.future').first()).toBeVisible();
+  // future rows step their text down a token and keep full opacity, so they still pass 4.5:1 (D-180)
+  const fut = await page.locator('[data-testid="console-list"] .vp-row.future').evaluateAll((rows) =>
+    rows.map((r) => ({ opacity: getComputedStyle(r).opacity, faint: getComputedStyle(r).getPropertyValue('--nb-text-faint').trim(), text: getComputedStyle(r).getPropertyValue('--nb-text').trim() })),
+  );
+  for (const f of fut) expect(f).toEqual({ opacity: '1', faint: f.faint, text: f.faint });
   // the list scrolls with playback: with a short panel the current row stays in view
   await page.setViewportSize({ width: 1440, height: 520 });
   await page.getByTestId('video').evaluate((v: HTMLVideoElement) => { v.currentTime = 0; void v.play(); });
