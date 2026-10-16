@@ -84,11 +84,12 @@
   .col { display: flex; flex-direction: column; flex: 1; min-width: 0; }
   .title { font-weight: var(--nb-weight-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .meta { font-size: var(--nb-text-sm); color: var(--nb-text-faint); }
-  .chip { font-size: var(--nb-text-xs); padding: 2px 6px; border-radius: var(--nb-radius-pill); background: var(--nb-accent-tint); color: var(--nb-accent-text); }
-  .label { padding: 8px 8px 4px; font-size: var(--nb-text-xs); color: var(--nb-text-faint); font-weight: var(--nb-weight-semibold); }
+  .chip { font-size: var(--nb-text-xs); font-weight: var(--nb-weight-medium); padding: 1px 7px; border-radius: var(--nb-radius-pill); background: var(--nb-surface-sunken); color: var(--nb-text-muted); }
+  .label { padding: 8px 8px 4px; font: var(--nb-weight-normal) 10.5px / 1.4 var(--nb-font-mono); letter-spacing: var(--nb-tracking-label); text-transform: uppercase; color: var(--nb-text-faint); }
   a, button {
     all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px;
     border-radius: var(--nb-radius-md); cursor: pointer; color: var(--nb-text); font-size: var(--nb-text-md);
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out);
   }
   a:hover, button:hover, a:focus-visible, button:focus-visible { background: var(--nb-surface-sunken); }
   .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

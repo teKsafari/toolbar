@@ -37,10 +37,10 @@
 </CaptureGrid>
 
 <style>
-  .titlerow { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+  .titlerow { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
   .titlerow h1 { margin: 0; }
-  .count { color: var(--nb-text-faint); font-size: var(--nb-text-md); }
+  .count { color: var(--nb-text-faint); font: var(--nb-text-sm) var(--nb-font-mono); font-variant-numeric: tabular-nums; }
   .empty h2 { margin: 6px 0 0; color: var(--nb-text); }
   .empty p { margin: 0 0 8px; max-width: 420px; }
-  kbd { font: var(--nb-text-sm) var(--nb-font-mono); }
+  kbd { font: var(--nb-text-sm) var(--nb-font-mono); padding: 0 4px; border: 1px solid var(--nb-border); border-radius: 4px; background: var(--nb-surface-2); }
 </style>

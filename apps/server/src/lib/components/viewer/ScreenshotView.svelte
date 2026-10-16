@@ -68,24 +68,25 @@
 {/if}
 
 <style>
-  .card { position: relative; display: flex; flex-direction: column; border-radius: var(--nb-radius-xl); background: var(--nb-surface-sunken); border: 1px solid var(--nb-border); overflow: hidden; }
+  .card { position: relative; display: flex; flex-direction: column; border-radius: var(--nb-radius-lg); background: var(--nb-surface-2); border: 1px solid var(--nb-border); overflow: hidden; }
   .top { position: absolute; inset: 0 0 auto; z-index: 3; display: flex; align-items: center; gap: 8px; padding: 10px; pointer-events: none; }
   .grow { flex: 1; }
-  .chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 4px; border-radius: 999px; background: rgb(0 0 0 / 0.6); color: #f7f6f2; font-size: var(--nb-text-md); }
-  .ib { all: unset; pointer-events: auto; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: rgb(0 0 0 / 0.6); color: #fff; cursor: pointer; }
-  .ib:hover { background: rgb(0 0 0 / 0.8); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 4px; border-radius: 999px; background: rgb(11 11 11 / 0.6); color: #fafafa; font-size: var(--nb-text-md); backdrop-filter: blur(6px); }
+  .ib { all: unset; pointer-events: auto; display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--nb-radius-sm); border: 1px solid var(--nb-border-strong); background: var(--nb-surface); color: var(--nb-text); cursor: pointer; box-shadow: var(--nb-shadow-sm); }
+  .ib:hover { border-color: color-mix(in srgb, var(--nb-text-faint) 60%, var(--nb-border-strong)); }
+  .ib:focus-visible { outline: 2px solid var(--nb-focus); }
   .scroll { position: relative; z-index: 1; max-height: 70vh; overflow: auto; display: grid; place-items: start center; padding: 48px 16px 16px; }
   .imgbtn { all: unset; cursor: zoom-in; display: block; max-width: 100%; }
   .imgbtn:focus-visible { outline: 2px solid var(--nb-focus); }
   .imgwrap { position: relative; display: block; }
   .cropbox { position: absolute; box-sizing: border-box; border: 2px solid var(--nb-accent); border-radius: 2px; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.6); pointer-events: none; }
-  .scroll img { display: block; max-width: 100%; height: auto; border-radius: 6px; box-shadow: var(--nb-shadow-md); }
+  .scroll img { display: block; max-width: 100%; height: auto; border-radius: var(--nb-radius-sm); border: 1px solid var(--nb-border); }
   .switch { display: flex; justify-content: center; gap: 8px; padding: 8px 0 12px; }
-  .switch button { all: unset; cursor: pointer; width: 80px; height: 52px; border-radius: 6px; overflow: hidden; border: 2px solid transparent; background: var(--nb-surface); }
+  .switch button { all: unset; cursor: pointer; width: 80px; height: 52px; border-radius: var(--nb-radius-sm); overflow: hidden; border: 2px solid var(--nb-border); background: var(--nb-surface); }
   .switch button.sel { border-color: var(--nb-accent); }
   .switch button:focus-visible { outline: 2px solid var(--nb-focus); }
   .switch img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .lightbox { position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; padding: 32px; background: rgb(10 10 9 / 0.85); overflow: auto; }
+  .lightbox { position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; padding: 32px; background: rgb(11 11 11 / 0.88); overflow: auto; }
   .lightbox img { max-width: 100%; height: auto; border-radius: 6px; }
   .close { all: unset; position: fixed; top: 16px; right: 16px; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: rgb(255 255 255 / 0.15); color: #fff; cursor: pointer; }
   @media (max-width: 720px) { .card { border-radius: 0; border-left: 0; border-right: 0; } }

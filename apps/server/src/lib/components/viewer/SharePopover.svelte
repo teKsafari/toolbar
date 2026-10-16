@@ -74,20 +74,21 @@
 </div>
 
 <style>
-  .share { width: 360px; max-width: calc(100vw - 32px); padding: 12px; border-radius: var(--nb-radius-lg); background: var(--nb-surface); border: 1px solid var(--nb-border); box-shadow: var(--nb-shadow-lg); display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; }
-  .head { margin: 0; font-weight: 600; }
+  .share { width: 360px; max-width: calc(100vw - 32px); padding: 14px; border-radius: var(--nb-radius-lg); background: var(--nb-surface); border: 1px solid var(--nb-border); box-shadow: var(--nb-shadow-lg); display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; }
+  .head { margin: 0; font-weight: 600; letter-spacing: var(--nb-tracking-ui); }
   .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .card { all: unset; box-sizing: border-box; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 6px 8px; border-radius: var(--nb-radius-md); border: 1px solid var(--nb-border-strong); cursor: pointer; color: var(--nb-text); text-align: center; min-width: 0; }
-  .card:hover { border-color: var(--nb-accent); background: var(--nb-accent-tint); }
+  .card { all: unset; box-sizing: border-box; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 6px 8px; border-radius: var(--nb-radius-lg); border: 1px solid var(--nb-border); cursor: pointer; color: var(--nb-text); text-align: center; min-width: 0; transition: border-color var(--nb-dur-fast) var(--nb-ease-out), background-color var(--nb-dur-fast) var(--nb-ease-out); }
+  .card:hover { border-color: var(--nb-border-strong); background: var(--nb-surface-2); }
+  .card:active { transform: translateY(1px); }
   .card:focus-visible { outline: 2px solid var(--nb-focus); }
-  .ic { position: relative; display: grid; place-items: center; height: 64px; border-radius: var(--nb-radius-sm, 6px); background: var(--nb-surface-sunken); color: var(--nb-text); }
+  .ic { position: relative; display: grid; place-items: center; height: 64px; border-radius: var(--nb-radius-sm); background: var(--nb-surface-sunken); color: var(--nb-text); }
   .cp { position: absolute; top: 6px; right: 6px; color: var(--nb-text-muted); }
   .cap { font-size: var(--nb-text-md); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .general { display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid var(--nb-border); }
-  .general label { font-size: var(--nb-text-sm); font-weight: 600; color: var(--nb-text); }
+  .general label { font: var(--nb-weight-normal) 10.5px / 1.4 var(--nb-font-mono); letter-spacing: var(--nb-tracking-label); text-transform: uppercase; color: var(--nb-text-faint); }
   .sel { position: relative; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border-radius: var(--nb-radius-md); border: 1px solid var(--nb-border-strong); background: var(--nb-surface); color: var(--nb-text-muted); }
-  .sel:focus-within { outline: 2px solid var(--nb-focus); }
-  .sel select { all: unset; flex: 1; height: 100%; color: var(--nb-text); font-size: var(--nb-text-md); cursor: pointer; }
+  .sel:focus-within { border-color: var(--nb-focus); box-shadow: var(--nb-focus-ring); }
+  .sel select, .sel select:focus-visible { all: unset; flex: 1; height: 100%; color: var(--nb-text); font-size: var(--nb-text-md); cursor: pointer; }
   .sel select option { color: initial; }
   .access { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--nb-text-sm); color: var(--nb-text-muted); }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

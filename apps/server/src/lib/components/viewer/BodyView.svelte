@@ -107,9 +107,9 @@
 <style>
   .bv { position: relative; }
   .tools { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-bottom: 4px; font-family: var(--nb-font-sans); }
-  .seg { display: inline-flex; border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-sm); overflow: hidden; }
-  .seg button { all: unset; padding: 2px 8px; font-size: var(--nb-text-xs); color: var(--nb-text-muted); cursor: pointer; }
-  .seg button.on { background: var(--nb-surface-sunken); color: var(--nb-text); }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--nb-radius-pill); background: var(--nb-surface-sunken); }
+  .seg button { all: unset; padding: 1px 8px; border-radius: var(--nb-radius-pill); font-size: var(--nb-text-xs); color: var(--nb-text-muted); cursor: pointer; }
+  .seg button.on { background: var(--nb-surface); color: var(--nb-text); box-shadow: var(--nb-shadow-sm); }
   .copy { all: unset; display: grid; place-items: center; width: 24px; height: 22px; border-radius: var(--nb-radius-sm); color: var(--nb-text-muted); cursor: pointer; }
   .copy:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
   .code { list-style: none; margin: 0; padding: 0; }
@@ -119,7 +119,7 @@
   .fold button:hover { color: var(--nb-text); }
   .src { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
   .wrap .src { white-space: pre-wrap; overflow-wrap: anywhere; }
-  .tk-key { color: var(--nb-accent-text); }
+  .tk-key { color: var(--nb-info); }
   .tk-str { color: var(--nb-success); }
   .tk-num { color: var(--nb-warning); }
   .tk-lit { color: var(--nb-danger); }

@@ -51,19 +51,23 @@
 
 <style>
   .menu {
-    min-width: 180px; padding: 4px; border-radius: var(--nb-radius-md);
-    background: var(--nb-chrome); color: var(--nb-on-chrome); box-shadow: var(--nb-shadow-lg);
-    display: flex; flex-direction: column; font-size: var(--nb-text-md);
+    /* the site's dropdown: a surface card, edge border, floating shadow, 6 px inset */
+    min-width: 180px; padding: 6px; border-radius: var(--nb-radius-lg); border: 1px solid var(--nb-border);
+    background: var(--nb-surface); color: var(--nb-text); box-shadow: var(--nb-shadow-lg);
+    display: flex; flex-direction: column; gap: 1px; font-size: var(--nb-text-md);
+    animation: menu-in var(--nb-dur-med) var(--nb-ease-out); transform-origin: top;
   }
+  @keyframes menu-in { from { opacity: 0; transform: scale(0.97); } }
   .row {
     all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 8px; width: 100%;
-    min-height: 24px; padding: 2px 8px; border-radius: var(--nb-radius-sm); cursor: pointer; white-space: nowrap;
+    min-height: 30px; padding: 4px 8px; border-radius: var(--nb-radius-sm); cursor: pointer; white-space: nowrap;
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out);
   }
-  .row:hover, .row:focus-visible { background: var(--nb-chrome-2); }
+  .row:hover, .row:focus-visible { background: var(--nb-surface-sunken); }
   .row:disabled { opacity: 0.45; cursor: default; }
-  .danger { color: #ff8a7d; }
+  .danger { color: var(--nb-danger); }
   .lbl { flex: 1; }
-  .hint { color: var(--nb-on-chrome-muted); font-size: var(--nb-text-xs); }
+  .hint { color: var(--nb-text-faint); font: var(--nb-text-xs) var(--nb-font-mono); }
   .subwrap { position: relative; }
   .sub { position: absolute; left: calc(100% + 2px); top: -4px; z-index: 5; }
 </style>

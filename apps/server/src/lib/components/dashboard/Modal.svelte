@@ -51,14 +51,14 @@
 
 <style>
   .nb-modal {
-    width: min(var(--w), calc(100vw - 24px)); padding: 0; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-xl);
+    width: min(var(--w), calc(100vw - 32px)); padding: 0; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg);
     background: var(--nb-surface); color: var(--nb-text); box-shadow: var(--nb-shadow-lg);
   }
   .nb-modal::backdrop { background: var(--nb-overlay); }
   .nb-modal[open] { animation: m-in var(--nb-dur-med) var(--nb-ease-out); }
   @keyframes m-in { from { opacity: 0; transform: translateY(4px) scale(0.99); } }
-  .inner { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
-  h2 { margin: 0; font-size: var(--nb-text-lg); }
+  .inner { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  h2 { margin: 0; font-size: var(--nb-text-lg); font-weight: var(--nb-weight-semibold); letter-spacing: var(--nb-tracking-ui); }
   .body { display: flex; flex-direction: column; gap: 10px; }
   .foot { display: flex; justify-content: flex-end; gap: 8px; }
   @media (prefers-reduced-motion: reduce) { .nb-modal[open] { animation: none; } }

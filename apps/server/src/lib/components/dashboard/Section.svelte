@@ -18,11 +18,11 @@
 </section>
 
 <style>
-  .sec { padding: 22px 0; border-top: 1px solid var(--nb-border); }
-  .sec:first-of-type { border-top: 0; padding-top: 6px; }
-  .h { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
-  h2 { margin: 0 0 2px; font-size: var(--nb-text-lg); }
-  p { margin: 0; color: var(--nb-text-muted); font-size: var(--nb-text-md); }
+  .sec { padding: 24px 0; border-top: 1px solid var(--nb-border); }
+  .sec:first-of-type { border-top: 0; padding-top: 8px; }
+  .h { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+  h2 { margin: 0 0 4px; font-size: var(--nb-text-lg); font-weight: var(--nb-weight-semibold); letter-spacing: var(--nb-tracking-ui); }
+  p { margin: 0; color: var(--nb-text-muted); font-size: var(--nb-text-md); line-height: var(--nb-leading-relaxed); }
   .acts { flex: none; display: flex; align-items: center; gap: 8px; }
   .docs { font-size: var(--nb-text-sm); white-space: nowrap; }
   .body { display: flex; flex-direction: column; gap: 14px; }

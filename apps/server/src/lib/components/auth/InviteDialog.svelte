@@ -149,11 +149,11 @@
 <style>
   dialog {
     width: min(480px, calc(100vw - 32px)); padding: var(--nb-space-5); border: 1px solid var(--nb-border);
-    border-radius: var(--nb-radius-xl); background: var(--nb-surface); color: var(--nb-text); box-shadow: var(--nb-shadow-lg);
+    border-radius: var(--nb-radius-lg); background: var(--nb-surface); color: var(--nb-text); box-shadow: var(--nb-shadow-lg);
   }
   dialog::backdrop { background: var(--nb-overlay); }
   header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--nb-space-4); }
-  h2 { margin: 0; font-size: var(--nb-text-lg); }
+  h2 { margin: 0; font-size: var(--nb-text-lg); font-weight: var(--nb-weight-semibold); letter-spacing: var(--nb-tracking-ui); }
   section, form { display: flex; flex-direction: column; gap: var(--nb-space-2); margin-bottom: var(--nb-space-4); }
   .row-label { font-size: var(--nb-text-md); font-weight: var(--nb-weight-medium); }
   .linkrow, .emailrow { display: flex; gap: var(--nb-space-2); }

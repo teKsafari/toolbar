@@ -37,11 +37,11 @@
 {/if}
 
 <style>
-  .ob { margin: 12px 0 8px; padding: 10px 12px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); background: var(--nb-surface); }
-  .top { display: flex; align-items: center; justify-content: space-between; font-size: var(--nb-text-md); }
+  .ob { margin: 12px 0 8px; padding: 12px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); background: var(--nb-surface); }
+  .top { display: flex; align-items: center; justify-content: space-between; font-size: var(--nb-text-md); letter-spacing: var(--nb-tracking-ui); }
   .x { all: unset; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 4px; color: var(--nb-text-faint); cursor: pointer; }
   .x:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
-  .bar { height: 4px; border-radius: 4px; background: var(--nb-surface-sunken); margin: 8px 0; overflow: hidden; }
+  .bar { height: 3px; border-radius: 3px; background: var(--nb-surface-sunken); margin: 10px 0; overflow: hidden; }
   .bar span { display: block; height: 100%; background: var(--nb-accent); }
   ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
   li { display: flex; align-items: center; gap: 8px; font-size: var(--nb-text-sm); }

@@ -226,22 +226,25 @@
 </div>
 
 <style>
-  .composer { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-lg); background: var(--nb-surface); box-shadow: var(--nb-shadow-md); }
-  .composer:focus-within { border-color: var(--nb-focus); }
+  .composer { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-lg); background: var(--nb-surface); box-shadow: var(--nb-shadow-md); transition: border-color var(--nb-dur-fast) var(--nb-ease-out), box-shadow var(--nb-dur-fast) var(--nb-ease-out); }
+  .composer:focus-within { border-color: var(--nb-focus); box-shadow: var(--nb-focus-ring), var(--nb-shadow-md); }
   .composer.reply { box-shadow: none; margin-left: 48px; padding: 4px 8px; }
+  .composer.reply:focus-within { box-shadow: var(--nb-focus-ring); }
   .row { display: flex; align-items: flex-end; gap: 6px; }
-  .ib { all: unset; display: grid; place-items: center; width: 30px; height: 30px; border-radius: var(--nb-radius-sm); color: var(--nb-text-muted); cursor: pointer; flex: none; }
+  .ib { all: unset; display: grid; place-items: center; width: 30px; height: 30px; border-radius: var(--nb-radius-sm); color: var(--nb-text-muted); cursor: pointer; flex: none; transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out); }
+  .ib:focus-visible { outline: 2px solid var(--nb-focus); }
   .ib:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
-  .send { all: unset; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; min-width: 30px; padding: 0; border-radius: 999px; background: var(--nb-accent); color: var(--nb-on-accent); cursor: pointer; flex: none; font: 500 var(--nb-text-md) var(--nb-font-mono); transition: padding var(--nb-dur-med) var(--nb-ease-out); }
+  .send { all: unset; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; min-width: 30px; padding: 0; border-radius: 999px; background: var(--nb-accent); color: var(--nb-on-accent); cursor: pointer; flex: none; font: 500 var(--nb-text-md) var(--nb-font-mono); box-shadow: var(--nb-shadow-primary); transition: padding var(--nb-dur-med) var(--nb-ease-out), background-color var(--nb-dur-fast) var(--nb-ease-out); }
+  .send:hover:not(:disabled) { background: var(--nb-accent-hover); }
   .send.pill { padding: 0 12px 0 10px; }
-  .send:disabled { opacity: 0.4; cursor: default; }
+  .send:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
   .send:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; }
   .ib.rec { width: auto; padding: 0 8px; gap: 4px; display: inline-flex; align-items: center; color: var(--nb-danger); font: 500 var(--nb-text-sm) var(--nb-font-mono); }
   .voice { display: flex; align-items: center; gap: 6px; }
   .voice audio { height: 30px; max-width: 100%; flex: 1; min-width: 0; }
   .files { display: flex; gap: 6px; flex-wrap: wrap; }
-  .file { position: relative; width: 64px; height: 48px; border-radius: 6px; overflow: hidden; border: 1px solid var(--nb-border); }
+  .file { position: relative; width: 64px; height: 48px; border-radius: var(--nb-radius-sm); overflow: hidden; border: 1px solid var(--nb-border); }
   .file img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .up { position: absolute; inset: 0; display: grid; place-items: center; background: rgb(255 255 255 / 0.6); }
-  .rm { all: unset; position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: rgb(0 0 0 / 0.65); color: #fff; cursor: pointer; }
+  .up { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--nb-surface) 60%, transparent); }
+  .rm { all: unset; position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: rgb(11 11 11 / 0.66); color: #fafafa; cursor: pointer; }
 </style>

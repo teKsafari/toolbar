@@ -64,15 +64,15 @@
   h1 { margin: 0; }
   .muted { color: var(--nb-text-muted); margin: 0; }
   code { font-family: var(--nb-font-mono); font-size: var(--nb-text-md); }
-  .seg { display: inline-flex; gap: 2px; margin: var(--nb-space-4) 0; padding: 2px; border-radius: var(--nb-radius-md); background: var(--nb-surface-sunken); }
-  .seg button { all: unset; cursor: pointer; padding: 4px 12px; border-radius: var(--nb-radius-sm); font-size: var(--nb-text-md); color: var(--nb-text-muted); }
+  .seg { display: inline-flex; gap: 2px; margin: var(--nb-space-4) 0; padding: 2px; border-radius: var(--nb-radius-pill); background: var(--nb-surface-sunken); }
+  .seg button { all: unset; cursor: pointer; padding: 4px 12px; border-radius: var(--nb-radius-pill); font-size: var(--nb-text-md); color: var(--nb-text-muted); }
   .seg button.on { background: var(--nb-surface); color: var(--nb-text); box-shadow: var(--nb-shadow-sm); }
   .steps { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--nb-space-4); }
   .steps li { display: flex; gap: var(--nb-space-3); }
-  .n { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--nb-accent-tint); color: var(--nb-accent-text); font-size: var(--nb-text-sm); font-weight: var(--nb-weight-semibold); }
+  .n { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--nb-border-strong); background: var(--nb-surface); color: var(--nb-text); font: var(--nb-weight-medium) var(--nb-text-sm) var(--nb-font-mono); }
   .body { flex: 1; min-width: 0; display: grid; gap: var(--nb-space-1); }
   h2 { font-size: var(--nb-text-base); margin: 0; }
-  .cmd { display: flex; align-items: center; gap: var(--nb-space-2); padding: 8px 12px; border-radius: var(--nb-radius-md); background: var(--nb-surface-sunken); }
+  .cmd { display: flex; align-items: center; gap: var(--nb-space-2); padding: 8px 12px; border-radius: var(--nb-radius-md); border: 1px solid var(--nb-border); background: var(--nb-surface-2); }
   .cmd code { flex: 1; overflow-wrap: anywhere; }
   .warn { margin-top: var(--nb-space-4); padding: 10px 12px; border-radius: var(--nb-radius-md); background: var(--nb-warning-tint); font-size: var(--nb-text-md); }
 </style>

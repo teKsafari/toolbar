@@ -36,15 +36,16 @@
 <style>
   .panel { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--nb-surface); border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); overflow: hidden; }
   .tabs { display: flex; align-items: center; gap: 2px; padding: 0 6px 0 8px; border-bottom: 1px solid var(--nb-border); overflow-x: auto; scrollbar-width: none; flex: none; }
-  .tabs button[role='tab'] { all: unset; display: inline-flex; align-items: center; gap: 5px; padding: 10px 8px 8px; font-size: var(--nb-text-base); color: var(--nb-text-muted); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .tabs button[role='tab'] { all: unset; display: inline-flex; align-items: center; gap: 5px; padding: 10px 8px 8px; font-size: var(--nb-text-base); letter-spacing: var(--nb-tracking-ui); color: var(--nb-text-muted); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: color var(--nb-dur-fast) var(--nb-ease-out), border-color var(--nb-dur-fast) var(--nb-ease-out); }
   .tabs button[role='tab']:hover { color: var(--nb-text); }
-  .tabs button.on { color: var(--nb-text); border-bottom-color: var(--nb-accent); font-weight: 500; }
+  .tabs button.on { color: var(--nb-text); border-bottom-color: var(--nb-text); font-weight: var(--nb-weight-medium); }
   .tabs button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: -2px; }
   .dot { width: 6px; height: 6px; border-radius: 50%; }
   .dot.error { background: var(--nb-danger); }
   .dot.ok { background: var(--nb-success); }
   .grow { flex: 1; }
-  .hide { all: unset; display: grid; place-items: center; width: 30px; height: 30px; border-radius: var(--nb-radius-sm); color: var(--nb-text-muted); cursor: pointer; flex: none; }
+  .hide { all: unset; display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--nb-radius-sm); color: var(--nb-text-muted); cursor: pointer; flex: none; transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out); }
+  .hide:focus-visible { outline: 2px solid var(--nb-focus); }
   .hide:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
   .body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 </style>

@@ -43,18 +43,28 @@
 </main>
 
 <style>
-  .join { max-width: 420px; margin: 14vh auto 48px; padding: 0 16px; display: flex; flex-direction: column; align-items: flex-start; gap: var(--nb-space-3); }
-  .avatar {
-    display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: var(--nb-radius-lg);
-    background: var(--nb-accent-tint); color: var(--nb-accent-text); font-size: 22px; font-weight: var(--nb-weight-semibold);
+  .join {
+    box-sizing: border-box; width: min(420px, calc(100% - 32px)); margin: 12vh auto 48px; padding: 24px;
+    display: flex; flex-direction: column; align-items: flex-start; gap: var(--nb-space-3);
+    background: var(--nb-surface); border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg);
   }
-  h1 { font-size: var(--nb-text-xl); margin: 0; }
-  p { margin: 0; }
+  .avatar {
+    display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: var(--nb-radius-md);
+    border: 1px solid var(--nb-border); background: var(--nb-surface-2); color: var(--nb-text);
+    font: var(--nb-weight-medium) 20px / 1 var(--nb-font-display);
+  }
+  h1 { font-size: var(--nb-text-2xl); margin: 0; }
+  p { margin: 0; color: var(--nb-text-body); line-height: var(--nb-leading-relaxed); }
   .hint { display: inline-flex; align-items: center; gap: 6px; font-size: var(--nb-text-sm); color: var(--nb-text-faint); }
   .err { color: var(--nb-danger); }
   .go {
     display: inline-flex; align-items: center; height: var(--nb-control-lg); padding: 0 var(--nb-space-4);
-    border-radius: var(--nb-radius-md); border: 1px solid var(--nb-border-strong); text-decoration: none; color: var(--nb-text);
+    border-radius: var(--nb-radius-md); border: 1px solid var(--nb-border-strong); background: var(--nb-surface); text-decoration: none; color: var(--nb-text);
+    font-weight: var(--nb-weight-medium); letter-spacing: var(--nb-tracking-ui); box-shadow: var(--nb-shadow-sm);
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out), border-color var(--nb-dur-fast) var(--nb-ease-out);
   }
-  .go.primary { background: var(--nb-accent); color: var(--nb-on-accent); border-color: transparent; }
+  .go:hover { border-color: color-mix(in srgb, var(--nb-text-faint) 60%, var(--nb-border-strong)); }
+  .go:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; }
+  .go.primary { background: var(--nb-accent); color: var(--nb-on-accent); border-color: transparent; box-shadow: var(--nb-shadow-primary); }
+  .go.primary:hover { background: var(--nb-accent-hover); }
 </style>

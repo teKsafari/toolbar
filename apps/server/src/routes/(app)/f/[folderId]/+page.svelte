@@ -105,12 +105,12 @@
 />
 
 <style>
-  .titlerow { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .titlerow { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
   h1 { margin: 0; display: inline-flex; align-items: center; gap: 10px; min-width: 0; overflow-wrap: anywhere; }
-  .count { color: var(--nb-text-faint); font-size: var(--nb-text-md); }
+  .count { color: var(--nb-text-faint); font: var(--nb-text-sm) var(--nb-font-mono); font-variant-numeric: tabular-nums; }
   .grow { flex: 1; }
   .menu { display: flex; flex-direction: column; gap: 1px; width: 180px; }
-  .menu button { all: unset; display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: var(--nb-radius-md); cursor: pointer; }
+  .menu button { all: unset; display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: var(--nb-radius-md); cursor: pointer; font-size: var(--nb-text-base); }
   .menu button:hover, .menu button:focus-visible { background: var(--nb-surface-sunken); }
   .danger { color: var(--nb-danger); }
   .empty h2 { margin: 6px 0 0; color: var(--nb-text); }

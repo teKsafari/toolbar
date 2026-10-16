@@ -185,22 +185,25 @@
   .dot.warn { background: var(--nb-warning); }
   .dot.bad { background: var(--nb-danger); }
   .dot.pend { background: var(--nb-text-faint); }
-  .btn { all: unset; display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border-radius: var(--nb-radius-sm); border: 1px solid var(--nb-border-strong); font-size: var(--nb-text-sm); cursor: pointer; white-space: nowrap; }
-  .btn:hover { background: var(--nb-surface-sunken); }
+  .btn { all: unset; display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border-radius: var(--nb-radius-sm); border: 1px solid var(--nb-border-strong); background: var(--nb-surface); font-size: var(--nb-text-sm); font-weight: var(--nb-weight-medium); cursor: pointer; white-space: nowrap; box-shadow: var(--nb-shadow-sm); transition: border-color var(--nb-dur-fast) var(--nb-ease-out); }
+  .btn:hover { border-color: color-mix(in srgb, var(--nb-text-faint) 60%, var(--nb-border-strong)); }
+  .btn:focus-visible, .x:focus-visible, .subs button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: -2px; }
   .x { all: unset; display: grid; place-items: center; width: 26px; height: 26px; border-radius: var(--nb-radius-sm); cursor: pointer; color: var(--nb-text-muted); }
   .x:hover { background: var(--nb-surface-sunken); }
   .subs { display: flex; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--nb-border); }
   .subs button { all: unset; padding: 7px 8px; font-size: var(--nb-text-md); color: var(--nb-text-muted); cursor: pointer; border-bottom: 2px solid transparent; }
-  .subs button.on { color: var(--nb-text); border-bottom-color: var(--nb-accent); }
+  .subs button:hover { color: var(--nb-text); }
+  .subs button.on { color: var(--nb-text); border-bottom-color: var(--nb-text); font-weight: var(--nb-weight-medium); }
   .body { flex: 1; min-height: 0; overflow: auto; padding: 8px 12px 16px; font: var(--nb-text-sm) / 1.5 var(--nb-font-mono); }
   details { margin-top: 6px; }
-  summary { display: flex; align-items: center; gap: 4px; padding: 3px 0; list-style: none; cursor: pointer; font: 600 var(--nb-text-xs) var(--nb-font-sans); color: var(--nb-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  summary { display: flex; align-items: center; gap: 4px; padding: 4px 0; list-style: none; cursor: pointer; font: var(--nb-weight-normal) 10.5px / 1.4 var(--nb-font-mono); letter-spacing: var(--nb-tracking-label); text-transform: uppercase; color: var(--nb-text-faint); }
+  summary:hover { color: var(--nb-text); }
   summary::-webkit-details-marker { display: none; }
   details:not([open]) summary :global(.chev) { transform: rotate(-90deg); }
   summary .n { font-weight: 400; color: var(--nb-text-faint); }
-  h4 { margin: 10px 0 4px; font: 600 var(--nb-text-xs) var(--nb-font-sans); color: var(--nb-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  h4 { margin: 10px 0 4px; font: var(--nb-weight-normal) 10.5px / 1.4 var(--nb-font-mono); letter-spacing: var(--nb-tracking-label); text-transform: uppercase; color: var(--nb-text-faint); }
   dl { display: grid; grid-template-columns: minmax(90px, max-content) 1fr; gap: 2px 12px; margin: 0; }
-  dt { color: var(--nb-text-muted); }
+  dt { color: var(--nb-text-faint); }
   /* long values wrap at word boundaries, breaking inside a word only when nothing else fits */
   dd { margin: 0; overflow-wrap: anywhere; word-break: normal; }
   .masked { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; border-radius: 999px; background: var(--nb-success-tint); color: var(--nb-success); font-family: var(--nb-font-sans); }
@@ -210,9 +213,9 @@
   .ffilter { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
   .ffilter input { flex: 1; min-width: 120px; height: 26px; padding: 0 8px; border-radius: var(--nb-radius-sm); border: 1px solid var(--nb-border-strong); background: var(--nb-surface); color: var(--nb-text); font: inherit; }
   .ffilter input.bad { border-color: var(--nb-danger); }
-  .seg { display: inline-flex; border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-sm); overflow: hidden; }
-  .seg button { all: unset; padding: 3px 8px; font: var(--nb-text-sm) var(--nb-font-sans); color: var(--nb-text-muted); cursor: pointer; }
-  .seg button.on { background: var(--nb-surface-sunken); color: var(--nb-text); }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--nb-radius-pill); background: var(--nb-surface-sunken); }
+  .seg button { all: unset; padding: 2px 9px; border-radius: var(--nb-radius-pill); font: var(--nb-text-sm) var(--nb-font-sans); color: var(--nb-text-muted); cursor: pointer; }
+  .seg button.on { background: var(--nb-surface); color: var(--nb-text); box-shadow: var(--nb-shadow-sm); }
   .count { color: var(--nb-text-faint); font-family: var(--nb-font-sans); }
   .frames li > button, .frames .fhead { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 34px 12px minmax(0, 1fr) auto; gap: 6px; padding: 3px 0; cursor: pointer; }
   .frames .fhead { cursor: default; color: var(--nb-text-faint); font: 600 var(--nb-text-xs) var(--nb-font-sans); }

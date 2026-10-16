@@ -191,21 +191,22 @@
 {/if}
 
 <style>
-  .via { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--nb-accent-tint); color: var(--nb-accent-text); font-size: var(--nb-text-xs); font-weight: 500; white-space: nowrap; }
-  .cm { position: relative; display: flex; gap: 10px; padding: 10px 10px; border-radius: var(--nb-radius-md); transition: background var(--nb-dur-med); }
+  .via { margin-left: 6px; padding: 0 7px; border-radius: 999px; background: var(--nb-surface-sunken); color: var(--nb-text-muted); font-size: var(--nb-text-xs); font-weight: 500; white-space: nowrap; }
+  .cm { position: relative; display: flex; gap: 10px; padding: 10px 10px; border-radius: var(--nb-radius-md); transition: background-color var(--nb-dur-med) var(--nb-ease-out); }
   .cm:hover { background: var(--nb-surface-2); }
   .cm.reply { padding: 6px 10px 6px 48px; }
   .cm.hl { background: var(--nb-capture-tint); }
   .cm.resolved .body { color: var(--nb-text-muted); }
   .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   .head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: var(--nb-text-md); }
-  .name { font-weight: 600; }
+  .name { font-weight: 600; letter-spacing: var(--nb-tracking-ui); }
   .tag { font-size: var(--nb-text-xs); color: var(--nb-text-faint); }
-  .tchip { all: unset; padding: 0 6px; height: 18px; line-height: 18px; border-radius: 999px; background: var(--nb-accent-tint); color: var(--nb-accent-text); font: 500 var(--nb-text-sm) var(--nb-font-mono); cursor: pointer; }
-  .tchip:hover { background: var(--nb-accent); color: var(--nb-on-accent); }
+  .tchip { all: unset; padding: 0 6px; height: 18px; line-height: 18px; border-radius: var(--nb-radius-pill); border: 1px solid var(--nb-border-strong); background: var(--nb-surface); color: var(--nb-text); font: 500 var(--nb-text-xs) var(--nb-font-mono); font-variant-numeric: tabular-nums; cursor: pointer; transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out); }
+  .tchip:hover { background: var(--nb-accent); border-color: var(--nb-accent); color: var(--nb-on-accent); }
+  .tchip:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
   .when { color: var(--nb-text-faint); font-size: var(--nb-text-sm); }
   .res { display: inline-flex; align-items: center; gap: 3px; color: var(--nb-success); font-size: var(--nb-text-sm); }
-  .body { word-break: break-word; }
+  .body { word-break: break-word; color: var(--nb-text-body); line-height: 1.55; }
   .body :global(p) { margin: 0 0 4px; }
   .body :global(p:last-child) { margin: 0; }
   .body :global(ul), .body :global(ol) { margin: 0 0 4px; padding-left: 20px; }
@@ -217,19 +218,22 @@
   .atts { display: flex; gap: 6px; flex-wrap: wrap; }
   .atts img { width: 120px; height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid var(--nb-border); display: block; }
   .reacts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
-  .rpill { all: unset; display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border-radius: 999px; border: 1px solid var(--nb-border); font-size: var(--nb-text-sm); cursor: pointer; }
+  .rpill { all: unset; display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border-radius: 999px; border: 1px solid var(--nb-border); font-size: var(--nb-text-sm); cursor: pointer; font-variant-numeric: tabular-nums; }
+  .rpill:hover { border-color: var(--nb-border-strong); }
   .rpill.mine { border-color: var(--nb-accent); background: var(--nb-accent-tint); }
-  .hover { position: absolute; top: 6px; right: 6px; display: none; gap: 2px; padding: 2px; border-radius: var(--nb-radius-md); background: var(--nb-surface); border: 1px solid var(--nb-border); box-shadow: var(--nb-shadow-sm); }
+  .hover { position: absolute; top: 6px; right: 6px; display: none; gap: 2px; padding: 2px; border-radius: var(--nb-radius-md); background: var(--nb-surface); border: 1px solid var(--nb-border); box-shadow: var(--nb-shadow-md); }
   .cm:hover .hover, .hover.open, .cm:focus-within .hover { display: flex; }
-  .hb { all: unset; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 6px; color: var(--nb-text-muted); cursor: pointer; }
+  .hb { all: unset; display: grid; place-items: center; width: 26px; height: 26px; border-radius: var(--nb-radius-sm); color: var(--nb-text-muted); cursor: pointer; }
   .hb:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
   .hb:focus-visible { outline: 2px solid var(--nb-focus); }
-  .picker { display: grid; grid-template-columns: repeat(4, 32px); gap: 2px; padding: 6px; border-radius: var(--nb-radius-md); background: var(--nb-surface); border: 1px solid var(--nb-border); box-shadow: var(--nb-shadow-lg); }
+  .picker { display: grid; grid-template-columns: repeat(4, 32px); gap: 2px; padding: 6px; border-radius: var(--nb-radius-lg); background: var(--nb-surface); border: 1px solid var(--nb-border); box-shadow: var(--nb-shadow-lg); }
   .picker button { all: unset; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; }
   .picker button:hover { background: var(--nb-surface-sunken); }
-  .edit { display: flex; flex-direction: column; gap: 6px; padding: 4px 8px; border: 1px solid var(--nb-focus); border-radius: var(--nb-radius-md); }
+  .edit { display: flex; flex-direction: column; gap: 6px; padding: 4px 8px; border: 1px solid var(--nb-focus); border-radius: var(--nb-radius-md); box-shadow: var(--nb-focus-ring); background: var(--nb-surface); }
   .ebtns { display: flex; justify-content: flex-end; gap: 6px; }
-  .sbtn { all: unset; padding: 4px 10px; border-radius: var(--nb-radius-sm); font-size: var(--nb-text-md); cursor: pointer; border: 1px solid var(--nb-border-strong); }
-  .sbtn.primary { background: var(--nb-accent); color: var(--nb-on-accent); border-color: transparent; }
+  .sbtn { all: unset; height: 28px; padding: 0 10px; border-radius: var(--nb-radius-sm); font-size: var(--nb-text-md); font-weight: var(--nb-weight-medium); cursor: pointer; border: 1px solid var(--nb-border-strong); background: var(--nb-surface); box-shadow: var(--nb-shadow-sm); }
+  .sbtn.primary { background: var(--nb-accent); color: var(--nb-on-accent); border-color: transparent; box-shadow: var(--nb-shadow-primary); }
+  .sbtn.primary:hover { background: var(--nb-accent-hover); }
+  .sbtn:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; }
   @media (hover: none) { .hover { display: flex; position: static; margin-left: auto; align-self: flex-start; border: 0; box-shadow: none; background: transparent; } }
 </style>

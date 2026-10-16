@@ -123,7 +123,7 @@
   .inv { display: flex; gap: 6px; }
   .inv input { height: 32px; flex: 1; min-width: 0; font-size: var(--nb-text-md); }
   select { height: 32px; border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md); background: var(--nb-surface); color: var(--nb-text); padding: 0 6px; font: inherit; font-size: var(--nb-text-md); }
-  .label { font-size: var(--nb-text-xs); color: var(--nb-text-faint); font-weight: var(--nb-weight-semibold); }
+  .label { font: var(--nb-weight-normal) 10.5px / 1.4 var(--nb-font-mono); letter-spacing: var(--nb-tracking-label); text-transform: uppercase; color: var(--nb-text-faint); }
   ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
   li { display: flex; align-items: center; gap: 8px; }
   .col { display: flex; flex-direction: column; flex: 1; min-width: 0; font-size: var(--nb-text-md); }

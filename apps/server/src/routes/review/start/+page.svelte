@@ -38,23 +38,31 @@
 </main>
 
 <style>
+  /* the same form card as the sign-in page */
   .review {
-    max-width: 420px;
-    margin: 12vh auto 0;
-    padding: 0 16px;
+    box-sizing: border-box;
+    width: min(420px, calc(100% - 32px));
+    margin: 12vh auto 48px;
+    padding: 0 24px 24px;
     display: flex;
     flex-direction: column;
     gap: 12px;
+    background: var(--nb-surface);
+    border: 1px solid var(--nb-border);
+    border-radius: var(--nb-radius-lg);
   }
   .brand {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-weight: 600;
-    margin-bottom: 16px;
+    gap: 10px;
+    margin: 0 -24px 8px;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--nb-border);
+    font: var(--nb-weight-semibold) var(--nb-text-lg) / 1.2 var(--nb-font-display);
+    letter-spacing: var(--nb-tracking-tight);
   }
   h1 {
-    font-size: 20px;
+    font-size: var(--nb-text-2xl);
     margin: 0;
   }
   .sub {

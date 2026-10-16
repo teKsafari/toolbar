@@ -98,15 +98,14 @@
 
 <style>
   .card {
-    display: flex; flex-direction: column; gap: 8px; color: var(--nb-text); text-decoration: none; border-radius: var(--nb-radius-lg);
-    transition: transform var(--nb-dur-fast) var(--nb-ease-out);
+    display: flex; flex-direction: column; gap: 10px; color: var(--nb-text); text-decoration: none; border-radius: var(--nb-radius-lg);
   }
+  /* the site's cards: no shadow, the edge strengthens on hover */
   .thumb {
     position: relative; aspect-ratio: 16 / 10; border-radius: var(--nb-radius-lg); overflow: hidden; background: var(--nb-surface-sunken);
-    border: 1px solid var(--nb-border); transition: box-shadow var(--nb-dur-fast) var(--nb-ease-out), border-color var(--nb-dur-fast);
+    border: 1px solid var(--nb-border); transition: box-shadow var(--nb-dur-fast) var(--nb-ease-out), border-color var(--nb-dur-fast) var(--nb-ease-out);
   }
-  .card:hover { transform: translateY(-2px); }
-  .card:hover .thumb { box-shadow: var(--nb-shadow-md); }
+  .card:hover .thumb { border-color: var(--nb-border-strong); }
   .card:focus-visible { outline: none; }
   .card:focus-visible .thumb { outline: 2px solid var(--nb-focus); outline-offset: 2px; }
   .selected .thumb { border-color: var(--nb-accent); box-shadow: 0 0 0 2px var(--nb-accent); }
@@ -114,11 +113,11 @@
   .ph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--nb-text-faint); }
   .who, .dur, .chip, .state {
     position: absolute; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--nb-radius-pill);
-    background: rgb(20 18 15 / 0.66); color: #fff; font-size: var(--nb-text-xs); backdrop-filter: blur(4px);
+    background: rgb(11 11 11 / 0.66); color: #fafafa; font-size: var(--nb-text-xs); backdrop-filter: blur(6px);
   }
   .who { left: 8px; bottom: 8px; padding: 2px 8px 2px 2px; max-width: calc(100% - 70px); }
   .who span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .dur { right: 8px; bottom: 8px; padding: 2px 7px; font-variant-numeric: tabular-nums; }
+  .dur { right: 8px; bottom: 8px; padding: 2px 7px; font-family: var(--nb-font-mono); font-variant-numeric: tabular-nums; }
   .chip { left: 8px; top: 8px; padding: 2px 8px; max-width: calc(100% - 60px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .state { right: 8px; top: 8px; padding: 2px 8px; }
   .check, .copy {
@@ -126,9 +125,9 @@
     transition: opacity var(--nb-dur-fast);
   }
   .check {
-    left: 8px; bottom: 8px; width: 20px; height: 20px; border-radius: 5px; border: 2px solid #fff; background: rgb(20 18 15 / 0.35); color: #fff;
+    left: 8px; bottom: 8px; width: 20px; height: 20px; border-radius: 5px; border: 2px solid #fafafa; background: rgb(11 11 11 / 0.35); color: #fafafa;
   }
-  .copy { right: 8px; top: 8px; width: 30px; height: 30px; border-radius: 50%; background: var(--nb-surface); color: var(--nb-text); box-shadow: var(--nb-shadow-md); }
+  .copy { right: 8px; top: 8px; width: 28px; height: 28px; border-radius: var(--nb-radius-sm); border: 1px solid var(--nb-border-strong); background: var(--nb-surface); color: var(--nb-text); box-shadow: var(--nb-shadow-sm); }
   .copy:hover { background: var(--nb-surface-sunken); }
   .card:hover .check, .card:hover .copy, .selecting .check, .check:focus-visible, .copy:focus-visible { opacity: 1; }
   .card:hover .who, .selecting .who { opacity: 0; }
@@ -137,7 +136,6 @@
   .card:hover .chip, .card:hover .state { opacity: 0; }
   @media (hover: none) { .check { opacity: 1; } .who { opacity: 0; } }
   .meta { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 0 2px; }
-  .title { font-weight: var(--nb-weight-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  time { flex: none; font-size: var(--nb-text-sm); color: var(--nb-text-faint); }
-  @media (prefers-reduced-motion: reduce) { .card, .card:hover { transform: none; } }
+  .title { font-weight: var(--nb-weight-medium); letter-spacing: var(--nb-tracking-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  time { flex: none; font-size: var(--nb-text-sm); font-variant-numeric: tabular-nums; color: var(--nb-text-faint); }
 </style>

@@ -230,23 +230,32 @@
 {/if}
 
 <style>
-  .hdr { display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 10px 16px; border-bottom: 1px solid var(--nb-border); background: var(--nb-surface); position: sticky; top: 0; z-index: 20; }
+  /* the site's 48 px bar: canvas glass, blur, edge rule */
+  .hdr {
+    display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px; border-bottom: 1px solid var(--nb-border);
+    background: color-mix(in srgb, var(--nb-bg) 82%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 20;
+  }
   .grow { flex: 1; }
-  .ib { all: unset; display: grid; place-items: center; width: 34px; height: 34px; border-radius: var(--nb-radius-md); color: var(--nb-text-muted); cursor: pointer; }
+  .ib { all: unset; display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--nb-radius-md); color: var(--nb-text-muted); cursor: pointer; transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out); }
   .ib:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
   .ib:focus-visible, .sbtn:focus-visible, .folder:focus-visible { outline: 2px solid var(--nb-focus); }
-  .folder { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--nb-surface-sunken); color: var(--nb-text); text-decoration: none; font-size: var(--nb-text-md); max-width: 200px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .folder:hover { background: var(--nb-border); }
-  .brand { display: inline-flex; align-items: center; gap: 6px; color: var(--nb-accent-text); font-weight: 600; text-decoration: none; }
-  .split { display: inline-flex; align-items: stretch; }
-  .sbtn { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid var(--nb-border-strong); background: var(--nb-surface); color: var(--nb-text); font: 500 var(--nb-text-md) var(--nb-font-sans); cursor: pointer; white-space: nowrap; border-radius: var(--nb-radius-md) 0 0 var(--nb-radius-md); }
+  .folder { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--nb-border); background: var(--nb-surface); color: var(--nb-text); text-decoration: none; font-size: var(--nb-text-md); letter-spacing: var(--nb-tracking-ui); max-width: 200px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; transition: border-color var(--nb-dur-fast) var(--nb-ease-out); }
+  .folder:hover { border-color: var(--nb-border-strong); }
+  .brand { display: inline-flex; align-items: center; gap: 8px; color: var(--nb-text); font: var(--nb-weight-semibold) var(--nb-text-base) var(--nb-font-sans); letter-spacing: var(--nb-tracking-ui); text-decoration: none; }
+  .split { display: inline-flex; align-items: stretch; border-radius: var(--nb-radius-md); }
+  .split:not(.copy) { box-shadow: var(--nb-shadow-sm); }
+  .split.copy { box-shadow: var(--nb-shadow-primary); }
+  .sbtn { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--nb-border-strong); background: var(--nb-surface); color: var(--nb-text); font: 500 var(--nb-text-md) var(--nb-font-sans); letter-spacing: var(--nb-tracking-ui); cursor: pointer; white-space: nowrap; border-radius: var(--nb-radius-md) 0 0 var(--nb-radius-md); transition: background-color var(--nb-dur-fast) var(--nb-ease-out), border-color var(--nb-dur-fast) var(--nb-ease-out); }
   .sbtn:hover { background: var(--nb-surface-sunken); }
+  .sbtn:active { transform: translateY(1px); }
   .sbtn.caret { padding: 0 8px; border-left: 0; border-radius: 0 var(--nb-radius-md) var(--nb-radius-md) 0; }
   .sbtn.primary { background: var(--nb-accent); color: var(--nb-on-accent); border-color: var(--nb-accent); }
-  .sbtn.primary:hover { background: var(--nb-accent-hover); }
-  .sbtn.primary.caret { border-left: 1px solid rgb(255 255 255 / 0.3); }
+  .sbtn.primary:hover { background: var(--nb-accent-hover); border-color: var(--nb-accent-hover); }
+  .sbtn.primary:active { background: var(--nb-accent-active); }
+  .sbtn.primary.caret { border-left: 1px solid color-mix(in srgb, var(--nb-on-accent) 28%, transparent); }
   @media (max-width: 720px) {
-    .hdr { padding: 8px 10px; gap: 6px; }
+    .hdr { padding: 0 12px; gap: 6px; }
     .split:not(.copy) { display: none; }
     .folder { max-width: 120px; }
   }

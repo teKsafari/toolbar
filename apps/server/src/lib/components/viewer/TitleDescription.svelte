@@ -135,17 +135,18 @@
 
 <style>
   .td { display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; }
-  .title { margin: 0; font-size: var(--nb-text-2xl); font-weight: var(--nb-weight-semibold); line-height: 1.3; word-break: break-word; }
+  /* a page title: Nunito 500 with the site's tight tracking */
+  .title { margin: 0; font: var(--nb-weight-medium) var(--nb-text-3xl) / 1.25 var(--nb-font-display); letter-spacing: var(--nb-tracking-tight); word-break: break-word; text-wrap: balance; }
   .tbtn { all: unset; cursor: text; border-radius: 6px; padding: 0 4px; margin: 0 -4px; }
   .tbtn:hover { background: var(--nb-surface-sunken); }
   .tbtn:focus-visible { outline: 2px solid var(--nb-focus); }
-  .title-in { font: 600 var(--nb-text-2xl) / 1.3 var(--nb-font-sans); height: auto !important; padding: 0 4px !important; margin: 0 -5px; }
+  .title-in { font: var(--nb-weight-medium) var(--nb-text-3xl) / 1.25 var(--nb-font-display) !important; letter-spacing: var(--nb-tracking-tight); height: auto !important; padding: 0 4px !important; margin: 0 -5px; }
   .byline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: var(--nb-text-md); }
-  .who { font-weight: 500; }
+  .who { font-weight: 500; letter-spacing: var(--nb-tracking-ui); }
   .dim { color: var(--nb-text-muted); }
   .url { text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 360px; }
   .url:hover { text-decoration: underline; }
-  .desc { padding: 6px 4px; margin: 0 -4px; border-radius: 6px; color: var(--nb-text); word-break: break-word; }
+  .desc { padding: 6px 4px; margin: 0 -4px; border-radius: 6px; color: var(--nb-text-body); line-height: var(--nb-leading-relaxed); word-break: break-word; }
   .desc.editable { cursor: text; }
   .desc.editable:hover { background: var(--nb-surface-sunken); }
   .desc :global(p) { margin: 0 0 6px; }
@@ -154,9 +155,9 @@
   .desc :global(.nb-mention) { color: var(--nb-accent-text); font-weight: 500; }
   .desc :global(code) { font-family: var(--nb-font-mono); font-size: 0.92em; padding: 0 3px; border-radius: 4px; background: var(--nb-surface-sunken); }
   .ph { color: var(--nb-text-faint); }
-  .desc-edit { display: flex; padding: 2px 8px; border: 1px solid var(--nb-focus); border-radius: var(--nb-radius-md); background: var(--nb-surface); }
+  .desc-edit { display: flex; padding: 2px 8px; border: 1px solid var(--nb-focus); border-radius: var(--nb-radius-md); background: var(--nb-surface); box-shadow: var(--nb-focus-ring); }
   .figma { display: flex; flex-direction: column; gap: 8px; }
-  .fbtn { all: unset; align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--nb-border-strong); font-size: var(--nb-text-md); cursor: pointer; }
-  .fbtn:hover { background: var(--nb-surface-sunken); }
+  .fbtn { all: unset; align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--nb-border-strong); background: var(--nb-surface); font-size: var(--nb-text-md); font-weight: var(--nb-weight-medium); cursor: pointer; box-shadow: var(--nb-shadow-sm); }
+  .fbtn:hover { border-color: color-mix(in srgb, var(--nb-text-faint) 60%, var(--nb-border-strong)); }
   iframe { width: 100%; aspect-ratio: 16 / 10; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); }
 </style>

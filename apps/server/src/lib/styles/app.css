@@ -52,3 +52,26 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 @media (pointer: coarse) {
   input, textarea, select { font-size: max(16px, 1em); }
 }
+/* menu and sidebar group labels: the site's mono eyebrow at tool size */
+.nb-group-label {
+  font: var(--nb-weight-normal) 10.5px / 1.4 var(--nb-font-mono);
+  letter-spacing: var(--nb-tracking-label);
+  text-transform: uppercase;
+  color: var(--nb-text-faint);
+}
+/* numbers that line up: durations, sizes, counters */
+.num { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+select {
+  height: var(--nb-control-md); padding: 0 var(--nb-space-2); border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md);
+  background: var(--nb-surface); color: var(--nb-text); font: inherit; font-size: var(--nb-text-md);
+}
+textarea {
+  border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md); background: var(--nb-surface); color: var(--nb-text); font: inherit;
+  transition: border-color var(--nb-dur-fast) var(--nb-ease-out), box-shadow var(--nb-dur-fast) var(--nb-ease-out);
+}
+input:disabled, select:disabled, textarea:disabled { background: var(--nb-surface-2); color: var(--nb-text-faint); cursor: not-allowed; }
+input[readonly] { background: var(--nb-surface-2); }
+::selection { background: color-mix(in srgb, var(--nb-accent) 18%, transparent); }

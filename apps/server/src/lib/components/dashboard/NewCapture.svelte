@@ -46,6 +46,6 @@
   p { margin: 0; color: var(--nb-text-muted); }
   ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   li { display: flex; align-items: center; gap: 8px; }
-  kbd { margin-left: auto; font: var(--nb-text-xs) var(--nb-font-mono); color: var(--nb-text-faint); }
+  kbd { margin-left: auto; font: var(--nb-text-xs) var(--nb-font-mono); color: var(--nb-text-faint); padding: 1px 5px; border: 1px solid var(--nb-border); border-radius: 4px; background: var(--nb-surface-2); }
   .or { font-size: var(--nb-text-sm); }
 </style>

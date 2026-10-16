@@ -141,17 +141,18 @@
   /* One line at the default panel width (535 px at 1440): a narrower search and compact chips (J-055). */
   .cbar .vp-search { flex: 1 1 80px; min-width: 80px; }
   .cbar :global(.vp-chip) { padding: 0 7px; font-size: 11px; height: 24px; }
-  .levels { display: flex; flex-direction: column; min-width: 150px; padding: 6px; border-radius: var(--nb-radius-md); background: var(--nb-surface); border: 1px solid var(--nb-border); box-shadow: var(--nb-shadow-md); }
-  .lv { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 4px; cursor: pointer; font-size: var(--nb-text-md); }
+  .levels { display: flex; flex-direction: column; gap: 1px; min-width: 160px; padding: 6px; border-radius: var(--nb-radius-lg); background: var(--nb-surface); border: 1px solid var(--nb-border); box-shadow: var(--nb-shadow-lg); }
+  .lv { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: var(--nb-radius-sm); cursor: pointer; font-size: var(--nb-text-md); }
+  .lv input { accent-color: var(--nb-accent); }
   .lv:hover { background: var(--nb-surface-sunken); }
   .cr { grid-template-columns: 18px auto minmax(0, 1fr); }
   .main { all: unset; display: flex; align-items: flex-start; gap: 6px; min-width: 0; cursor: pointer; padding: 3px 0; }
   .ic { display: inline-flex; padding-top: 1px; color: var(--nb-text-faint); }
   .msg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .msg.wrap { white-space: pre-wrap; word-break: break-word; }
-  .count { font-size: 10px; padding: 0 5px; border-radius: 999px; background: var(--nb-surface-sunken); }
+  .count { font-size: 10px; padding: 0 5px; border-radius: 999px; background: var(--nb-surface-sunken); color: var(--nb-text-muted); }
   .detail { grid-column: 2 / -1; padding: 0 0 6px 19px; display: flex; flex-direction: column; gap: 4px; }
-  .detail pre { margin: 0; padding: 6px 8px; border-radius: 6px; background: var(--nb-surface-sunken); white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow: auto; }
+  .detail pre { margin: 0; padding: 6px 8px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-sm); background: var(--nb-surface-2); white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow: auto; }
   .stack { color: var(--nb-danger); }
   .frames { list-style: none; margin: 0; padding: 0; }
   .frames li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 18px; }
