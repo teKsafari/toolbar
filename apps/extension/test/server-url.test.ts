@@ -1,10 +1,11 @@
-// lib/server-url.ts: the one resolution of the server the extension talks to
-// (options-page override, else the build's WXT_SERVER_URL, else DEFAULT_SERVER_URL).
+// lib/server-url.ts: the one resolution of the server the extension talks to (an admin's managed
+// policy, D-202, else the options-page override, else the build's WXT_SERVER_URL, else
+// DEFAULT_SERVER_URL).
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { DEFAULT_SERVER_URL } from '@toolbar/shared/constants';
 import { STORAGE } from '@toolbar/shared/ext';
-import { SERVER_URL_KEY, accountServerUrl, resolveServerUrl, serverUrl } from '../lib/server-url';
+import { NO_POLICY, SERVER_URL_KEY, accountServerUrl, managedPolicy, resolveServerUrl, serverUrl } from '../lib/server-url';
 
 describe('resolveServerUrl', () => {
   it('takes the override over the build server', () => {
@@ -57,5 +58,57 @@ describe('serverUrl and accountServerUrl', () => {
     expect(await accountServerUrl({ serverUrl: 'https://acct.example/' })).toBe('https://acct.example');
     await fakeBrowser.storage.local.set({ [STORAGE.auth.key]: { serverUrl: 'https://stored.example', token: 't' } });
     expect(await accountServerUrl()).toBe('https://stored.example');
+  });
+});
+
+describe('managed policy (D-202)', () => {
+  beforeEach(() => fakeBrowser.reset());
+
+  it('orders policy, then override, then build, then the constant', () => {
+    expect(resolveServerUrl('https://override.example', 'https://built.example', 'https://policy.example')).toBe('https://policy.example');
+    expect(resolveServerUrl('https://override.example', 'https://built.example', null)).toBe('https://override.example');
+    expect(resolveServerUrl(null, 'https://built.example', null)).toBe('https://built.example');
+    expect(resolveServerUrl(null, undefined, null)).toBe(DEFAULT_SERVER_URL);
+  });
+
+  it('skips a policy value that is not an http(s) URL', () => {
+    expect(resolveServerUrl('https://override.example', 'https://built.example', 'ftp://policy.example')).toBe('https://override.example');
+    expect(resolveServerUrl(null, 'https://built.example', '')).toBe('https://built.example');
+    expect(resolveServerUrl(null, 'https://built.example', 7)).toBe('https://built.example');
+  });
+
+  it('reads serverUrl and lockServerUrl from chrome.storage.managed', async () => {
+    expect(await managedPolicy()).toEqual(NO_POLICY);
+    await fakeBrowser.storage.managed.set({ serverUrl: 'https://toolbar.teksafari.com/', lockServerUrl: true });
+    expect(await managedPolicy()).toEqual({ serverUrl: 'https://toolbar.teksafari.com', lockServerUrl: true });
+    await fakeBrowser.storage.managed.set({ serverUrl: 'not a url', lockServerUrl: 'yes' });
+    expect(await managedPolicy()).toEqual(NO_POLICY);
+  });
+
+  it('serverUrl() takes the policy over a stored override', async () => {
+    await fakeBrowser.storage.local.set({ [SERVER_URL_KEY]: 'https://self.example' });
+    expect(await serverUrl()).toBe('https://self.example');
+    await fakeBrowser.storage.managed.set({ serverUrl: 'https://policy.example' });
+    expect(await serverUrl()).toBe('https://policy.example');
+    await fakeBrowser.storage.managed.clear();
+    expect(await serverUrl()).toBe('https://self.example');
+  });
+
+  it('a lock without a server keeps the configured one', async () => {
+    await fakeBrowser.storage.managed.set({ lockServerUrl: true });
+    expect(await managedPolicy()).toEqual({ serverUrl: null, lockServerUrl: true });
+    expect(await serverUrl()).toBe(resolveServerUrl(null));
+  });
+
+  it('no managed storage (Firefox without policies, content scripts) is no policy', async () => {
+    const get = fakeBrowser.storage.managed.get;
+    fakeBrowser.storage.managed.get = (() => Promise.reject(new Error('Managed storage manifest not found'))) as typeof get;
+    try {
+      expect(await managedPolicy()).toEqual(NO_POLICY);
+      await fakeBrowser.storage.local.set({ [SERVER_URL_KEY]: 'https://self.example' });
+      expect(await serverUrl()).toBe('https://self.example');
+    } finally {
+      fakeBrowser.storage.managed.get = get;
+    }
   });
 });

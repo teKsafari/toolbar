@@ -110,8 +110,8 @@ Settings > Server, Capture defaults, Site access picks where the extension captu
 
 | Mode | The extension | The server |
 |---|---|---|
-| All sites (`all`, the default) | Right after sign-in the popup shows one screen that explains the request, and Chrome asks once for the optional host permissions `http://*/*` and `https://*/*`. The capture scripts then run on every site except this server and the reviewer's blocked sites. The options page can ask again or remove the access. | The first capture on an origin with no project makes one in the capture's workspace: named after the host, with that one origin, and the workspace's masking preset and trace step window (else the instance's). |
-| Project origins only (`projects`) | On a page of a project, the popup's Allow asks Chrome for the origins of all the person's projects; nowhere else does a script run (D-126). | A capture from an origin outside the workspace's projects gets 403 `origin_not_allowed`. Nothing is made automatically. |
+| All sites (`all`, the default) | The capture scripts run on every site except this server and the reviewer's blocked sites. The extension holds every site as a required host permission (D-202), so nothing is asked after sign-in. If the reviewer turns site access off in the browser, the popup and the options page ask for it again. | The first capture on an origin with no project makes one in the capture's workspace: named after the host, with that one origin, and the workspace's masking preset and trace step window (else the instance's). |
+| Project origins only (`projects`) | The capture scripts are registered for the origins of the person's projects only, and the worker keeps no network metadata for a tab on any other page (D-126, D-202). The browser grants every site, but nothing runs elsewhere; the popup there says the site is in no project and that the server is in strict mode. | A capture from an origin outside the workspace's projects gets 403 `origin_not_allowed`. Nothing is made automatically. |
 
 In both modes a project lists exact origins (`https://staging.nuru.sh`, `http://localhost:5173`) and domains (`*.nuru.sh` covers nuru.sh and every subdomain, over https only unless `http://*.nuru.sh` is listed too). An exact origin wins over a domain, and a longer domain over a shorter one. Admins edit the list in Settings > Projects or on the project's page, and merge two projects there: the second one's origins and captures move into the first, which keeps its own preset and step window. The sidebar lists the projects with their captures.
 
@@ -449,6 +449,8 @@ These are read when you build the extension, never by a running server ([docs/ex
 | `WXT_DEV_PORT` | `3001` | `3207` | Port of the extension's dev server (HMR). Area worktrees use their own. |
 | `WXT_TEST_HOOKS` | off | `1` | The test build for the e2e suites: open shadow root and `globalThis.__tb`. Never ship it. |
 | `WXT_OUT_SUFFIX` | empty | `-121` | With `WXT_TEST_HOOKS`, a suffix for the output folder so several test builds sit side by side. |
+
+An installed extension finds its server in this order (D-202): the admin's managed policy (`serverUrl` in the Admin console's "Policy for extensions", read from `chrome.storage.managed`), then the address typed on the options page, then `WXT_SERVER_URL` from the build, then `http://localhost:3000`. The policy's `lockServerUrl: true` hides "Use another server" and makes the options page read-only. `docs/extension-release.md`, "Force-install for your organisation (Google Workspace)", has the policy JSON.
 
 ## Development and internal
 

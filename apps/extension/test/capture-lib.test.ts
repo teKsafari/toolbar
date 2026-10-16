@@ -7,7 +7,7 @@ import { idbGetAll } from '../lib/idb';
 import { backoffMs, drain, enqueueChunk, pendingRows, reconcile, rekey, withRetry } from '../lib/upload/queue';
 import { HttpError } from '../lib/upload/client';
 import { enqueueNdjson, NDJSON_CHUNK_RAW } from '../lib/upload/draft';
-import { isCorsBlocked } from '../lib/capture/webrequest';
+import { installWebRequest, isCorsBlocked } from '../lib/capture/webrequest';
 import { isRestrictedUrl } from '../lib/capture/service';
 
 const ev = (t: number, id: string): CaptureEvent => ({ v: 1, id, ctx: 'top', seq: 0, t, kind: 'console', data: { level: 'log', args: [id] } });
@@ -113,6 +113,30 @@ describe('upload queue', () => {
 });
 
 describe('webRequest helpers', () => {
+  it('records only the requests the sink wants, and tells it the page of a main_frame (D-202)', () => {
+    const listeners: Record<string, (d: unknown) => void> = {};
+    const ev = (name: string) => ({ addListener: (f: (d: unknown) => void) => (listeners[name] = f), removeListener: () => undefined });
+    const wr = { onSendHeaders: ev('send'), onHeadersReceived: ev('headers'), onResponseStarted: ev('started'), onCompleted: ev('completed'), onErrorOccurred: ev('error') };
+    const asked: { tabId: number; url: string; type: string }[] = [];
+    const emitted: string[] = [];
+    const undo = installWebRequest(wr as never, {
+      wants: (tabId, req) => {
+        asked.push({ tabId, ...req });
+        return req.url.startsWith('http://localhost:5173/');
+      },
+      emit: (_tabId, e) => emitted.push((e.data as { url?: string }).url ?? e.kind),
+      ownPrefixes: () => [],
+    });
+    const req = (id: string, url: string, type: string) => ({ requestId: id, url, method: 'GET', tabId: 4, frameId: 0, type, timeStamp: 1 });
+    listeners.send!(req('1', 'http://localhost:5173/', 'main_frame'));
+    listeners.send!(req('2', 'http://127.0.0.1:5173/', 'main_frame'));
+    expect(asked.map((a) => [a.url, a.type])).toEqual([
+      ['http://localhost:5173/', 'main_frame'],
+      ['http://127.0.0.1:5173/', 'main_frame'],
+    ]);
+    expect(emitted).toEqual(['http://localhost:5173/']);
+    undo();
+  });
   it('calls out CORS blocks', () => {
     const base = { type: 'xmlhttprequest', url: 'http://localhost:5174/api', initiator: 'http://localhost:5173' };
     expect(isCorsBlocked({ ...base, responseHeaders: [] })).toBe(true);

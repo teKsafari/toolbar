@@ -1,18 +1,18 @@
-// Flow S: site access (D-198, D-200) with the release build in a browser of its own. A fresh
-// install holds its server only. In the default `all` mode the popup, right after sign-in, asks
-// once for every site and Chrome's prompt grants it; the extension then captures on two origins
-// of the lab (localhost:5173 and 127.0.0.1:5173) with no further prompt, and each origin becomes
-// a project by itself. The admin merges the two in Settings > Projects, and the project's page
-// lists both captures. Then the strict mode (an admin setting) refuses an origin no project
-// lists, in the extension and on the server, and makes no project for it.
+// Flow S: site access (D-198, D-200, D-202) with the release build in a browser of its own. A
+// fresh install holds every site as a required host permission, so there is no prompt at all: in
+// the default `all` mode the extension captures on two origins of the lab (localhost:5173 and
+// 127.0.0.1:5173) right after sign-in, and each origin becomes a project by itself. The admin
+// merges the two in Settings > Projects, and the project's page lists both captures. Then the
+// strict mode (an admin setting) refuses an origin no project lists, in the extension and on the
+// server, makes no project for it, and registers the capture scripts on the project origins only,
+// though the browser grants every site.
 import type { Page } from '@playwright/test';
-import { LAB_URL, SERVER, acceptPermissionPrompt, api, captureOf, chord, connectExtension, createFromEditor, editorFrame, expect, hydrated, launchExtension, newEmail, openPopup, saveShot, setSiteAccess, test, waitReady } from './fixture.ts';
+import { LAB_URL, SERVER, api, captureOf, chord, connectExtension, createFromEditor, editorFrame, expect, hydrated, launchExtension, newEmail, openPopup, saveShot, setSiteAccess, test, waitReady } from './fixture.ts';
 
 const LOOPBACK = LAB_URL.replace('localhost', '127.0.0.1');
 /** The lab again, on a host name no project lists (Chromium resolves *.localhost to loopback). */
 const UNLISTED = LAB_URL.replace('localhost', 'strict.localhost');
 const BOOT = 'toolbar.capture.main';
-const ALL = ['http://*/*', 'https://*/*'];
 
 interface Project {
   id: string;
@@ -20,35 +20,36 @@ interface Project {
   origins: string[];
 }
 
-test('S: one prompt for all sites, a project per origin, merge, and the strict mode refuses an unlisted origin', async () => {
+test('S: all sites from install with no prompt, a project per origin, merge, and the strict mode refuses an unlisted origin', async () => {
   test.setTimeout(300_000);
   const b = await launchExtension({ cdpPort: Number(process.env.FLOWS_CDP_PORT ?? 9341) + 31 });
   let changed = false;
   try {
     const sw = await b.sw();
     const perms = () => sw.evaluate(() => (globalThis as unknown as { chrome: { permissions: { getAll(): Promise<{ origins: string[] }> } } }).chrome.permissions.getAll());
-    expect((await perms()).origins).toEqual([`${new URL(SERVER).origin}/*`]);
+    // D-202: installed with every site, nothing asked
+    expect((await perms()).origins.sort()).toEqual([`${new URL(SERVER).origin}/*`, '<all_urls>'].sort());
     // the default; stored explicitly so an earlier flow's leftover cannot change it
     changed = await setSiteAccess(b.context, 'all');
 
     // a domain of its own: the account owns its workspace and can merge projects (D-169)
     const { lab, popup } = await connectExtension(b.context, newEmail('site', 'site'), { allowLab: false });
-    const card = popup.getByTestId('site-access');
     // when the flow could not set the mode, SITE_ACCESS may hold the server in the strict mode
-    await expect(card).toHaveAttribute('data-state', changed ? 'needs-all-sites' : /^(needs-all-sites|not-in-project|needs-grant)$/, { timeout: 15_000 });
-    test.skip((await card.getAttribute('data-state')) !== 'needs-all-sites', 'the server is in the strict mode (SITE_ACCESS=projects)');
-    await expect(card).toContainText('Allow access to all sites');
-    await popup.screenshot({ path: saveShot('s-ask-all-sites') });
-    await popup.getByTestId('site-allow-all').click();
-    await acceptPermissionPrompt();
-    await expect.poll(async () => (await perms()).origins.sort(), { timeout: 15_000 }).toEqual([...ALL, `${new URL(SERVER).origin}/*`].sort());
+    if (!changed) {
+      await popup.waitForTimeout(1500);
+      test.skip((await popup.getByTestId('site-access').count()) > 0, 'the server is in the strict mode (SITE_ACCESS=projects)');
+    }
+    // right after sign-in: no screen asking for access, a status line instead
+    await expect(popup.getByTestId('site-all-sites')).toBeVisible({ timeout: 15_000 });
+    await expect(popup.getByTestId('site-access')).toHaveCount(0);
+    await popup.screenshot({ path: saveShot('s-all-sites-at-sign-in') });
     if (!popup.isClosed()) await popup.close();
 
     const booted = (p: Page) => p.evaluate((k) => !!(window as unknown as Record<symbol, unknown>)[Symbol.for(k)], BOOT);
-    // the tab that was open gets the scripts at once
+    // the tab that was open gets the scripts at sign-in
     await expect.poll(() => booted(lab), { timeout: 15_000 }).toBe(true);
 
-    // a second origin: no second prompt, the popup says it has every site
+    // a second origin: still no prompt, the popup says it records on every site
     const other = await b.context.newPage();
     await other.goto(`${LOOPBACK}/`);
     await expect.poll(() => booted(other), { timeout: 15_000 }).toBe(true);
@@ -129,15 +130,29 @@ test('S: one prompt for all sites, a project per origin, merge, and the strict m
     await unlisted.goto(`${UNLISTED}/`);
     const strict = await openPopup(b.context, unlisted);
     await expect(strict.getByTestId('site-access')).toHaveAttribute('data-state', 'not-in-project', { timeout: 20_000 });
+    await expect(strict.getByTestId('site-strict-note')).toBeVisible();
     await strict.screenshot({ path: saveShot('s-strict-unlisted') });
     await strict.close();
     await unlisted.reload();
     await unlisted.waitForTimeout(800);
     expect(await booted(unlisted)).toBe(false);
-    // the merged project's origins still capture
+    // D-202: the browser still grants every site, yet the scripts are registered for the merged
+    // project's two origins only
+    expect((await perms()).origins).toContain('<all_urls>');
+    const registered = () =>
+      sw.evaluate(async () =>
+        (await (globalThis as unknown as { chrome: { scripting: { getRegisteredContentScripts(): Promise<{ id: string; matches?: string[] }[]> } } }).chrome.scripting.getRegisteredContentScripts())
+          .filter((r) => r.id.startsWith('capture'))
+          .map((r) => [...(r.matches ?? [])].sort()),
+      );
+    await expect.poll(registered, { timeout: 15_000 }).toEqual([[`${LAB_URL}/*`, `${LOOPBACK}/*`].sort(), [`${LAB_URL}/*`, `${LOOPBACK}/*`].sort()]);
+    // the merged project's origins still capture, and the popup there names the strict mode
     const listed = await b.context.newPage();
     await listed.goto(`${LOOPBACK}/`);
     await expect.poll(() => booted(listed), { timeout: 15_000 }).toBe(true);
+    const strictListed = await openPopup(b.context, listed);
+    await expect(strictListed.getByTestId('site-strict')).toBeVisible({ timeout: 15_000 });
+    await strictListed.close();
 
     // the server refuses the unlisted origin and makes no project for it
     const before = (await list()).length;

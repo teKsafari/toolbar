@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { MANIFEST_KEY, buildName } from '../wxt.config';
+import { MANAGED_SCHEMA, MANIFEST_KEY, buildName, hostPermissions } from '../wxt.config';
 import { CAPTURE_SCRIPTS } from '../lib/registration';
 
 /** Chrome derives the id from sha256 of the DER public key, first 32 hex digits mapped 0-f to a-p. */
@@ -24,5 +25,16 @@ describe('manifest', () => {
     expect(buildName('Acme Review')).toBe('Acme Review');
     expect(() => buildName('<b>')).toThrow();
     expect(() => buildName('x'.repeat(61))).toThrow();
+  });
+
+  it('holds every site as a required host permission, the server listed too (D-202)', () => {
+    expect(hostPermissions(false, 'https://toolbar.teksafari.com')).toEqual(['https://toolbar.teksafari.com/*', '<all_urls>']);
+    expect(hostPermissions(true, 'https://toolbar.teksafari.com')).toEqual(['<all_urls>']);
+  });
+
+  it('ships a managed storage schema with serverUrl and lockServerUrl (D-202)', () => {
+    const schema = JSON.parse(readFileSync(new URL(`../public/${MANAGED_SCHEMA}`, import.meta.url), 'utf8')) as { type: string; properties: Record<string, { type: string }> };
+    expect(schema.type).toBe('object');
+    expect(Object.fromEntries(Object.entries(schema.properties).map(([k, v]) => [k, v.type]))).toEqual({ serverUrl: 'string', lockServerUrl: 'boolean' });
   });
 });

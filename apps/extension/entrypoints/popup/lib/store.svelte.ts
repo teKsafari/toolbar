@@ -16,7 +16,7 @@ import {
 } from '@toolbar/shared/ext';
 import type { ExtensionSettings } from '@toolbar/shared/api';
 import { send } from '../../capture.content/ui/send';
-import { resolveServerUrl } from '../../../lib/server-url';
+import { BUILT_SERVER_URL, managedPolicy, resolveServerUrl } from '../../../lib/server-url';
 
 export type Screen = 'main' | 'settings' | 'sites' | 'drafts' | 'link' | 'link-help' | 'heavy';
 
@@ -70,6 +70,8 @@ class PopupStore {
   bootstrap: StorageValues['bootstrap'] = $state(null);
   /** the configured server (lib/server-url.ts); the build's until storage answers */
   serverUrl = $state(resolveServerUrl(null));
+  /** D-202: an admin's policy locks the server; the signed-out screen hides "Use another server" */
+  lockServerUrl = $state(false);
   error = $state('');
   /** set when the popup could not finish loading; the popup shows it with a retry button */
   loadError = $state('');
@@ -114,9 +116,14 @@ class PopupStore {
   }
 
   private async fill() {
-    const local = await browser.storage.local.get([STORAGE.auth.key, STORAGE.settings.key, STORAGE.drafts.key, STORAGE.bootstrap.key, STORAGE.serverUrl.key]);
-    // first, so the home button and the signed-out screen name the right server whatever follows
-    this.serverUrl = resolveServerUrl(local[STORAGE.serverUrl.key]);
+    const [local, policy] = await Promise.all([
+      browser.storage.local.get([STORAGE.auth.key, STORAGE.settings.key, STORAGE.drafts.key, STORAGE.bootstrap.key, STORAGE.serverUrl.key]),
+      managedPolicy(),
+    ]);
+    // first, so the home button and the signed-out screen name the right server whatever follows;
+    // an admin's policy wins over the options-page override (D-202)
+    this.serverUrl = resolveServerUrl(local[STORAGE.serverUrl.key], BUILT_SERVER_URL, policy.serverUrl);
+    this.lockServerUrl = policy.lockServerUrl;
     this.auth = (local[STORAGE.auth.key] as AuthState | undefined) ?? null;
     this.drafts = (local[STORAGE.drafts.key] as DraftSummary[] | undefined) ?? [];
     this.bootstrap = (local[STORAGE.bootstrap.key] as StorageValues['bootstrap'] | undefined) ?? null;

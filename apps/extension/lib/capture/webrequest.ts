@@ -62,8 +62,12 @@ export function isCorsBlocked(d: { type: string; url: string; initiator?: string
 }
 
 export interface WebRequestSink {
-  /** Tabs to record; others are ignored (closed tabs, the extension's own pages). */
-  wants(tabId: number): boolean;
+  /**
+   * Requests to record; others are ignored (closed tabs, the extension's own pages, and tabs whose
+   * page is out of the scope, D-202). Called first for each request, so a main_frame request can
+   * note the tab's new page.
+   */
+  wants(tabId: number, req: { url: string; type: string }): boolean;
   emit(tabId: number, e: Omit<CaptureEvent, 'v' | 'id' | 'ctx' | 'seq'>): void;
   /** URL prefixes that belong to the extension and must never be recorded (J-248). */
   ownPrefixes(): string[];
@@ -81,7 +85,7 @@ export function installWebRequest(wr: typeof Browser.webRequest, sink: WebReques
   const rid = (d: Details) => `wr-${d.requestId}`;
 
   const onSend = (d: Details) => {
-    if (own(d) || !sink.wants(d.tabId)) return;
+    if (own(d) || !sink.wants(d.tabId, { url: d.url, type: d.type })) return;
     open.set(d.requestId, { start: d.timeStamp, tabId: d.tabId });
     sink.emit(d.tabId, {
       t: d.timeStamp,

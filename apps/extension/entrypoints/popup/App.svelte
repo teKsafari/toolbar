@@ -35,7 +35,8 @@
   };
   const restricted = $derived(!!store.context?.restricted);
   // D-126, D-200: outside the scope the page cannot be captured (our own server's pages offer the
-  // desktop); in `all` mode without the one grant, every page asks for it
+  // desktop); in `all` mode with site access turned off in the browser, every page asks for it
+  // (D-202: granted at install, so only after the person turned it off)
   const site = $derived(store.context?.site);
   const blocked = $derived(!!site && !site.allowed && (site.reason === 'needs-all-sites' || !store.context?.isServerPage));
 </script>
@@ -102,10 +103,13 @@
         {site.project.name} · {site.project.maskingPreset === 'production' ? 'Production masking' : 'Staging masking'}
       </p>
     {/if}
+    <!-- D-202: the extension holds every site from install; this line says where it records -->
     {#if site?.mode === 'all' && site.allSites}
-      <p class="project" data-testid="site-all-sites" title="To take it back: chrome://extensions, this extension's Details, Site access">
-        Access to all sites. Revoke it in Chrome's extension details, under Site access.
+      <p class="project" data-testid="site-all-sites" title="Chrome's extension details, Site access, turns it off">
+        Records on all sites except your server and your blocked sites.
       </p>
+    {:else if site?.mode === 'projects' && site.allowed}
+      <p class="project" data-testid="site-strict">Strict mode: records on your projects' sites only.</p>
     {/if}
   {/if}
 </main>

@@ -1,17 +1,18 @@
 // Flow Q: zero integration in the strict site access mode (PLAN "Zero integration", D-123 to
 // D-127; SITE_ACCESS=projects, D-200, which the flow switches on for its run through the admin
-// API and resets after), with the release build in a browser of its own. The extension installs with access to its server only. A new reviewer
-// signs in, sees that the lab is in no project, an admin adds it under Settings > Projects, the
-// popup asks for the lab's origin and Chrome's prompt grants it. From then on the lab is
-// captured and a second origin serving the same page is not, and a capture of the lab carries
-// its project and masking preset.
-import { LAB_URL, SERVER, acceptPermissionPrompt, api, captureOf, chord, connectExtension, createFromEditor, editorFrame, expect, hydrated, labPage, launchExtension, newEmail, openPopup, saveShot, setSiteAccess, test, withPrivateDisplay } from './fixture.ts';
+// API and resets after), with the release build in a browser of its own. The extension installs
+// with every site granted (D-202), yet in the strict mode it records on project origins only. A
+// new reviewer signs in, sees that the lab is in no project, an admin adds it under Settings >
+// Projects, and the popup over the lab then says the strict mode with no prompt. From then on the
+// lab is captured and a second origin serving the same page is not, and a capture of the lab
+// carries its project and masking preset.
+import { LAB_URL, SERVER, api, captureOf, chord, connectExtension, createFromEditor, editorFrame, expect, hydrated, labPage, launchExtension, newEmail, openPopup, saveShot, setSiteAccess, test, withPrivateDisplay } from './fixture.ts';
 
 /** The same lab page on an origin that no project lists. */
 const OTHER = LAB_URL.replace('localhost', '127.0.0.1');
 const BOOT = 'toolbar.capture.main';
 
-test('Q: no site access at install, a project origin granted from the popup, nothing captured elsewhere', async () => {
+test('Q: every site granted at install, the strict mode captures on the project origin only, with no prompt', async () => {
   test.setTimeout(240_000);
   await withPrivateDisplay(async (display) => {
     const b = await launchExtension({ display, cdpPort: Number(process.env.FLOWS_CDP_PORT ?? 9341) + 30 });
@@ -20,9 +21,15 @@ test('Q: no site access at install, a project origin granted from the popup, not
     try {
       test.skip(!strict, 'needs the strict site access mode: an instance admin (seeded dana@toolbar.test with AUTH_DEV_PASSWORD=1) to switch it, and SITE_ACCESS unset');
       const sw = await b.sw();
-      // installed: the build's server, nothing else
+      // installed: the build's server and every site (D-202), nothing asked
       const perms = () => sw.evaluate(() => (globalThis as unknown as { chrome: { permissions: { getAll(): Promise<{ origins: string[] }> } } }).chrome.permissions.getAll());
-      expect((await perms()).origins).toEqual([`${new URL(SERVER).origin}/*`]);
+      expect((await perms()).origins.sort()).toEqual([`${new URL(SERVER).origin}/*`, '<all_urls>'].sort());
+      const registered = () =>
+        sw.evaluate(async () =>
+          (await (globalThis as unknown as { chrome: { scripting: { getRegisteredContentScripts(): Promise<{ id: string; matches?: string[] }[]> } } }).chrome.scripting.getRegisteredContentScripts())
+            .filter((r) => r.id.startsWith('capture'))
+            .map((r) => r.matches ?? []),
+        );
 
       // a domain of its own: the admin step needs this account to own its workspace (D-169)
       const { lab, popup } = await connectExtension(b.context, newEmail('zero', 'zero'), { allowLab: false });
@@ -54,15 +61,14 @@ test('Q: no site access at install, a project origin granted from the popup, not
       await web.screenshot({ path: saveShot('q-projects') });
       await web.close();
 
-      // the popup over the lab asks; Chrome's prompt grants the lab's origin only
+      // the popup over the lab: no prompt, it names the strict mode; the scripts cover the lab only
       await lab.bringToFront();
       const ask = await openPopup(b.context, lab);
-      await expect(ask.getByTestId('site-access')).toHaveAttribute('data-state', 'needs-grant', { timeout: 20_000 });
-      await expect(ask.getByTestId('site-access')).toContainText('Allow on Lab');
-      await ask.getByTestId('site-allow').click();
-      await acceptPermissionPrompt();
-      await expect.poll(async () => (await perms()).origins.sort(), { timeout: 15_000 }).toEqual([`${LAB_URL}/*`, `${new URL(SERVER).origin}/*`].sort());
+      await expect(ask.getByTestId('site-strict')).toBeVisible({ timeout: 20_000 });
+      await expect(ask.getByTestId('site-access')).toHaveCount(0);
+      await ask.screenshot({ path: saveShot('q-strict-project') });
       if (!ask.isClosed()) await ask.close();
+      await expect.poll(registered, { timeout: 15_000 }).toEqual([[`${LAB_URL}/*`], [`${LAB_URL}/*`]]);
 
       // the open lab tab gets the capture scripts at once; a page on another origin never does
       await expect.poll(() => booted(lab), { timeout: 15_000 }).toBe(true);
@@ -73,6 +79,7 @@ test('Q: no site access at install, a project origin granted from the popup, not
       expect(await booted(other)).toBe(false);
       const otherPopup = await openPopup(b.context, other);
       await expect(otherPopup.getByTestId('site-access')).toHaveAttribute('data-state', 'not-in-project');
+      await expect(otherPopup.getByTestId('site-strict-note')).toBeVisible();
       await otherPopup.close();
       await other.close();
 

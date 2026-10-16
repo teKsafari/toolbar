@@ -165,15 +165,16 @@ test.afterAll(async () => {
   fs.rmSync(work, { recursive: true, force: true });
 });
 
-test('P2.1: sign in from the popup, grant the project origin only, subscribe a webhook', async () => {
+test('P2.1: sign in from the popup, the lab in scope with no prompt, subscribe a webhook', async () => {
   const { lab: page, popup } = await connectExtension(ctx, email);
   await popup.close();
   lab = page;
-  // the grant covers the project's origin and nothing else
+  // D-202: every site is granted at install; the capture scripts cover the lab (every http(s) site
+  // in the default `all` mode, the project's origin in the strict mode)
   const granted = await sw.evaluate(() => chrome.permissions.getAll().then((p: { origins: string[] }) => p.origins));
-  expect(granted).toContain(`${LAB_URL}/*`);
-  expect(granted.filter((o: string) => !o.startsWith(SERVER) && !o.startsWith(LAB_URL))).toEqual([]);
-  await expect.poll(() => sw.evaluate(async () => (await chrome.scripting.getRegisteredContentScripts()).flatMap((s: { matches: string[] }) => s.matches)), { timeout: 15_000 }).toContain(`${LAB_URL}/*`);
+  expect(granted).toContain('<all_urls>');
+  const matches = () => sw.evaluate(async () => (await chrome.scripting.getRegisteredContentScripts()).flatMap((s: { matches: string[] }) => s.matches));
+  await expect.poll(async () => (await matches()).some((m: string) => m === `${LAB_URL}/*` || m === 'http://*/*'), { timeout: 15_000 }).toBe(true);
 
   const ws = await api<{ activeId: string }>(ctx, 'GET', '/api/v1/workspaces');
   const created = await api<{ webhook: { id: string }; secret: string }>(ctx, 'POST', `/api/v1/workspaces/${ws.body.activeId}/webhooks`, { url: hook.url, events: ['feedback.created', 'feedback.resolved'] });

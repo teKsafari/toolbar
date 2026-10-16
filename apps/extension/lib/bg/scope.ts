@@ -1,6 +1,6 @@
-// Keeps the capture scripts registered for exactly the scope (D-126, D-200, lib/scope.ts): on
-// worker start, on sign-in and sign-out, when the bootstrap's project list changes, and when the
-// person grants or removes a site. Also keeps the project list fresh, and registers the server
+// Keeps the capture scripts registered for exactly the scope (D-126, D-200, D-202, lib/scope.ts):
+// on worker start, on sign-in and sign-out, when the bootstrap's project list changes, when the
+// person turns site access off or on in the browser, and when an admin's policy changes. Also keeps the project list fresh, and registers the server
 // page script for a server set on the options page. background.ts calls registerScope() once.
 import { browser } from 'wxt/browser';
 import { STORAGE, type StorageValues } from '@toolbar/shared/ext';
@@ -26,7 +26,7 @@ async function refreshProjects(force = false) {
 
 /**
  * The static server-page script matches the build's server only. A server chosen on the options
- * page (granted there) gets the same script registered at runtime.
+ * page or by an admin's policy (D-202) gets the same script registered at runtime.
  */
 async function syncServerScript() {
   const built = new URL(resolveServerUrl(null)).origin;
@@ -50,6 +50,12 @@ async function syncServerScript() {
 export function registerScope() {
   const sync = () => void syncRegistration().catch((e: unknown) => console.error('[toolbar] content script registration failed', e));
   browser.storage.onChanged.addListener((changes, area) => {
+    // D-202: an admin's policy changed the server: its page script and the `all` mode exclusion follow
+    if (area === 'managed') {
+      sync();
+      void syncServerScript();
+      return;
+    }
     if (area !== 'local') return;
     if (changes[STORAGE.auth.key] || changes[STORAGE.bootstrap.key] || changes[TEST_SCOPE_KEY]) sync();
     // D-200: in `all` mode the blocked-sites list (J-012) is excluded from the registration

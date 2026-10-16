@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "serverUrl": {
+      "title": "Server address",
+      "description": "The open-toolbar server this extension signs in to and sends captures to, such as https://toolbar.example.com. It wins over the address a person types on the options page.",
+      "type": "string"
+    },
+    "lockServerUrl": {
+      "title": "Lock the server address",
+      "description": "When true, the popup hides Use another server and the options page shows the address read-only.",
+      "type": "boolean"
+    }
+  }
+}

@@ -1,10 +1,10 @@
 <script lang="ts">
-  // Host access (D-126, D-200). The extension holds no site at install. In `all` mode (the
-  // default) it asks Chrome once, from this click, for every site, right after sign-in on any
-  // page. In the strict mode, on a page of one of the user's projects it asks for the origins of
-  // all their projects at once; on any other page it says so and records nothing. The worker
-  // registers the capture scripts when Chrome reports the grant (lib/bg/scope.ts), so this
-  // screen only has to ask.
+  // Host access (D-126, D-200, D-202). Every site is granted at install, so in `all` mode (the
+  // default) this screen shows only on a blocked site, or when the person turned site access off
+  // in the browser; then Allow asks for it again from the click. In the strict mode a page outside
+  // the user's projects says so and records nothing, though the browser grants every site; a
+  // project page asks only if access to it was turned off. The worker registers the capture
+  // scripts when the browser reports the grant (lib/bg/scope.ts), so this screen only has to ask.
   import { browser } from 'wxt/browser';
   import { Button, Icon } from '@toolbar/ui';
   import type { SiteAccess } from '@toolbar/shared/ext';
@@ -46,14 +46,13 @@
 {#if site.reason === 'needs-all-sites'}
   <div class="card" data-screen="site-access" data-testid="site-access" data-state="needs-all-sites">
     <Icon name="globe" size={28} />
-    <p><strong class="title">Allow access to all sites</strong></p>
+    <p><strong class="title">Site access is off</strong></p>
     <p class="muted">
-      Chrome asks once. The extension then runs on the sites you visit, so a capture holds the console, the network and the page. Each site you capture on becomes a project your team can rename and merge.
+      The extension's access to websites is turned off in your browser, so it records nothing. Allow it again to capture the console, the network and the page.
     </p>
     <ul class="muted small">
       <li>What it records stays in this browser until you send a capture to your server.</li>
       <li>It never runs on {store.serverUrl ? new URL(store.serverUrl).host : 'your server'} or on your blocked sites.</li>
-      <li>Revoke it any time in Chrome’s extension details, under Site access.</li>
     </ul>
     <Button variant="primary" loading={busy} onclick={allow} data-testid="site-allow-all">Allow</Button>
     {#if error}<p class="err" role="alert">{error}</p>{/if}
@@ -70,7 +69,7 @@
     <Icon name="globe" size={28} />
     <p><strong class="title">Allow on {site.project.name}</strong></p>
     <p class="muted">
-      {host} belongs to your project <strong>{site.project.name}</strong>. The extension needs access to record console, network and the page here.
+      {host} belongs to your project <strong>{site.project.name}</strong>, but the extension's access to it is turned off in your browser. Allow it to record the console, the network and the page here.
       {#if site.missing.length > 1}This grants all {sites} of your projects.{/if}
     </p>
     <Button variant="primary" loading={busy} onclick={allow} data-testid="site-allow">Allow</Button>
@@ -86,6 +85,9 @@
       {:else}
         You have no projects yet. A workspace admin adds the apps your team reviews, and the extension records on those only.
       {/if}
+    </p>
+    <p class="muted small-note" data-testid="site-strict-note">
+      Your server is in strict mode: it records on its projects' sites only. The browser's access to all sites does not change that.
     </p>
     <div class="row">
       <Button size="sm" onclick={manage} data-testid="site-manage">Projects</Button>
@@ -133,6 +135,9 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+  }
+  .small-note {
+    font-size: var(--nb-text-sm);
   }
   .row {
     display: flex;

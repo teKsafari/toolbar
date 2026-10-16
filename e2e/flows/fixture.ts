@@ -438,9 +438,8 @@ export async function connectExtension(context: BrowserContext, email: string, o
   await mockProviderLogin(win, email, 'Flow Reviewer');
   await expect(popup.getByTestId('signed-in')).toContainText(email, { timeout: 30_000 });
   if (opts.allowLab === false) return { lab, popup };
-  // D-126, D-200: the extension records only once the person allowed it: every site in `all`
-  // mode, the project origins in the strict mode. Add the lab as a project (so captures carry
-  // the name Lab in both modes), then allow from the popup, as a person does.
+  // D-202: every site is granted at install. Add the lab as a project (so captures carry the name
+  // Lab in both modes, and the strict mode records there), then wait for the popup to allow it.
   await addProject(context, [LAB_URL]);
   await popup.close();
   const again = await openPopup(context, lab);
@@ -508,16 +507,20 @@ export async function setSiteAccess(context: BrowserContext, mode: 'all' | 'proj
 }
 
 /**
- * In the popup over a project page: click Allow and accept Chrome's prompt; the capture rows
- * return. On a server in `all` mode (D-200, the default) the popup asks once for every site; in
- * the strict mode for the project origins (D-126).
+ * In the popup over a project page: wait until the extension may record there. Release builds
+ * hold every site from install (D-202), so the popup normally asks nothing; if it does (site
+ * access turned off in Chrome), click Allow and accept Chrome's prompt.
  */
 export async function allowFromPopup(context: BrowserContext, popup: Page) {
   const card = popup.getByTestId('site-access');
-  await expect(card).toHaveAttribute('data-state', /^(needs-grant|needs-all-sites)$/, { timeout: 15_000 });
-  const all = (await card.getAttribute('data-state')) === 'needs-all-sites';
-  await popup.getByTestId(all ? 'site-allow-all' : 'site-allow').click();
-  await acceptPermissionPrompt();
+  const ready = popup.getByTestId('site-all-sites').or(popup.getByTestId('site-strict')).or(popup.getByTestId('site-project'));
+  await expect(card.or(ready).first()).toBeVisible({ timeout: 15_000 });
+  if (await card.count()) {
+    await expect(card).toHaveAttribute('data-state', /^(needs-grant|needs-all-sites)$/, { timeout: 15_000 });
+    const all = (await card.getAttribute('data-state')) === 'needs-all-sites';
+    await popup.getByTestId(all ? 'site-allow-all' : 'site-allow').click();
+    await acceptPermissionPrompt();
+  }
   const sw = context.serviceWorkers().find((w) => w.url().startsWith(`chrome-extension://${EXT_ID}/`))!;
   await expect
     .poll(() => sw.evaluate((o) => (globalThis as unknown as { chrome: { permissions: { contains(p: object): Promise<boolean> } } }).chrome.permissions.contains({ origins: [`${o}/*`] }), LAB_URL), { timeout: 15_000 })

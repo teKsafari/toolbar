@@ -29,7 +29,9 @@
     <p class="err" role="alert" data-server-error>{store.serverError}</p>
     <button class="change" type="button" onclick={() => void store.retry()} data-retry>Try again</button>
   {/if}
-  <button class="change" type="button" onclick={() => browser.runtime.openOptionsPage()}>Use another server</button>
+  {#if !store.lockServerUrl}
+    <button class="change" type="button" onclick={() => browser.runtime.openOptionsPage()} data-other-server>Use another server</button>
+  {/if}
 </div>
 
 <style>

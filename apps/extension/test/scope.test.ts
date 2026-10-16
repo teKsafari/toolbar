@@ -1,7 +1,9 @@
 // lib/scope.ts (D-126, D-200): what each site access mode registers, excludes and allows, and
 // the preset a page with no project yet is masked under.
-import { describe, expect, it } from 'vitest';
-import { ALL_SITE_PATTERNS, excludesOf, inScope, outOfScope, patternsOf, presetFor, type Scope } from '../lib/scope';
+import { afterEach, describe, expect, it } from 'vitest';
+import { fakeBrowser } from 'wxt/testing/fake-browser';
+import { STORAGE } from '@toolbar/shared/ext';
+import { ALL_SITE_PATTERNS, excludesOf, inScope, outOfScope, patternsOf, presetFor, scope, type Scope } from '../lib/scope';
 
 const base: Scope = {
   mode: 'all',
@@ -56,5 +58,41 @@ describe('test builds', () => {
     const t: Scope = { ...base, mode: 'test' };
     expect(patternsOf(t)).toEqual(['<all_urls>']);
     expect(outOfScope(t, 'https://www.paypal.com/')).toBeNull();
+  });
+});
+
+describe('every site granted at install (D-202)', () => {
+  const contains = fakeBrowser.permissions.contains;
+  afterEach(() => {
+    fakeBrowser.permissions.contains = contains;
+    fakeBrowser.reset();
+  });
+  async function signedIn(mode: 'all' | 'projects') {
+    // the manifest holds <all_urls>: the browser reports every origin as granted
+    fakeBrowser.permissions.contains = (() => Promise.resolve(true)) as typeof contains;
+    await fakeBrowser.storage.local.set({
+      [STORAGE.auth.key]: { token: 't', serverUrl: 'https://toolbar.example.com' },
+      [STORAGE.bootstrap.key]: { at: Date.now(), data: { projects: base.projects, siteAccess: { mode, defaults: base.defaults } } },
+    });
+  }
+
+  it('the strict mode still registers the project origins only, and refuses the rest', async () => {
+    await signedIn('projects');
+    const s = await scope();
+    expect(s.mode).toBe('projects');
+    expect(s.missing).toEqual([]);
+    expect(patternsOf(s)).toEqual(['https://*.nuru.test/*']);
+    expect(inScope(s, 'https://staging.nuru.test/x')).toBe(true);
+    expect(outOfScope(s, 'http://localhost:5173/')).toBe('not-in-project');
+    expect(outOfScope(s, 'https://www.example.org/')).toBe('not-in-project');
+  });
+
+  it('all mode needs no grant: every site but the server and the blocked ones', async () => {
+    await signedIn('all');
+    const s = await scope();
+    expect(s.allSites).toBe(true);
+    expect(patternsOf(s)).toEqual(ALL_SITE_PATTERNS);
+    expect(outOfScope(s, 'http://localhost:5173/')).toBeNull();
+    expect(outOfScope(s, 'https://toolbar.example.com/')).toBe('server');
   });
 });

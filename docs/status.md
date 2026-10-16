@@ -38,7 +38,7 @@ Fixed on the way: the folder had no `voice/` for toolbar voice notes and no imag
 | Specific | State | Where, and how it was proven |
 |---|---|---|
 | No package, script tag or config in each app | built | Extension (delivery 1) and injector (delivery 2); the lab is unchanged in the scenario |
-| Delivery 1: extension asks for host access only to project origins (`optional_host_permissions`, `permissions.request` from a click, `registerContentScripts`) | built | D-126; scenario step 1, flow Q |
+| Delivery 1: extension asks for host access only to project origins (`optional_host_permissions`, `permissions.request` from a click, `registerContentScripts`) | changed by the owner | D-126, then D-198 and D-200 (all sites by default), then D-202: every site is a required permission so a Google Workspace force-install needs no prompt; the strict mode still registers the capture scripts on project origins only (flow Q) |
 | Delivery 2: injector proxy (streams, `<head>` only, uncompressed, CSP nonce, `/__toolbar/` same origin, `x-review-skip`, passes through on error, Traefik file router, no entry-point plugin, no review domain) | built | D-157, D-158; `apps/injector` Go tests, compose test 5/5 against the compose server. Uses `golang.org/x/net/html`'s tokenizer in place of lol-html. Not yet run behind a real Coolify Traefik (needs the owner's server) |
 | Delivery 3: review browser from the CLI | deferred | PLAN marks it "later, for developers only"; the CLI is paused (docs/scope.md, `FEATURE_CLI`) |
 | Distribution: unlisted Chrome Web Store item | built | D-155: `-chrome-webstore.zip`; uploading needs the owner's store account |

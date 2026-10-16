@@ -1,13 +1,14 @@
 <script lang="ts">
-  // Options page: the server this extension talks to. Everything else lives in the popup's
-  // settings screen (J-176).
+  // Options page: the server this extension talks to, and where it records. Everything else lives
+  // in the popup's settings screen (J-176). An admin's policy (D-202) sets the server: the field is
+  // then read-only.
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { Button, Icon } from '@toolbar/ui';
   import { STORAGE } from '@toolbar/shared/ext';
   import BrandLogo from '../../lib/ui/BrandLogo.svelte';
   import { brand } from '../../lib/brand.svelte';
-  import { resolveServerUrl } from '../../lib/server-url';
+  import { BUILT_SERVER_URL, managedPolicy, NO_POLICY, resolveServerUrl, type ManagedPolicy } from '../../lib/server-url';
 
   const fallback = resolveServerUrl(null);
   let value = $state('');
@@ -15,11 +16,14 @@
   let error = $state('');
   const version = browser.runtime.getManifest().version;
 
-  // D-200: the server's site access mode and whether Chrome granted every site
+  // D-200, D-202: the server's site access mode, and whether the browser still grants every site
+  // (granted at install; the person can turn it off in the browser's extension details)
   const ALL_SITES = ['http://*/*', 'https://*/*'];
   let mode = $state<'all' | 'projects' | null>(null);
   let allSites = $state(false);
   let accessError = $state('');
+  let policy = $state<ManagedPolicy>(NO_POLICY);
+  const managed = $derived(!!policy.serverUrl || policy.lockServerUrl);
 
   async function readAccess() {
     const got = await browser.storage.local.get([STORAGE.bootstrap.key, STORAGE.auth.key]);
@@ -31,26 +35,23 @@
 
   async function allowAll() {
     accessError = '';
-    // first await of the click: Chrome needs the user gesture for the prompt
+    // first await of the click: the browser needs the user gesture for the prompt
     const ok = await browser.permissions.request({ origins: ALL_SITES }).catch(() => false);
     if (!ok) accessError = 'Access was not granted. The extension records nothing until it is.';
     await readAccess();
   }
 
-  async function revokeAll() {
-    await browser.permissions.remove({ origins: ALL_SITES }).catch(() => false);
-    await readAccess();
-  }
-
   onMount(async () => {
-    const got = await browser.storage.local.get(STORAGE.serverUrl.key);
-    value = resolveServerUrl(got[STORAGE.serverUrl.key]);
+    const [got, p] = await Promise.all([browser.storage.local.get(STORAGE.serverUrl.key), managedPolicy()]);
+    policy = p;
+    value = resolveServerUrl(got[STORAGE.serverUrl.key], BUILT_SERVER_URL, p.serverUrl);
     await readAccess();
   });
 
   async function save(e: SubmitEvent) {
     e.preventDefault();
     error = saved = '';
+    if (managed) return; // D-202: the policy's server wins
     let url: URL;
     try {
       url = new URL(value.trim());
@@ -62,7 +63,7 @@
     const origin = url.origin;
     if (origin === new URL(fallback).origin) await browser.storage.local.remove(STORAGE.serverUrl.key);
     else {
-      // D-126: the manifest grants the build's server only; another server is asked for here, from the click
+      // D-202: every site is granted at install, so this answers at once; it asks only if the person turned access off
       const granted = await browser.permissions.request({ origins: [`${origin}/*`] }).catch(() => false);
       if (!granted) {
         error = `The extension needs access to ${url.host} to sign in and upload there.`;
@@ -81,9 +82,10 @@
     <label for="server">Server address</label>
     <p class="hint">Your self-hosted {brand.name} server. Captures, links and sign-in go there.</p>
     <div class="row">
-      <input id="server" type="url" bind:value placeholder={fallback} data-server-input />
-      <Button type="submit" variant="primary" size="lg" data-server-save>Save</Button>
+      <input id="server" type="url" bind:value placeholder={fallback} readonly={managed} data-server-input />
+      {#if !managed}<Button type="submit" variant="primary" size="lg" data-server-save>Save</Button>{/if}
     </div>
+    {#if managed}<p class="hint" data-server-managed>Your organisation sets this address. Ask your admin to change it.</p>{/if}
     {#if error}<p class="err" role="alert">{error}</p>{/if}
     {#if saved}<p class="ok" role="status">{saved}</p>{/if}
   </form>
@@ -91,13 +93,12 @@
     <section class="card" data-site-access={mode} data-all-sites={allSites}>
       <h2>Site access</h2>
       {#if mode === 'all' && allSites}
-        <p class="hint">Access to all sites. Each site you capture on becomes a project on your server. The extension never runs on the server itself or on your blocked sites.</p>
-        <Button onclick={revokeAll} data-revoke-all>Remove access to all sites</Button>
+        <p class="hint" data-site-status>The extension records on all sites except your server and your blocked sites. Each site you capture on becomes a project on your server. To turn it off, open the browser's extension details, Site access.</p>
       {:else if mode === 'all'}
-        <p class="hint">Your server lets the extension run on any site. Chrome asks once; until then nothing is recorded. Revoke it here or in Chrome’s extension details, under Site access.</p>
+        <p class="hint" data-site-status>Site access is turned off in your browser, so nothing is recorded. Allow it again here.</p>
         <Button variant="primary" onclick={allowAll} data-allow-all>Allow access to all sites</Button>
       {:else}
-        <p class="hint">Your server allows capture on its projects’ origins only. Open the popup on a project’s page and click Allow; Chrome asks for those origins.</p>
+        <p class="hint" data-site-status>Your server is in strict mode: the extension records on its projects' sites only. The browser grants it every site, but it runs its capture scripts on the project sites and records nothing elsewhere.</p>
       {/if}
       {#if accessError}<p class="err" role="alert">{accessError}</p>{/if}
     </section>
@@ -191,6 +192,10 @@
   }
   input::placeholder {
     color: var(--nb-text-faint);
+  }
+  input[readonly] {
+    background: var(--nb-surface-sunken);
+    color: var(--nb-text-muted);
   }
   input:focus {
     outline: none;

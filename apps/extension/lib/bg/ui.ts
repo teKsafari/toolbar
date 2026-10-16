@@ -13,7 +13,7 @@
 import { browser } from 'wxt/browser';
 import { applyBrandIcon, setIconBusy } from './brand';
 import { uuidv7, type RecordingKind } from '@toolbar/shared';
-import { accountServerUrl, resolveServerUrl } from '../server-url';
+import { accountServerUrl, managedPolicy, resolveServerUrl } from '../server-url';
 import {
   DEFAULT_USER_SETTINGS,
   ROUTES,
@@ -93,8 +93,10 @@ async function saveSettings(patch: Partial<ExtensionSettings>): Promise<Extensio
   return next;
 }
 
-/** The options-page override, else the signed-in server, else the build's (lib/server-url.ts). */
+/** The admin's policy, else the options-page override, else the signed-in server, else the build's (lib/server-url.ts). */
 export async function serverUrl(): Promise<string> {
+  const policy = (await managedPolicy()).serverUrl;
+  if (policy) return policy; // D-202
   const override = await readStore('serverUrl');
   return override ? resolveServerUrl(override) : accountServerUrl((await readStore('auth')) ?? null);
 }
@@ -666,7 +668,7 @@ const handlers: Handlers = {
         why === 'server'
           ? 'The extension does not run on its own server’s pages. Record the desktop instead.'
           : why === 'needs-all-sites'
-          ? 'Allow access to all sites first: open the extension menu and click Allow.'
+          ? 'Site access is turned off for this extension: open the extension menu and click Allow.'
           : why === 'blocked'
             ? 'This site is on your blocked sites list, so the extension does not run here.'
             : p

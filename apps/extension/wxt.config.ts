@@ -57,16 +57,25 @@ export function buildName(raw = process.env.WXT_APP_NAME): string {
 const appName = buildName();
 
 /**
- * Host access (D-126). A release build asks at install for its own server only; every site it
- * records on is an optional permission the person grants from a click, for the origins of their
- * projects. Test builds also hold <all_urls>, so the area suites run without a permission prompt
- * (captureVisibleTab needs <all_urls> or activeTab); their capture scripts still follow
- * lib/scope.ts.
+ * Host access (D-126, D-200, D-202). Every site is a required host permission: Chrome grants it at
+ * install, and a copy force-installed by an admin policy holds it with no prompt (a policy cannot
+ * grant optional permissions). The server's own origin stays listed. Which pages the capture
+ * scripts run on is decided at runtime by lib/scope.ts: every site but the server and the blocked
+ * sites in `all` mode, the project origins only in the strict mode.
  */
 export function serverPattern(raw = process.env.WXT_SERVER_URL): string {
   return `${new URL(raw || DEFAULT_SERVER_URL).origin}/*`;
 }
-export const OPTIONAL_HOSTS = ['http://*/*', 'https://*/*'];
+/**
+ * host_permissions of a build (D-202): the server, then <all_urls>; test builds <all_urls> only.
+ * <all_urls> rather than http://*\/* plus https://*\/*: Chrome lets captureVisibleTab run without
+ * activeTab only for <all_urls> (D-185), and both forms give the same install warning.
+ */
+export function hostPermissions(test = testHooks, raw = process.env.WXT_SERVER_URL): string[] {
+  return test ? ['<all_urls>'] : [serverPattern(raw), '<all_urls>'];
+}
+/** Managed storage schema (D-202): what an admin policy may set (public/managed-schema.json). */
+export const MANAGED_SCHEMA = 'managed-schema.json';
 const appIcon = process.env.WXT_APP_ICON ? resolve(process.env.WXT_APP_ICON) : null;
 const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 
@@ -90,9 +99,10 @@ export default defineConfig({
     description: 'Capture bugs with console, network, user actions, screenshots, video and voice.',
     key: manifestKey,
     minimum_chrome_version: '116',
-    // D-126: the server only; project origins are optional and granted from a click
-    host_permissions: testHooks ? ['<all_urls>'] : [serverPattern()],
-    optional_host_permissions: OPTIONAL_HOSTS,
+    // D-202: every site is required, so a policy install needs no prompt; lib/scope.ts limits the scripts
+    host_permissions: hostPermissions(),
+    // D-202: settings an admin pushes through policy (serverUrl, lockServerUrl)
+    storage: { managed_schema: MANAGED_SCHEMA },
     permissions: [
       'activeTab',
       'scripting',
@@ -117,17 +127,21 @@ export default defineConfig({
     'build:manifestGenerated': (wxt, manifest) => {
       if (manifest.action) manifest.action.default_title = appName;
       if (manifest.browser_action) manifest.browser_action.default_title = appName;
-      // D-126: WXT adds the matches of runtime-registered scripts to host_permissions; set them
-      // here, after it. The server-page script runs on the build's server only (a server chosen on
-      // the options page gets it at runtime, lib/bg/scope.ts).
-      manifest.host_permissions = testHooks ? ['<all_urls>'] : [serverPattern()];
-      manifest.optional_host_permissions = OPTIONAL_HOSTS;
+      // WXT adds the matches of runtime-registered scripts to host_permissions; set them here,
+      // after it (D-202). The server-page script runs on the build's server only (a server chosen
+      // on the options page or by policy gets it at runtime, lib/bg/scope.ts).
+      manifest.host_permissions = hostPermissions();
+      delete manifest.optional_host_permissions;
       for (const cs of manifest.content_scripts ?? []) if (cs.js?.some((f) => f.includes('toolbar-web'))) cs.matches = [serverPattern()];
       // Firefox (docs/extension-release.md): no Chrome key or version floor, an add-on id instead,
       // and without the Chrome-only permissions (recording is Chrome-only)
       if (wxt.config.browser === 'firefox') {
         delete manifest.key;
         delete manifest.minimum_chrome_version;
+        // Firefox reads managed storage from enterprise policies (3rdparty) without a manifest
+        // schema, and web-ext lint rejects the key. Its MV3 host permissions are listed at install
+        // and granted by default, but the person can turn them off in the add-on's Permissions tab
+        delete (manifest as { storage?: unknown }).storage;
         manifest.permissions = (manifest.permissions ?? []).filter((p) => !CHROME_ONLY_PERMISSIONS.includes(p));
         // Mozilla's data-collection consent (required for new AMO listings): the extension sends page
         // content and activity, which the reviewer captures, to the server they sign in to

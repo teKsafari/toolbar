@@ -9,6 +9,7 @@ import { LIMITS } from '@toolbar/shared/constants';
 import {
   DEFAULT_REPLAY,
   IDLE,
+  STORAGE,
   recordingKindOf,
   transition,
   type BarState,
@@ -39,7 +40,7 @@ import { cardStill, pageMaskRects, type MaskRects } from './card-still';
 import { CAPTURE_KEYS, getAuth, getPrivate, getSettings, getStore, serverUrl, setPrivate, setStore } from './store';
 import { installWebRequest } from './webrequest';
 import { isReplayBlocked } from '@toolbar/shared/areas/ext-ui';
-import { presetFor, scope, workspaceForUrl } from '../scope';
+import { inScope, presetFor, scope, TEST_SCOPE_KEY, workspaceForUrl, type Scope } from '../scope';
 import { noteShotError } from '../bg/shot-access';
 
 type Port = ReturnType<typeof browser.runtime.connect>;
@@ -119,6 +120,9 @@ export class CaptureService {
   /** recording id -> media start time and offscreen facts */
   private media = new Map<string, { t: number; mime: string; width: number; height: number; mic: MicState }>();
   private undoWebRequest: (() => void) | null = null;
+  /** webRequest gate (D-202): the scope as last read, and each tab's top-level page */
+  private wrScope: Scope | null = null;
+  private wrTop = new Map<number, string>();
   /** video size measured when the tab stream was taken, so the start after the countdown skips a page round trip */
   private heldSize = new Map<string, { w: number; h: number }>();
   /** Stop to editor budget; e2e lowers it to exercise the timeout path (J-034). */
@@ -428,8 +432,33 @@ export class CaptureService {
     if (this.undoWebRequest || !browser.webRequest) return;
     let prefixes: string[] = [browser.runtime.getURL('/')];
     void serverUrl().then((u) => (prefixes = [browser.runtime.getURL('/'), u.replace(/\/$/, '') + '/api/']));
+    // D-202: the extension holds every site, so webRequest reports every tab. Record a request only
+    // when its tab's top page is in the scope (lib/scope.ts): in the strict mode a page outside the
+    // projects leaves nothing in the ring, as the capture scripts do not run there.
+    const refresh = () => void scope().then((sc) => (this.wrScope = sc)).catch(() => undefined);
+    refresh();
+    browser.storage.onChanged.addListener((changes, area) => {
+      if (area === 'managed' || (area === 'local' && [STORAGE.auth.key, STORAGE.bootstrap.key, STORAGE.settings.key, TEST_SCOPE_KEY].some((k) => k in changes))) refresh();
+    });
+    browser.permissions?.onAdded?.addListener(refresh);
+    browser.permissions?.onRemoved?.addListener(refresh);
+    void browser.tabs
+      .query({})
+      .then((tabs) => {
+        for (const t of tabs) if (t.id != null && t.url && !this.wrTop.has(t.id)) this.wrTop.set(t.id, t.url);
+      })
+      .catch(() => undefined);
+    browser.tabs.onUpdated.addListener((tabId, info) => {
+      if (info.url) this.wrTop.set(tabId, info.url);
+    });
+    browser.tabs.onRemoved.addListener((tabId) => void this.wrTop.delete(tabId));
     this.undoWebRequest = installWebRequest(browser.webRequest as unknown as typeof Browser.webRequest, {
-      wants: (tabId) => tabId >= 0,
+      wants: (tabId, req) => {
+        if (tabId < 0) return false;
+        if (req.type === 'main_frame') this.wrTop.set(tabId, req.url);
+        const top = this.wrTop.get(tabId);
+        return !!this.wrScope && !!top && inScope(this.wrScope, top);
+      },
       ownPrefixes: () => prefixes,
       emit: (tabId, e) => this.emit(tabId, e.kind as EventKind, e.data as never, e.t),
     });

@@ -1,16 +1,19 @@
-// Where the extension runs (PLAN "Zero integration", D-123, D-126, D-200). The manifest asks for
-// no site at install: `optional_host_permissions` only, plus the server's own origin. The server's
-// bootstrap names the site access mode:
+// Where the extension runs (PLAN "Zero integration", D-123, D-126, D-200, D-202). The manifest
+// holds every site as a required host permission (D-202), so Chrome grants it at install and an
+// admin's force-install needs no prompt. That access is not where the extension runs: the server's
+// bootstrap names the site access mode, and this module decides.
 //
-// - `all` (default, D-200): the popup asks Chrome once for every site (http://*/* and
-//   https://*/*), and this module registers the capture scripts everywhere but the server itself
+// - `all` (default, D-200): the capture scripts are registered everywhere but the server itself
 //   and the domains on the blocked-sites list (J-012). A page with no project yet uses its
 //   workspace's new-project defaults; the server makes the project at the first capture.
-// - `projects` (strict, D-126): the popup asks for the origins of the user's projects from a
-//   click, and the scripts are registered for the origins that are both a project's and granted.
+// - `projects` (strict, D-126): the scripts are registered for the project origins only, and the
+//   worker records no webRequest metadata for a tab on any other page (lib/capture/service.ts).
 //
-// Test builds (WXT_TEST_HOOKS=1) keep <all_urls> in the manifest so the area suites can run
-// without a permission prompt, and register the capture scripts everywhere, as Part 1 did, unless
+// The person can still turn site access off in the browser (Chrome's Site access, Firefox's
+// Permissions tab). Then `allSites` is false, the popup asks again from a click, and in the strict
+// mode only the project origins still granted count.
+//
+// Test builds (WXT_TEST_HOOKS=1) register the capture scripts everywhere, as Part 1 did, unless
 // storage key `tb:test-scope` says otherwise: 'projects' forces the strict mode (the
 // zero-integration specs), 'release' follows the server's mode as a release build does.
 import { browser } from 'wxt/browser';
@@ -23,7 +26,7 @@ import { accountServerUrl } from './server-url';
 
 export const TEST_SCOPE_KEY = 'tb:test-scope';
 export const ALL_SITES = ['<all_urls>'];
-/** What `all` mode asks Chrome for once (D-200): the optional host permissions the manifest declares. */
+/** Every http(s) site: where `all` mode registers, and what the popup asks for again if the person turned access off (D-200, D-202). */
 export const ALL_SITE_PATTERNS = ['http://*/*', 'https://*/*'];
 
 /**

@@ -58,12 +58,12 @@ Email and password accounts stay off. They exist only for development and tests,
 
 ### Site access
 
-At install the extension asks for access to your server only. What happens after sign-in depends on Settings > Server, Capture defaults, Site access (`SITE_ACCESS`, D-200):
+Chrome grants the extension access to all sites when you install it (D-202), so there is no prompt after sign-in, and a copy your Google Workspace admin force-installs needs none at all (`docs/extension-release.md`, "Force-install for your organisation"). Where it records depends on Settings > Server, Capture defaults, Site access (`SITE_ACCESS`, D-200):
 
-- **All sites (default).** The popup shows one screen that explains the request, and you click Allow; Chrome asks once for every site. The extension then runs everywhere except your server and your blocked sites. The first capture on a site makes a project for it (named after the host, for example `localhost:5173`), and the dashboard's sidebar groups captures by project. An admin merges projects in Settings > Projects or on a project's page, so `nuru.sh`, `staging.nuru.sh` and `116.nuru.sh` become one project, or adds a domain such as `*.nuru.sh` that covers the bare domain and every subdomain over https. An exact origin wins over a domain. To take the access back, use the options page or Chrome's extension details, Site access.
-- **Project origins only.** The strict mode. A workspace admin lists each app under Settings > Projects with its origins and a masking preset. Open the extension's popup on one of those apps and click Allow: Chrome asks once for the origins of your projects, and the extension records there and nowhere else. The server refuses captures from other origins and makes no project by itself.
+- **All sites (default).** The extension runs everywhere except your server and your blocked sites. The first capture on a site makes a project for it (named after the host, for example `localhost:5173`), and the dashboard's sidebar groups captures by project. An admin merges projects in Settings > Projects or on a project's page, so `nuru.sh`, `staging.nuru.sh` and `116.nuru.sh` become one project, or adds a domain such as `*.nuru.sh` that covers the bare domain and every subdomain over https. An exact origin wins over a domain. To turn the access off, use Chrome's extension details, Site access; the popup then offers to allow it again.
+- **Project origins only.** The strict mode. A workspace admin lists each app under Settings > Projects with its origins and a masking preset. The extension runs its capture scripts on those origins and records nowhere else, though Chrome grants it every site; the popup says so on other sites. The server refuses captures from other origins and makes no project by itself.
 
-Chrome lets the extension take screenshots of a tab only after you have opened its popup there (or pressed Ctrl+Shift+Y); the toolbar tells you when that is missing.
+If you limit the extension's site access in Chrome, Chrome lets it take screenshots of a tab only after you have opened its popup there (or pressed Ctrl+Shift+Y); the toolbar tells you when that is missing.
 
 On a page, Ctrl+Shift+. wakes the reviewer toolbar. Its keys: `c` comment, `t` comment on the selected text, `v` voice note, `x` start or stop a trace.
 

@@ -81,7 +81,8 @@ test.beforeAll(async () => {
   delete env.WXT_TEST_HOOKS;
   execFileSync('pnpm', ['--filter', '@toolbar/extension', 'exec', 'wxt', 'build'], { cwd: ROOT, env, stdio: 'pipe' });
   const manifest = JSON.parse(fs.readFileSync(path.join(EXT_DIR, 'manifest.json'), 'utf8')) as { host_permissions: string[] };
-  expect(manifest.host_permissions).toEqual([`${SERVER}/*`]);
+  // D-202: the build's server, then every site as a required permission
+  expect(manifest.host_permissions).toEqual([`${SERVER}/*`, '<all_urls>']);
 });
 
 test('a build for a reachable server: the popup loads, names it, and home opens it', async () => {

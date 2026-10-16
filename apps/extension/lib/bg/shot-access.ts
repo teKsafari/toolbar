@@ -1,5 +1,6 @@
 // Whether Chrome lets the extension screenshot a tab (D-185). captureVisibleTab needs `<all_urls>`
-// or activeTab; a project's optional host permission (D-126) is not enough. activeTab comes only
+// or activeTab. Release builds hold `<all_urls>` since D-202, so this matters once the person
+// limits the extension's site access in Chrome; a per-site grant is not enough. activeTab comes only
 // from the reviewer invoking the extension on the tab: opening its menu (the action or Ctrl+Shift+Y)
 // or one of its keyboard commands. It then lasts through same-origin loads of that tab. Waking the
 // reviewer toolbar with its in-page keys is a page event, so a reviewer who never opened the menu

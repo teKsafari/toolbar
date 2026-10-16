@@ -3,7 +3,7 @@
 import { browser } from 'wxt/browser';
 import { DEFAULT_USER_SETTINGS, type ExtensionSettings } from '@toolbar/shared/api';
 import { STORAGE, type AuthState, type StorageName, type StorageValues } from '@toolbar/shared/ext';
-import { BUILT_SERVER_URL, accountServerUrl, resolveServerUrl } from '../server-url';
+import { BUILT_SERVER_URL, accountServerUrl, managedPolicy, resolveServerUrl } from '../server-url';
 
 const areaOf = (a: 'local' | 'session') => (a === 'local' ? browser.storage.local : browser.storage.session);
 
@@ -44,8 +44,10 @@ export function defaultServerUrl(): string {
   return resolveServerUrl(null, BUILT_SERVER_URL);
 }
 
-/** The configured server (override, else the build's), or the signed-in server's when they differ. */
+/** The configured server (policy, else override, else the build's), or the signed-in server's when they differ. */
 export async function serverUrl(): Promise<string> {
+  const policy = (await managedPolicy()).serverUrl;
+  if (policy) return policy; // D-202: an admin's policy wins
   const override = await getStore('serverUrl');
   return override ? resolveServerUrl(override) : accountServerUrl();
 }
