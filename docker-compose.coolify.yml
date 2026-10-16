@@ -22,7 +22,7 @@ services:
     env_file: [{ path: .env, required: false }]
     environment:
       SERVICE_URL_SERVER_3000: /
-      PUBLIC_URL: ${SERVICE_URL_SERVER_3000}
+      PUBLIC_URL: ${SERVICE_URL_SERVER}
       BETTER_AUTH_SECRET: ${SERVICE_PASSWORD_64_AUTH}
       OIDC_ISSUER: ${OIDC_ISSUER:?}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?}

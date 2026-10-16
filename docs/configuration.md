@@ -40,7 +40,7 @@ Postgres and Garage keep working with their built-in credentials, because the co
 
 ## Where each setting lives
 
-Each setting is in one of five places (D-194). **Required** values boot the server and stay in the environment. **Wiring** is what the compose files and Coolify fill in for the containers they run; you set it only outside them. **Settings > Server** fields belong to the instance admin, who changes them at runtime; the variable, when set, locks the field. **Workspace** settings belong to a workspace admin and have no variable. **Optional environment** covers deployment details that take effect at start, belong to another container, or depend on the image. **Dev and tests**, **Paused**, **Build** and **Older names** stay out of every compose file you deploy.
+Each setting is in one of five places (D-194). **Required** values boot the server and stay in the environment. **Wiring** is what the compose files and Coolify fill in for the containers they run; you set it only outside them. **Settings > Server** fields belong to the instance admin, who changes them at runtime; the variable, when set, locks the field. **Workspace** settings belong to a workspace admin and have no variable. **Optional environment** covers deployment details that take effect at start, belong to another container, or depend on the image. **Dev and tests**, **Paused** and **Build** stay out of every compose file you deploy.
 
 | Setting | Where | Why there |
 |---|---|---|
@@ -77,7 +77,6 @@ Each setting is in one of five places (D-194). **Required** values boot the serv
 | `INJECTOR_UPSTREAMS`, `INJECTOR_UPSTREAM`, `TOOLBAR_SERVER_URL`, `TOOLBAR_PUBLIC_URL`, `INJECTOR_TRUST_FORWARDED`, `INJECTOR_SCAN_LIMIT`, `INJECTOR_LISTEN`, `INJECTOR_ASSETS` | Injector container | Read by the injector, never by this server. |
 | `TOOLBAR_SERVER`, `TOOLBAR_TOKEN` | Agent side | Read by the coding agent's shell. |
 | `WXT_SERVER_URL`, `WXT_APP_NAME`, `WXT_APP_ICON`, `WXT_MANIFEST_KEY`, `WXT_GECKO_ID`, `RELEASE_TAG`, `FIREFOX`, `WXT_DEV_PORT`, `WXT_TEST_HOOKS`, `WXT_OUT_SUFFIX` | Build | Read when you build the extension. |
-| `OIDC_1_CLIENT_ID`, `OIDC_1_CLIENT_SECRET`, `OIDC_1_DISCOVERY_URL`, `OIDC_1_SCOPES`, `OIDC_1_NAME`, `OIDC_1_ID`, `AUTH_ALLOWED_DOMAINS`, `AUTH_EMAIL_PASSWORD`, `AI_URL`, `STT_URL`, `STT_API_KEY`, `STT_MODEL` | Older names | Kept so existing `.env` files run; each follows its new name's place. |
 
 ## Settings > Server
 
@@ -116,7 +115,7 @@ Each row gives the variable, its default, an example, and what it does with when
 | `BETTER_AUTH_SECRET` | a dev secret | output of `openssl rand -hex 32` | **Required.** Signs sessions and derives the key that encrypts share and recording-link tokens and the transcription API key in the database. Use 32 or more random characters. Changing it signs everyone out and makes stored share links and the stored API key unreadable, so set it once. |
 | `AUTH_SECRET` | empty | as above | A shorter name for `BETTER_AUTH_SECRET`, read when that one is empty. |
 | `PORT` | `3000` | `8080` | Compose: the host port the server container publishes. Compose pins the server to 3000 inside the container. Change it when 3000 is taken on the host. |
-| `EXTENSION_IDS` | `fmongfmimgdafigcahdpofnmmhljpnei` | `fmongfmimgdafigcahdpofnmmhljpnei,abcdefghijklmnopabcdefghijklmnop` | Comma separated ids of the browser extensions allowed to sign in through `/ext/connect` and to call the API from their pages. The default is the id the repository's manifest key pins. Add the Chrome Web Store item's id when you publish your own ([docs/extension-release.md](extension-release.md)). |
+| `EXTENSION_IDS` | `laobpjhffglefallhhojihfdbdkoendk` | `laobpjhffglefallhhojihfdbdkoendk,abcdefghijklmnopabcdefghijklmnop` | Comma separated ids of the browser extensions allowed to sign in through `/ext/connect` and to call the API from their pages. The default is the id the repository's manifest key pins. Add the Chrome Web Store item's id when you publish your own ([docs/extension-release.md](extension-release.md)). |
 | `BODY_SIZE_LIMIT` | `210M` (set in the image) | `500M` | Largest request body the Node server accepts. Routes cap upload chunks at 8 MiB and attachments at 200 MiB on their own; raise this only together with those limits. |
 | `WORKER` | `1` | `0` | Runs the background job worker (transcripts, thumbnails, webhooks) inside the server process. Set `0` on extra server replicas so one process runs jobs. |
 | `MIGRATE_ON_START` | `1` | `0` | Applies database migrations at start. Set `0` when you run `pnpm --filter @toolbar/server db:migrate` yourself before a deploy. |
@@ -250,7 +249,7 @@ Setting a key alone changes nothing: the provider switches only when an admin pi
 
 | Variable | Default | Example | Purpose and when to change |
 |---|---|---|---|
-| `TRANSCRIBE_PROVIDER` | `none` | `openai`, `local` | Settings > Server, Transcription. `none`, `local` or `openai`. The older `whispercpp` and `openai-compatible` mean `local` and `openai`. `local` needs the whisper.cpp container (`docker-compose.whisper.yml`). |
+| `TRANSCRIBE_PROVIDER` | `none` | `openai`, `local` | Settings > Server, Transcription. `none`, `local` or `openai`. `local` needs the whisper.cpp container (`docker-compose.whisper.yml`). |
 | `TRANSCRIBE_MODEL` | `gpt-transcribe` | `whisper-1` | Settings > Server, Transcription. Model id for `openai`. `whisper-1` also works on OpenAI; Groq takes `whisper-large-v3-turbo`. |
 | `TRANSCRIBE_API_KEY` | `OPENAI_API_KEY` | `sk-...` | Settings > Server, Transcription, where it is stored sealed and shown as its last four characters. Bearer token for `openai`. A self-hosted endpoint such as speaches may need none. |
 | `OPENAI_API_KEY` | empty | `sk-...` | Read when `TRANSCRIBE_API_KEY` is empty; locks the API key field like it. Setting it alone does not switch the provider. |
@@ -264,8 +263,6 @@ Setting a key alone changes nothing: the provider switches only when an admin pi
 | `WHISPER_URL` | `http://localhost:8080`; `docker-compose.whisper.yml` and the Coolify file set `http://whisper:8080` | `http://gpu-box:8080` | Settings > Server, Transcription, when the variable is unset. Where the server reaches whisper.cpp. Change it to use one that runs elsewhere, for example on a GPU. |
 | `WHISPER_MODEL` | `base` | `small` | `docker-compose.whisper.yml`: the ggml model the whisper container downloads at first start, and the label the server stores with each transcript. `small` is more accurate and about three times slower. The Coolify file uses `base`. |
 | `WHISPER_PORT` | `8080` | `18080` | `docker-compose.whisper.yml` only: the host port, on `127.0.0.1`, of the whisper container. |
-
-The older `STT_URL` (a base without `/v1`), `STT_API_KEY` and `STT_MODEL` still work when the new names are unset.
 
 ### Limits of the hosted provider
 
@@ -404,7 +401,7 @@ Read by the coding agent's shell, not by any service: the Agent Skill (`skills/o
 | Value | Who sets it |
 |---|---|
 | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `ADMIN_EMAILS` | You. Marked required (`${VAR:?}`), so Coolify asks for them before the first deploy. |
-| `SERVICE_URL_SERVER_3000` | Coolify: the server's domain, routed by its proxy to port 3000; `PUBLIC_URL` follows it. Set your own domain in the server's Domains field as `https://feedback.example.com:3000`. |
+| `SERVICE_URL_SERVER_3000` | Coolify: the server's domain, routed by its proxy to port 3000; `PUBLIC_URL` reads `SERVICE_URL_SERVER` (Coolify fills the name without the port; `${SERVICE_URL_SERVER_3000}` comes through empty). Set your own domain in the server's Domains field as `https://feedback.example.com:3000`. |
 | `SERVICE_PASSWORD_64_AUTH` | Coolify: the auth secret (`BETTER_AUTH_SECRET`). |
 | `SERVICE_USER_POSTGRES`, `SERVICE_PASSWORD_64_POSTGRES` | Coolify: the Postgres user and password, used by Postgres and in `DATABASE_URL`. |
 | `SERVICE_HEX_64_S3SECRET`, `SERVICE_HEX_64_GARAGERPC`, `SERVICE_PASSWORD_64_GARAGEADMIN` | Coolify: Garage's S3 secret key, cluster secret and admin token. |
@@ -427,7 +424,7 @@ These are read when you build the extension, never by a running server ([docs/ex
 | `WXT_SERVER_URL` | `http://localhost:3000` | `https://feedback.example.com` | The server a fresh install points at. Set it for a release your testers install, so they only click Sign in. |
 | `WXT_APP_NAME` | `open-toolbar` | `Acme Review` | The extension's name in the manifest, toolbar tooltip and page titles (docs/branding.md). |
 | `WXT_APP_ICON` | the packaged rectangle | `brand/logo.svg` | An SVG or PNG the build renders into the packaged icons. |
-| `WXT_MANIFEST_KEY` | the repository's key (id `fmongfmimgdafigcahdpofnmmhljpnei`) | the Web Store item's public key | The public key that pins the extension id of unpacked builds. Set it to the Chrome Web Store item's key so local builds share the store id. |
+| `WXT_MANIFEST_KEY` | the open-toolbar Web Store item's public key (id `laobpjhffglefallhhojihfdbdkoendk`) | a fork's Web Store item public key | The public key that pins the extension id of every Chrome build. A fork that publishes its own store item sets it to that item's key, so its builds share that item's id. |
 | `WXT_GECKO_ID` | `open-toolbar@self-hosted` | `review@acme.example` | The Firefox add-on id. Use your own when you sign the add-on on AMO. |
 | `RELEASE_TAG` | empty | `v0.2.0` | `scripts/release-extension.sh` refuses to build when this tag's version differs from `apps/extension/package.json`. The release workflow sets it. |
 | `FIREFOX` | `1` | `0` | `scripts/release-extension.sh` builds the Firefox zip too unless this is `0`. |
@@ -443,22 +440,3 @@ These are read when you build the extension, never by a running server ([docs/ex
 | `SERVER_URL` | `PUBLIC_URL` | `http://localhost:3107` | The server `apps/server/scripts/check-server-core.ts` and the e2e suites talk to. |
 | `PROTOCOL_HEADER` | set by `server.js` | `x-toolbar-origin-proto` | Internal: `server.js` sets it so adapter-node takes the protocol from `PUBLIC_URL`. Do not set it. |
 | `HOST_HEADER` | set by `server.js` | `x-toolbar-origin-host` | Internal: as above, for the host. Do not set it. |
-
-## Older names
-
-These still work so existing `.env` files keep running; prefer the new names.
-
-| Variable | Default | Example | Purpose and when to change |
-|---|---|---|---|
-| `OIDC_1_CLIENT_ID` | empty | as `OIDC_CLIENT_ID` | Read, with the other `OIDC_1_*` names, only while `OIDC_CLIENT_ID` is empty. |
-| `OIDC_1_CLIENT_SECRET` | empty | as `OIDC_CLIENT_SECRET` | Older `OIDC_CLIENT_SECRET`. |
-| `OIDC_1_DISCOVERY_URL` | empty | as `OIDC_DISCOVERY_URL` | Older `OIDC_DISCOVERY_URL`. |
-| `OIDC_1_SCOPES` | `openid email profile` | as `OIDC_SCOPES` | Older `OIDC_SCOPES`. |
-| `OIDC_1_NAME` | `SSO` | as `OIDC_PROVIDER_NAME` | Older `OIDC_PROVIDER_NAME`. |
-| `OIDC_1_ID` | `oidc` | as `OIDC_PROVIDER_ID` | Older `OIDC_PROVIDER_ID`. |
-| `AUTH_ALLOWED_DOMAINS` | empty | as `ALLOWED_EMAIL_DOMAINS` | Older `ALLOWED_EMAIL_DOMAINS`, read when that one is empty. |
-| `AUTH_EMAIL_PASSWORD` | off | as `AUTH_DEV_PASSWORD` | Older `AUTH_DEV_PASSWORD`. |
-| `AI_URL` | empty | as `AI_BASE_URL` | Older `AI_BASE_URL`, read when that one is empty. |
-| `STT_URL` | empty | `https://api.openai.com` | Older `TRANSCRIBE_BASE_URL`, without `/v1`; read when the new name is unset. |
-| `STT_API_KEY` | empty | `sk-...` | Older `TRANSCRIBE_API_KEY`. |
-| `STT_MODEL` | `whisper-1` | `gpt-4o-mini-transcribe` | Older `TRANSCRIBE_MODEL`. |
