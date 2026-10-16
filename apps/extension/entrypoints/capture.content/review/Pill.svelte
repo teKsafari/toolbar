@@ -129,6 +129,8 @@
   .colors { display: inline-flex; gap: 3px; padding: 0 4px; }
   .sw { all: unset; width: 14px; height: 14px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.2) inset; }
   .sw.sel { box-shadow: 0 0 0 2px var(--nb-chrome), 0 0 0 3.5px var(--nb-on-chrome); }
+  /* keyboard focus on a swatch, which `all: unset` left without a ring (D-181) */
+  .sw:focus-visible { outline: 2px solid var(--nb-chrome-accent); outline-offset: 3px; }
   .send { all: unset; box-sizing: border-box; flex: none; height: 32px; padding: 0 11px; margin-left: 2px; border-radius: 16px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; background: var(--nb-chrome-accent); color: var(--nb-on-chrome-accent); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5); font: var(--nb-weight-semibold) 12px/1 var(--nb-font-sans); font-variant-numeric: tabular-nums; transition: background-color var(--nb-dur-fast) var(--nb-ease-out), transform var(--nb-dur-fast) var(--nb-ease-out); }
   .send:hover { background: var(--nb-chrome-accent-hover); }
   .send:active:not(:disabled) { transform: translateY(1px); }

@@ -533,7 +533,21 @@ export class Review {
     const v = this.voice;
     if (!v) return;
     this.voice = null;
+    // a standalone note opens its composer only once the worker has saved the clip, which can take a
+    // while on a busy machine: keys typed meanwhile (a comment, Enter, Escape) are kept, as for a
+    // quiet crop, instead of falling on the page (D-181)
+    const standalone = v.for === 'standalone';
+    if (standalone) {
+      this.typeahead = '';
+      this.typeaheadEnd = null;
+    }
     const r = await send('review.voice', { op: 'stop' });
+    const typed = standalone ? (this.typeahead ?? '') : '';
+    const end = standalone ? this.typeaheadEnd : null;
+    if (standalone) {
+      this.typeahead = null;
+      this.typeaheadEnd = null;
+    }
     if (!r.ok) return void toasts.error(errorText(r));
     if (!r.blobId) return void toasts.show('No sound was recorded');
     if (v.for === 'draft' && this.draft) {
@@ -548,11 +562,12 @@ export class Review {
         voiceBlobId: r.blobId,
         voiceDurationMs: r.durationMs,
         locatorP: locate({ kind: 'page' }),
-        comment: '',
+        comment: typed,
         intent: 'fix',
         severity: 'important',
         at: { x: innerWidth - 340, y: innerHeight - 260 },
       });
+      this.finishTypeahead(end);
     }
   }
 

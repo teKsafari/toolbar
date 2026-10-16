@@ -1037,6 +1037,17 @@
     cursor: pointer;
     color: var(--nb-text-muted);
   }
+  .nb-ed-atts button:hover {
+    color: var(--nb-text);
+  }
+  .nb-ed-atts button:focus-visible {
+    outline: 2px solid var(--nb-focus);
+    outline-offset: 1px;
+  }
+  /* the size label sits on the row's surface-sunken fill, where faint is 4.39:1 (D-181) */
+  .nb-ed-atts li .nb-faint {
+    color: var(--nb-text-muted);
+  }
   .nb-faint {
     color: var(--nb-text-faint);
   }
@@ -1159,5 +1170,32 @@
   .nb-ed-create:disabled {
     opacity: 0.6;
     cursor: default;
+  }
+  /* phones and narrow windows: the form goes under the preview instead of beside it, so the preview,
+     the tool pill and the form each get the full width; the dialog scrolls when they do not fit (D-181) */
+  @media (max-width: 640px) {
+    .nb-ed {
+      width: calc(100vw - 16px);
+      height: calc(100vh - 16px);
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(320px, 1fr) auto;
+      border-radius: var(--nb-radius-lg);
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+    .nb-ed-media {
+      padding: 12px;
+    }
+    .nb-ed-form {
+      padding: 12px;
+      border-left: 0;
+      border-top: 1px solid var(--nb-border);
+    }
+    /* the form row is as tall as its content here, so the title and description field gets a height
+       of its own instead of the leftover space it fills beside the preview */
+    .nb-ed-form :global(.nb-rf) {
+      flex: none;
+      min-height: 160px;
+    }
   }
 </style>

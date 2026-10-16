@@ -570,6 +570,11 @@
   .nb-vd-btn:hover:not(:disabled) {
     background: var(--nb-surface-sunken);
   }
+  /* keyboard focus for a control that `all: unset` left without a ring (D-181) */
+  .nb-vd-btn:focus-visible {
+    outline: 2px solid var(--nb-focus);
+    outline-offset: 1px;
+  }
   .nb-vd-btn:disabled {
     opacity: 0.35;
     cursor: default;

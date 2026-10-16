@@ -305,6 +305,8 @@
   .email { margin-left: auto; color: var(--nb-text-faint); font-size: var(--nb-text-sm); }
   .col { display: flex; flex-direction: column; min-width: 0; flex: 1; gap: 3px; }
   .sub { font-size: var(--nb-text-sm); color: var(--nb-text-faint); }
+  /* the selected row sits on accent-tint: secondary text takes text-muted there (D-178, D-181) */
+  .row.on .sub, .row.on .email { color: var(--nb-text-muted); }
   .ic { display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--nb-radius-md); background: var(--nb-surface-sunken); color: var(--nb-text-muted); }
   .thumb { display: grid; place-items: center; width: 44px; height: 28px; border-radius: 4px; overflow: hidden; background: var(--nb-surface-sunken); color: var(--nb-text-faint); flex: none; }
   .thumb img { width: 100%; height: 100%; object-fit: cover; }

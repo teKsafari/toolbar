@@ -197,4 +197,25 @@
     outline: 2px solid var(--nb-focus);
     outline-offset: 2px;
   }
+  /* keyboard focus for a control that `all: unset` left without a ring (D-181) */
+  .nb-swatch:focus-visible {
+    outline: 2px solid var(--nb-focus);
+    outline-offset: 4px;
+  }
+  /* narrow windows: 28 px tools without gaps keep the pill (11 buttons) at about 325 px, inside a 390 px
+     viewport's preview (D-181) */
+  @media (max-width: 480px) {
+    .nb-pill {
+      gap: 0;
+      height: 40px;
+      padding: 0 4px;
+    }
+    .nb-tool {
+      width: 28px;
+      height: 28px;
+    }
+    .nb-div {
+      margin: 0 3px;
+    }
+  }
 </style>

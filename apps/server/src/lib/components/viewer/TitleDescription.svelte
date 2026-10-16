@@ -155,6 +155,8 @@
   .desc :global(.nb-mention) { color: var(--nb-accent-text); font-weight: 500; }
   .desc :global(code) { font-family: var(--nb-font-mono); font-size: 0.92em; padding: 0 3px; border-radius: 4px; background: var(--nb-surface-sunken); }
   .ph { color: var(--nb-text-faint); }
+  /* on the hover wash (surface-sunken) faint drops to 4.39:1, so it steps up to muted (D-181) */
+  .desc.editable:hover .ph { color: var(--nb-text-muted); }
   .desc-edit { display: flex; padding: 2px 8px; border: 1px solid var(--nb-focus); border-radius: var(--nb-radius-md); background: var(--nb-surface); box-shadow: var(--nb-focus-ring); }
   .figma { display: flex; flex-direction: column; gap: 8px; }
   .fbtn { all: unset; align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--nb-border-strong); background: var(--nb-surface); font-size: var(--nb-text-md); font-weight: var(--nb-weight-medium); cursor: pointer; box-shadow: var(--nb-shadow-sm); }

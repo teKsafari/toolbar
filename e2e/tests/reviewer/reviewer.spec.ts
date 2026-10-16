@@ -495,3 +495,73 @@ test('the reviewer toolbar steps aside while screenshot mode owns the page, and 
   await expect.poll(() => sw.evaluate(() => (globalThis as unknown as { __tbUi: Hooks }).__tbUi.session().then((s) => s.state))).toBe('idle');
   await expect(ui(page, 'review-launcher')).toBeVisible();
 });
+
+test('keyboard focus shows on every control of the composer and the pill (D-181)', async ({ context, sw }) => {
+  const page = await context.newPage();
+  await signIn(page, sw);
+  await openLab(page);
+  await wake(page);
+  await page.keyboard.press('c');
+  await page.getByTestId('works').click();
+  await expect(ui(page, 'review-composer')).toBeVisible();
+  // a voice note on the comment, so its remove button is in the walk too
+  await ui(page, 'review-composer-voice-toggle').click();
+  await expect(ui(page, 'review-composer-recording')).toBeVisible();
+  await sleep(1200);
+  await ui(page, 'review-composer-voice-toggle').click();
+  await expect(ui(page, 'review-composer-voice')).toBeVisible();
+  await ui(page, 'review-comment').focus();
+  // Tab through the toolbar's shadow root and keep each stop; then compare it focused and blurred
+  await page.evaluate(() => ((window as unknown as { __stops: Element[] }).__stops = []));
+  for (let i = 0; i < 30; i++) {
+    await page.keyboard.press('Tab');
+    await sleep(60);
+    const done = await page.evaluate(() => {
+      const root = document.querySelector('toolbar-root')!.shadowRoot!;
+      const el = root.activeElement;
+      const stops = (window as unknown as { __stops: Element[] }).__stops;
+      if (!el) return stops.length > 0; // left the toolbar
+      if (stops.includes(el)) return true;
+      const cs = getComputedStyle(el);
+      el.setAttribute('data-focused-style', JSON.stringify([cs.outlineStyle, cs.outlineWidth, cs.outlineColor, cs.boxShadow, cs.borderColor, cs.backgroundColor]));
+      stops.push(el);
+      return false;
+    });
+    if (done) break;
+  }
+  const report = await page.evaluate(() => {
+    const stops = (window as unknown as { __stops: HTMLElement[] }).__stops;
+    (document.querySelector('toolbar-root')!.shadowRoot!.activeElement as HTMLElement | null)?.blur();
+    return stops.map((el) => {
+      const cs = getComputedStyle(el);
+      const idle = [cs.outlineStyle, cs.outlineWidth, cs.outlineColor, cs.boxShadow, cs.borderColor, cs.backgroundColor];
+      const focused = JSON.parse(el.getAttribute('data-focused-style')!) as string[];
+      const ring = focused[0] !== 'none' && parseFloat(focused[1]!) >= 2;
+      const changed = ring || focused.slice(3).some((v, i) => v !== idle[i + 3]);
+      return { name: el.getAttribute('aria-label') ?? el.getAttribute('data-testid') ?? el.tagName.toLowerCase(), changed };
+    });
+  });
+  console.log(`reviewer focus walk: ${report.map((r) => `${r.name}${r.changed ? '' : ' (NO CHANGE)'}`).join(', ')}`);
+  expect(report.length, 'the walk reached the composer controls').toBeGreaterThan(4);
+  expect(report.filter((r) => !r.changed).map((r) => r.name)).toEqual([]);
+});
+
+test('a standalone voice note keeps what is typed while it is saved: the comment and Enter (D-181)', async ({ context, sw }) => {
+  const page = await context.newPage();
+  await signIn(page, sw);
+  await openLab(page);
+  await wake(page);
+  await page.keyboard.press('v');
+  await expect(ui(page, 'review-voice-time')).toBeVisible();
+  await sleep(1500);
+  const before = (await ui(page, 'review-count').count()) ? Number(await ui(page, 'review-count').textContent()) : 0;
+  // stop and type at once, without waiting for the composer
+  await page.keyboard.press('v');
+  await page.keyboard.type('Listen to this', { delay: 5 });
+  await page.keyboard.press('Enter');
+  await expect(ui(page, 'review-count')).toHaveText(String(before + 1));
+  await expect(ui(page, 'review-composer')).toBeHidden();
+  const state = await sw.evaluate(() => (globalThis as unknown as { __tbReview: { state(): Promise<Record<string, { items: { kind: string; comment: string }[] }>> } }).__tbReview.state());
+  const voice = Object.values(state).flatMap((t) => t.items).filter((i) => i.kind === 'voice');
+  expect(voice.at(-1)?.comment).toBe('Listen to this');
+});

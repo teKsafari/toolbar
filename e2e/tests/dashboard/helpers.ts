@@ -28,7 +28,10 @@ export async function newContext(browser: Browser, opts: { width?: number; heigh
   const ctx = await browser.newContext({
     viewport: { width: opts.width ?? 1440, height: opts.height ?? 900 },
     colorScheme: opts.dark ? 'dark' : 'light',
-    permissions: ['clipboard-read', 'clipboard-write'],
+    // microphone: without the grant, navigator.permissions.query reports 'denied' in a Playwright
+    // context even though the fake device answers getUserMedia, and the link recorder's pre-check
+    // then shows "Your browser blocks the microphone" (links.spec J-017/J-126; D-181)
+    permissions: ['clipboard-read', 'clipboard-write', 'microphone'],
   });
   return ctx;
 }

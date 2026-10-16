@@ -130,6 +130,7 @@
   @keyframes pulse { 50% { opacity: 0.4; } }
   .x { all: unset; cursor: pointer; display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; color: var(--nb-text-faint); }
   .x:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
+  .x:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; color: var(--nb-text); }
   .ctx { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--nb-warning); }
   .row { display: flex; align-items: center; gap: 4px; }
   .grow { flex: 1; }

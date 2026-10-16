@@ -59,6 +59,10 @@ export const test = base.extend<{ context: BrowserContext }, { extContext: Brows
           '--force-device-scale-factor=1',
         ],
       });
+      // E2E_VIEWPORT=390x844 gives every new page that viewport, to run a suite at phone width (D-181);
+      // tests that set their own size still win
+      const vp = process.env.E2E_VIEWPORT?.match(/^(\d+)x(\d+)$/);
+      if (vp) context.on('page', (p) => void p.setViewportSize({ width: Number(vp[1]), height: Number(vp[2]) }).catch(() => {}));
       await use(context);
       await context.close();
       fs.rmSync(userDataDir, { recursive: true, force: true });

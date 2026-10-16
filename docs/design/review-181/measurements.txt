@@ -1,0 +1,59 @@
+Fourth design review (D-181). Web pages measured in headless Chromium 1.63 at 1440 x 900, signed in as dana@toolbar.test; text over its composited background.
+# before (shared stack on :3000, image of 4a9f124)
+light palette selected row secondary line: min 4.04 (#6b7280 on #ebebeb, 12px, "Dana Reviewer · 3 d ago")
+light description placeholder on hover (/c/019a0000-0000-7000-8000-0000000000d5): 4.39 (#6b7280 on #f3f4f6, 14px)
+light focus link-sort (/links): border #d1d5db -> #d1d5db, 1.47:1 against #ffffff, focus-visible true
+light focus ws-default-access (/settings/workspace): border #d1d5db -> #d1d5db, 1.47:1 against #ffffff, focus-visible true
+light focus ws-domain (/settings/workspace): border #d1d5db -> #d1d5db, 1.47:1 against #ffffff, focus-visible true
+light focus role-hint (/settings/profile): border #d1d5db -> #d1d5db, 1.47:1 against #ffffff, focus-visible true
+light focus brand-accent-picker (/settings/server): border #d1d5db -> #d1d5db, 1.47:1 against #ffffff, focus-visible true
+dark palette selected row secondary line: min 3.91 (#8a8a8f on #2f2f2f, 12px, "Dana Reviewer · 3 d ago")
+dark description placeholder on hover (/c/019a0000-0000-7000-8000-0000000000d5): 5.01 (#8a8a8f on #1b1b1b, 14px)
+dark focus link-sort (/links): border #3e3e3e -> #3e3e3e, 1.74:1 against #131313, focus-visible true
+dark focus ws-default-access (/settings/workspace): border #3e3e3e -> #3e3e3e, 1.74:1 against #131313, focus-visible true
+dark focus ws-domain (/settings/workspace): border #3e3e3e -> #3e3e3e, 1.74:1 against #131313, focus-visible true
+dark focus role-hint (/settings/profile): border #3e3e3e -> #3e3e3e, 1.74:1 against #131313, focus-visible true
+dark focus brand-accent-picker (/settings/server): border #3e3e3e -> #3e3e3e, 1.74:1 against #131313, focus-visible true
+# after (fresh stack tb241 on :3341, this commit; the placeholder on capture c3 after emptying its description there)
+light palette selected row secondary line: min 6.32 (#4b5563 on #ebebeb, 12px, "Sam Developer · 3 d ago")
+light focus link-sort (/links): border #d1d5db -> #000000, 21:1 against #ffffff, focus-visible true
+light focus ws-default-access (/settings/workspace): border #d1d5db -> #000000, 21:1 against #ffffff, focus-visible true
+light focus ws-domain (/settings/workspace): border #d1d5db -> #000000, 21:1 against #ffffff, focus-visible true
+light focus role-hint (/settings/profile): border #d1d5db -> #000000, 21:1 against #ffffff, focus-visible true
+light focus brand-accent-picker (/settings/server): border #d1d5db -> #000000, 21:1 against #ffffff, focus-visible true
+dark palette selected row secondary line: min 5.33 (#a3a3a3 on #2f2f2f, 12px, "Dana Reviewer · 3 d ago")
+dark focus link-sort (/links): border #3e3e3e -> #fafafa, 17.8:1 against #131313, focus-visible true
+dark focus ws-default-access (/settings/workspace): border #3e3e3e -> #fafafa, 17.8:1 against #131313, focus-visible true
+dark focus ws-domain (/settings/workspace): border #3e3e3e -> #fafafa, 17.8:1 against #131313, focus-visible true
+dark focus role-hint (/settings/profile): border #3e3e3e -> #fafafa, 17.8:1 against #131313, focus-visible true
+dark focus brand-accent-picker (/settings/server): border #3e3e3e -> #fafafa, 17.8:1 against #131313, focus-visible true
+light description placeholder on hover (/c/019a0000-0000-7000-8000-0000000000c3): 6.87 (#4b5563 on #f3f4f6, 14px)
+dark description placeholder on hover (/c/019a0000-0000-7000-8000-0000000000c3): 6.83 (#a3a3a3 on #1b1b1b, 14px)
+# palette selected row with an admin accent (computed from deriveAccent; the token test pins it for 11 accents)
+#e11d48 light: tint over surface #fdedf0, text-faint 4.27 (before), text-muted 6.68 (after)
+#e11d48 dark (accent #ea617f): tint over surface #2d1c20, text-faint 4.71 (before), text-muted 6.41 (after)
+# recording bar on the chrome (12 to 13 px Geist Mono), light OS #131313 and dark OS #1b1b1b
+light OS (#131313) normal: before paused blink low 3.13 (opacity 0.35), after blink 11.87 at the half step and 7.37 at on-chrome-muted; cap before 11.55 (opacity 0.8), after 17.8
+light OS (#131313) warn: before paused blink low 2.37 (opacity 0.35), after blink 8.96 at the half step and 7.37 at on-chrome-muted; cap before 7.43 (opacity 0.8), after 11.13
+light OS (#131313) danger: before paused blink low 1.83 (opacity 0.35), after blink 6.74 at the half step and 7.37 at on-chrome-muted; cap before 4.68 (opacity 0.8), after 6.72
+dark OS (#1b1b1b) normal: before paused blink low 3.14 (opacity 0.35), after blink 11.0 at the half step and 6.83 at on-chrome-muted; cap before 10.88 (opacity 0.8), after 16.5
+dark OS (#1b1b1b) warn: before paused blink low 2.38 (opacity 0.35), after blink 8.3 at the half step and 6.83 at on-chrome-muted; cap before 7.02 (opacity 0.8), after 10.32
+dark OS (#1b1b1b) danger: before paused blink low 1.84 (opacity 0.35), after blink 6.24 at the half step and 6.83 at on-chrome-muted; cap before 4.43 (opacity 0.8), after 6.23
+# extension editor (e2e/tests/editor/editor-narrow.spec.ts)
+before: attachment size label 4.39 light (#6b7280 on #f3f4f6, 12 px, measured by the new spec on the old build); remove button: no :focus-visible rule after `all: unset` (review Tab walk)
+after:  size label text-muted, 6.87 light and 6.83 dark; remove button 2 px solid focus outline
+before at 390 x 844: the 300 px form column beside the preview (form top at 58 px, the tool pill and colour dot off screen); editor-tools and editor-video at 390 (E2E_VIEWPORT=390x844): 9 of 18 failed (every editor-tools test)
+after at 390 x 844: form under the preview (preview 374 px wide), tool pill 325 px inside the viewport, every Tab stop on screen; editor-tools, editor-video and editor-narrow at 390: 21 of 21 passed
+# reviewer composer and pill, Tab walk (reviewer.spec.ts "keyboard focus shows on every control")
+before: the voice note remove button, the colour swatches and the text chip had no :focus-visible rule after `all: unset` (found by a sweep of every `all: unset` control, which also found 9 more in the recording bar mic picker and menu, the popup link form and settings, the request detail toggle, the editor time links, swatches and trim undo and redo)
+after: Remove the voice note, Record a voice note, Intent, Severity, review-cancel, review-add, Comment on an element (C), Screenshot an element (S), Rectangle (R), Arrow (A), Freehand (F), Voice note (V), Start trace (X), Notes on this tab (L), Hide pins (H), Close (Esc): each changes outline, shadow, border or fill when focused
+# standalone voice note, keys typed while the clip is saved (reviewer.spec.ts)
+before: "Listen to this" typed right after V kept as "sten to this" (the first keys fell on the page); in P2.2 under load the Enter fell on the page, so the note never reached the unsent list
+after: kept as "Listen to this", and the Enter adds it
+# after, on the rebuilt shared stack (:3000, same capture as before)
+light description placeholder on hover (/c/019a0000-0000-7000-8000-0000000000d5): 6.87 (#4b5563 on #f3f4f6, 14px)
+dark description placeholder on hover (/c/019a0000-0000-7000-8000-0000000000d5): 6.83 (#a3a3a3 on #1b1b1b, 14px)
+# suites (display :241)
+dashboard + viewer area suites on a fresh stack (separate compose project on :3341, --workers=1): 93 passed, 4 skipped
+flows on a freshly wiped stack: 25 passed, 1 skipped (K, CLI paused), no LIMITATION fallbacks
+ext-ui + editor area suites (1280 window): 81 passed; reviewer suite and editor-tools: 19 passed, 1 skipped (trace work package), the new voice-keys test failed on its own count lookup, which waited for a hidden badge; fixed, it passes (8.1 s) and fails on the old build

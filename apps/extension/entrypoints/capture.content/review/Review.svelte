@@ -276,5 +276,6 @@
   .preview q { color: var(--nb-text-muted); font-style: italic; }
   .chip { all: unset; position: fixed; pointer-events: auto; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--nb-chrome); color: var(--nb-on-chrome); font: var(--nb-weight-medium) 12px/1 var(--nb-font-sans); box-shadow: inset 0 0 0 1px var(--nb-chrome-border), var(--nb-shadow-md); transition: background-color var(--nb-dur-fast) var(--nb-ease-out); }
   .chip:hover { background: var(--nb-chrome-2); }
+  .chip:focus-visible { outline: 2px solid var(--nb-chrome-accent); outline-offset: 2px; }
   kbd { font: 10px/1 var(--nb-font-mono); color: var(--nb-on-chrome-muted); border: 1px solid var(--nb-chrome-border); border-radius: 4px; padding: 2px 4px; }
 </style>
