@@ -212,10 +212,13 @@
   .frames { list-style: none; margin: 0; padding: 0; }
   .ffilter { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
   .ffilter input { flex: 1; min-width: 120px; height: 26px; padding: 0 8px; border-radius: var(--nb-radius-sm); border: 1px solid var(--nb-border-strong); background: var(--nb-surface); color: var(--nb-text); font: inherit; }
-  .ffilter input.bad { border-color: var(--nb-danger); }
+  /* a bad pattern keeps its red border while focused, over the global focus border (D-181) */
+  .ffilter input.bad, .ffilter input.bad:focus-visible { border-color: var(--nb-danger) !important; }
   .seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--nb-radius-pill); background: var(--nb-surface-sunken); }
   .seg button { all: unset; padding: 2px 9px; border-radius: var(--nb-radius-pill); font: var(--nb-text-sm) var(--nb-font-sans); color: var(--nb-text-muted); cursor: pointer; }
   .seg button.on { background: var(--nb-surface); color: var(--nb-text); box-shadow: var(--nb-shadow-sm); }
+  /* keyboard focus for a control that `all: unset` left without a ring (D-181) */
+  .seg button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
   .count { color: var(--nb-text-faint); font-family: var(--nb-font-sans); }
   .frames li > button, .frames .fhead { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 34px 12px minmax(0, 1fr) auto; gap: 6px; padding: 3px 0; cursor: pointer; }
   .frames .fhead { cursor: default; color: var(--nb-text-faint); font: 600 var(--nb-text-xs) var(--nb-font-sans); }

@@ -125,6 +125,11 @@
   .item.nav:hover {
     background: var(--nb-surface-sunken);
   }
+  /* keyboard focus for a control that `all: unset` left without a ring (D-181) */
+  .item.nav:focus-visible {
+    outline: 2px solid var(--nb-focus);
+    outline-offset: 2px;
+  }
   .text {
     flex: 1;
     display: flex;

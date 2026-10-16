@@ -191,7 +191,7 @@ E2E_DISPLAY=:120 npx playwright test -c playwright.flows.config.ts d-desktop   #
 FLOWS_PICKER=fake npx playwright test -c playwright.flows.config.ts d-desktop e-recording  # the fallback path
 ```
 
-`e2e/global-setup.ts` starts Xvfb (and openbox) on `E2E_DISPLAY` when no X server owns it, and stops them at the end. Overrides: `E2E_DISPLAY`, `LAB_URL`, `SERVER_URL`, `OIDC_MOCK_URL`, `MAILPIT_URL`, `E2E_EXT_BUILD` (area suites), `FLOWS_EXT_BUILD` (flows), `DATABASE_URL` (defaults to the compose one), `E2E_CALLBACK_HOST`. The flows write to `test-results-flows/`, so both suites can run side by side on different displays.
+`e2e/global-setup.ts` starts Xvfb (and openbox) on `E2E_DISPLAY` when no X server owns it, and stops them at the end. Overrides: `E2E_DISPLAY`, `E2E_VIEWPORT` (area suites: `390x844` gives each new page that viewport, to run a suite at phone width; tests that set their own size keep it), `LAB_URL`, `SERVER_URL`, `OIDC_MOCK_URL`, `MAILPIT_URL`, `E2E_EXT_BUILD` (area suites), `FLOWS_EXT_BUILD` (flows), `DATABASE_URL` (defaults to the compose one), `E2E_CALLBACK_HOST`. The flows write to `test-results-flows/`, so both suites can run side by side on different displays.
 
 The Part 2 scenario (`e2e/flows/p2-scenario.spec.ts`, D-163) runs in a browser of its own on a private display (E2E_DISPLAY plus 59, :179 by default) with a fake microphone that plays a FLEURS clip; it needs ffmpeg and the whisper profile. `P2_CLAUDE=1` adds a real Claude Code run that reads the folder over MCP and resolves it (it calls a model); `FLOWS_EXT_BUILD=release-zip` runs it on the unpacked release zip (unzip `dist/open-toolbar-extension-<v>-chrome.zip` into `apps/extension/.output/release-zip`).
 

@@ -210,7 +210,7 @@ open-toolbar is a dashboard, an in-page toolbar inside a shadow root, an extensi
 
 **Small popups** (extension popup, menus, the toolbar). 400 px popup: 16 px padding, 12 px radius on menus, 8 px items 28 to 32 px tall, the site's dropdown recipe (`card`, `edge` border, floating shadow, 6 px inner padding). The in-page toolbar is chrome: rectangular buttons, black primary, `inverted` and `inverted-ghost` variants when it sits on its dark bar.
 
-**Muted text on grey.** `#6b7280` drops to 4.4:1 on `#f3f4f6`. In zebra rows, sunken panels and hover states use `#4b5563` (6.9:1) for secondary text.
+**Muted text on grey.** `#6b7280` drops to 4.4:1 on `#f3f4f6`. In zebra rows, sunken panels and hover states use `#4b5563` (6.9:1) for secondary text. The same goes for a selected row on `accent-tint` (3.9 to 4.3:1 with faint, dark theme and a red admin accent included) and for a placeholder or a size label on a hover wash or a sunken row (D-181).
 
 ## 11. Dark mode for open-toolbar
 

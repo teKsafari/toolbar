@@ -131,7 +131,7 @@ describe('accent derivation', () => {
   });
 
   // admin accents of every kind: brand blues and greens, a dark navy, a light yellow, greys
-  const accents = ['#3446cf', '#0b7a5c', '#b00020', '#1e2a5a', '#ffd866', '#6b7280', '#111827', '#ff00ff', '#00ffff', '#7c3aed'];
+  const accents = ['#3446cf', '#0b7a5c', '#b00020', '#1e2a5a', '#ffd866', '#6b7280', '#111827', '#ff00ff', '#00ffff', '#7c3aed', '#e11d48'];
   for (const a of accents)
     it(`${a}: every derived pair passes AA in both themes`, () => {
       const d = deriveAccent(a);
@@ -146,6 +146,20 @@ describe('accent derivation', () => {
         }
       }
       expect(contrast(d.dark.accent, themes.light.chrome!)).toBeGreaterThanOrEqual(3);
+    });
+  // a selected row (palette, request list) lays the accent tint over the surface: its secondary
+  // line takes text-muted there, since text-faint fell to 3.9 to 4.3:1 (D-181)
+  for (const a of accents)
+    it(`${a}: text and text-muted on the accent tint over surface pass AA`, () => {
+      const d = deriveAccent(a);
+      for (const theme of ['light', 'dark'] as const) {
+        const t = themes[theme];
+        const m = /rgb\((\d+) (\d+) (\d+) \/ ([\d.]+)\)/.exec(d[theme].tint)!;
+        const base = parseInt(t.surface!.slice(1), 16);
+        const bg = '#' + [16, 8, 0].map((sh, i) => Math.round(Number(m[i + 1]) * Number(m[4]) + ((base >> sh) & 255) * (1 - Number(m[4]))).toString(16).padStart(2, '0')).join('');
+        expect(contrast(t['text-muted']!, bg), `${theme} muted on ${bg}`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(t.text!, bg), `${theme} text on ${bg}`).toBeGreaterThanOrEqual(4.5);
+      }
     });
 
   it('inverts black and greys for dark pages instead of greying them', () => {

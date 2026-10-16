@@ -293,6 +293,12 @@
     text-underline-offset: 2px;
     margin-left: 4px;
   }
+  /* keyboard focus for a control that `all: unset` left without a ring (D-181) */
+  .nb-rf-time:focus-visible {
+    outline: 2px solid var(--nb-focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
   .nb-rf-hint {
     margin-top: 6px;
     font-size: var(--nb-text-sm);

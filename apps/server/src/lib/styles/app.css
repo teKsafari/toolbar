@@ -42,10 +42,12 @@ input[type='text'], input[type='email'], input[type='password'], input[type='url
   transition: border-color var(--nb-dur-fast) var(--nb-ease-out), box-shadow var(--nb-dur-fast) var(--nb-ease-out);
 }
 input::placeholder, textarea::placeholder { color: var(--nb-text-faint); opacity: 1; }
-/* fields: the border turns the focus colour (>= 3:1) and the site's soft 3 px ring sits outside it */
+/* fields: the border turns the focus colour (>= 3:1) and the site's soft 3 px ring sits outside it.
+   The border colour is important because page styles that re-set `border` on a field are scoped,
+   load later and would otherwise leave the 25 % ring alone, under 3:1 (D-175, D-181). */
 input:focus-visible, textarea:focus-visible, select:focus-visible {
   outline: none;
-  border-color: var(--nb-focus);
+  border-color: var(--nb-focus) !important;
   box-shadow: var(--nb-focus-ring);
 }
 /* iOS zooms into fields under 16 px */

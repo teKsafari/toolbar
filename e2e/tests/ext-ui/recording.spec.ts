@@ -83,7 +83,23 @@ test('J-028 J-029 J-033: the bar is a dark pill about 295x46 at bottom centre wi
   await bar(page).locator('[data-nb-pause]').click();
   await expect.poll(async () => (await session(sw)).pausedAt).not.toBeNull();
   const frozen = await bar(page).locator('[data-nb-timer]').textContent();
-  await page.waitForTimeout(1500);
+  // the paused timer blinks by colour, never below 4.5:1 on the chrome (it faded to 0.35, 3.1:1; D-181)
+  const lows: number[] = [];
+  for (let i = 0; i < 10; i++) {
+    lows.push(
+      await bar(page).locator('[data-nb-timer]').evaluate((el) => {
+        const cs = getComputedStyle(el);
+        if (Number(cs.opacity) < 1) return 0;
+        const ch = (c: string) => c.match(/[\d.]+/g)!.slice(0, 3).map(Number);
+        const lum = (c: number[]) => { const l = c.map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * l[0]! + 0.7152 * l[1]! + 0.0722 * l[2]!; };
+        const bg = getComputedStyle(el.closest('[data-nb-bar]')!).backgroundColor;
+        const [a, b] = [lum(ch(cs.color)), lum(ch(bg))].sort((x, y) => y - x);
+        return (a! + 0.05) / (b! + 0.05);
+      }),
+    );
+    await page.waitForTimeout(150);
+  }
+  expect(Math.min(...lows)).toBeGreaterThanOrEqual(4.5);
   expect(await bar(page).locator('[data-nb-timer]').textContent()).toBe(frozen);
   await expect(bar(page).locator('[data-nb-pause]')).toHaveAttribute('aria-label', 'Resume recording');
   await bar(page).locator('[data-nb-pause]').click();
@@ -231,6 +247,8 @@ test('J-013: with a cap the timer shows it, turns orange then red, and the recor
   await expect(bar(page)).toHaveAttribute('data-stage', 'danger', { timeout: 6000 });
   const danger = await bar(page).locator('[data-nb-timer]').evaluate((el) => getComputedStyle(el).color);
   expect(danger).toBe('rgb(248, 113, 113)'); // chrome danger (D-176)
+  // the cap is in the stage colour at full strength: opacity 0.8 put it at 4.4:1 (D-181)
+  expect(await bar(page).locator('[data-nb-cap]').evaluate((el) => [getComputedStyle(el).opacity, getComputedStyle(el).color])).toEqual(['1', 'rgb(248, 113, 113)']);
   await expect.poll(async () => (await stats(sw)).stops, { timeout: 15000 }).toContain('cap');
   await expect.poll(async () => (await session(sw)).state).toBe('draft');
   await sw.evaluate(() => chrome.storage.local.remove('tb:bootstrap'));

@@ -350,7 +350,9 @@
   }
   .nb-b:focus-visible,
   .nb-done:focus-visible,
-  .nb-swatch:focus-visible {
+  .nb-swatch:focus-visible,
+  .nb-micpick:focus-visible,
+  .nb-micmenu button:focus-visible {
     outline: 2px solid var(--nb-chrome-accent);
     outline-offset: 1px;
   }
@@ -397,9 +399,11 @@
   .nb-bar[data-stage='danger'] .nb-timer {
     color: var(--nb-chrome-danger);
   }
+  /* the cap stays in the stage colour at full strength (opacity 0.8 put danger at 4.44:1); a lighter
+     weight sets it apart from the running time (D-181) */
   .nb-cap {
     color: inherit;
-    opacity: 0.8;
+    font-weight: var(--nb-weight-normal);
     margin-left: 2px;
   }
   .nb-sep {
@@ -495,9 +499,11 @@
       transform: translateY(8px);
     }
   }
+  /* paused: the timer blinks between its colour and on-chrome-muted (7:1 on the chrome) instead of
+     fading to opacity 0.35, which measured 3.13:1 for half of each cycle (D-181) */
   @keyframes nb-blink {
     to {
-      opacity: 0.35;
+      color: var(--nb-on-chrome-muted);
     }
   }
   @media (prefers-reduced-motion: reduce) {

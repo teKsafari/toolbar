@@ -138,8 +138,10 @@ test('select, move, resize and rotate a rectangle by its outline (J-046)', async
   await drag(page, at(450, 330), at(550, 380));
   const bb2 = await shapes(page).first().locator('path').evaluate((p: SVGPathElement) => { const b = p.getBBox(); return { x: b.x, y: b.y, width: b.width, height: b.height }; });
   expect(bb2.width).toBeCloseTo(300, -1);
-  // rotate from just outside the top-right corner
-  await drag(page, at(562, 218), at(640, 340), 10);
+  // rotate from just outside the top-right corner: 10 screen px out, inside the rotate ring at any
+  // preview scale (the ring is 6 to 22 screen px from the corner; D-181)
+  const ne = at(550, 230);
+  await drag(page, [ne[0] + 10, ne[1] - 10], at(640, 340), 10);
   await expect(shapes(page).first()).toHaveAttribute('transform', /rotate\(/);
 });
 

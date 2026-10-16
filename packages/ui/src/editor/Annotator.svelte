@@ -70,8 +70,10 @@
     st.cancelDrag();
   }
   function onDbl(e: MouseEvent) {
+    // a small callout (a zoomed-out preview, a 390 px window) is mostly covered by its own
+    // handles once the first click selects it, so a double-click on a handle edits it too (D-181)
     const t = st.hit(toImage(e));
-    if (t?.kind !== 'shape') return;
+    if (!t || (t.kind !== 'shape' && t.kind !== 'handle')) return;
     const s = st.shapes.find((x) => x.id === t.id);
     if (s?.type === 'text') {
       st.editText(s.id);
