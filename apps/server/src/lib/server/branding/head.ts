@@ -6,11 +6,6 @@ import type { Brand } from './resolve.ts';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-/** Dashboard localStorage keys of builds before the rename (D-111) move once to "tb.". */
-export const LEGACY_LOCAL_PREFIX = 'nib.';
-// Moves "nib." keys to "tb." in this origin's localStorage; runs before the app reads them.
-const MIGRATE_LOCAL = `<script>try{var s=localStorage;for(var i=s.length;i--;){var k=s.key(i);if(k&&k.indexOf(${JSON.stringify(LEGACY_LOCAL_PREFIX)})===0){var n="tb."+k.slice(${LEGACY_LOCAL_PREFIX.length});if(s.getItem(n)===null)s.setItem(n,s.getItem(k));s.removeItem(k)}}}catch(e){}</script>`;
-
 // The accent tokens of both themes from the shared derivation (D-175): hover, pressed, link
 // text, focus and the dark chrome's accent, each contrast-checked. Nothing for the default,
 // which tokens.css already carries.
@@ -30,7 +25,6 @@ export function brandHead(b: Brand): string {
     `<meta property="og:site_name" content="${esc(b.name)}">`,
     `<meta name="theme-color" content="${b.accent}">`,
     accentStyle(b),
-    MIGRATE_LOCAL,
   ]
     .filter(Boolean)
     .join('\n    ');

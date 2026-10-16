@@ -160,41 +160,9 @@ export interface StorageValues {
 }
 export type StorageName = keyof typeof STORAGE;
 
-/** Key prefix of extension builds before the rename to open-toolbar (D-111). */
-export const LEGACY_KEY_PREFIX = 'nib:';
-export const KEY_PREFIX = 'tb:';
-
-/** The part of chrome.storage.StorageArea the migration needs. */
-export interface MigratableArea {
-  get(keys: null): Promise<Record<string, unknown>>;
-  set(items: Record<string, unknown>): Promise<void>;
-  remove(keys: string[]): Promise<void>;
-}
-
-/**
- * Moves every legacy `nib:*` value to its `tb:*` key and removes the old key. A `tb:*` value
- * that already exists wins. Safe to run more than once; returns the keys it wrote.
- */
-export async function migrateLegacyKeys(area: MigratableArea): Promise<string[]> {
-  const all = await area.get(null);
-  const moved: Record<string, unknown> = {};
-  const old: string[] = [];
-  for (const [k, v] of Object.entries(all)) {
-    if (!k.startsWith(LEGACY_KEY_PREFIX)) continue;
-    old.push(k);
-    const next = KEY_PREFIX + k.slice(LEGACY_KEY_PREFIX.length);
-    if (!(next in all)) moved[next] = v;
-  }
-  if (!old.length) return [];
-  if (Object.keys(moved).length) await area.set(moved);
-  await area.remove(old);
-  return Object.keys(moved);
-}
-
 /** IndexedDB database in the extension origin (service worker and extension pages). */
 export const IDB = {
-  /** Frozen: the working name of 2026 (D-018). Renaming the database would drop queued chunks and drafts. */
-  name: 'nib',
+  name: 'toolbar',
   version: 1,
   stores: {
     /** chunks written before upload, deleted after a 2xx: key [recordingId, stream, seq] */

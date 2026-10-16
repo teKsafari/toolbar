@@ -5,7 +5,8 @@ import { ROUTES, ROUTE_LIST, type RouteDef } from '@toolbar/shared/api';
 import {
   DEFAULT_WORKSPACE_SETTINGS,
   extRedirectUri,
-  extensionIdOfRedirect,
+  firefoxRedirectUri,
+  parseExtRedirect,
   joinableDomain,
   neededScope,
   pkceChallenge,
@@ -14,7 +15,7 @@ import {
 } from '@toolbar/shared/areas/auth';
 import { authorize, bodyWorkspaceId, findRoute } from '../src/lib/server/auth/http.ts';
 import { readSettings } from '../src/lib/server/auth/workspaces.ts';
-import { isAllowedRedirect, PINNED_EXTENSION_ID } from '../src/lib/server/auth/ext.ts';
+import { DEFAULT_GECKO_ID, geckoRedirectHash, isAllowedRedirect, PINNED_EXTENSION_ID } from '../src/lib/server/auth/ext.ts';
 import { isInvitationId } from '../src/lib/server/auth/invites.ts';
 
 const WS = '019a0000-0000-7000-8000-0000000000a1';
@@ -125,7 +126,29 @@ describe('PKCE and extension redirect (X-05)', () => {
     expect(isAllowedRedirect(extRedirectUri('a'.repeat(32)))).toBe(false);
     expect(isAllowedRedirect(`https://${PINNED_EXTENSION_ID}.chromiumapp.org/other`)).toBe(false);
     expect(isAllowedRedirect(`https://${PINNED_EXTENSION_ID}.chromiumapp.org.evil.test/cb`)).toBe(false);
-    expect(extensionIdOfRedirect('http://x.chromiumapp.org/cb')).toBeNull();
+    expect(parseExtRedirect('http://x.chromiumapp.org/cb')).toBeNull();
+    expect(parseExtRedirect(extRedirectUri(PINNED_EXTENSION_ID))).toEqual({ browser: 'chrome', id: PINNED_EXTENSION_ID });
+  });
+  it('hashes a gecko id the way Firefox does for identity.getRedirectURL', () => {
+    // Mozilla's own test (toolkit/components/extensions/test/mochitest/test_ext_identity.html):
+    // add-on id identity@mozilla.org redirects to https://35b64b676900f491c00e7f618d43f7040e88422e.<domain>/
+    expect(geckoRedirectHash('identity@mozilla.org')).toBe('35b64b676900f491c00e7f618d43f7040e88422e');
+    expect(geckoRedirectHash(DEFAULT_GECKO_ID)).toBe('3f18c6a2e177ff8b2822340b2d9f8e65a8d2ce12');
+  });
+  it('accepts https://<sha1 of an allowed gecko id>.extensions.allizom.org/cb', () => {
+    const ff = firefoxRedirectUri(geckoRedirectHash(DEFAULT_GECKO_ID));
+    expect(ff).toBe('https://3f18c6a2e177ff8b2822340b2d9f8e65a8d2ce12.extensions.allizom.org/cb');
+    expect(isAllowedRedirect(ff)).toBe(true);
+    expect(parseExtRedirect(ff)).toEqual({ browser: 'firefox', hash: '3f18c6a2e177ff8b2822340b2d9f8e65a8d2ce12' });
+    // another add-on id, another path, a look-alike host, plain http, upper-case hex
+    expect(isAllowedRedirect(firefoxRedirectUri(geckoRedirectHash('someone-else@example.com')))).toBe(false);
+    expect(isAllowedRedirect(ff.replace(/\/cb$/, '/other'))).toBe(false);
+    expect(isAllowedRedirect(ff.replace('allizom.org', 'allizom.org.evil.test'))).toBe(false);
+    expect(isAllowedRedirect(ff.replace('https:', 'http:'))).toBe(false);
+    expect(isAllowedRedirect(ff.replace('3f18c6a2e', '3F18C6A2E'))).toBe(false);
+    // EXTENSION_GECKO_IDS replaces the default
+    expect(isAllowedRedirect(ff, [PINNED_EXTENSION_ID], ['acme-review@acme.example'])).toBe(false);
+    expect(isAllowedRedirect(firefoxRedirectUri(geckoRedirectHash('acme-review@acme.example')), [PINNED_EXTENSION_ID], ['acme-review@acme.example'])).toBe(true);
   });
 });
 

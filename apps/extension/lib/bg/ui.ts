@@ -11,7 +11,6 @@
 // behind CaptureDriver, which the capture area implements in lib/bg/capture.ts and installs
 // with setCaptureDriver(). Until then every media call fails with not_implemented.
 import { browser } from 'wxt/browser';
-import { migrateStorage } from '../migrate';
 import { applyBrandIcon, setIconBusy } from './brand';
 import { DEFAULT_SERVER_URL, uuidv7, type RecordingKind } from '@toolbar/shared';
 import {
@@ -67,7 +66,6 @@ export class BgFailure extends Error {
 // ---------------------------------------------------------------- storage
 
 export async function readStore<K extends StorageName>(name: K): Promise<StorageValues[K] | undefined> {
-  await migrateStorage();
   const { area, key } = STORAGE[name];
   const got = await browser.storage[area].get(key);
   return got[key] as StorageValues[K] | undefined;

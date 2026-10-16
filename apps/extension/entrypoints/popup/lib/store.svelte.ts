@@ -16,7 +16,6 @@ import {
 } from '@toolbar/shared/ext';
 import type { ExtensionSettings } from '@toolbar/shared/api';
 import { send } from '../../capture.content/ui/send';
-import { migrateStorage } from '../../../lib/migrate';
 
 export type Screen = 'main' | 'settings' | 'sites' | 'drafts' | 'link' | 'link-help' | 'heavy';
 
@@ -62,7 +61,6 @@ class PopupStore {
 
   async load() {
     const t0 = performance.now();
-    await migrateStorage();
     const local = await browser.storage.local.get([STORAGE.auth.key, STORAGE.settings.key, STORAGE.drafts.key, STORAGE.bootstrap.key, STORAGE.serverUrl.key]);
     this.auth = (local[STORAGE.auth.key] as AuthState | undefined) ?? null;
     const stored = local[STORAGE.settings.key] as ExtensionSettings | undefined;

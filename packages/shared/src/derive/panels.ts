@@ -310,8 +310,8 @@ export function deriveNetwork(events: readonly CaptureEvent[], map: TimeMap): Ne
       initiator: req.data.initiator ?? null,
       source: a.webReq ? 'both' : req.data.source,
       frame: req.ctx === 'sw' ? 'top' : req.ctx,
-      // the worker stamps the tab on the envelope (`tab`); `data.tabId` is the older field
-      tabId: (req.data as NetRequest & { tabId?: number }).tabId ?? req.tab ?? null,
+      // the worker stamps the tab on the envelope
+      tabId: req.tab ?? null,
       durationMs: end !== null ? Math.max(0, end - startT) : null,
       size: res?.data.encodedSize ?? (body != null ? body.length : null),
       contentType: res?.data.contentType ?? resHeaders['content-type'] ?? null,

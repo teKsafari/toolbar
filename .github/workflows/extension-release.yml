@@ -3,7 +3,7 @@
 # apps/extension/package.json. Optional repository variables set the build:
 #   WXT_SERVER_URL   the server a fresh install points at (and its host permission)
 #   WXT_APP_NAME     the extension's name
-#   WXT_MANIFEST_KEY the Chrome Web Store item's public key, so the unpacked zip gets its id
+#   WXT_MANIFEST_KEY a fork's own Web Store item public key (the repository carries ours)
 #   WXT_GECKO_ID     the Firefox add-on id
 name: Extension release
 

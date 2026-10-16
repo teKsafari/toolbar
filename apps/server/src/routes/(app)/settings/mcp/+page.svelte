@@ -54,8 +54,8 @@
     <li>
       <button type="button" class="card" onclick={() => show(s)} data-testid="agent-card-{s.id}">
         <span class="logo" aria-hidden="true">{initials[s.id]}</span>
-        <span class="name">{s.id === 'other' ? 'Add another agent' : s.name}</span>
-        <Icon name="chevron-right" size={16} />
+        <span class="name" data-testid="agent-card-name">{s.id === 'other' ? 'Other agent' : s.name}</span>
+        <span class="chev" aria-hidden="true"><Icon name="chevron-right" size={16} /></span>
       </button>
     </li>
   {/each}
@@ -130,12 +130,16 @@
   .url .label { font: var(--nb-weight-normal) 10.5px / 1.4 var(--nb-font-mono); letter-spacing: var(--nb-tracking-label); text-transform: uppercase; color: var(--nb-text-faint); }
   .url code { flex: 1; min-width: 0; font: var(--nb-text-md) var(--nb-font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   @media (max-width: 480px) { .url .label { display: none; } }
+  /* one row height for every card: the grid stretches each li, the li hands its height to the card,
+     and a label too long for its column ends in an ellipsis instead of wrapping */
   .cards { list-style: none; padding: 0; margin: var(--nb-space-4) 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--nb-space-2); }
-  .card { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: var(--nb-space-3); padding: 12px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); background: var(--nb-surface); cursor: pointer; transition: border-color var(--nb-dur-fast) var(--nb-ease-out); }
+  .cards li { display: flex; min-width: 0; }
+  .card { all: unset; box-sizing: border-box; width: 100%; min-width: 0; display: flex; align-items: center; gap: var(--nb-space-3); padding: 12px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); background: var(--nb-surface); cursor: pointer; transition: border-color var(--nb-dur-fast) var(--nb-ease-out); }
   .card:hover { border-color: var(--nb-border-strong); }
   .card:focus-visible { outline: 2px solid var(--nb-focus); }
-  .logo { width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--nb-radius-md); border: 1px solid var(--nb-border); background: var(--nb-surface-2); color: var(--nb-text); font: var(--nb-weight-medium) var(--nb-text-sm) var(--nb-font-mono); }
-  .name { flex: 1; font-weight: var(--nb-weight-medium); }
+  .logo { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--nb-radius-md); border: 1px solid var(--nb-border); background: var(--nb-surface-2); color: var(--nb-text); font: var(--nb-weight-medium) var(--nb-text-sm) var(--nb-font-mono); }
+  .name { flex: 1; min-width: 0; font-weight: var(--nb-weight-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chev { flex: none; display: inline-flex; }
   .list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); background: var(--nb-surface); }
   .list li { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
   .list li + li { border-top: 1px solid var(--nb-border); }

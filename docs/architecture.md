@@ -313,7 +313,7 @@ Extension sign-in with `chrome.identity.launchWebAuthFlow`. The server is the on
 3. With a session, the server stores an `ext_auth_code` (60 s, single use, bound to the challenge) and redirects to `redirect_uri?code=…&state=…`.
 4. The extension posts `{ code, code_verifier }` to `POST /api/v1/ext/token` and gets a device token (`tb_dev_…`, a row in `api_token` with kind `device`), stored in `chrome.storage.local`. Settings lists it under "Connected browsers" with a revoke button.
 
-The extension ID is pinned by a manifest `key` (public key in `apps/extension/wxt.config.ts`; the private key `apps/extension/key.pem` is git-ignored and kept as the `EXTENSION_KEY_PEM` secret for store builds). Dev and test builds therefore share one ID, which goes in `EXTENSION_IDS`.
+The extension ID is pinned by a manifest `key`: the Chrome Web Store item's public key, in `apps/extension/wxt.config.ts` (D-196). Google holds the private half. Store installs and dev, test and unpacked builds therefore share one ID, `laobpjhffglefallhhojihfdbdkoendk`, the default of `EXTENSION_IDS`.
 
 Better Auth's own `bearer` and `one-time-token` plugins were considered. The custom code+PKCE exchange keeps the extension token separate from browser sessions, makes it revocable per device, and serves as the same `api_token` mechanism the CLI's personal tokens use in Part 2.
 

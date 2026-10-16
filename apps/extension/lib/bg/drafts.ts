@@ -8,7 +8,6 @@ import { DEFAULT_SERVER_URL } from '@toolbar/shared/constants';
 import { IDB, STORAGE, type AuthState, type BgRequestMap, type BgRequestType, type BgResult, type BlobRow, type ContentCommand, type Draft, type DraftSummary } from '@toolbar/shared/ext';
 import type { ExtBootstrap, FinalizeCaptureBody, LinkedIssue } from '@toolbar/shared/api';
 import { DEFAULT_EDITOR_PREFS, EDITOR_PREFS_KEY, type AiDraftText, type AiUnavailableReason, type EditorPrefs, type TrackerOptions, type TrackerRecent } from '@toolbar/shared/areas/editor';
-import { migrateStorage } from '../migrate';
 
 // ---------- IndexedDB ----------
 
@@ -133,7 +132,6 @@ class BgFailure extends Error {
 }
 
 async function readLocal<T>(key: string): Promise<T | null> {
-  await migrateStorage();
   const r = await browser.storage.local.get(key);
   return (r[key] as T | undefined) ?? null;
 }

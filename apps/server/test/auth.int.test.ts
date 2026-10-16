@@ -7,12 +7,12 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { execFileSync } from 'node:child_process';
-import { pkcePair, extRedirectUri } from '@toolbar/shared/areas/auth';
+import { pkcePair, extRedirectUri, firefoxRedirectUri } from '@toolbar/shared/areas/auth';
 import * as schema from '../src/lib/server/db/schema/index.ts';
 import type { Db } from '../src/lib/server/db/index.ts';
 import { activeWorkspaceId, bootstrapNewUser, createWorkspace, ensureCanCreate, listWorkspaces, patchSettings, seatRole } from '../src/lib/server/auth/workspaces.ts';
 import { acceptInvite, createInvites, getInviteLink, resetInviteLink, resolveInvite } from '../src/lib/server/auth/invites.ts';
-import { exchangeCode, issueCode, PINNED_EXTENSION_ID } from '../src/lib/server/auth/ext.ts';
+import { DEFAULT_GECKO_ID, exchangeCode, geckoRedirectHash, isAllowedRedirect, issueCode, PINNED_EXTENSION_ID } from '../src/lib/server/auth/ext.ts';
 import { createApiToken, resolveApiToken } from '../src/lib/server/tokens.ts';
 import { authorSnapshot } from '../src/lib/server/auth/author.ts';
 import { env } from '../src/lib/server/env.ts';
@@ -151,17 +151,32 @@ describe.skipIf(!reachable)('auth (integration)', () => {
     expect(await exchangeCode(db, { code: code3, code_verifier: verifier, redirect_uri: redirect })).toEqual({ ok: false, code: 'expired' });
   });
 
+  it('X-05: the Firefox build signs in through its extensions.allizom.org redirect', async () => {
+    const u = await mkUser('ext-ff@dev.test');
+    const redirect = firefoxRedirectUri(geckoRedirectHash(DEFAULT_GECKO_ID));
+    expect(isAllowedRedirect(redirect)).toBe(true);
+    const { verifier, challenge } = await pkcePair();
+    const code = await issueCode(db, { userId: u.id, codeChallenge: challenge, redirectUri: redirect });
+    // the code is bound to the redirect it was issued for: the Chrome form does not redeem it
+    expect(await exchangeCode(db, { code, code_verifier: verifier, redirect_uri: extRedirectUri(PINNED_EXTENSION_ID) })).toMatchObject({ ok: false });
+    const code2 = await issueCode(db, { userId: u.id, codeChallenge: challenge, redirectUri: redirect });
+    const ok = await exchangeCode(db, { code: code2, code_verifier: verifier, redirect_uri: redirect, device_name: 'Firefox on Linux' });
+    expect(ok).toMatchObject({ ok: true, userId: u.id, token: expect.stringMatching(/^tb_dev_/) });
+  });
+
   it('D-114: a token of an address the allowlist no longer admits stops working; authors carry issuer and subject', async () => {
     const u = await mkUser('late@allow-int.test');
     const { secret } = await createApiToken(db, { userId: u.id, kind: 'device', name: 'ext' });
     expect((await resolveApiToken(db, secret))?.user.id).toBe(u.id);
-    env.auth.allowedDomains.push('elsewhere.test');
+    const before = process.env.ALLOWED_EMAIL_DOMAINS;
+    process.env.ALLOWED_EMAIL_DOMAINS = 'elsewhere.test';
     try {
       expect(await resolveApiToken(db, secret)).toBeNull();
-      env.auth.allowedDomains.push('allow-int.test');
+      process.env.ALLOWED_EMAIL_DOMAINS = 'elsewhere.test,allow-int.test';
       expect((await resolveApiToken(db, secret))?.user.id).toBe(u.id);
     } finally {
-      env.auth.allowedDomains.length = 0;
+      if (before === undefined) delete process.env.ALLOWED_EMAIL_DOMAINS;
+      else process.env.ALLOWED_EMAIL_DOMAINS = before;
     }
     // a password account is issued by this server; an OIDC account by the provider's issuer
     expect(await authorSnapshot(db, u.id)).toMatchObject({ issuer: env.publicUrl, subject: u.id, email: u.email });

@@ -30,16 +30,16 @@ export interface ProjectScope {
   bodyAllowlist: string[];
   /**
    * Traces: how long an action's span stays open while its requests are still in flight, in ms
-   * (PLAN "What a trace is", D-166). Absent in bootstraps of older servers: use the default.
+   * (PLAN "What a trace is", D-166).
    */
-  traceOpenMs?: number;
+  traceOpenMs: number;
 }
 
 /** The span window for open requests (D-166): 10 s by default; code runs can take longer. */
 export const TRACE_OPEN_MS = { default: 10_000, min: 3_000, max: 600_000 } as const;
 
 /** The project's span window, clamped, or the default. */
-export function traceOpenMsOf(p: Pick<ProjectScope, 'traceOpenMs'> | null | undefined): number {
+export function traceOpenMsOf(p: { traceOpenMs?: number } | null | undefined): number {
   const v = p?.traceOpenMs;
   if (typeof v !== 'number' || !Number.isFinite(v)) return TRACE_OPEN_MS.default;
   return Math.min(TRACE_OPEN_MS.max, Math.max(TRACE_OPEN_MS.min, Math.round(v)));

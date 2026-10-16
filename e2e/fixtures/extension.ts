@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { browserEnv } from './browser-env.ts';
 
-export const EXT_ID = 'fmongfmimgdafigcahdpofnmmhljpnei';
+export const EXT_ID = 'laobpjhffglefallhhojihfdbdkoendk';
 export const DISPLAY = process.env.E2E_DISPLAY ?? ':101';
 export const LAB_URL = process.env.LAB_URL ?? 'http://localhost:5173';
 export const SERVER_URL = process.env.SERVER_URL ?? 'http://localhost:3000';

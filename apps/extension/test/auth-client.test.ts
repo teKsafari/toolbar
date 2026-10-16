@@ -4,7 +4,7 @@ import type { AuthState, PendingAuth } from '@toolbar/shared/ext';
 import { pkceChallenge } from '@toolbar/shared/areas/auth';
 import { AuthError, codeFromRedirect, connectUrl, createAuthClient } from '../lib/auth/client.ts';
 
-const REDIRECT = 'https://fmongfmimgdafigcahdpofnmmhljpnei.chromiumapp.org/cb';
+const REDIRECT = 'https://laobpjhffglefallhhojihfdbdkoendk.chromiumapp.org/cb';
 
 function setup(opts: { launch?: (url: string) => Promise<string | undefined>; tokenStatus?: number } = {}) {
   let auth: AuthState | null = null;
@@ -54,6 +54,13 @@ describe('extension auth client', () => {
     expect(u.searchParams.get('code_challenge_method')).toBe('S256');
     expect(codeFromRedirect(`${REDIRECT}?code=abc&state=s1`, 's1')).toBe('abc');
     expect(() => codeFromRedirect(`${REDIRECT}?code=abc&state=other`, 's1')).toThrow(AuthError);
+  });
+
+  it('reads the code back from the Firefox redirect form too', () => {
+    const ff = 'https://3f18c6a2e177ff8b2822340b2d9f8e65a8d2ce12.extensions.allizom.org/cb';
+    const u = new URL(connectUrl('http://toolbar.test/', { redirectUri: ff, state: 's1234567', challenge: 'c'.repeat(43) }));
+    expect(u.searchParams.get('redirect_uri')).toBe(ff);
+    expect(codeFromRedirect(`${ff}?code=abc&state=s1`, 's1')).toBe('abc');
   });
 
   it('signs in with PKCE, stores the device token and clears the pending pair', async () => {

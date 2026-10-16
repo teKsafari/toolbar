@@ -176,7 +176,7 @@ async function drafts(sw: () => Promise<Worker>): Promise<DraftRow[]> {
   return (await sw()).evaluate(
     () =>
       new Promise<DraftRow[]>((resolve, reject) => {
-        const req = indexedDB.open('nib');
+        const req = indexedDB.open('toolbar');
         req.onerror = () => reject(req.error);
         req.onsuccess = () => {
           const db = req.result;

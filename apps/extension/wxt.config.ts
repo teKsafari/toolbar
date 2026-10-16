@@ -11,17 +11,17 @@ import { ICON_SIZES, renderIcons } from './scripts/icons';
 const testHooks = process.env.WXT_TEST_HOOKS === '1';
 
 /**
- * Public half of the extension signing key. It pins the extension id to
- * fmongfmimgdafigcahdpofnmmhljpnei for dev, test and unpacked builds (D-011, D-022).
- * The private key lives in .secrets/extension-key.pem, outside git.
+ * The Chrome Web Store item's public key (Developer Dashboard, Package, "View public key"). It
+ * pins the extension id to laobpjhffglefallhhojihfdbdkoendk, the store item's id, for dev, test
+ * and unpacked builds (D-196). Google holds the private half.
  */
 export const MANIFEST_KEY =
-  'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtNg37Vl/0bFbNV9otDQqWsKWtLal5T1CQbwaL2ThxXVFciM48JAQh+kbMjYe9fn1ghRiJxsZZJsl+pqde/H2465YOO7BKIOl3dEFCVwfScZg2LttOmKUTJSfRgrTxk6TPZoj1VBBmuICkQxoavGPluHZgcCI+uzV1qvQxgcYDbRrJ/dTtyiYL2rWFAKuXiX3jV9Ndx9JGYjx2N1wcKKPrOsw3phPGhHKJVmoHvSTz49f5v2hL1+36gEfEI+IyTQVcJDePXTTG81H6MeH+gB5dqyphwls5qJV5q0lWhHqyDvOeLaUhWy9LEfWNR1SlPTLjGYikWZZfPE4YKTbrC3aLQIDAQAB';
+  'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0UotsW+bq0YJOl3Rh+yLR02ErV+nu6wdw/62hlzK/u7pG4VZDLP42JdasbGBgj62ETXFq9UUIIOB8MhXggakD60X8pCJctFCkOSj9yiu9kWHt/+bKbuU5uJ2/EuiXLOZWhZ+l+mAbc+doLAeIsMqQ7zVpf73jv4ST0m3qwnFR/XSoWTWl5qCEqymzw5WKDh7ekoctJG7Sz8IRBo0iY8YlVS6dNHhRejPceKzWbRomhuTrdoQu1ZOWJ3kN5qRUsgeVkdHp8MepxmsZm4+tF/Op+wDZGB4qWJIu3D0W6fOMEFF6y61nFrxqP9rT7sU8xydI+IP0p7l0zZi4AEqfhHjmwIDAQAB';
 
 /**
  * The public key a build pins its id with (docs/extension-release.md). WXT_MANIFEST_KEY replaces
- * the repository's key, for example with the Chrome Web Store item's public key (Developer
- * Dashboard, Package, "View public key"), so unpacked builds get the store item's id.
+ * the repository's key, for a fork that publishes its own Web Store item: that item's public key
+ * gives unpacked builds its id.
  */
 const manifestKey = (process.env.WXT_MANIFEST_KEY ?? '').replace(/-----[^-]+-----|\s/g, '') || MANIFEST_KEY;
 

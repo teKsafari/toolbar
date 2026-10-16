@@ -62,7 +62,7 @@ Each setting is in one of five places (D-194). **Required** values boot the serv
 | `SHARE_LINK_DAYS`, `EXPORT_MAX_MB`, `SUPPORT_RECORDING_LINK` | Settings > Server, Sharing and export | Policies read per request. |
 | (no variable) recording link uploads per address | Settings > Server, Limits | Abuse limit of the public recording links, read per request. |
 | `APP_NAME`, `APP_LOGO_URL`, `APP_LOGO_DARK_URL`, `APP_ACCENT` | Settings > Server, Branding | Already admin settings (D-112). |
-| `EXTENSION_IDS` | Optional environment | Read once into the trusted origins at start; only a self-built extension needs it. |
+| `EXTENSION_IDS`, `EXTENSION_GECKO_IDS` | Optional environment | Read once at start; only a self-built extension needs them. |
 | `OIDC_DISCOVERY_URL`, `OIDC_PROVIDER_ID` | Optional environment | Part of the provider set at start; changing the id unlinks every account. |
 | `BODY_SIZE_LIMIT`, `WORKER`, `MIGRATE_ON_START`, `MIGRATIONS_DIR`, `NODE_ENV` | Optional environment | Process and image settings that apply when the server starts. |
 | `S3_PUBLIC_URL`, `S3_KEY_PREFIX`, `POSTGRES_PORT`, `S3_PORT` | Optional environment | Storage layout and host ports, fixed per deployment. |
@@ -115,7 +115,8 @@ Each row gives the variable, its default, an example, and what it does with when
 | `BETTER_AUTH_SECRET` | a dev secret | output of `openssl rand -hex 32` | **Required.** Signs sessions and derives the key that encrypts share and recording-link tokens and the transcription API key in the database. Use 32 or more random characters. Changing it signs everyone out and makes stored share links and the stored API key unreadable, so set it once. |
 | `AUTH_SECRET` | empty | as above | A shorter name for `BETTER_AUTH_SECRET`, read when that one is empty. |
 | `PORT` | `3000` | `8080` | Compose: the host port the server container publishes. Compose pins the server to 3000 inside the container. Change it when 3000 is taken on the host. |
-| `EXTENSION_IDS` | `laobpjhffglefallhhojihfdbdkoendk` | `laobpjhffglefallhhojihfdbdkoendk,abcdefghijklmnopabcdefghijklmnop` | Comma separated ids of the browser extensions allowed to sign in through `/ext/connect` and to call the API from their pages. The default is the id the repository's manifest key pins. Add the Chrome Web Store item's id when you publish your own ([docs/extension-release.md](extension-release.md)). |
+| `EXTENSION_IDS` | `laobpjhffglefallhhojihfdbdkoendk` | `laobpjhffglefallhhojihfdbdkoendk,abcdefghijklmnopabcdefghijklmnop` | Comma separated ids of the browser extensions allowed to sign in through `/ext/connect` and to call the API from their pages. The default is the Chrome Web Store item's id, which the repository's manifest key pins. Set your own item's id when you publish a fork ([docs/extension-release.md](extension-release.md)). |
+| `EXTENSION_GECKO_IDS` | `open-toolbar@self-hosted` | `open-toolbar@self-hosted,review@acme.example` | Comma separated Firefox add-on ids allowed to sign in through `/ext/connect`. Firefox redirects to `https://<SHA-1 of the add-on id>.extensions.allizom.org/cb`, and the server accepts that form for these ids only. Add the id you build with `WXT_GECKO_ID`. |
 | `BODY_SIZE_LIMIT` | `210M` (set in the image) | `500M` | Largest request body the Node server accepts. Routes cap upload chunks at 8 MiB and attachments at 200 MiB on their own; raise this only together with those limits. |
 | `WORKER` | `1` | `0` | Runs the background job worker (transcripts, thumbnails, webhooks) inside the server process. Set `0` on extra server replicas so one process runs jobs. |
 | `MIGRATE_ON_START` | `1` | `0` | Applies database migrations at start. Set `0` when you run `pnpm --filter @toolbar/server db:migrate` yourself before a deploy. |
@@ -425,7 +426,7 @@ These are read when you build the extension, never by a running server ([docs/ex
 | `WXT_APP_NAME` | `open-toolbar` | `Acme Review` | The extension's name in the manifest, toolbar tooltip and page titles (docs/branding.md). |
 | `WXT_APP_ICON` | the packaged rectangle | `brand/logo.svg` | An SVG or PNG the build renders into the packaged icons. |
 | `WXT_MANIFEST_KEY` | the open-toolbar Web Store item's public key (id `laobpjhffglefallhhojihfdbdkoendk`) | a fork's Web Store item public key | The public key that pins the extension id of every Chrome build. A fork that publishes its own store item sets it to that item's key, so its builds share that item's id. |
-| `WXT_GECKO_ID` | `open-toolbar@self-hosted` | `review@acme.example` | The Firefox add-on id. Use your own when you sign the add-on on AMO. |
+| `WXT_GECKO_ID` | `open-toolbar@self-hosted` | `review@acme.example` | The Firefox add-on id. Use your own when you sign the add-on on AMO, and add it to the server's `EXTENSION_GECKO_IDS`. |
 | `RELEASE_TAG` | empty | `v0.2.0` | `scripts/release-extension.sh` refuses to build when this tag's version differs from `apps/extension/package.json`. The release workflow sets it. |
 | `FIREFOX` | `1` | `0` | `scripts/release-extension.sh` builds the Firefox zip too unless this is `0`. |
 | `WXT_DEV_PORT` | `3001` | `3207` | Port of the extension's dev server (HMR). Area worktrees use their own. |

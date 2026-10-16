@@ -56,17 +56,18 @@ const RANGE: Partial<Record<InstanceKey, [number, number, boolean]>> = {
   recordingLinkRateLimit: [1, 1000, true],
 };
 
-export function normaliseProvider(v: string): 'local' | 'openai' | 'none' {
+/** TRANSCRIBE_PROVIDER: `none` (also `off`, `0`), `local` or `openai`; anything else is not valid. */
+export function normaliseProvider(v: string): 'local' | 'openai' | 'none' | undefined {
   const s = v.toLowerCase();
   if (s === 'none' || s === 'off' || s === '0') return 'none';
-  if (s === 'openai' || s === 'openai-compatible' || s === 'hosted') return 'openai';
-  return 'local';
+  if (s === 'openai' || s === 'local') return s;
+  return undefined;
 }
 
 const splitList = (s: string) => s.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
 
 /** Parse an environment value leniently, as the variables were read before they became settings. */
-function fromEnv(key: InstanceKey, name: string, v: string): unknown {
+function fromEnv(key: InstanceKey, v: string): unknown {
   switch (key) {
     case 'allowedEmailDomains':
       return splitList(v).map((d) => d.toLowerCase().replace(/^@/, ''));
@@ -81,8 +82,6 @@ function fromEnv(key: InstanceKey, name: string, v: string): unknown {
       return t === 'chunked' || t === 'native' ? t : 'auto';
     }
     case 'transcribeBaseUrl':
-      // STT_URL, the older name, is a base without /v1
-      return name === 'STT_URL' ? `${v.replace(/\/+$/, '')}/v1` : v.replace(/\/+$/, '');
     case 'whisperUrl':
       return v.replace(/\/+$/, '');
     default: {
@@ -100,14 +99,10 @@ function fromEnv(key: InstanceKey, name: string, v: string): unknown {
 
 /** The environment variable that sets this field, with its parsed value; null when none is set. */
 export function envOverride(key: InstanceKey, src: NodeJS.ProcessEnv = process.env): { name: string; value: unknown } | null {
-  if (key === 'allowedEmailDomains' && env.auth.allowedDomains.length) {
-    // env.auth.allowedDomains is the parsed ALLOWED_EMAIL_DOMAINS (or AUTH_ALLOWED_DOMAINS)
-    return { name: raw('AUTH_ALLOWED_DOMAINS', src) && !raw('ALLOWED_EMAIL_DOMAINS', src) ? 'AUTH_ALLOWED_DOMAINS' : 'ALLOWED_EMAIL_DOMAINS', value: env.auth.allowedDomains };
-  }
   for (const name of INSTANCE_FIELD[key].env) {
     const v = raw(name, src);
     if (!v) continue;
-    const value = fromEnv(key, name, v);
+    const value = fromEnv(key, v);
     if (value === undefined) {
       warnOnce(`${name}=${v} is not a valid value; ignored`);
       continue;

@@ -100,17 +100,17 @@ export interface InstanceFieldSpec {
 export const INSTANCE_FIELDS: readonly InstanceFieldSpec[] = [
   {
     key: 'allowedEmailDomains', section: 'signin', kind: 'list', label: 'Allowed email domains',
-    env: ['ALLOWED_EMAIL_DOMAINS', 'AUTH_ALLOWED_DOMAINS'], placeholder: 'acme.com, acme.co.uk',
+    env: ['ALLOWED_EMAIL_DOMAINS'], placeholder: 'acme.com, acme.co.uk',
     hint: 'Comma separated; subdomains count. Empty admits anyone your provider signs in. Removing a domain signs its people out at their next request.',
   },
   {
     key: 'oidcProviderName', section: 'signin', kind: 'text', label: 'Sign-in button name',
-    env: ['OIDC_PROVIDER_NAME', 'OIDC_1_NAME'], placeholder: 'Acme SSO',
+    env: ['OIDC_PROVIDER_NAME'], placeholder: 'Acme SSO',
     hint: 'The button reads "Sign in with <name>".',
   },
   {
     key: 'oidcScopes', section: 'signin', kind: 'list', label: 'Scopes',
-    env: ['OIDC_SCOPES', 'OIDC_1_SCOPES'], placeholder: 'openid email profile',
+    env: ['OIDC_SCOPES'], placeholder: 'openid email profile',
     hint: 'Space or comma separated. Keep openid and email.',
   },
   {
@@ -124,15 +124,15 @@ export const INSTANCE_FIELDS: readonly InstanceFieldSpec[] = [
   },
   {
     key: 'transcribeApiKey', section: 'transcription', kind: 'secret', label: 'API key',
-    env: ['TRANSCRIBE_API_KEY', 'OPENAI_API_KEY', 'STT_API_KEY'], placeholder: 'sk-...',
+    env: ['TRANSCRIBE_API_KEY', 'OPENAI_API_KEY'], placeholder: 'sk-...',
     hint: 'Stored encrypted. Only its last four characters are shown again.',
   },
   {
-    key: 'transcribeModel', section: 'transcription', kind: 'text', label: 'Model', env: ['TRANSCRIBE_MODEL', 'STT_MODEL'],
+    key: 'transcribeModel', section: 'transcription', kind: 'text', label: 'Model', env: ['TRANSCRIBE_MODEL'],
     placeholder: 'gpt-transcribe', hint: 'Model id for the hosted endpoint. Groq takes whisper-large-v3-turbo.',
   },
   {
-    key: 'transcribeBaseUrl', section: 'transcription', kind: 'url', label: 'Endpoint', env: ['TRANSCRIBE_BASE_URL', 'STT_URL'],
+    key: 'transcribeBaseUrl', section: 'transcription', kind: 'url', label: 'Endpoint', env: ['TRANSCRIBE_BASE_URL'],
     placeholder: 'https://api.openai.com/v1', hint: 'With /v1. The server posts to <endpoint>/audio/transcriptions.',
   },
   {

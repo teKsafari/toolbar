@@ -85,7 +85,7 @@ describe('transcription settings', () => {
     process.env = { ...env0 };
   });
   const clear = () => {
-    for (const k of Object.keys(process.env)) if (/^(TRANSCRIBE_|STT_|OPENAI_API_KEY|WHISPER_)/.test(k)) delete process.env[k];
+    for (const k of Object.keys(process.env)) if (/^(TRANSCRIBE_|OPENAI_API_KEY|WHISPER_)/.test(k)) delete process.env[k];
   };
 
   it('defaults to off (D-194), 30 s chunks, 60 min per recording, no monthly cap', () => {
@@ -94,13 +94,15 @@ describe('transcription settings', () => {
     expect(c).toMatchObject({ provider: 'none', baseUrl: 'https://api.openai.com/v1', model: 'gpt-transcribe', chunkSeconds: 30, maxMinutes: 60, monthlyMinutes: null, concurrency: 4, timestamps: 'auto', languages: [] });
   });
 
-  it('accepts the old provider names and the STT_* variables', () => {
-    expect(normaliseProvider('whispercpp')).toBe('local');
-    expect(normaliseProvider('openai-compatible')).toBe('openai');
-    expect(normaliseProvider('none')).toBe('none');
+  it('accepts none, local and openai only, and reads the TRANSCRIBE_* variables', () => {
+    expect(normaliseProvider('local')).toBe('local');
+    expect(normaliseProvider('OpenAI')).toBe('openai');
+    expect(normaliseProvider('off')).toBe('none');
+    expect(normaliseProvider('whispercpp')).toBeUndefined();
+    expect(normaliseProvider('openai-compatible')).toBeUndefined();
     clear();
-    Object.assign(process.env, { TRANSCRIBE_PROVIDER: 'openai-compatible', STT_URL: 'http://speaches:8000/', STT_MODEL: 'Systran/faster-whisper-small', STT_API_KEY: 'old' });
-    expect(transcribeConfig()).toMatchObject({ provider: 'openai', baseUrl: 'http://speaches:8000/v1', model: 'Systran/faster-whisper-small', apiKey: 'old' });
+    Object.assign(process.env, { TRANSCRIBE_PROVIDER: 'openai', TRANSCRIBE_BASE_URL: 'http://speaches:8000/v1/', TRANSCRIBE_MODEL: 'Systran/faster-whisper-small', TRANSCRIBE_API_KEY: 'own' });
+    expect(transcribeConfig()).toMatchObject({ provider: 'openai', baseUrl: 'http://speaches:8000/v1', model: 'Systran/faster-whisper-small', apiKey: 'own' });
   });
 
   it('TRANSCRIBE_API_KEY wins over OPENAI_API_KEY; a key alone does not switch provider', () => {

@@ -2,20 +2,32 @@
 // a PKCE challenge; POST /api/v1/ext/token trades code + verifier for a device token. Owner: auth area.
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { EXT_CODE_TTL_MS, extensionIdOfRedirect } from '@toolbar/shared/areas/auth';
+import { EXT_CODE_TTL_MS, parseExtRedirect } from '@toolbar/shared/areas/auth';
 import type { Db } from '../db/index.ts';
 import { extAuthCode } from '../db/schema/index.ts';
 import { env } from '../env.ts';
 import { createApiToken, hashToken } from '../tokens.ts';
 
-/** Extension ids allowed to sign in. Defaults to the id pinned by the manifest key (D-022). */
-export const PINNED_EXTENSION_ID = 'fmongfmimgdafigcahdpofnmmhljpnei';
+/** Extension ids allowed to sign in. Defaults to the Chrome Web Store item's id, which the manifest key pins. */
+export const PINNED_EXTENSION_ID = 'laobpjhffglefallhhojihfdbdkoendk';
 export const allowedExtensionIds = () => (env.extensionIds.length ? env.extensionIds : [PINNED_EXTENSION_ID]);
 
-/** True for https://<id>.chromiumapp.org/cb with an allowed id. */
-export function isAllowedRedirect(uri: string, ids: readonly string[] = allowedExtensionIds()): boolean {
-  const id = extensionIdOfRedirect(uri);
-  return id !== null && ids.includes(id);
+/** The Firefox build's add-on id (WXT_GECKO_ID's default), allowed unless EXTENSION_GECKO_IDS lists others. */
+export const DEFAULT_GECKO_ID = 'open-toolbar@self-hosted';
+export const allowedGeckoIds = () => (env.extensionGeckoIds.length ? env.extensionGeckoIds : [DEFAULT_GECKO_ID]);
+
+/** Firefox's redirect host label for an add-on id: hex SHA-1 of the id (identity.getRedirectURL). */
+export const geckoRedirectHash = (geckoId: string) => createHash('sha1').update(geckoId, 'utf8').digest('hex');
+
+/**
+ * True for https://<allowed Chrome id>.chromiumapp.org/cb and for
+ * https://<sha1 of an allowed gecko id>.extensions.allizom.org/cb.
+ */
+export function isAllowedRedirect(uri: string, ids: readonly string[] = allowedExtensionIds(), geckoIds: readonly string[] = allowedGeckoIds()): boolean {
+  const r = parseExtRedirect(uri);
+  if (!r) return false;
+  if (r.browser === 'chrome') return ids.includes(r.id);
+  return geckoIds.some((g) => geckoRedirectHash(g) === r.hash);
 }
 
 const s256 = (verifier: string) => createHash('sha256').update(verifier).digest('base64url');

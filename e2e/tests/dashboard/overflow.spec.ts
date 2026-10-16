@@ -71,7 +71,7 @@ for (const dpr of [1, 2]) {
     test(`no horizontal overflow at ${width} px, DPR ${dpr}`, async () => {
       const ctx = await browser.newContext({ storageState: storage, viewport: { width, height }, deviceScaleFactor: dpr });
       const page = await ctx.newPage();
-      const paths = ['/', `/f/${folderShort}`, '/links', `/c/${captureId}`, '/settings/workspace', '/settings/members', '/settings/webhooks', '/settings/profile'];
+      const paths = ['/', `/f/${folderShort}`, '/links', `/c/${captureId}`, '/settings/workspace', '/settings/members', '/settings/webhooks', '/settings/profile', '/settings/mcp'];
       for (const p of paths) {
         await go(page, p);
         expect(await overflow(page), `${p} at ${width}x${height} DPR ${dpr}`).toEqual(NONE);
@@ -82,6 +82,51 @@ for (const dpr of [1, 2]) {
       await page.getByTestId('workspace-menu').click();
       await expect(page.getByRole('dialog', { name: 'Workspace menu' })).toBeVisible();
       expect(await overflow(page), `workspace menu open at ${width} DPR ${dpr}`).toEqual(NONE);
+      await ctx.close();
+    });
+  }
+}
+
+/**
+ * The agent picker on Settings > MCP (owner report): every card of a row has the same height and
+ * no label wraps or overflows its card. The owner saw "Add another agent" wrap to two lines at
+ * 1600 px in the dark theme, which made its card taller than the others.
+ */
+async function cardRows(page: Page) {
+  return page.evaluate(() => {
+    const cards = [...document.querySelectorAll<HTMLElement>('[data-testid^="agent-card-"]')].filter((el) => el.tagName === 'BUTTON');
+    const rows = new Map<number, number[]>();
+    const labels: { text: string; lines: number; clipped: boolean; inside: boolean }[] = [];
+    for (const c of cards) {
+      const r = c.getBoundingClientRect();
+      const top = Math.round(r.top);
+      rows.set(top, [...(rows.get(top) ?? []), Math.round(r.height * 10) / 10]);
+      const name = c.querySelector<HTMLElement>('[data-testid="agent-card-name"]')!;
+      const nr = name.getBoundingClientRect();
+      const lineHeight = parseFloat(getComputedStyle(name).lineHeight) || nr.height;
+      labels.push({ text: name.textContent ?? '', lines: Math.round(nr.height / lineHeight), clipped: name.scrollWidth > name.clientWidth, inside: nr.right <= r.right + 0.5 && nr.left >= r.left - 0.5 });
+    }
+    return { count: cards.length, rows: [...rows.values()], labels };
+  });
+}
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  for (const width of [1600, 1440, 1280, 1024, 768, 390]) {
+    test(`MCP agent cards: equal heights, one-line labels at ${width} px, ${colorScheme}`, async () => {
+      const ctx = await browser.newContext({ storageState: storage, viewport: { width, height: 900 }, colorScheme });
+      const page = await ctx.newPage();
+      await go(page, '/settings/mcp');
+      await expect(page.getByTestId('agent-card-other')).toBeVisible();
+      const r = await cardRows(page);
+      expect(r.count).toBe(5);
+      for (const row of r.rows) expect(new Set(row).size, `card heights in one row at ${width} ${colorScheme}: ${row}`).toBe(1);
+      for (const l of r.labels) {
+        expect(l.lines, `"${l.text}" wraps at ${width} ${colorScheme}`).toBe(1);
+        expect(l.inside, `"${l.text}" leaves its card at ${width} ${colorScheme}`).toBe(true);
+        // at these widths every label fits; the ellipsis is for longer names
+        expect(l.clipped, `"${l.text}" is cut at ${width} ${colorScheme}`).toBe(false);
+      }
+      expect(await overflow(page)).toEqual(NONE);
       await ctx.close();
     });
   }

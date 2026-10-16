@@ -35,20 +35,13 @@ describe('env', () => {
     expect(oidcProviderFromEnv()).toMatchObject({ providerId: 'kc', issuer: 'https://kc.example/realms/eng', scopes: ['openid', 'email', 'groups'], name: 'Keycloak' });
   });
 
-  it('has no provider without a client id, and still reads the older OIDC_1_* names', () => {
+  it('has no provider without a client id, and takes the issuer from a discovery URL', () => {
     process.env.OIDC_ISSUER = 'https://id.example';
     expect(oidcProviderFromEnv()).toBeNull();
     delete process.env.OIDC_ISSUER;
-    Object.assign(process.env, { OIDC_1_ID: 'corp', OIDC_1_DISCOVERY_URL: 'https://id.example/.well-known/openid-configuration', OIDC_1_CLIENT_ID: 'cid', OIDC_1_NAME: 'Corp' });
+    Object.assign(process.env, { OIDC_PROVIDER_ID: 'corp', OIDC_DISCOVERY_URL: 'https://id.example/.well-known/openid-configuration', OIDC_CLIENT_ID: 'cid', OIDC_PROVIDER_NAME: 'Corp' });
     expect(oidcProviderFromEnv()).toMatchObject({ providerId: 'corp', issuer: 'https://id.example', name: 'Corp' });
     expect(loadEnv().auth.oidc?.providerId).toBe('corp');
-  });
-
-  it('reads ALLOWED_EMAIL_DOMAINS (and the older AUTH_ALLOWED_DOMAINS)', () => {
-    process.env.AUTH_ALLOWED_DOMAINS = 'old.example';
-    expect(loadEnv().auth.allowedDomains).toEqual(['old.example']);
-    process.env.ALLOWED_EMAIL_DOMAINS = '@Acme.com, sub.acme.io';
-    expect(loadEnv().auth.allowedDomains).toEqual(['acme.com', 'sub.acme.io']);
   });
 
   it('turns the magic link on only with FEATURE_EMAIL, and sends no mail without SMTP_URL', () => {
@@ -68,7 +61,7 @@ describe('env', () => {
   });
 
   it('keeps paused features and password sign-in off unless their flags are set', () => {
-    for (const k of ['FEATURE_EMAIL', 'FEATURE_TRACKERS', 'FEATURE_SLACK', 'FEATURE_CLI', 'FEATURE_AI', 'FEATURE_ADMIN_EXTRAS', 'AUTH_DEV_PASSWORD', 'AUTH_EMAIL_PASSWORD']) delete process.env[k];
+    for (const k of ['FEATURE_EMAIL', 'FEATURE_TRACKERS', 'FEATURE_SLACK', 'FEATURE_CLI', 'FEATURE_AI', 'FEATURE_ADMIN_EXTRAS', 'AUTH_DEV_PASSWORD']) delete process.env[k];
     expect(featureFlags(loadEnv())).toEqual({ email: false, trackers: false, slack: false, cli: false, ai: false, adminExtras: false });
     expect(loadEnv().auth.emailPassword).toBe(false);
     process.env.AUTH_DEV_PASSWORD = '1';

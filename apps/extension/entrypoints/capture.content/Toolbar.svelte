@@ -93,7 +93,7 @@
   // the signed-in server's accent on the bar, toasts and screenshot mode (D-112)
   loadBrand();
   $effect(() => {
-    if (root) applyAccent(root, brand.accent, brand.onAccent);
+    if (root) applyAccent(root, brand.accent);
   });
 
   // tools end with the recording

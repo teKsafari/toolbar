@@ -104,8 +104,8 @@ export async function collectFolder(db: Db, rec: RecordingRow): Promise<FolderDa
         t: it.t,
         shapes: it.shapes,
         target: (it.target as TargetRef | null) ?? null,
-        // the packet the extension took with the note (D-164); older rows have only the target
-        locator: it.locator ?? (it.target && 'routeFiles' in it.target ? it.target : null),
+        // the packet the extension took with the note (D-164)
+        locator: it.locator ?? null,
         comment: it.comment || null,
         author: it.authorName ?? it.authorEmail ?? rec.authorName ?? 'reviewer',
         createdAt: it.createdAt,

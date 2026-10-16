@@ -182,7 +182,7 @@ export async function session(sw: Worker): Promise<{ state: string; [k: string]:
 export async function draftWithBlobs(sw: Worker, draftId: string): Promise<{ draft: Record<string, unknown>; events: unknown[]; rrweb: unknown[]; blobSizes: Record<string, number> }> {
   return sw.evaluate(async (draftId) => {
     const db: IDBDatabase = await new Promise((res, rej) => {
-      const r = indexedDB.open('nib');
+      const r = indexedDB.open('toolbar');
       r.onsuccess = () => res(r.result);
       r.onerror = () => rej(r.error);
     });
@@ -211,7 +211,7 @@ export async function draftWithBlobs(sw: Worker, draftId: string): Promise<{ dra
 export async function blobImageSize(sw: Worker, blobId: string): Promise<{ w: number; h: number }> {
   return sw.evaluate(async (id) => {
     const db: IDBDatabase = await new Promise((res) => {
-      const r = indexedDB.open('nib');
+      const r = indexedDB.open('toolbar');
       r.onsuccess = () => res(r.result);
     });
     const row: { blob: Blob } = await new Promise((res) => {
@@ -228,7 +228,7 @@ export async function blobImageSize(sw: Worker, blobId: string): Promise<{ w: nu
 export async function saveBlob(sw: Worker, blobId: string, file: string) {
   const b64 = await sw.evaluate(async (id) => {
     const db: IDBDatabase = await new Promise((res) => {
-      const r = indexedDB.open('nib');
+      const r = indexedDB.open('toolbar');
       r.onsuccess = () => res(r.result);
     });
     const row: { blob: Blob } = await new Promise((res) => {

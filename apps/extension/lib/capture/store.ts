@@ -4,7 +4,6 @@ import { browser } from 'wxt/browser';
 import { DEFAULT_SERVER_URL } from '@toolbar/shared/constants';
 import { DEFAULT_USER_SETTINGS, type ExtensionSettings } from '@toolbar/shared/api';
 import { STORAGE, type AuthState, type StorageName, type StorageValues } from '@toolbar/shared/ext';
-import { migrateStorage } from '../migrate';
 
 const areaOf = (a: 'local' | 'session') => (a === 'local' ? browser.storage.local : browser.storage.session);
 
@@ -30,7 +29,6 @@ export const CAPTURE_KEYS = {
 } as const;
 
 export async function getPrivate<T>(key: string, fallback: T): Promise<T> {
-  await migrateStorage();
   const r = await browser.storage.local.get(key);
   return (r[key] as T | undefined) ?? fallback;
 }

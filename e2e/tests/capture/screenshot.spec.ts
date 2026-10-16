@@ -125,7 +125,7 @@ test('create uploads assets, gzip NDJSON events and finalizes; chunk PUTs retry 
   // the upload queue is empty afterwards
   expect(await sw.evaluate(async () => {
     const db: IDBDatabase = await new Promise((res) => {
-      const r = indexedDB.open('nib');
+      const r = indexedDB.open('toolbar');
       r.onsuccess = () => res(r.result);
     });
     const n = await new Promise<number>((res) => {

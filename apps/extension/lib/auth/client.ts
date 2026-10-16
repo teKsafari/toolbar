@@ -4,7 +4,8 @@
 // 1. PKCE pair and state, kept in chrome.storage.session while the auth window is open.
 // 2. launchWebAuthFlow on <server>/ext/connect. The window shares the profile's cookies, so a
 //    user already signed in to the dashboard passes straight through.
-// 3. The redirect to https://<id>.chromiumapp.org/cb carries code and state.
+// 3. The redirect to https://<id>.chromiumapp.org/cb (Firefox: https://<sha1 of the add-on id>.
+//    extensions.allizom.org/cb) carries code and state.
 // 4. POST /api/v1/ext/token with code + verifier gives a device token (tb_dev_), kept in
 //    chrome.storage.local. Settings lists it under connected browsers.
 import { API_PREFIX } from '@toolbar/shared/constants';

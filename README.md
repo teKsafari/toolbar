@@ -52,9 +52,9 @@ Email and password accounts stay off. They exist only for development and tests,
 
 `scripts/release-extension.sh` writes versioned zips to `dist/`. Build with `WXT_SERVER_URL=https://feedback.example.com` so a fresh install already points at your server.
 
-- **Release zip, unpacked.** Unzip `dist/open-toolbar-extension-<version>-chrome.zip`, open `chrome://extensions`, turn on Developer mode, click Load unpacked and pick the folder. The manifest key pins the id `fmongfmimgdafigcahdpofnmmhljpnei`.
+- **Release zip, unpacked.** Unzip `dist/open-toolbar-extension-<version>-chrome.zip`, open `chrome://extensions`, turn on Developer mode, click Load unpacked and pick the folder. The manifest key pins the id `laobpjhffglefallhhojihfdbdkoendk`.
 - **Unlisted Chrome Web Store item.** Upload `dist/open-toolbar-extension-<version>-chrome-webstore.zip` as an unlisted item and send testers its store link. The item gets its own id; add it to `EXTENSION_IDS` on the server. `docs/extension-release.md` walks through the listing and the review.
-- **Firefox.** The zip builds and lints, but sign-in and video do not work there yet.
+- **Firefox.** The zip builds and lints, and the server accepts its sign-in. Video and the screenshot editor are Chrome-only, and the add-on is not signed yet (`docs/extension-release.md`, "Firefox").
 
 The extension asks for access to your server only. A workspace admin lists each app under Settings > Projects with its origins and a masking preset. After you sign in, open the extension's popup on one of those apps and click Allow: Chrome asks once for the origins of your projects, and the extension records there and nowhere else. Chrome lets the extension take screenshots of a tab only after you have opened its popup there (or pressed Ctrl+Shift+Y); the toolbar tells you when that is missing.
 

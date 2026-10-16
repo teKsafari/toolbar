@@ -68,7 +68,7 @@ describe.skipIf(!reachable)('instance settings (integration)', () => {
     url.pathname = `/${name}`;
     process.env.DATABASE_URL = url.toString();
     process.env.ADMIN_EMAILS = '';
-    for (const k of Object.keys(process.env)) if (/^(TRANSCRIBE_|STT_|OPENAI_API_KEY|WHISPER_URL|SHARE_LINK_DAYS|EXPORT_MAX_MB|ALLOWED_EMAIL_DOMAINS|AUTH_ALLOWED_DOMAINS|OIDC_SCOPES|OIDC_PROVIDER_NAME|MAX_RECORDING_MIN)/.test(k)) delete process.env[k];
+    for (const k of Object.keys(process.env)) if (/^(TRANSCRIBE_|OPENAI_API_KEY|WHISPER_URL|SHARE_LINK_DAYS|EXPORT_MAX_MB|ALLOWED_EMAIL_DOMAINS|OIDC_SCOPES|OIDC_PROVIDER_NAME|MAX_RECORDING_MIN)/.test(k)) delete process.env[k];
     execFileSync('node', ['scripts/migrate.ts'], { cwd: new URL('..', import.meta.url).pathname, env: { ...process.env }, stdio: 'ignore' });
     m = {
       db: (await import('../src/lib/server/db/index.ts')).db,

@@ -3,10 +3,9 @@
 // test, a saved setting or a restart with new values needs no module reload.
 //
 //   TRANSCRIBE_PROVIDER         none (default) | local (whisper.cpp) | openai (any OpenAI-compatible endpoint)
-//                               old names: whispercpp = local, openai-compatible = openai
-//   TRANSCRIBE_MODEL            model id for openai; default gpt-transcribe (STT_MODEL is the old name)
-//   TRANSCRIBE_API_KEY          bearer token; falls back to OPENAI_API_KEY, then STT_API_KEY
-//   TRANSCRIBE_BASE_URL         default https://api.openai.com/v1 (STT_URL is the old name, without /v1)
+//   TRANSCRIBE_MODEL            model id for openai; default gpt-transcribe
+//   TRANSCRIBE_API_KEY          bearer token; falls back to OPENAI_API_KEY
+//   TRANSCRIBE_BASE_URL         default https://api.openai.com/v1
 //   TRANSCRIBE_LANGUAGE         empty (detect) or ISO 639-1 codes, comma separated
 //   TRANSCRIBE_TIMESTAMPS       auto | chunked | native
 //   TRANSCRIBE_CHUNK_SECONDS    longest chunk, default 30

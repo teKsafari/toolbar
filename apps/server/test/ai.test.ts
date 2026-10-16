@@ -18,7 +18,7 @@ describe('AI config', () => {
   });
   it('openai-compatible needs a URL; the key is optional (a local Ollama has none)', () => {
     expect(aiConfig({ AI_PROVIDER: 'openai-compatible' }).provider).toBe('none');
-    const c = aiConfig({ AI_PROVIDER: 'openai-compatible', AI_URL: 'http://localhost:11434/v1/', AI_MODEL: 'qwen2.5' });
+    const c = aiConfig({ AI_PROVIDER: 'openai-compatible', AI_BASE_URL: 'http://localhost:11434/v1/', AI_MODEL: 'qwen2.5' });
     expect(c).toMatchObject({ provider: 'openai-compatible', url: 'http://localhost:11434/v1', model: 'qwen2.5', apiKey: '' });
     expect(aiAvailable(c)).toBe(true);
     expect(aiConfig({ AI_PROVIDER: 'openai-compatible', AI_BASE_URL: 'http://llm:8080' }).url).toBe('http://llm:8080/v1');

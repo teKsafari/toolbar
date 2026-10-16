@@ -7,8 +7,8 @@ import { base64url, fromBase64url } from '@toolbar/shared';
 import { UPLOAD_TOKEN_PREFIX } from '@toolbar/shared/api';
 import { env } from '../env.ts';
 
-// Frozen HKDF info string from the working name (D-018): changing it invalidates issued upload tokens.
-const key = (secret: string) => Buffer.from(hkdfSync('sha256', secret, 'nib-upload-v1', 'upload-token', 32));
+// HKDF info string (D-196): changing it invalidates issued upload tokens.
+const key = (secret: string) => Buffer.from(hkdfSync('sha256', secret, 'toolbar-upload-v1', 'upload-token', 32));
 const idBytes = (id: string) => Buffer.from(id.replace(/-/g, ''), 'hex');
 const idFrom = (b: Uint8Array) => {
   const h = Buffer.from(b).toString('hex');

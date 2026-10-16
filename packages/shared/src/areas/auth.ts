@@ -94,8 +94,24 @@ export async function pkcePair(): Promise<{ verifier: string; challenge: string 
 /** The launchWebAuthFlow redirect URL Chrome gives an extension id (chrome.identity.getRedirectURL('cb')). */
 export const extRedirectUri = (extensionId: string) => `https://${extensionId}.chromiumapp.org/cb`;
 
-/** Extension id of an allowed redirect URI, or null. Only https://<id>.chromiumapp.org/cb is accepted. */
-export function extensionIdOfRedirect(uri: string): string | null {
-  const m = /^https:\/\/([a-p]{32})\.chromiumapp\.org\/cb$/.exec(uri);
-  return m ? m[1]! : null;
+/**
+ * The redirect URL Firefox gives an add-on (browser.identity.getRedirectURL('cb')):
+ * https://<hash>.extensions.allizom.org/cb, where hash is the lowercase hex SHA-1 of the add-on
+ * id (toolkit/components/extensions/child/ext-identity.js, computeHash).
+ */
+export const firefoxRedirectUri = (sha1Hex: string) => `https://${sha1Hex}.extensions.allizom.org/cb`;
+
+/** What an extension redirect URI names: a Chrome extension id or a Firefox add-on id hash. */
+export type ExtRedirect = { browser: 'chrome'; id: string } | { browser: 'firefox'; hash: string };
+
+/**
+ * Parse a redirect URI of the two accepted forms, https://<id>.chromiumapp.org/cb and
+ * https://<sha1 hex>.extensions.allizom.org/cb; anything else is null.
+ */
+export function parseExtRedirect(uri: string): ExtRedirect | null {
+  const c = /^https:\/\/([a-p]{32})\.chromiumapp\.org\/cb$/.exec(uri);
+  if (c) return { browser: 'chrome', id: c[1]! };
+  const f = /^https:\/\/([0-9a-f]{40})\.extensions\.allizom\.org\/cb$/.exec(uri);
+  if (f) return { browser: 'firefox', hash: f[1]! };
+  return null;
 }

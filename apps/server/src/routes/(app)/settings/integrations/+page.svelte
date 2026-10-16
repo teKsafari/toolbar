@@ -149,8 +149,9 @@
   .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   @media (max-width: 640px) { .grid { grid-template-columns: minmax(0, 1fr); } }
   .tile { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); background: var(--nb-surface); }
-  .th { display: flex; align-items: center; gap: 10px; }
-  .ic { display: grid; place-items: center; width: 34px; height: 34px; border-radius: var(--nb-radius-md); border: 1px solid var(--nb-border); background: var(--nb-surface-2); color: var(--nb-text); }
+  .th { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; }
+  .th strong { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ic { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: var(--nb-radius-md); border: 1px solid var(--nb-border); background: var(--nb-surface-2); color: var(--nb-text); }
   .tile p { margin: 0; color: var(--nb-text-muted); font-size: var(--nb-text-md); flex: 1; }
   .conn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border-radius: var(--nb-radius-md); background: var(--nb-surface-2); font-size: var(--nb-text-md); }
   .cn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -11,7 +11,7 @@ function extensionId(keyB64: string) {
 
 describe('manifest', () => {
   it('pins the documented extension id', () => {
-    expect(extensionId(MANIFEST_KEY)).toBe('fmongfmimgdafigcahdpofnmmhljpnei');
+    expect(extensionId(MANIFEST_KEY)).toBe('laobpjhffglefallhhojihfdbdkoendk');
   });
 
   it('registers one MAIN and one ISOLATED capture script', () => {

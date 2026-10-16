@@ -1,5 +1,5 @@
 // Instance settings (D-194) without a database: precedence (environment > stored > default), the
-// lenient parsing of the old variables, validation and locks of an update, the masked API key,
+// lenient parsing of the variables, validation and locks of an update, the masked API key,
 // and the two test probes against recorded answers.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { INSTANCE_FIELDS, INSTANCE_KEYS, parseInstanceValue } from '@toolbar/shared/api';
@@ -12,12 +12,10 @@ const saved = { ...process.env };
 const ALL_ENV = INSTANCE_FIELDS.flatMap((f) => f.env);
 beforeEach(() => {
   for (const n of ALL_ENV) delete process.env[n];
-  env.auth.allowedDomains.length = 0;
   _setStoredForTest({});
 });
 afterEach(() => {
   process.env = { ...saved };
-  env.auth.allowedDomains.length = 0;
   _setStoredForTest({});
 });
 
@@ -40,7 +38,7 @@ describe('precedence: environment, else stored, else default', () => {
 
     process.env.SHARE_LINK_DAYS = '7';
     process.env.TRANSCRIBE_PROVIDER = 'none';
-    env.auth.allowedDomains.push('env.test');
+    process.env.ALLOWED_EMAIL_DOMAINS = '@Env.test';
     expect(setting('shareLinkDays')).toBe(7);
     expect(transcribeConfig().provider).toBe('none');
     expect(allowedDomains()).toEqual(['env.test']);
@@ -60,12 +58,14 @@ describe('precedence: environment, else stored, else default', () => {
     expect(adminView().locked.exportMaxMb).toBeNull();
   });
 
-  it('reads the old variables as before: clamps, aliases and STT_URL without /v1', () => {
-    Object.assign(process.env, { TRANSCRIBE_CONCURRENCY: '99', TRANSCRIBE_CHUNK_SECONDS: '1', TRANSCRIBE_PROVIDER: 'openai-compatible', STT_URL: 'http://speaches:8000/', OIDC_SCOPES: 'openid,email groups' });
+  it('parses the variables leniently: clamps, lists, a trailing slash, an unknown provider ignored', () => {
+    Object.assign(process.env, { TRANSCRIBE_CONCURRENCY: '99', TRANSCRIBE_CHUNK_SECONDS: '1', TRANSCRIBE_PROVIDER: 'openai', TRANSCRIBE_BASE_URL: 'http://speaches:8000/v1/', OIDC_SCOPES: 'openid,email groups' });
     expect(setting('transcribeConcurrency')).toBe(16);
     expect(setting('transcribeChunkSeconds')).toBe(5);
     expect(setting('transcribeProvider')).toBe('openai');
     expect(setting('transcribeBaseUrl')).toBe('http://speaches:8000/v1');
+    process.env.TRANSCRIBE_PROVIDER = 'whispercpp';
+    expect(envOverride('transcribeProvider')).toBeNull();
     expect(setting('oidcScopes')).toEqual(['openid', 'email', 'groups']);
     process.env.SHARE_LINK_DAYS = 'soon';
     expect(envOverride('shareLinkDays')).toBeNull(); // not a number: ignored with a warning

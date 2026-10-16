@@ -7,7 +7,6 @@ import { browser } from 'wxt/browser';
 import type { Branding } from '@toolbar/shared/api';
 import { STORAGE, type AuthState, type BrandCache, type StorageValues } from '@toolbar/shared/ext';
 import { BUILD_NAME } from '../flags';
-import { migrateStorage } from '../migrate';
 
 const PACKAGED = { 16: '/icon/16.png', 32: '/icon/32.png', 48: '/icon/48.png', 128: '/icon/128.png' };
 const SIZES = ['16', '32', '48', '128'] as const;
@@ -110,7 +109,7 @@ export async function clearBrand(): Promise<void> {
 
 /** Worker wiring: apply at start, follow bootstrap refreshes and sign-out. */
 export function registerBrand() {
-  void migrateStorage().then(applyBrandIcon);
+  void applyBrandIcon();
   browser.runtime.onStartup.addListener(() => void applyBrandIcon());
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;

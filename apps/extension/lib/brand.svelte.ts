@@ -48,10 +48,10 @@ const following = new WeakMap<HTMLElement, () => void>();
 /**
  * Accent variables for an element (or the page root), cleared when the default applies. The
  * values come from the shared derivation (D-175), for the OS theme, and follow it when it
- * changes: the black default would vanish on the dark theme if one value served both.
- * `onAccent` is kept for callers; the derivation picks the text colour of each theme itself.
+ * changes: the black default would vanish on the dark theme if one value served both. The
+ * derivation picks the text colour of each theme itself.
  */
-export function applyAccent(el: HTMLElement, accent: string | null, _onAccent?: string | null): void {
+export function applyAccent(el: HTMLElement, accent: string | null): void {
   following.get(el)?.();
   following.delete(el);
   const custom = accent && /^#[0-9a-fA-F]{6}$/.test(accent) && accent.toLowerCase() !== BASE_ACCENT ? accent.toLowerCase() : null;

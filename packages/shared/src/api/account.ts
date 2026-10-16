@@ -254,7 +254,7 @@ export const revokeToken = defineRoute({
 // ---------- extension sign-in (architecture s9) ----------
 
 export const extConnectQuerySchema = z.object({
-  /** https://<extension id>.chromiumapp.org/cb, id in EXTENSION_IDS */
+  /** https://<extension id>.chromiumapp.org/cb (id in EXTENSION_IDS) or https://<sha1 of a gecko id>.extensions.allizom.org/cb (id in EXTENSION_GECKO_IDS) */
   redirect_uri: z.string().url(),
   state: z.string().min(8).max(200),
   code_challenge: z.string().min(43).max(128),

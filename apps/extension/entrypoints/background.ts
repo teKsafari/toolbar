@@ -8,7 +8,6 @@ import { scope } from '../lib/scope';
 import { CAPTURE_PORT, type BgRequest, type PortMessage } from '../lib/messages';
 import { TEST_HOOKS } from '../lib/flags';
 import { registerAuth } from '../lib/bg/auth';
-import { migrateStorage } from '../lib/migrate';
 import { brandState, registerBrand } from '../lib/bg/brand';
 import { setupCapture } from '../lib/bg/capture';
 import { registerUi } from '../lib/bg/ui';
@@ -19,7 +18,6 @@ import { registerLocator } from '../lib/bg/locator';
 import { registerReview } from '../lib/bg/review';
 
 export default defineBackground(() => {
-  void migrateStorage();
   registerBrand();
   registerAuth();
   registerUi();

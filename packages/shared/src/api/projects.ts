@@ -61,7 +61,7 @@ export const projectSchema = z.object({
 export type Project = z.infer<typeof projectSchema>;
 
 /** What the extension keeps of each project (bootstrap). */
-export const projectScopeSchema = projectSchema.pick({ id: true, workspaceId: true, name: true, origins: true, maskingPreset: true, bodyAllowlist: true, traceOpenMs: true }).partial({ traceOpenMs: true });
+export const projectScopeSchema = projectSchema.pick({ id: true, workspaceId: true, name: true, origins: true, maskingPreset: true, bodyAllowlist: true, traceOpenMs: true });
 
 const workspaceParams = z.object({ workspaceId: idSchema });
 

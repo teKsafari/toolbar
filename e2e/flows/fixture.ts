@@ -19,7 +19,7 @@ import { browserEnv } from '../fixtures/browser-env.ts';
 export { signInOidc } from '../fixtures/oidc.ts';
 export { featureOn, pausedReason } from '../fixtures/features.ts';
 
-export const EXT_ID = 'fmongfmimgdafigcahdpofnmmhljpnei';
+export const EXT_ID = 'laobpjhffglefallhhojihfdbdkoendk';
 export const DISPLAY = process.env.E2E_DISPLAY ?? ':120';
 /**
  * The display the X helpers below act on: DISPLAY, or a private one while a flow runs a browser

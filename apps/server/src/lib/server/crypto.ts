@@ -7,8 +7,8 @@ import { env } from './env.ts';
 export type SealPurpose = 'share-token' | 'recording-link-token' | 'integration-secret' | 'webhook-secret' | 'invite-link' | 'instance-secret';
 
 function keyFor(purpose: SealPurpose, secret: string): Buffer {
-  // Frozen HKDF info string from the working name (D-018): changing it makes every sealed value unreadable.
-  return Buffer.from(hkdfSync('sha256', secret, 'nib-seal-v1', purpose, 32));
+  // HKDF info string (D-196): changing it makes every sealed value unreadable.
+  return Buffer.from(hkdfSync('sha256', secret, 'toolbar-seal-v1', purpose, 32));
 }
 
 export function seal(plain: string, purpose: SealPurpose, secret: string = env.authSecret): Buffer {

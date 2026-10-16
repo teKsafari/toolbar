@@ -32,16 +32,12 @@ const WELL_KNOWN = '/.well-known/openid-configuration';
 /**
  * The one OIDC provider of docs/scope.md ("Sign-in", D-114): OIDC_ISSUER or OIDC_DISCOVERY_URL,
  * OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_SCOPES, OIDC_PROVIDER_NAME, OIDC_PROVIDER_ID. Google
- * Workspace: OIDC_ISSUER=https://accounts.google.com. The older OIDC_1_* names still work when
- * OIDC_CLIENT_ID is unset. Null when no provider is configured.
+ * Workspace: OIDC_ISSUER=https://accounts.google.com. Null when no provider is configured.
  */
 export function oidcProviderFromEnv(): OidcProviderEnv | null {
-  const legacy = !read('OIDC_CLIENT_ID') && !!read('OIDC_1_CLIENT_ID');
-  // full names on both sides, so docs/configuration.md's drift test finds them in the code
-  const v = (name: string, old: string, fallback = '') => (legacy ? read(old, fallback) : read(name, fallback));
-  const clientId = v('OIDC_CLIENT_ID', 'OIDC_1_CLIENT_ID');
-  let issuer = (legacy ? '' : read('OIDC_ISSUER')).replace(/\/+$/, '');
-  let discoveryUrl = v('OIDC_DISCOVERY_URL', 'OIDC_1_DISCOVERY_URL');
+  const clientId = read('OIDC_CLIENT_ID');
+  let issuer = read('OIDC_ISSUER').replace(/\/+$/, '');
+  let discoveryUrl = read('OIDC_DISCOVERY_URL');
   if (!discoveryUrl && issuer) discoveryUrl = issuer + WELL_KNOWN;
   // OpenID Connect Discovery 1.0 section 4: the document lives at <issuer>/.well-known/openid-configuration
   if (!issuer && discoveryUrl.endsWith(WELL_KNOWN)) issuer = discoveryUrl.slice(0, -WELL_KNOWN.length);
@@ -54,13 +50,13 @@ export function oidcProviderFromEnv(): OidcProviderEnv | null {
     }
   })();
   return {
-    providerId: v('OIDC_PROVIDER_ID', 'OIDC_1_ID', 'oidc'),
+    providerId: read('OIDC_PROVIDER_ID', 'oidc'),
     issuer: issuer || discoveryUrl,
     discoveryUrl,
     clientId,
-    clientSecret: v('OIDC_CLIENT_SECRET', 'OIDC_1_CLIENT_SECRET'),
-    scopes: v('OIDC_SCOPES', 'OIDC_1_SCOPES', 'openid email profile').split(/[\s,]+/).filter(Boolean),
-    name: v('OIDC_PROVIDER_NAME', 'OIDC_1_NAME', host === 'accounts.google.com' ? 'Google' : 'SSO'),
+    clientSecret: read('OIDC_CLIENT_SECRET'),
+    scopes: read('OIDC_SCOPES', 'openid email profile').split(/[\s,]+/).filter(Boolean),
+    name: read('OIDC_PROVIDER_NAME', host === 'accounts.google.com' ? 'Google' : 'SSO'),
   };
 }
 
@@ -122,28 +118,21 @@ export function loadEnv() {
       /** tesseract languages, `+` separated (the image ships eng and swa). */
       ocrLangs: read('OCR_LANGS', 'eng'),
     },
-    /** the repository's pinned id (auth/ext.ts PINNED_EXTENSION_ID) unless EXTENSION_IDS lists others */
-    extensionIds: read('EXTENSION_IDS', 'fmongfmimgdafigcahdpofnmmhljpnei').split(/[\s,]+/).filter(Boolean),
+    /** the Chrome Web Store item's id (auth/ext.ts PINNED_EXTENSION_ID) unless EXTENSION_IDS lists others */
+    extensionIds: read('EXTENSION_IDS', 'laobpjhffglefallhhojihfdbdkoendk').split(/[\s,]+/).filter(Boolean),
+    /** Firefox add-on ids allowed to sign in (auth/ext.ts DEFAULT_GECKO_ID unless EXTENSION_GECKO_IDS lists others) */
+    extensionGeckoIds: read('EXTENSION_GECKO_IDS', 'open-toolbar@self-hosted').split(/[\s,]+/).filter(Boolean),
     auth: {
       /**
        * Email and password sign-in: development and tests only, off by default (docs/scope.md,
-       * D-080). AUTH_DEV_PASSWORD=1 turns it on; the older AUTH_EMAIL_PASSWORD name still works.
+       * D-080). AUTH_DEV_PASSWORD=1 turns it on.
        */
-      emailPassword: flag('AUTH_DEV_PASSWORD', flag('AUTH_EMAIL_PASSWORD', false)),
+      emailPassword: flag('AUTH_DEV_PASSWORD', false),
       /**
        * Work-email sign-in link by mail (J-217): paused with the rest of mail, so it needs
        * FEATURE_EMAIL; AUTH_MAGIC_LINK=0 keeps it off even then (D-114).
        */
       magicLink: flag('FEATURE_EMAIL', false) && flag('AUTH_MAGIC_LINK', true),
-      /**
-       * Email domains that may sign in and submit feedback, comma separated (docs/scope.md,
-       * "Sign-in"); empty lets any address in. Google's `hd` claim, when sent, must match too.
-       * AUTH_ALLOWED_DOMAINS is the older name.
-       */
-      allowedDomains: read('ALLOWED_EMAIL_DOMAINS', read('AUTH_ALLOWED_DOMAINS'))
-        .split(/[\s,]+/)
-        .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
-        .filter(Boolean),
       oidc: oidcProviderFromEnv(),
       /**
        * Better Auth's per-address limits (3 sign-ins per 10 s). On by default in production; an

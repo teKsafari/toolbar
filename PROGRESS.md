@@ -45,3 +45,6 @@ All five items of PLAN "Part 2, step 5" are done on main. Gate 5 waits on the ow
 - Coolify: project Lab, application open-toolbar, branch main, domain https://toolbar.teksafari.com; running and healthy. Waiting on DNS (Cloudflare) for the domain.
 - Extension: GitHub release v0.1.0 on teKsafari/toolbar (Chrome unpacked zip, Web Store zip, Firefox zip, SHA256SUMS), default server https://toolbar.teksafari.com.
 - Gate 5: waits on the owner seeing the product.
+- No backwards compatibility (D-196): the manifest key is the Web Store item's public key (id `laobpjhffglefallhhojihfdbdkoendk` for every build and the server default); old variable names, the `nib` storage and localStorage moves, the `nib-*` HKDF labels and the other compatibility code are gone. Local stack on :3000 rebuilt and reseeded.
+- Settings > MCP agent picker: cards of a row share one height and labels stay on one line ("Other agent"); `e2e/tests/dashboard/overflow.spec.ts` checks it at 1600 to 390 px in both themes.
+- Firefox sign-in (D-197): the server accepts the `extensions.allizom.org` redirect for `EXTENSION_GECKO_IDS`. Not yet run in a real Firefox; screenshots (editor page) and video stay Chrome-only.

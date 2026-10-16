@@ -17,8 +17,8 @@ export interface PopupContext {
   heavy: boolean;
   /** the page is on the replay blocked-sites list (J-012) */
   replayBlocked: boolean;
-  /** D-126: may the extension run here, and what is missing (absent in older workers) */
-  site?: SiteAccess;
+  /** D-126: may the extension run here, and what is missing */
+  site: SiteAccess;
 }
 
 /** The popup's view of host access for the tab's page (D-123, D-126). */

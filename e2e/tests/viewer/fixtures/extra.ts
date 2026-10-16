@@ -24,7 +24,11 @@ function timeline(t0: number) {
   const out: CaptureEvent[] = [];
   return {
     at: (ms: number) => void (now = t0 + ms),
-    emit: (c: keyof typeof em, kind: CaptureEvent['kind'], data: unknown) => void out.push(em[c](kind as never, data as never) as CaptureEvent),
+    /** `tab`: the tab id the worker stamps on the envelope */
+    emit: (c: keyof typeof em, kind: CaptureEvent['kind'], data: unknown, tab?: number) => {
+      const e = em[c](kind as never, data as never) as CaptureEvent;
+      out.push(tab === undefined ? e : { ...e, tab });
+    },
     out,
   };
 }
@@ -68,11 +72,11 @@ async function main() {
     tl.emit('top', 'env', fixtureEnv(`${LAB}/`, 'Lab'));
     tl.emit('off', 'media', { stream: 'screen', op: 'start', mime: 'video/webm', width: 1280, height: 720 });
     tl.at(400);
-    tl.emit('top', 'net.req', { rid: 'a-0', method: 'GET', url: `${LAB}/api/ok`, initiator: 'fetch', source: 'page', tabId: 101 });
+    tl.emit('top', 'net.req', { rid: 'a-0', method: 'GET', url: `${LAB}/api/ok`, initiator: 'fetch', source: 'page' }, 101);
     tl.at(520);
     tl.emit('top', 'net.res', { rid: 'a-0', status: 200, statusText: 'OK', headers: { 'content-type': 'application/json' }, body: '{"ok":true}', contentType: 'application/json', timing: { start: t0 + 400, end: t0 + 520 }, source: 'page' });
     tl.at(2000);
-    tl.emit('top', 'net.req', { rid: 'b-0', method: 'POST', url: `${LAB}/api/fail`, headers: { 'content-type': 'application/json', cookie: '[redacted]' }, body: '{"cart":42}', initiator: 'fetch', source: 'page', tabId: 102 });
+    tl.emit('top', 'net.req', { rid: 'b-0', method: 'POST', url: `${LAB}/api/fail`, headers: { 'content-type': 'application/json', cookie: '[redacted]' }, body: '{"cart":42}', initiator: 'fetch', source: 'page' }, 102);
     tl.at(2100);
     tl.emit('top', 'net.res', { rid: 'b-0', status: 500, statusText: 'Internal Server Error', headers: { 'content-type': 'application/json' }, body: '{"error":"database_unavailable","detail":"connection refused to db:5432"}', contentType: 'application/json', timing: { start: t0 + 2000, end: t0 + 2100 }, source: 'page' });
     tl.at(7900);

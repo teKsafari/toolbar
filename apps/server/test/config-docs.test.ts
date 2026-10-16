@@ -240,8 +240,7 @@ describe('docs/configuration.md', () => {
     expect([...names].filter((n) => !where.has(n))).toEqual([]);
     expect([...where.keys()].filter((n) => !names.has(n))).toEqual([]);
     // a variable that overrides a Settings > Server field is classified there
-    const legacy = (n: string) => /^(OIDC_1_|STT_|AUTH_ALLOWED_DOMAINS$)/.test(n);
-    const wrong = INSTANCE_FIELDS.flatMap((f) => f.env).filter((n) => !legacy(n) && !/Settings > Server/.test(where.get(n) ?? ''));
+    const wrong = INSTANCE_FIELDS.flatMap((f) => f.env).filter((n) => !/Settings > Server/.test(where.get(n) ?? ''));
     expect(wrong).toEqual([]);
     for (const n of REQUIRED) expect(where.get(n), n).toBe('Required');
   });

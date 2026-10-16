@@ -3,12 +3,10 @@ import { browser } from 'wxt/browser';
 import { DEFAULT_SERVER_URL } from '@toolbar/shared/constants';
 import { STORAGE, type StorageValues } from '@toolbar/shared/ext';
 import { createAuthClient } from './client.ts';
-import { migrateStorage } from '../migrate.ts';
 
 type Key = keyof typeof STORAGE;
 
 export async function readStore<K extends Key>(k: K): Promise<StorageValues[K] | null> {
-  await migrateStorage();
   const { area, key } = STORAGE[k];
   const r = await browser.storage[area].get(key);
   return (r[key] as StorageValues[K] | undefined) ?? null;

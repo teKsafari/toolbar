@@ -16,7 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { browserEnv } from '../fixtures/browser-env.ts';
 
-export const EXT_ID = 'fmongfmimgdafigcahdpofnmmhljpnei';
+export const EXT_ID = 'laobpjhffglefallhhojihfdbdkoendk';
 export const DISPLAY = process.env.PARITY_DISPLAY ?? ':130';
 if (DISPLAY === ':99') throw new Error('Display :99 belongs to the shared browser');
 export const LAB_URL = process.env.LAB_URL ?? 'http://localhost:5173';

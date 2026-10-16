@@ -135,7 +135,7 @@ Load it unpacked:
 
 1. Build one of the above.
 2. Open `chrome://extensions`, turn on Developer mode, click "Load unpacked", pick the output folder.
-3. The id is always `fmongfmimgdafigcahdpofnmmhljpnei` (the manifest `key` pins it, D-022). Pin the action from the puzzle menu.
+3. The id is always `laobpjhffglefallhhojihfdbdkoendk` (the manifest `key` is the Web Store item's public key, D-196). Pin the action from the puzzle menu.
 
 Or start a private Chromium with it, on its own display (never `:99`):
 
@@ -154,7 +154,7 @@ WXT's own browser runner is off (`webExt.disabled`), because this VM has no disp
 
 How the pieces connect: the service worker registers `content-scripts/capture-main.js` (MAIN world) and `content-scripts/capture.js` (ISOLATED) at `document_start` for the origins of the signed-in user's projects that the person allowed (D-126; test builds: every site unless storage key `tb:test-scope` is `projects`). The MAIN script installs the page hooks from `@toolbar/capture` and relays events over a private `MessageChannel`; the isolated script forwards them to the worker on the `capture` port and, in the top frame, mounts `<toolbar-root>` with the Svelte UI in a shadow root.
 
-The signing key's private half is `.secrets/extension-key.pem` (git-ignored). Keep a copy outside this machine; a new key means a new extension id.
+The manifest `key` is the Chrome Web Store item's public key, so every build has the store id. Google holds the private half; the repository needs no signing key (docs/extension-release.md).
 
 ## The injector
 

@@ -6,7 +6,7 @@ export function brandPage(title?: (name: string) => string): void {
   loadBrand();
   $effect.root(() => {
     $effect(() => {
-      applyAccent(document.documentElement, brand.accent, brand.onAccent);
+      applyAccent(document.documentElement, brand.accent);
       if (title) document.title = title(brand.name);
     });
   });

@@ -18,9 +18,8 @@ export interface AiConfig {
 
 export function aiConfig(env: Record<string, string | undefined> = process.env): AiConfig {
   const p = (env.AI_PROVIDER ?? 'none').trim().toLowerCase();
-  // AI_BASE_URL is shared with server-core's chapters job (with or without /v1); AI_URL is the
-  // older editor name and still works.
-  const base = (env.AI_BASE_URL || env.AI_URL || '').replace(/\/+$/, '').replace(/\/v1$/, '');
+  // AI_BASE_URL is shared with server-core's chapters job (with or without /v1)
+  const base = (env.AI_BASE_URL || '').replace(/\/+$/, '').replace(/\/v1$/, '');
   return {
     provider: p === 'openai-compatible' && base ? 'openai-compatible' : 'none',
     url: base ? `${base}/v1` : '',
