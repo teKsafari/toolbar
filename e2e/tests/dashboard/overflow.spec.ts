@@ -163,7 +163,7 @@ async function helpMenu(page: Page) {
       const r = el.getBoundingClientRect();
       const inside = r.left >= -0.5 && r.top >= -0.5 && r.right <= vw + 0.5 && r.bottom <= vh + 0.5;
       // the left and right ends at mid-height: inside a pill's rounded corners
-      const pts = [
+      const pts: [number, number][] = [
         [r.left + 2, r.top + r.height / 2],
         [r.right - 2, r.top + r.height / 2],
       ];

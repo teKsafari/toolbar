@@ -411,7 +411,7 @@ test('J-219: a video draft reopened from Drafts saves for later; the popup shows
   await f.getByTestId('close').click();
   await expect(page.locator('iframe[data-nb-editor]')).toHaveCount(0, { timeout: 20_000 });
   await expect(page.locator('toolbar-root').getByText('Saved to your drafts')).toBeVisible();
-  await expect(page.locator('toolbar-root').getByRole('button', { name: 'View' })).toBeVisible();
+  await expect(page.locator('toolbar-root').getByRole('button', { name: 'View', exact: true })).toBeVisible();
   await expect.poll(() => sw.evaluate(async () => ((await chrome.storage.session.get('tb:session'))['tb:session'] as { state: string }).state)).toBe('idle');
   popup = await openPopup(context, tabId);
   await expect(popup.locator('[data-drafts-pill]')).toBeEnabled();
