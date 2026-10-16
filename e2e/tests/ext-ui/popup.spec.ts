@@ -412,3 +412,45 @@ test('empty and error states: no drafts, and a link create with the server down'
   await popup.close();
   await page.close();
 });
+
+test('D-199: when the worker does not answer, the popup offers Restart extension next to Try again, and it reloads the extension', async ({ context, sw }) => {
+  const { page, tabId } = await labPage(context);
+  await sw.evaluate(() => {
+    __tbUi.stub('session.get', { ok: false, error: 'not_implemented', message: 'no answer' });
+    __tbUi.stub('ui.context', { ok: false, error: 'not_implemented', message: 'no answer' });
+  });
+  try {
+    const popup = await openPopup(context, tabId);
+    await expect(popup.locator('[data-popup-error]')).toContainText('background worker did not answer');
+    const retry = popup.locator('[data-retry]');
+    const restart = popup.locator('[data-restart-extension]');
+    await expect(retry).toBeVisible();
+    await expect(restart).toHaveText('Restart extension');
+    // side by side
+    const a = (await retry.boundingBox())!;
+    const b = (await restart.boundingBox())!;
+    expect(Math.abs(a.y - b.y)).toBeLessThanOrEqual(1);
+    // the real reload would replace the worker this suite holds: record the call instead
+    await popup.evaluate(() => {
+      (globalThis as { __reloads?: number }).__reloads = 0;
+      Object.defineProperty(chrome.runtime, 'reload', { configurable: true, value: () => void ((globalThis as { __reloads?: number }).__reloads! += 1) });
+    });
+    await restart.click();
+    await expect.poll(() => popup.evaluate(() => (globalThis as { __reloads?: number }).__reloads)).toBe(1);
+    // the new worker reopens the popup, as the menu's restart does
+    expect(await sw.evaluate(async () => typeof (await chrome.storage.local.get('tb:reopen-popup'))['tb:reopen-popup'])).toBe('number');
+    // a worker that answers again: Try again clears the error and the restart button
+    await sw.evaluate(() => __tbUi.clearStubs());
+    await retry.click();
+    await expect(popup.locator('[data-popup][data-loading="false"]')).toBeVisible();
+    await expect(popup.locator('[data-popup-error]')).toHaveCount(0);
+    await expect(restart).toHaveCount(0);
+    await popup.close();
+  } finally {
+    await sw.evaluate(async () => {
+      __tbUi.clearStubs();
+      await chrome.storage.local.remove('tb:reopen-popup');
+    });
+    await page.close();
+  }
+});

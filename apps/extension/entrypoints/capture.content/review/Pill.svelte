@@ -2,10 +2,13 @@
   // The launcher and the tool pill (M-01, M-03, M-04, M-05). Asleep: one dark round button with
   // the count of unsent notes. Awake: a dark pill of 32 px icon buttons that grows from the
   // launcher's corner. A running trace shows a red dot and the elapsed time (M-05). Drag the
-  // grip to another corner; the corner is remembered for this browser.
+  // launcher or the pill's grip anywhere (or move them with the arrow keys): the dock anchors to
+  // the nearest corner, is remembered per origin, and stays inside the visible area (D-199).
   import { Icon, type IconName } from '@toolbar/ui';
+  import { onMount } from 'svelte';
   import { DRAW_COLORS } from '@toolbar/shared/areas/reviewer';
-  import { review as r, type Corner, type Tool } from './state.svelte';
+  import { review as r, type DockPos, type Tool } from './state.svelte';
+  import { EDGE, fitIn, viewport } from './viewport.svelte';
 
   const tools: { tool: Tool; icon: IconName; label: string; key: string }[] = [
     { tool: 'comment', icon: 'comment', label: 'Comment on an element', key: 'C' },
@@ -20,45 +23,154 @@
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   };
   const drawing = $derived(r.tool === 'rect' || r.tool === 'arrow' || r.tool === 'freehand');
-  const left = $derived(r.corner === 'bl' || r.corner === 'tl');
-  const top = $derived(r.corner === 'tl' || r.corner === 'tr');
+  const left = $derived(r.pos.h === 'l');
+  const top = $derived(r.pos.v === 't');
 
-  // ---- drag to a corner (M-03)
-  let drag: { id: number; x: number; y: number } | null = $state(null);
+  // ---- drag anywhere, anchored to the nearest corner (M-03, D-199)
+  let dock: HTMLDivElement | undefined = $state();
+  /** a press on the launcher or grip; it becomes a drag past THRESHOLD px, else stays a click */
+  let drag: { id: number; ox: number; oy: number; sx: number; sy: number; moved: boolean; x: number; y: number; w: number; h: number } | null = $state(null);
+  const THRESHOLD = 4;
+  /** the click that trails a drag of the launcher must not open the toolbar */
+  let dragged = false;
+
+  onMount(() => viewport.watch());
+
+  /** The dock's box in the viewport, our own clamping shift left out. */
+  function dockBox() {
+    const b = dock!.getBoundingClientRect();
+    const t = (dock!.style.translate || '0px 0px').split(' ').map((v) => parseFloat(v) || 0);
+    return { x: b.left - (t[0] ?? 0), y: b.top - (t[1] ?? 0), w: b.width, h: b.height };
+  }
+  /** Keep a dragged box on screen. */
+  function clampTo(x: number, y: number, w: number, h: number) {
+    const a = viewport.box;
+    return { x: Math.min(Math.max(x, a.x + EDGE), Math.max(a.x + EDGE, a.x + a.w - EDGE - w)), y: Math.min(Math.max(y, a.y + EDGE), Math.max(a.y + EDGE, a.y + a.h - EDGE - h)) };
+  }
+  /** A box's place as a position: the nearest corner and the distance from its two edges. */
+  function anchorOf(x: number, y: number, w: number, h: number): DockPos {
+    const a = viewport.box;
+    const L = viewport.layout;
+    const hEdge = x + w / 2 < a.x + a.w / 2 ? 'l' : 'r';
+    const vEdge = y + h / 2 < a.y + a.h / 2 ? 't' : 'b';
+    return { h: hEdge, v: vEdge, x: hEdge === 'l' ? x : L.w - (x + w), y: vEdge === 't' ? y : L.h - (y + h) };
+  }
+
   function down(e: PointerEvent) {
-    if (e.button !== 0) return;
-    drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    e.preventDefault();
+    if (e.button !== 0 || !dock) return;
+    const b = dockBox();
+    drag = { id: e.pointerId, ox: e.clientX - b.x, oy: e.clientY - b.y, sx: e.clientX, sy: e.clientY, moved: false, x: b.x, y: b.y, w: b.w, h: b.h };
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* the pointer is already gone */
+    }
+    // the grip never selects page text; the launcher keeps its click
+    if ((e.currentTarget as HTMLElement).classList.contains('grip')) e.preventDefault();
   }
   function move(e: PointerEvent) {
-    if (drag && e.pointerId === drag.id) drag = { ...drag, x: e.clientX, y: e.clientY };
+    if (!drag || e.pointerId !== drag.id) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < THRESHOLD) return;
+    const p = clampTo(e.clientX - drag.ox, e.clientY - drag.oy, drag.w, drag.h);
+    drag = { ...drag, moved: true, x: p.x, y: p.y };
   }
   function up(e: PointerEvent) {
     if (!drag || e.pointerId !== drag.id) return;
-    const c: Corner = `${e.clientY < innerHeight / 2 ? 't' : 'b'}${e.clientX < innerWidth / 2 ? 'l' : 'r'}` as Corner;
+    const d = drag;
     drag = null;
-    r.setCorner(c);
+    if (!d.moved) return;
+    dragged = true;
+    setTimeout(() => (dragged = false), 0);
+    r.setPos(anchorOf(d.x, d.y, d.w, d.h));
   }
+  /** The press ended without a pointerup (pointercancel, lost capture, a DevTools dock change): the dock stays where it was. */
+  function cancel(e: PointerEvent) {
+    if (drag && e.pointerId === drag.id) drag = null;
+  }
+  // a drag never outlives the window losing focus or a viewport change
+  $effect(() => {
+    if (!drag) return;
+    const end = () => (drag = null);
+    addEventListener('blur', end);
+    return () => removeEventListener('blur', end);
+  });
+
+  /** Arrow keys move the dock from its anchor: 10 px, 50 px with Shift. */
+  function nudge(e: KeyboardEvent) {
+    const step = e.shiftKey ? 50 : 10;
+    const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+    const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+    if (!dx && !dy) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!dock) return;
+    const b = dockBox();
+    const p = clampTo(b.x + dx, b.y + dy, b.w, b.h);
+    r.setPos(anchorOf(p.x, p.y, b.w, b.h));
+  }
+  function launch() {
+    if (dragged) return;
+    r.wake();
+  }
+
+  /** Inline place of the dock: its anchor edges, or the pointer while dragging. */
+  const place = $derived.by(() => {
+    if (drag?.moved) return { left: `${drag.x}px`, top: `${drag.y}px`, right: 'auto', bottom: 'auto' };
+    const p = r.pos;
+    return {
+      left: p.h === 'l' ? `${p.x}px` : 'auto',
+      right: p.h === 'r' ? `${p.x}px` : 'auto',
+      top: p.v === 't' ? `${p.y}px` : 'auto',
+      bottom: p.v === 'b' ? `${p.y}px` : 'auto',
+    };
+  });
   /** the action's shortcut (Ctrl+Shift+Y): opening the menu on the tab lets Chrome grant screenshots (D-185) */
   const menuKey = /Mac|iPhone|iPad/.test(navigator.platform) ? 'Cmd+Shift+Y' : 'Ctrl+Shift+Y';
 </script>
 
-<div class="dock" class:left class:top class:dragging={!!drag} style:--dx={drag ? `${drag.x}px` : undefined} style:--dy={drag ? `${drag.y}px` : undefined} data-testid="review-dock" data-corner={r.corner}>
+<div
+  class="dock"
+  class:left
+  class:top
+  class:dragging={!!drag?.moved}
+  bind:this={dock}
+  bind:offsetHeight={r.dockH}
+  use:fitIn={`${place.left} ${place.top} ${place.right} ${place.bottom} ${r.awake}`}
+  style:left={place.left}
+  style:top={place.top}
+  style:right={place.right}
+  style:bottom={place.bottom}
+  data-testid="review-dock"
+  data-corner={r.corner}
+>
   {#if !r.awake}
-    <button type="button" class="launcher" data-nb-interactive data-testid="review-launcher" aria-label="Open the review toolbar (Ctrl+Shift+.)" title="Review this page (Ctrl+Shift+.)" onclick={() => r.wake()}>
+    <button
+      type="button"
+      class="launcher"
+      data-nb-interactive
+      data-testid="review-launcher"
+      aria-label="Open the review toolbar (Ctrl+Shift+.). Drag or use the arrow keys to move it"
+      title="Review this page (Ctrl+Shift+.). Drag to move"
+      onclick={launch}
+      onpointerdown={down}
+      onpointermove={move}
+      onpointerup={up}
+      onpointercancel={cancel}
+      onlostpointercapture={cancel}
+      onkeydown={nudge}
+    >
       <Icon name="comment" size={20} />
       {#if r.items.length}<span class="badge" data-testid="review-badge">{r.items.length}</span>{/if}
       {#if r.trace}<span class="rec-dot" aria-label="Trace running"></span>{/if}
     </button>
   {:else}
     {#if r.shotsBlocked}
-      <p class="shots-note" role="status" data-nb-interactive data-testid="review-shots-blocked">
+      <p class="shots-note" use:fitIn role="status" data-nb-interactive data-testid="review-shots-blocked">
         <Icon name="camera" size={14} />Screenshots are off on this tab. Press {menuKey} once to allow them.
       </p>
     {/if}
     <div class="pill" role="toolbar" aria-label="Review toolbar" data-nb-interactive data-testid="review-pill">
-      <span class="grip" role="presentation" title="Drag to another corner" onpointerdown={down} onpointermove={move} onpointerup={up}><Icon name="grip" size={14} /></span>
+      <button type="button" class="grip" aria-label="Move the toolbar (drag, or arrow keys)" title="Drag to move" data-testid="review-grip" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={cancel} onlostpointercapture={cancel} onkeydown={nudge}><Icon name="grip" size={14} /></button>
       {#each tools as t (t.tool)}
         <button type="button" class="ib" class:on={r.tool === t.tool} aria-pressed={r.tool === t.tool} aria-label="{t.label} ({t.key})" title="{t.label} ({t.key})" data-testid="review-tool-{t.tool}" onclick={() => r.setTool(t.tool)}>
           <Icon name={t.icon} size={17} />
@@ -106,11 +218,12 @@
   /* Chrome of the teksafari language (D-176): near-black capsule with a 1 px chrome edge, muted
      icons that brighten on hover, the chrome accent (near-white, or the brand's dark-theme shade)
      for the pressed tool and Send. Sizes and positions are the parity ones (M-01 to M-05). */
-  .dock { position: fixed; right: 20px; bottom: 20px; pointer-events: none; display: flex; justify-content: flex-end; font: var(--nb-weight-medium) 13px/1 var(--nb-font-sans); letter-spacing: var(--nb-tracking-ui); }
-  .dock.left { right: auto; left: 20px; justify-content: flex-start; }
-  .dock.top { bottom: auto; top: 20px; }
-  .dock.dragging { left: var(--dx); top: var(--dy); right: auto; bottom: auto; transform: translate(-50%, -50%); opacity: 0.85; }
-  .launcher { all: unset; box-sizing: border-box; position: relative; pointer-events: auto; cursor: pointer; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--nb-chrome); color: var(--nb-on-chrome); box-shadow: inset 0 0 0 1px var(--nb-chrome-border), inset 0 1px 0 rgb(255 255 255 / 0.06), var(--nb-shadow-lg); transition: transform var(--nb-dur-fast) var(--nb-ease-out), background-color var(--nb-dur-fast) var(--nb-ease-out); }
+  /* placed inline from the saved position (anchor corner plus offsets); fitIn keeps it on screen */
+  .dock { position: fixed; pointer-events: none; display: flex; justify-content: flex-end; font: var(--nb-weight-medium) 13px/1 var(--nb-font-sans); letter-spacing: var(--nb-tracking-ui); }
+  .dock.left { justify-content: flex-start; }
+  .dock.dragging { opacity: 0.85; }
+  .dock.dragging .launcher, .dock.dragging .grip { cursor: grabbing; }
+  .launcher { all: unset; box-sizing: border-box; position: relative; pointer-events: auto; cursor: pointer; touch-action: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--nb-chrome); color: var(--nb-on-chrome); box-shadow: inset 0 0 0 1px var(--nb-chrome-border), inset 0 1px 0 rgb(255 255 255 / 0.06), var(--nb-shadow-lg); transition: transform var(--nb-dur-fast) var(--nb-ease-out), background-color var(--nb-dur-fast) var(--nb-ease-out); }
   .launcher:hover { background: var(--nb-chrome-2); }
   .launcher:active { transform: translateY(1px); }
   .launcher:focus-visible, .ib:focus-visible, .send:focus-visible { outline: 2px solid var(--nb-chrome-accent); outline-offset: 2px; }
@@ -126,13 +239,12 @@
   .dock.top .shots-note { bottom: auto; top: calc(100% + 8px); }
   /* phone width (390 px): the pill wraps onto two rows, so Send and Close stay on screen (D-185) */
   @media (max-width: 520px) {
-    .dock { right: 12px; bottom: 12px; }
-    .dock.left { left: 12px; }
-    .dock.top { top: 12px; }
     .pill { flex-wrap: wrap; justify-content: center; height: auto; padding: 6px; row-gap: 4px; max-width: calc(100vw - 24px); overflow: visible; }
     .sep { display: none; }
   }
-  .grip { display: grid; place-items: center; width: 16px; height: 32px; color: var(--nb-chrome-faint); cursor: grab; touch-action: none; }
+  .grip { all: unset; box-sizing: border-box; flex: none; display: grid; place-items: center; width: 16px; height: 32px; border-radius: 4px; color: var(--nb-on-chrome-muted); cursor: grab; touch-action: none; }
+  .grip:hover { color: var(--nb-on-chrome); }
+  .grip:focus-visible { outline: 2px solid var(--nb-chrome-accent); outline-offset: 1px; color: var(--nb-on-chrome); }
   .ib { all: unset; box-sizing: border-box; position: relative; flex: none; height: 32px; min-width: 32px; padding: 0 7px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer; color: var(--nb-on-chrome-muted); transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out); }
   .ib:hover { background: var(--nb-chrome-2); color: var(--nb-on-chrome); }
   .ib.on { background: var(--nb-chrome-accent); color: var(--nb-on-chrome-accent); }

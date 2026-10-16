@@ -13,6 +13,23 @@ import { anchorOf, elementAt, labelOf, pageInfo, painted, pageSelection, selecti
 export type Tool = 'comment' | 'shot' | ShapeType;
 export type Corner = 'br' | 'bl' | 'tr' | 'tl';
 
+/**
+ * Where the launcher and pill sit: the corner they are anchored to (the side they grow away
+ * from) and their distance in px from its two edges. Kept per origin (D-199).
+ */
+export interface DockPos {
+  h: 'l' | 'r';
+  v: 't' | 'b';
+  x: number;
+  y: number;
+}
+export const DOCK_DEFAULT: DockPos = { h: 'r', v: 'b', x: 20, y: 20 };
+
+function validPos(p: unknown): p is DockPos {
+  const o = p as DockPos | null;
+  return !!o && (o.h === 'l' || o.h === 'r') && (o.v === 't' || o.v === 'b') && Number.isFinite(o.x) && Number.isFinite(o.y) && o.x >= 0 && o.y >= 0 && o.x < 20000 && o.y < 20000;
+}
+
 export interface Draft {
   /** set when editing an item already in the list */
   id: string | null;
@@ -70,7 +87,8 @@ async function sendLoose<T>(type: string, req: Record<string, unknown> = {}): Pr
   }
 }
 
-const CORNER_KEY = 'tb:review-corner';
+/** origin -> DockPos, in chrome.storage.local (never the page's storage) */
+const POS_KEY = 'tb:review-pos';
 /** How long adding a note waits for its locator packet (source maps can be slow to fetch). */
 const LOCATOR_WAIT_MS = 8000;
 
@@ -123,7 +141,11 @@ export class Review {
   context = $state({ errors: 0, failed: 0 });
   /** the browser refuses the extension's screenshots of this tab until its menu is opened here (D-185) */
   shotsBlocked = $state(false);
-  corner: Corner = $state('br');
+  pos: DockPos = $state({ ...DOCK_DEFAULT });
+  /** the dock's height, for the notes list that opens beside it */
+  dockH = $state(44);
+  /** a composer Add or Enter is stopping the voice note before it saves (one click does both) */
+  adding = $state(false);
   /** bumps on scroll, resize and a slow timer, so pins follow the page */
   tick = $state(0);
   now = $state(Date.now());
@@ -132,9 +154,9 @@ export class Review {
 
   async init() {
     try {
-      const got = await browser.storage.local.get(CORNER_KEY);
-      const c = got[CORNER_KEY];
-      if (c === 'br' || c === 'bl' || c === 'tr' || c === 'tl') this.corner = c;
+      const got = (await browser.storage.local.get(POS_KEY))[POS_KEY] as Record<string, unknown> | undefined;
+      const p = got?.[location.origin];
+      if (validPos(p)) this.pos = { h: p.h, v: p.v, x: p.x, y: p.y };
     } catch {
       /* storage unavailable */
     }
@@ -186,9 +208,23 @@ export class Review {
     this.awake = false;
   }
 
-  setCorner(c: Corner) {
-    this.corner = c;
-    void browser.storage.local.set({ [CORNER_KEY]: c }).catch(() => undefined);
+  get corner(): Corner {
+    return `${this.pos.v}${this.pos.h}`;
+  }
+
+  /** Move the dock and remember the spot for this origin. */
+  setPos(p: DockPos) {
+    const pos = { h: p.h, v: p.v, x: Math.max(0, Math.round(p.x)), y: Math.max(0, Math.round(p.y)) };
+    this.pos = pos;
+    const origin = location.origin;
+    void browser.storage.local
+      .get(POS_KEY)
+      .then((got) => {
+        const all = { ...((got[POS_KEY] as Record<string, DockPos> | undefined) ?? {}) };
+        all[origin] = pos;
+        return browser.storage.local.set({ [POS_KEY]: all });
+      })
+      .catch(() => undefined);
   }
 
   /** Esc: one level back. */
@@ -476,8 +512,20 @@ export class Review {
    */
   async saveDraft() {
     const d = this.draft;
-    if (!d) return;
-    if (this.voice?.for === 'draft') await this.stopVoice();
+    if (!d || this.adding) return;
+    if (this.voice?.for === 'draft') {
+      // one click stops the voice note, attaches it and adds the note; a second click or Enter
+      // meanwhile does nothing, so the clip is never dropped or the note added twice (D-199)
+      this.adding = true;
+      let stopped: Awaited<ReturnType<Review['stopVoice']>>;
+      try {
+        stopped = await this.stopVoice();
+      } finally {
+        this.adding = false;
+      }
+      // cancelled meanwhile, or the clip failed to save: the composer stays for the person to decide
+      if (this.draft !== d || stopped === 'failed') return;
+    }
     if (!d.comment.trim() && !d.voiceBlobId && d.kind !== 'shot' && d.kind !== 'draw') return void toasts.show('Write a comment or record a voice note');
     this.draft = null;
     const job = this.saving.then(async () => {
@@ -534,10 +582,12 @@ export class Review {
     this.voice = { for: target, startedAt: Date.now() };
   }
 
-  async stopVoice() {
+  /** Stop the microphone; a draft's clip goes on the draft that was open when it started. */
+  async stopVoice(): Promise<'saved' | 'empty' | 'failed' | undefined> {
     const v = this.voice;
     if (!v) return;
     this.voice = null;
+    const draft = v.for === 'draft' ? this.draft : null;
     // a standalone note opens its composer only once the worker has saved the clip, which can take a
     // while on a busy machine: keys typed meanwhile (a comment, Enter, Escape) are kept, as for a
     // quiet crop, instead of falling on the page (D-181)
@@ -553,11 +603,17 @@ export class Review {
       this.typeahead = null;
       this.typeaheadEnd = null;
     }
-    if (!r.ok) return void toasts.error(errorText(r));
-    if (!r.blobId) return void toasts.show('No sound was recorded');
-    if (v.for === 'draft' && this.draft) {
-      this.draft.voiceBlobId = r.blobId;
-      this.draft.voiceDurationMs = r.durationMs;
+    if (!r.ok) {
+      toasts.error(errorText(r));
+      return 'failed';
+    }
+    if (!r.blobId) {
+      toasts.show('No sound was recorded');
+      return 'empty';
+    }
+    if (draft) {
+      draft.voiceBlobId = r.blobId;
+      draft.voiceDurationMs = r.durationMs;
     } else if (v.for === 'standalone') {
       this.openDraft({
         id: null,
@@ -574,6 +630,7 @@ export class Review {
       });
       this.finishTypeahead(end);
     }
+    return 'saved';
   }
 
   async cancelVoice() {

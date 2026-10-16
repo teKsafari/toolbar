@@ -15,6 +15,7 @@
   import Pill from './Pill.svelte';
   import Composer from './Composer.svelte';
   import ItemList from './ItemList.svelte';
+  import { fitIn, viewport } from './viewport.svelte';
 
   interface Props {
     /** a Jam-style capture (screenshot mode, countdown, recording, editor) owns the page */
@@ -27,6 +28,7 @@
     const root = anchor?.getRootNode();
     if (root instanceof ShadowRoot) setOwnRoot(root);
     void r.init();
+    const unwatch = viewport.watch();
     const bump = () => r.tick++;
     addEventListener('scroll', bump, { passive: true, capture: true });
     addEventListener('resize', bump, { passive: true });
@@ -45,6 +47,7 @@
     };
     document.addEventListener('selectionchange', onSel);
     return () => {
+      unwatch();
       removeEventListener('scroll', bump, { capture: true });
       removeEventListener('resize', bump);
       clearInterval(slow);
@@ -228,7 +231,7 @@
           onmouseleave={() => (hoverPin = null)}
           onclick={() => r.edit(it, { x: p.x + 14, y: p.y })}>{it.n}</button>
         {#if hoverPin === it.id && r.draft?.id !== it.id}
-          <div class="preview" style:left="{Math.min(innerWidth - 250, p.x + 16)}px" style:top="{p.y + 12}px" data-testid="review-pin-preview">
+          <div class="preview" use:fitIn style:left="{p.x + 16}px" style:top="{p.y + 12}px" data-testid="review-pin-preview">
             {#if it.quote}<q>{it.quote.slice(0, 80)}</q>{/if}
             <span>{it.comment || (it.voiceBlobId ? 'Voice note' : 'No comment')}</span>
           </div>

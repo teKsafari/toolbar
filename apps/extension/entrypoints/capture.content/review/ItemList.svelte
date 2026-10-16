@@ -5,10 +5,17 @@
   import type { ReviewItem } from '@toolbar/shared/ext';
   import { review as r } from './state.svelte';
   import { pinPoint, samePage } from './page';
+  import { fitIn } from './viewport.svelte';
 
   const ICON: Record<ReviewItem['kind'], IconName> = { element: 'comment', text: 'text', draw: 'pen', shot: 'camera', voice: 'mic', note: 'comment' };
-  const top = $derived(r.corner === 'tl' || r.corner === 'tr');
-  const left = $derived(r.corner === 'tl' || r.corner === 'bl');
+  // beside the dock, on the side away from its anchor corner; fitIn keeps it on screen (D-199)
+  const GAP = 10;
+  const place = $derived({
+    left: r.pos.h === 'l' ? `${r.pos.x}px` : 'auto',
+    right: r.pos.h === 'r' ? `${r.pos.x}px` : 'auto',
+    top: r.pos.v === 't' ? `${r.pos.y + r.dockH + GAP}px` : 'auto',
+    bottom: r.pos.v === 'b' ? `${r.pos.y + r.dockH + GAP}px` : 'auto',
+  });
 
   function open(it: ReviewItem) {
     if (!samePage(it.page.url)) return;
@@ -28,7 +35,7 @@
   };
 </script>
 
-<div class="list" class:top class:left role="dialog" aria-label="Notes on this tab" data-nb-interactive data-testid="review-list">
+<div class="list" use:fitIn={`${place.left} ${place.top} ${place.right} ${place.bottom}`} style:left={place.left} style:right={place.right} style:top={place.top} style:bottom={place.bottom} role="dialog" aria-label="Notes on this tab" data-nb-interactive data-testid="review-list">
   <div class="head">
     <span>Notes</span>
     <span class="muted">{r.items.length ? `${r.items.length} not sent` : 'none yet'}</span>
@@ -61,11 +68,9 @@
 </div>
 
 <style>
-  /* Surface card with a header line, 30 px rows and a footer rule (D-176); placement unchanged. */
-  .list { position: fixed; right: 20px; bottom: 74px; width: 320px; max-height: min(60vh, 420px); pointer-events: auto; display: flex; flex-direction: column; box-sizing: border-box; border-radius: var(--nb-radius-lg); background: var(--nb-surface); color: var(--nb-text); border: 1px solid var(--nb-border); box-shadow: var(--nb-shadow-lg); font: 13px/1.4 var(--nb-font-sans); letter-spacing: var(--nb-tracking-ui); overflow: hidden; animation: pop var(--nb-dur-med) var(--nb-ease-out); }
+  /* Surface card with a header line, 30 px rows and a footer rule (D-176); placed beside the dock (D-199). */
+  .list { position: fixed; width: min(320px, calc(100vw - 16px)); max-height: min(60vh, 420px); pointer-events: auto; display: flex; flex-direction: column; box-sizing: border-box; border-radius: var(--nb-radius-lg); background: var(--nb-surface); color: var(--nb-text); border: 1px solid var(--nb-border); box-shadow: var(--nb-shadow-lg); font: 13px/1.4 var(--nb-font-sans); letter-spacing: var(--nb-tracking-ui); overflow: hidden; animation: pop var(--nb-dur-med) var(--nb-ease-out); }
   @keyframes pop { from { opacity: 0; transform: translateY(4px) scale(0.98); } }
-  .list.left { right: auto; left: 20px; }
-  .list.top { bottom: auto; top: 74px; }
   .head { display: flex; align-items: baseline; gap: 8px; padding: 10px 12px 6px; font-weight: var(--nb-weight-semibold); }
   .muted { color: var(--nb-text-faint); font-weight: 400; font-size: 12px; }
   .tr { margin-left: auto; color: var(--nb-danger); font-size: 11px; font-weight: 500; }
@@ -85,8 +90,10 @@
   .foot { display: flex; justify-content: flex-end; gap: 6px; padding: 8px 10px 10px; border-top: 1px solid var(--nb-border); }
   .btn { all: unset; box-sizing: border-box; height: 28px; padding: 0 10px; border-radius: var(--nb-radius-sm); cursor: pointer; font: var(--nb-weight-medium) 12px/28px var(--nb-font-sans); color: var(--nb-text-muted); transition: background-color var(--nb-dur-fast) var(--nb-ease-out), transform var(--nb-dur-fast) var(--nb-ease-out); }
   .btn:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
-  .btn.primary { background: var(--nb-accent); color: var(--nb-on-accent); box-shadow: var(--nb-shadow-primary); font-variant-numeric: tabular-nums; }
-  .btn.primary:hover { background: var(--nb-accent-hover); color: var(--nb-on-accent); }
+  /* flat accent on the card, as the composer's Add (D-199) */
+  .btn.primary { background: var(--nb-accent); color: var(--nb-on-accent); font-weight: var(--nb-weight-semibold); font-variant-numeric: tabular-nums; }
+  .btn.primary:hover:not(:disabled) { background: var(--nb-accent-hover); color: var(--nb-on-accent); }
+  .btn.primary:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; box-shadow: var(--nb-focus-ring); }
   .btn.primary:active:not(:disabled) { background: var(--nb-accent-active); transform: translateY(1px); }
   .btn:disabled { opacity: 0.5; cursor: default; }
   @media (prefers-reduced-motion: reduce) {

@@ -141,6 +141,8 @@ async function drag(page: Page, pts: [number, number][]) {
 test.afterEach(async ({ sw }) => {
   // nothing of one test may show up in the next: drop every tab's unsent notes
   await sw.evaluate(() => chrome.storage.session.remove('tb:review')).catch(() => undefined);
+  // and no dock position a test dragged to (kept per origin, D-199)
+  await sw.evaluate(() => chrome.storage.local.remove('tb:review-pos')).catch(() => undefined);
 });
 
 test('comment on an element: hover label, the click never reaches the app, the last minute of errors goes with it', async ({ context, sw }) => {
@@ -588,4 +590,243 @@ test('at 390 px the pill wraps onto two rows: Send and Close stay on screen and 
   }
   const sent = await send(page, sw);
   expect(sent.count).toBe(1);
+});
+
+/** The box of a test id, once it has settled (the dock is re-fitted on the next frame). */
+async function settled(page: Page, id: string) {
+  let last = '';
+  await expect
+    .poll(async () => {
+      const b = await ui(page, id).boundingBox();
+      const now = JSON.stringify(b && [Math.round(b.x), Math.round(b.y), Math.round(b.width), Math.round(b.height)]);
+      const same = now === last;
+      last = now;
+      return same && !!b;
+    })
+    .toBe(true);
+  return (await ui(page, id).boundingBox())!;
+}
+
+/** Fully inside the viewport. */
+function onScreen(b: { x: number; y: number; width: number; height: number }, vw: number, vh: number, what: string) {
+  expect(b.x, `${what} left`).toBeGreaterThanOrEqual(0);
+  expect(b.y, `${what} top`).toBeGreaterThanOrEqual(0);
+  expect(b.x + b.width, `${what} right`).toBeLessThanOrEqual(vw);
+  expect(b.y + b.height, `${what} bottom`).toBeLessThanOrEqual(vh);
+}
+
+test('Add while a voice note records: one click stops it, attaches the audio and adds the note (D-199)', async ({ context, sw }) => {
+  const page = await context.newPage();
+  await signIn(page, sw);
+  await openLab(page);
+  await wake(page);
+  await page.keyboard.press('c');
+  await page.getByTestId('dead').click();
+  await expect(ui(page, 'review-composer')).toBeVisible();
+  await ui(page, 'review-comment').fill('Listen while I click Add');
+  await ui(page, 'review-composer-voice-toggle').click();
+  await expect(ui(page, 'review-composer-recording')).toBeVisible();
+  await sleep(1800);
+  // Add while it records, and a second click before the clip is saved (a person who sees nothing
+  // happen clicks again): one note, with its clip. Both clicks land in one task, so the second
+  // always comes while the first still waits for the microphone to stop.
+  await ui(page, 'review-add').evaluate((b: HTMLElement) => {
+    b.click();
+    b.click();
+  });
+  await expect(ui(page, 'review-composer')).toBeHidden();
+  await expect(ui(page, 'review-count')).toHaveText('1');
+  await page.waitForTimeout(500);
+  await expect(ui(page, 'review-count')).toHaveText('1');
+  await page.keyboard.press('Escape');
+
+  const res = await send(page, sw);
+  const [it, ...rest] = await items(page, res.recordingId);
+  expect(rest).toEqual([]);
+  expect(it).toMatchObject({ kind: 'element', comment: 'Listen while I click Add' });
+  expect(it!.voiceUrl, 'the clip went with the note').toBeTruthy();
+  expect(it!.voiceDurationMs).toBeGreaterThan(1000);
+  const audio = await page.request.get(SERVER_URL + new URL(it!.voiceUrl!, SERVER_URL).pathname);
+  expect(audio.headers()['content-type']).toContain('audio/webm');
+  expect((await audio.body()).length).toBeGreaterThan(1000);
+});
+
+test('the composer\'s Add is the flat accent in both themes, with hover, press and focus states, and fits at 390 px (D-199)', async ({ context, sw }) => {
+  const page = await context.newPage();
+  await signIn(page, sw);
+  for (const scheme of ['dark', 'light'] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openLab(page);
+    await wake(page);
+    await page.keyboard.press('c');
+    await page.getByTestId('works').click();
+    await expect(ui(page, 'review-composer')).toBeVisible();
+    const add = ui(page, 'review-add');
+    const style = () => add.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { bg: cs.backgroundColor, color: cs.color, shadow: cs.boxShadow, card: getComputedStyle(el.closest('[data-testid="review-composer"]')!).backgroundColor };
+    });
+    const idle = await style();
+    // dark: near-white on the near-black card with near-black text; light: black with white text
+    if (scheme === 'dark') {
+      expect(idle.bg).toBe('rgb(250, 250, 250)');
+      expect(idle.color).toBe('rgb(11, 11, 11)');
+      expect(idle.card).toBe('rgb(19, 19, 19)');
+    } else {
+      expect(idle.bg).toBe('rgb(0, 0, 0)');
+      expect(idle.color).toBe('rgb(255, 255, 255)');
+    }
+    expect(idle.shadow, 'no lift shadow on a card button').toBe('none');
+    await add.hover();
+    await expect.poll(async () => (await style()).bg).not.toBe(idle.bg);
+    await page.mouse.move(5, 5);
+    await add.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect.poll(async () => (await style()).shadow, 'focus ring').not.toBe('none');
+    // at phone width the card and its whole footer stay on screen
+    await page.setViewportSize({ width: 390, height: 844 });
+    const card = await settled(page, 'review-composer');
+    onScreen(card, 390, 844, 'composer');
+    for (const id of ['review-add', 'review-cancel', 'review-intent', 'review-severity', 'review-composer-voice-toggle']) {
+      const b = (await ui(page, id).boundingBox())!;
+      expect(b.x, id).toBeGreaterThanOrEqual(card.x);
+      expect(b.x + b.width, id).toBeLessThanOrEqual(card.x + card.width + 0.5);
+    }
+    // one footer line: the tags are not cut, Add sits level with the microphone
+    const mic = (await ui(page, 'review-composer-voice-toggle').boundingBox())!;
+    const addBox = (await add.boundingBox())!;
+    expect(Math.abs(addBox.y + addBox.height / 2 - (mic.y + mic.height / 2))).toBeLessThanOrEqual(1);
+    expect(await ui(page, 'review-severity').evaluate((el: HTMLSelectElement) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`composer-${scheme}-390.png`) });
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+  }
+  await page.emulateMedia({ colorScheme: null });
+});
+
+test('a dragged toolbar stays fully on screen when the window shrinks to 700 and 390 px, and goes back when it grows (D-199)', async ({ context, sw }) => {
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, sw);
+  await openLab(page);
+  await wake(page);
+  // by default it sits bottom right, away from the page's header
+  const first = await settled(page, 'review-dock');
+  await expect(ui(page, 'review-dock')).toHaveAttribute('data-corner', 'br');
+  expect(first.x + first.width).toBeGreaterThan(1440 - 40);
+  expect(first.y + first.height).toBeGreaterThan(900 - 40);
+
+  // drag it by its grip to the upper left part of the page
+  const g = (await ui(page, 'review-grip').boundingBox())!;
+  await drag(page, [
+    [g.x + g.width / 2, g.y + g.height / 2],
+    [g.x - 100, g.y - 100],
+    [420, 300],
+  ]);
+  await expect(ui(page, 'review-dock')).toHaveAttribute('data-corner', 'tl');
+  const home = await settled(page, 'review-dock');
+  expect(Math.abs(home.y - (300 - (g.y + g.height / 2 - first.y)))).toBeLessThanOrEqual(3);
+
+  for (const [w, h] of [
+    [700, 900],
+    [390, 844],
+  ] as const) {
+    await page.setViewportSize({ width: w, height: h });
+    onScreen(await settled(page, 'review-dock'), w, h, `pill at ${w}`);
+    // the notes list opens beside it, on screen too
+    await page.keyboard.press('l');
+    onScreen(await settled(page, 'review-list'), w, h, `list at ${w}`);
+    await page.keyboard.press('l');
+    // a composer opened here, then a narrower window: still on screen
+    await page.keyboard.press('c');
+    await page.getByTestId('works').click();
+    onScreen(await settled(page, 'review-composer'), w, h, `composer at ${w}`);
+    await page.setViewportSize({ width: w - 60, height: h - 100 });
+    onScreen(await settled(page, 'review-composer'), w - 60, h - 100, `composer at ${w - 60}`);
+    onScreen(await settled(page, 'review-dock'), w - 60, h - 100, `pill at ${w - 60}`);
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+  }
+
+  // a wide window again: back at the spot it was dragged to
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const back = await settled(page, 'review-dock');
+  expect(Math.abs(back.x - home.x)).toBeLessThanOrEqual(2);
+  expect(Math.abs(back.y - home.y)).toBeLessThanOrEqual(2);
+
+  // a press that ends in pointercancel (a DevTools dock change) leaves the toolbar where it was
+  const grip = ui(page, 'review-grip');
+  const gb = (await grip.boundingBox())!;
+  await page.mouse.move(gb.x + 8, gb.y + 16);
+  await page.mouse.down();
+  await page.mouse.move(gb.x + 60, gb.y + 80, { steps: 3 });
+  await grip.dispatchEvent('pointercancel', { pointerId: 1, isPrimary: true });
+  await page.mouse.up();
+  const after = await settled(page, 'review-dock');
+  expect(Math.abs(after.x - home.x)).toBeLessThanOrEqual(2);
+  expect(Math.abs(after.y - home.y)).toBeLessThanOrEqual(2);
+  await expect(ui(page, 'review-dock')).not.toHaveClass(/dragging/);
+});
+
+test('the collapsed launcher drags past a small threshold, keeps its spot per origin after a reload, and a click still opens the toolbar (D-199)', async ({ context, sw }) => {
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, sw);
+  await openLab(page);
+  const launcher = ui(page, 'review-launcher');
+  await expect(launcher).toBeVisible();
+  const l0 = await settled(page, 'review-launcher');
+  // bottom right, 20 px in (plus the page's scrollbar)
+  expect(l0.x + l0.width).toBeGreaterThan(1440 - 40);
+  expect(l0.y + l0.height).toBeGreaterThan(900 - 40);
+
+  // a press that moves 2 px is still a click: the toolbar opens, fully on screen
+  await page.mouse.move(l0.x + 22, l0.y + 22);
+  await page.mouse.down();
+  await page.mouse.move(l0.x + 24, l0.y + 22);
+  await page.mouse.up();
+  await expect(ui(page, 'review-pill')).toBeVisible();
+  onScreen(await settled(page, 'review-dock'), 1440, 900, 'pill');
+  await ui(page, 'review-close').click();
+  await expect(launcher).toBeVisible();
+
+  // a real drag moves it and does not open the toolbar
+  await drag(page, [
+    [l0.x + 22, l0.y + 22],
+    [l0.x - 40, l0.y - 20],
+    [200, 520],
+  ]);
+  await expect(ui(page, 'review-pill')).toBeHidden();
+  const l1 = await settled(page, 'review-launcher');
+  expect(Math.abs(l1.x + 22 - 200)).toBeLessThanOrEqual(3);
+  expect(Math.abs(l1.y + 22 - 520)).toBeLessThanOrEqual(3);
+  await expect(ui(page, 'review-dock')).toHaveAttribute('data-corner', 'bl');
+
+  // the arrow keys move it too
+  await launcher.focus();
+  await page.keyboard.press('ArrowUp');
+  await expect.poll(async () => Math.round((await launcher.boundingBox())!.y)).toBe(Math.round(l1.y) - 10);
+  const l2 = (await launcher.boundingBox())!;
+
+  // a reload keeps the spot for this origin
+  await page.reload();
+  await expect(launcher).toBeVisible({ timeout: 15_000 });
+  await expect.poll(async () => Math.round((await launcher.boundingBox())!.x)).toBe(Math.round(l2.x));
+  await expect.poll(async () => Math.round((await launcher.boundingBox())!.y)).toBe(Math.round(l2.y));
+  onScreen((await launcher.boundingBox())!, 1440, 900, 'launcher after reload');
+
+  // another origin keeps its own spot: the default, bottom right
+  await openLab(page, '/', LAB_URL.replace('localhost', '127.0.0.1'));
+  const other = await settled(page, 'review-launcher');
+  expect(other.x + other.width).toBeGreaterThan(1440 - 40);
+
+  // a narrow window keeps the moved launcher on screen; a click opens the pill on screen
+  await openLab(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  onScreen(await settled(page, 'review-launcher'), 390, 844, 'launcher at 390');
+  await launcher.click();
+  await expect(ui(page, 'review-pill')).toBeVisible();
+  onScreen(await settled(page, 'review-dock'), 390, 844, 'pill at 390');
 });

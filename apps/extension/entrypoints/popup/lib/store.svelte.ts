@@ -73,6 +73,8 @@ class PopupStore {
   error = $state('');
   /** set when the popup could not finish loading; the popup shows it with a retry button */
   loadError = $state('');
+  /** the service worker did not answer: the error offers a restart of the extension (D-199) */
+  workerDown = $state(false);
   /** signed out: the configured server did not answer its public branding request */
   serverError = $state('');
   tabId = tabIdParam();
@@ -88,6 +90,7 @@ class PopupStore {
   async load() {
     const t0 = performance.now();
     this.loadError = '';
+    this.workerDown = false;
     try {
       await this.fill();
     } catch (e) {
@@ -136,7 +139,10 @@ class PopupStore {
     }
     if (ctx.ok) this.context = ctx.context;
     // neither answer: the service worker is not running (or failed to start)
-    if (!sess.ok && !ctx.ok) throw new Error(`the extension's background worker did not answer (${sess.message ?? sess.error}). Reload the extension and try again.`);
+    if (!sess.ok && !ctx.ok) {
+      this.workerDown = true;
+      throw new Error(`the extension's background worker did not answer (${sess.message ?? sess.error}). Restart the extension, or try again.`);
+    }
     const pending = await browser.storage.session.get('tb:popup-screen').catch(() => ({}) as Record<string, unknown>);
     if (pending['tb:popup-screen'] === 'link') this.screen = 'link';
     void browser.storage.session.remove('tb:popup-screen').catch(() => undefined);
@@ -162,6 +168,16 @@ class PopupStore {
   }
 
   /** Retry after a failed load or an unreachable server. */
+  /**
+   * Reload the whole extension from the popup itself, without the worker (which is what does not
+   * answer): a stuck worker after an update no longer needs a browser restart. The new worker
+   * reopens the popup, as the menu's restart does (J-177).
+   */
+  async restartExtension() {
+    await Promise.race([browser.storage.local.set({ 'tb:reopen-popup': Date.now() }).catch(() => undefined), new Promise((r) => setTimeout(r, 300))]);
+    browser.runtime.reload();
+  }
+
   async retry() {
     this.loading = true;
     this.serverError = '';

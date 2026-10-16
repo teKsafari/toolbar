@@ -68,7 +68,12 @@
   {:else if store.loadError}
     <div class="load-error" role="alert" data-popup-error>
       <p>{store.loadError}</p>
-      <Button variant="secondary" onclick={() => void store.retry()} data-retry>Try again</Button>
+      <span class="load-actions">
+        <Button variant="secondary" onclick={() => void store.retry()} data-retry>Try again</Button>
+        {#if store.workerDown}
+          <Button variant="secondary" onclick={() => void store.restartExtension()} data-restart-extension>Restart extension</Button>
+        {/if}
+      </span>
     </div>
   {:else if !store.signedIn && (store.screen === 'main' || store.screen === 'link' || store.screen === 'drafts')}
     <!-- signed out, sign-in comes first on any page (X-05); a restricted page says so once signed in -->
@@ -187,6 +192,12 @@
   }
   .load-error p {
     margin: 0;
+  }
+  .load-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
   }
   .loading {
     height: 120px;
