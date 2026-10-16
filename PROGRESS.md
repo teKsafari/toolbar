@@ -40,3 +40,8 @@ All five items of PLAN "Part 2, step 5" are done on main. Gate 5 waits on the ow
 - Owner decisions: D-005 (no steering; Nuru as test target; Agentation and Vercel Toolbar taste), D-016 (no mobile or desktop apps).
 - Never use X display :99 (the shared browser). Run e2e on a private Xvfb display with openbox.
 - Off git, on this machine: `/home/dev/nuru` (Nuru clone), `/home/dev/nuru-run/`, `/home/dev/second-app-review/`, `/home/dev/handoff-run/` (agent transcripts and clones), `/home/dev/demo-raw/` (raw screen recordings).
+
+## Deployment and release (2026-10-16)
+- Coolify: project Lab, application open-toolbar, branch main, domain https://toolbar.teksafari.com; running and healthy. Waiting on DNS (Cloudflare) for the domain.
+- Extension: GitHub release v0.1.0 on teKsafari/toolbar (Chrome unpacked zip, Web Store zip, Firefox zip, SHA256SUMS), default server https://toolbar.teksafari.com.
+- Gate 5: waits on the owner seeing the product.
