@@ -40,6 +40,7 @@ import { CAPTURE_KEYS, getAuth, getPrivate, getSettings, getStore, serverUrl, se
 import { installWebRequest } from './webrequest';
 import { isReplayBlocked } from '@toolbar/shared/areas/ext-ui';
 import { presetFor, scope, workspaceForUrl } from '../scope';
+import { noteShotError } from '../bg/shot-access';
 
 type Port = ReturnType<typeof browser.runtime.connect>;
 export class CaptureError extends Error {
@@ -1289,9 +1290,14 @@ export class CaptureService {
           : null;
       const shoot = () => this.shots.run(() => browser.tabs.captureVisibleTab(tab.windowId!, { format: 'png' }));
       // a keyframe from the trace's own queue may have used this second's capture quota: one more try
-      const url = await shoot().catch(async () => (await new Promise((r) => setTimeout(r, 600)), shoot()));
+      const url = await shoot().catch(async (e) => {
+        if (noteShotError(tab.id!, e)) throw e; // no activeTab on this tab (D-185): a retry cannot help
+        await new Promise((r) => setTimeout(r, 600));
+        return shoot();
+      });
       return await cardStill(await dataUrlToBlob(url), preset, rects);
-    } catch {
+    } catch (e) {
+      noteShotError(tab.id, e);
       return null;
     }
   }

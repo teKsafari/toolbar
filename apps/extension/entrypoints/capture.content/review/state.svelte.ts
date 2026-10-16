@@ -121,6 +121,8 @@ export class Review {
   /** traces exist in this build (the trace work package answers trace.get) */
   traceAvailable = $state(true);
   context = $state({ errors: 0, failed: 0 });
+  /** the browser refuses the extension's screenshots of this tab until its menu is opened here (D-185) */
+  shotsBlocked = $state(false);
   corner: Corner = $state('br');
   /** bumps on scroll, resize and a slow timer, so pins follow the page */
   tick = $state(0);
@@ -160,7 +162,10 @@ export class Review {
 
   async refreshContext() {
     const r = await send('review.context', {});
-    if (r.ok) this.context = { errors: r.context.errors.length, failed: r.context.failedRequests.length };
+    if (r.ok) {
+      this.context = { errors: r.context.errors.length, failed: r.context.failedRequests.length };
+      this.shotsBlocked = r.shots === 'blocked';
+    }
   }
 
   wake() {

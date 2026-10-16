@@ -473,9 +473,12 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
       const filesOf = [...(s.keyframes ?? []), ...(s.shots ?? [])].map((x) => kfFile.get(x)).filter((x): x is string => !!x);
       const annId = annByEvent.get(s.action.eventId ?? '');
       if (annId && annFile.has(annId)) filesOf.unshift(annFile.get(annId)!);
-      const entry: TimelineEntry = { atMs: s.startMs, span: s.id, outcome: s.outcome === 'silent' && s.silent ? `silent ${s.silent}` : s.outcome, text: s.summary, files: filesOf, t: startedAt + s.startMs + s.durationMs };
+      // a click on plain text that changed nothing (a reviewer clicking to blur a field, or to
+      // read) is no dead control: keep it in the timeline, not in "what did not happen" (D-185)
+      const notControl = s.outcome === 'dead' && s.action.type === 'click' && s.action.interactive === false;
+      const entry: TimelineEntry = { atMs: s.startMs, span: s.id, outcome: s.outcome === 'silent' && s.silent ? `silent ${s.silent}` : s.outcome, text: notControl ? `${s.summary} (not a control)` : s.summary, files: filesOf, t: startedAt + s.startMs + s.durationMs };
       timeline.push(entry);
-      if (isQuiet(s.outcome)) notHappened.push(entry);
+      if (isQuiet(s.outcome) && !notControl) notHappened.push(entry);
     }
   } else if (p) {
     for (const a of p.actions) {
@@ -838,6 +841,7 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
     app: { url: d.rec.pageUrl, title: d.rec.pageTitle, deployCommit, project: d.rec.project },
     browser: browserLine(d.rec.env),
     masking,
+    shotsBlocked: d.rec.env?.shots === 'blocked' && !keyframes.length && !annJson.some((a) => a.image),
     resolution: d.resolution ? { at: d.resolution.at.toISOString(), by: d.resolution.by, note: d.resolution.note, commit: d.resolution.commit } : null,
     words,
     notHappened,

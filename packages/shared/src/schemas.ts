@@ -32,14 +32,14 @@ export const locatorPacketSchema = z.object({
   route: z.string().max(4000),
   title: z.string().max(500).optional(),
   masking: z.enum(['staging', 'production', 'none']).optional(),
-  framework: z.object({ name: z.enum(['sveltekit', 'svelte']), dev: z.boolean(), base: z.string().optional(), routeId: z.string().optional() }).optional(),
+  framework: z.object({ name: z.enum(['sveltekit', 'svelte', 'nextjs']), dev: z.boolean(), base: z.string().optional(), routeId: z.string().optional(), router: z.enum(['app', 'pages']).optional() }).optional(),
   routeFiles: z
     .array(
       z.object({
         file: z.string().max(1000),
         routeId: z.string().max(1000),
         role: z.enum(['page', 'page-server', 'component']),
-        source: z.enum(['svelte-meta', 'manifest', 'guess']),
+        source: z.enum(['svelte-meta', 'manifest', 'next-tree', 'guess']),
         params: z.record(z.string(), z.string()).optional(),
       }),
     )
@@ -115,6 +115,7 @@ export const envInfoSchema = z.object({
   locale: z.string().optional(),
   tz: z.string().optional(),
   extVersion: z.string().optional(),
+  shots: z.enum(['ok', 'blocked']).optional(),
   maskingPreset: z.enum(['staging', 'production', 'none']).optional(),
   url: z.string().optional(),
   title: z.string().optional(),

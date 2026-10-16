@@ -48,8 +48,11 @@ export interface ReviewSubmitResult {
 export interface ReviewerBgRequests {
   /** the sender tab's unsent items */
   'review.get': { req: {}; res: { items: ReviewItem[] } };
-  /** errors and failed requests of the last 60 s in the sender tab (the composer's count, M-30) */
-  'review.context': { req: {}; res: { context: FeedbackContext } };
+  /**
+   * errors and failed requests of the last 60 s in the sender tab (the composer's count, M-30), and
+   * whether the browser lets the extension take screenshots of the tab (D-185)
+   */
+  'review.context': { req: {}; res: { context: FeedbackContext; shots?: 'ok' | 'blocked' | 'unknown' } };
   /**
    * Screenshot of a viewport rect (CSS px) of the sender tab at 1x CSS pixels. The page hides its
    * own UI first. `preview` is a data URL for the composer.

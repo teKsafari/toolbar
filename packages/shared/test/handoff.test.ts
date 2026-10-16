@@ -74,6 +74,14 @@ describe('README', () => {
     expect(md).toMatch(/```text captured source="comment" author="Dana" at="1.2s"\nThe Run button does nothing\n```/);
   });
 
+  it('says when the browser blocked screenshots, right after the signals (D-185)', () => {
+    const md = renderReadme(base({ shotsBlocked: true, counts: { ...base().counts, keyframes: 0 } }));
+    const at = md.indexOf('No screenshots:');
+    expect(at).toBeGreaterThan(md.indexOf('Signals:'));
+    expect(at).toBeLessThan(md.indexOf("## The reviewer's words"));
+    expect(renderReadme(base())).not.toContain('No screenshots');
+  });
+
   it('stays under 8k tokens with a long session', () => {
     const timeline = Array.from({ length: 3000 }, (_, i) => ({ atMs: i * 100, span: `s${i}`, outcome: i % 7 ? 'changed' : 'dead', text: `Click "Button ${i}" then POST /api/thing/${i} 200 ${'x'.repeat(80)}` }));
     const words = Array.from({ length: 40 }, (_, i) => ({ source: 'comment', author: `Person ${i}`, atMs: i * 1000, text: 'long words '.repeat(500) }));

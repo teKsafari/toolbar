@@ -565,3 +565,27 @@ test('a standalone voice note keeps what is typed while it is saved: the comment
   const voice = Object.values(state).flatMap((t) => t.items).filter((i) => i.kind === 'voice');
   expect(voice.at(-1)?.comment).toBe('Listen to this');
 });
+
+test('at 390 px the pill wraps onto two rows: Send and Close stay on screen and work (D-185)', async ({ context, sw }) => {
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signIn(page, sw);
+  await openLab(page);
+  await wake(page);
+  await page.keyboard.press('c');
+  await page.getByTestId('works').click();
+  await ui(page, 'review-comment').fill('Narrow screen note');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
+  const pill = (await ui(page, 'review-pill').boundingBox())!;
+  expect(pill.x).toBeGreaterThanOrEqual(0);
+  expect(pill.x + pill.width).toBeLessThanOrEqual(390);
+  expect(pill.height, 'two rows').toBeGreaterThan(60);
+  for (const id of ['review-send', 'review-close', 'review-hide-pins']) {
+    const b = (await ui(page, id).boundingBox())!;
+    expect(b.x, id).toBeGreaterThanOrEqual(pill.x);
+    expect(b.x + b.width, id).toBeLessThanOrEqual(pill.x + pill.width + 0.5);
+  }
+  const sent = await send(page, sw);
+  expect(sent.count).toBe(1);
+});

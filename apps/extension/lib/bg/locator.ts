@@ -18,6 +18,7 @@ import { CAPTURE_PORT, type PortMessage } from '../messages';
 import { cropImage, dataUrlToBlob } from '../crop';
 import { TEST_HOOKS } from '../flags';
 import type { CaptureService } from '../capture/service';
+import { noteShot, noteShotError } from './shot-access';
 
 const MAX_TEXT_BYTES = 32 * 1024 * 1024;
 const ERRORS_MAX = 10;
@@ -86,7 +87,10 @@ export async function captureLocator(
   // the crop, 1x CSS pixels
   let crop: LocatorCrop | null = null;
   if (req.crop !== false && page.cropRect && tab.active) {
-    const shot = await svc.captureTab(tab.windowId).catch(() => null);
+    const shot = await svc.captureTab(tab.windowId).then(
+      (s) => (noteShot(tabId, 'ok'), s),
+      (e) => (noteShotError(tabId, e), null),
+    );
     if (shot) {
       const out = await cropImage(await dataUrlToBlob(shot), page.cropRect, packet.viewport.w, { cssPixels: true });
       crop = { dataUrl: await toDataUrl(out.blob), w: out.width, h: out.height };

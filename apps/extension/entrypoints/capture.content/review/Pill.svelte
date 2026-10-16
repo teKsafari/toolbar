@@ -40,6 +40,8 @@
     drag = null;
     r.setCorner(c);
   }
+  /** the action's shortcut (Ctrl+Shift+Y): opening the menu on the tab lets Chrome grant screenshots (D-185) */
+  const menuKey = /Mac|iPhone|iPad/.test(navigator.platform) ? 'Cmd+Shift+Y' : 'Ctrl+Shift+Y';
 </script>
 
 <div class="dock" class:left class:top class:dragging={!!drag} style:--dx={drag ? `${drag.x}px` : undefined} style:--dy={drag ? `${drag.y}px` : undefined} data-testid="review-dock" data-corner={r.corner}>
@@ -50,6 +52,11 @@
       {#if r.trace}<span class="rec-dot" aria-label="Trace running"></span>{/if}
     </button>
   {:else}
+    {#if r.shotsBlocked}
+      <p class="shots-note" role="status" data-nb-interactive data-testid="review-shots-blocked">
+        <Icon name="camera" size={14} />Screenshots are off on this tab. Press {menuKey} once to allow them.
+      </p>
+    {/if}
     <div class="pill" role="toolbar" aria-label="Review toolbar" data-nb-interactive data-testid="review-pill">
       <span class="grip" role="presentation" title="Drag to another corner" onpointerdown={down} onpointermove={move} onpointerup={up}><Icon name="grip" size={14} /></span>
       {#each tools as t (t.tool)}
@@ -113,6 +120,18 @@
   @keyframes pulse { 50% { opacity: 0.45; } }
   .pill { pointer-events: auto; display: flex; align-items: center; gap: 2px; height: 44px; padding: 0 6px; box-sizing: border-box; border-radius: 22px; background: var(--nb-chrome); color: var(--nb-on-chrome); box-shadow: inset 0 0 0 1px var(--nb-chrome-border), inset 0 1px 0 rgb(255 255 255 / 0.06), var(--nb-shadow-lg); animation: grow var(--nb-dur-med) var(--nb-ease-out); max-width: calc(100vw - 40px); overflow-x: auto; scrollbar-width: none; }
   @keyframes grow { from { opacity: 0; transform: scale(0.95); } }
+  /* the browser blocks screenshots on this tab (D-185): one line above the pill */
+  .shots-note { pointer-events: auto; position: absolute; right: 0; bottom: calc(100% + 8px); margin: 0; max-width: min(340px, calc(100vw - 40px)); box-sizing: border-box; padding: 8px 12px; border-radius: 12px; display: flex; gap: 8px; align-items: flex-start; background: var(--nb-chrome); color: var(--nb-on-chrome); box-shadow: inset 0 0 0 1px var(--nb-chrome-border), var(--nb-shadow-lg); font: var(--nb-weight-medium) 12px/1.4 var(--nb-font-sans); }
+  .dock.left .shots-note { right: auto; left: 0; }
+  .dock.top .shots-note { bottom: auto; top: calc(100% + 8px); }
+  /* phone width (390 px): the pill wraps onto two rows, so Send and Close stay on screen (D-185) */
+  @media (max-width: 520px) {
+    .dock { right: 12px; bottom: 12px; }
+    .dock.left { left: 12px; }
+    .dock.top { top: 12px; }
+    .pill { flex-wrap: wrap; justify-content: center; height: auto; padding: 6px; row-gap: 4px; max-width: calc(100vw - 24px); overflow: visible; }
+    .sep { display: none; }
+  }
   .grip { display: grid; place-items: center; width: 16px; height: 32px; color: var(--nb-chrome-faint); cursor: grab; touch-action: none; }
   .ib { all: unset; box-sizing: border-box; position: relative; flex: none; height: 32px; min-width: 32px; padding: 0 7px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer; color: var(--nb-on-chrome-muted); transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out); }
   .ib:hover { background: var(--nb-chrome-2); color: var(--nb-on-chrome); }

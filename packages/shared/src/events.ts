@@ -100,6 +100,12 @@ export interface EnvInfo {
   locale?: string;
   tz?: string;
   extVersion?: string;
+  /**
+   * `blocked`: the browser refused the extension's screenshots of this tab (Chrome's
+   * captureVisibleTab needs activeTab, granted only after the reviewer opens the extension's menu
+   * or presses one of its shortcuts on the tab; a project's host permission is not enough, D-185).
+   */
+  shots?: 'ok' | 'blocked';
   maskingPreset?: MaskingPreset;
   url?: string;
   title?: string;

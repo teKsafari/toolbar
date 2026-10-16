@@ -8,6 +8,9 @@
 // side in ./sourcemap.ts, the zod schema in ./schemas.ts (this file stays free of zod for the
 // content scripts).
 import type { MaskingPreset, Rect } from './events.ts';
+import { nextRouteFiles, type NextRoute } from './next-route.ts';
+
+export * from './next-route.ts';
 
 export const LOCATOR_VERSION = 1 as const;
 
@@ -15,14 +18,15 @@ export type LocatorKind = 'element' | 'text' | 'area' | 'page';
 
 /**
  * A file the annotated UI probably comes from. `source` says how we know: `svelte-meta` (the
- * dev server told us, exact), `manifest` (the route matched the app's own route table), `guess`
- * (built from the URL alone; dynamic-looking segments became `[param]`).
+ * dev server told us, exact), `manifest` (the route matched the app's own route table),
+ * `next-tree` (the route tree a Next.js page carries, D-185), `guess` (built from the URL alone;
+ * dynamic-looking segments became `[param]`).
  */
 export interface RouteFile {
   file: string;
   routeId: string;
   role: 'page' | 'page-server' | 'component';
-  source: 'svelte-meta' | 'manifest' | 'guess';
+  source: 'svelte-meta' | 'manifest' | 'next-tree' | 'guess';
   params?: Record<string, string>;
 }
 
@@ -82,7 +86,7 @@ export interface LocatorPacket {
   route: string;
   title?: string;
   masking?: MaskingPreset;
-  framework?: { name: 'sveltekit' | 'svelte'; dev: boolean; base?: string; routeId?: string };
+  framework?: { name: 'sveltekit' | 'svelte' | 'nextjs'; dev: boolean; base?: string; routeId?: string; router?: 'app' | 'pages' };
   /** best first; empty when nothing matched */
   routeFiles: RouteFile[];
   /** dev servers only: where the element is written, from __svelte_meta */
@@ -327,6 +331,8 @@ export interface CandidateInput {
   base?: string;
   /** Svelte dev info: the element's own file and the files of the components around it */
   svelteFiles?: string[];
+  /** the route a Next.js page carries (nextRouteOf); route files then follow Next's layout */
+  next?: NextRoute | null;
   max?: number;
 }
 
@@ -352,6 +358,11 @@ export function candidateRouteFiles(input: CandidateInput): { files: RouteFile[]
     out.push(f);
   };
   let routeId: string | undefined;
+  if (input.next) {
+    const n = nextRouteFiles(input.next, path);
+    for (const f of n.files) add(f);
+    return { files: out, routeId: n.routeId };
+  }
   for (const file of input.svelteFiles ?? []) {
     const id = routeIdOfFile(file);
     if (id && /\+page\.svelte$/.test(file)) {

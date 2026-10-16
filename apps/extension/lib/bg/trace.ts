@@ -16,6 +16,7 @@ import { projectForUrl, traceOpenMsOf } from '@toolbar/shared/projects';
 import type { BgError, BgRequest, BgRequestType, TraceResult, TraceState } from '@toolbar/shared/ext';
 import { KEYFRAME_HASH_SIZE, LiveTrace, dHash, isNearDuplicate, type KeyframeRequest, type Span } from '@toolbar/trace';
 import { CaptureError, isRestrictedUrl, type CaptureService } from '../capture/service';
+import { noteShot, noteShotError, probeShots } from './shot-access';
 import { getAuth, getPrivate, serverUrl, setPrivate } from '../capture/store';
 import { CaptureQueue, cropImage, dataUrlToBlob } from '../crop';
 import { TEST_HOOKS } from '../flags';
@@ -91,6 +92,12 @@ export class TraceController {
     if (isRestrictedUrl(tab.url)) throw new CaptureError('restricted_page', 'This page cannot be traced');
     const startedAt = Date.now();
     const env = await this.svc.envFor(tab.id);
+    // keyframes need captureVisibleTab: say in the capture when the browser refuses it (D-185)
+    if (env && tab.active && tab.windowId != null) {
+      const windowId = tab.windowId;
+      const shots = await probeShots(tab.id, () => this.shots.run(() => browser.tabs.captureVisibleTab(windowId, { format: 'jpeg', quality: 10 })), { retryMs: 0 });
+      if (shots !== 'unknown') env.shots = shots;
+    }
     const created = await api.createCapture(auth, {
       clientId: uuidv7(),
       kind: 'trace',
@@ -141,7 +148,11 @@ export class TraceController {
       const tab = await browser.tabs.get(c.tabId).catch(() => null);
       // captureVisibleTab sees only the active tab of a window
       if (!tab?.active || isRestrictedUrl(tab.url)) return;
-      const dataUrl = await this.shots.run(() => browser.tabs.captureVisibleTab(tab.windowId, { format: 'png' }));
+      const dataUrl = await this.shots.run(() => browser.tabs.captureVisibleTab(tab.windowId, { format: 'png' })).catch((e) => {
+        noteShotError(c.tabId, e);
+        throw e;
+      });
+      noteShot(c.tabId, 'ok');
       const png = await dataUrlToBlob(dataUrl);
       const css = await cropImage(png, null, tab.width ?? 1280, { cssPixels: true });
       const hash = await hashOf(css.blob);

@@ -109,7 +109,8 @@ export interface HandoffSpan {
   startMs: number;
   durationMs: number;
   url?: string;
-  action: { type: string; label: string; eventId?: string };
+  /** `interactive`: a click's target looked like a control (button, link, field, role); false for plain text */
+  action: { type: string; label: string; eventId?: string; interactive?: boolean | null };
   outcome: string;
   silent?: string;
   summary: string;
@@ -168,6 +169,8 @@ export interface ReadmeInput {
   timelineSource: 'spans' | 'events';
   counts: { spans: Record<string, number> | null; consoleErrors: number; failedRequests: number; requests: number; comments: number; annotations: number; keyframes: number };
   files: FolderFile[];
+  /** the browser refused the extension's screenshots on the reviewer's tab (env.shots, D-185) */
+  shotsBlocked?: boolean;
   /** extra search hints, one per line (commands) */
   hints?: string[];
   notes?: string[];
@@ -252,6 +255,11 @@ function renderOnce(r: ReadmeInput, maxLines: number, maxChars: number): string 
   L.push(...header(r), '');
   L.push(FENCE_RULE, '');
   L.push(`Signals: ${countsLine(r)}.`, '');
+  if (r.shotsBlocked)
+    L.push(
+      "No screenshots: Chrome refused the extension's captures on the reviewer's tab (it allows them only after the reviewer opens the extension's menu on that tab), so there are no keyframes or element crops. The page's text is in the timeline, `outline/` and the DOM recording in `raw/`.",
+      '',
+    );
 
   L.push("## The reviewer's words", '');
   if (r.words.length) L.push(...wordsBlock(r.words, maxChars));
@@ -269,7 +277,7 @@ function renderOnce(r: ReadmeInput, maxLines: number, maxChars: number): string 
     );
   } else
     L.push(
-      r.timelineSource === 'spans' ? 'Every action had a visible effect: no `dead`, `stuck` or `silent` span.' : 'No request failed or stayed unanswered. This capture has no interaction spans, so actions without an effect cannot be told apart here.',
+      r.timelineSource === 'spans' ? 'Every action on a control had a visible effect: no `dead`, `stuck` or `silent` span. Clicks on plain text that changed nothing show in the timeline as `(not a control)`.' : 'No request failed or stayed unanswered. This capture has no interaction spans, so actions without an effect cannot be told apart here.',
       '',
     );
 

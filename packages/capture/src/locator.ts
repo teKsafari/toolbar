@@ -9,6 +9,7 @@ import { candidateRouteFiles, KIT_ENTRY_PATTERN, LOCATOR_VERSION, type LocatorKi
 import { scrubText } from '@toolbar/shared/redact';
 import { LOCATE_EVENT, type LocateReply } from './locator-main.ts';
 import { describeNode } from './target.ts';
+import { readNextRoute } from './next.ts';
 
 export interface LocateRequest {
   kind?: LocatorKind;
@@ -191,11 +192,13 @@ export async function locateInPage(req: LocateRequest, opts: LocateOptions = {})
     packet.source = { file: svelte.file, line: svelte.line, column: svelte.column, via: 'svelte-meta', depth: svelte.depth };
     if (svelte.chain.length) packet.components = svelte.chain.slice(0, 30);
   }
-  // route files the page alone can tell (dev meta, or guesses); the worker adds the route table
+  // route files the page alone can tell (dev meta, a Next.js route tree, or guesses); the worker adds the route table
   const svelteFiles = svelte ? [svelte.file, ...svelte.chain.map((c) => c.file).filter((f): f is string => !!f)] : [];
-  const cand = candidateRouteFiles({ pathname: packet.route, svelteFiles });
+  const next = packet.framework ? null : readNextRoute(doc);
+  if (next) packet.framework = { name: 'nextjs', dev: false, router: next.router };
+  const cand = candidateRouteFiles({ pathname: packet.route, svelteFiles, next });
   packet.routeFiles = cand.files;
-  if (packet.framework && cand.routeId && svelteFiles.length) packet.framework.routeId = cand.routeId;
+  if (packet.framework && cand.routeId && (svelteFiles.length || next)) packet.framework.routeId = cand.routeId;
 
   return { packet, cropRect: kind === 'page' ? null : cropRect, kitEntries };
 }

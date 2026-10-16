@@ -79,6 +79,15 @@ function cssEscape(s: string): string {
   return typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(s) : s.replace(/[^\w-]/g, (c) => `\\${c}`);
 }
 
+/**
+ * Ids a framework generates per render: React's useId (`:r1:` in React 18, `«r1»` and `_r_1p_` in
+ * 19), and the libraries that build on it (`radix-:r2:`). They change between loads, so a selector
+ * built on one stops matching (seen on Nuru, Next.js 15, D-185).
+ */
+export function generatedId(id: string): boolean {
+  return /[:«]r[0-9a-z]+[:»]/i.test(id) || /^_r_[0-9a-z]+_$/i.test(id);
+}
+
 /** Short unique-ish CSS selector: id, test id, or a tag/nth-of-type path up to 5 levels. */
 export function selectorOf(el: Element): string {
   const doc = el.ownerDocument;
@@ -87,7 +96,7 @@ export function selectorOf(el: Element): string {
   for (let depth = 0; cur && cur.nodeType === 1 && depth < 6; depth++) {
     const tag = cur.tagName.toLowerCase();
     const id = cur.getAttribute('id');
-    if (id && !/\d{3,}|^[0-9]/.test(id)) {
+    if (id && !/\d{3,}|^[0-9]/.test(id) && !generatedId(id)) {
       parts.unshift(`#${cssEscape(id)}`);
       break;
     }

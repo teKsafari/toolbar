@@ -255,6 +255,30 @@ describe('assembleFolder', () => {
     expect(f.readme).toMatch(/http 500 +POST https:\/\/app\.test\/api\/run/);
     expect(f.files.find((x) => x.path === 'spans.jsonl')!.data).toBe('');
   });
+
+  it('keeps a dead click on plain text out of "what did not happen" (D-185)', async () => {
+    const d = await data();
+    d.spans!.spans.push(
+      { id: 's003', startMs: 3000, durationMs: 2500, action: { type: 'click', label: 'Click "HATUA 5 / 13"', interactive: false }, outcome: 'dead', summary: 'Click "HATUA 5 / 13" -> dead: nothing happened' },
+      { id: 's004', startMs: 4000, durationMs: 2500, action: { type: 'click', label: 'Click "Export"', interactive: true }, outcome: 'dead', summary: 'Click "Export" -> dead: nothing happened' },
+    );
+    const f = await assembleFolder(d, (globalThis as { __io?: FolderIo }).__io!);
+    const missing = f.readme.slice(f.readme.indexOf('## What did not happen'), f.readme.indexOf('## Timeline'));
+    expect(missing).toContain('s004');
+    expect(missing).not.toContain('s003');
+    expect(f.readme.slice(f.readme.indexOf('## Timeline'))).toMatch(/s003 +dead +Click "HATUA 5 \/ 13" -> dead: nothing happened \(not a control\)/);
+  });
+
+  it('says why there are no images when the browser blocked screenshots (D-185)', async () => {
+    const d = await data();
+    const blocked = { ...d, rec: { ...d.rec, env: { ...d.rec.env!, shots: 'blocked' as const } }, assets: [], annotations: d.annotations.map((a) => ({ ...a, assetId: null })), events: d.events!.filter((e) => e.kind !== 'shot') };
+    const f = await assembleFolder(blocked, (globalThis as { __io?: FolderIo }).__io!);
+    expect(f.files.some((x) => x.path.endsWith('.png'))).toBe(false);
+    expect(f.readme).toMatch(/No screenshots: Chrome refused the extension's captures/);
+    // with images the line would be wrong: it only shows when nothing came through
+    const withImages = await assembleFolder({ ...d, rec: { ...d.rec, env: { ...d.rec.env!, shots: 'blocked' as const } } }, (globalThis as { __io?: FolderIo }).__io!);
+    expect(withImages.readme).not.toContain('No screenshots');
+  });
 });
 
 describe('reviewer toolbar voice notes (D-160)', () => {

@@ -14,6 +14,7 @@ import { getBlob, idbDelete, putBlob } from '../idb';
 import { api, gzip, HttpError, sha256Hex, type UploadAuthLike } from '../upload/client';
 import { getAuth, getStore, serverUrl } from '../capture/store';
 import type { CaptureService } from '../capture/service';
+import { noteShot, noteShotError, probeShots, shotAccess, SHOTS_BLOCKED_MESSAGE } from './shot-access';
 
 type ReviewKey = keyof Pick<BgRequestMap, 'review.get' | 'review.context' | 'review.shot' | 'review.add' | 'review.update' | 'review.remove' | 'review.clear' | 'review.voice' | 'review.submit'>;
 type Sender = { tab?: { id?: number; windowId?: number; url?: string; title?: string } };
@@ -80,13 +81,24 @@ async function toDataUrl(blob: Blob): Promise<string> {
   return `data:${blob.type || 'image/png'};base64,${btoa(bin)}`;
 }
 
-async function capture(windowId: number): Promise<string> {
+async function capture(windowId: number, tabId: number): Promise<string> {
   try {
-    return await shots.run(() => browser.tabs.captureVisibleTab(windowId, { format: 'png' }));
-  } catch {
+    const shot = await shots.run(() => browser.tabs.captureVisibleTab(windowId, { format: 'png' }));
+    noteShot(tabId, 'ok');
+    return shot;
+  } catch (e) {
+    // no activeTab on this tab: retrying will not help, and the reviewer needs to know why (D-185)
+    if (noteShotError(tabId, e)) throw new ReviewFailure('permission_denied', SHOTS_BLOCKED_MESSAGE);
     // another part of the extension (a trace keyframe) may have used this second's quota
     await new Promise((r) => setTimeout(r, 600));
-    return shots.run(() => browser.tabs.captureVisibleTab(windowId, { format: 'png' }));
+    try {
+      const shot = await shots.run(() => browser.tabs.captureVisibleTab(windowId, { format: 'png' }));
+      noteShot(tabId, 'ok');
+      return shot;
+    } catch (e2) {
+      if (noteShotError(tabId, e2)) throw new ReviewFailure('permission_denied', SHOTS_BLOCKED_MESSAGE);
+      throw e2;
+    }
   }
 }
 
@@ -109,7 +121,8 @@ async function uploadAuth(): Promise<UploadAuthLike & { workspaceId: string }> {
 
 async function envOf(tabId: number): Promise<EnvInfo | undefined> {
   const r = (await browser.tabs.sendMessage(tabId, { type: 'capture.env' }).catch(() => null)) as { env?: EnvInfo | null } | null;
-  return r?.env ? { ...r.env, extVersion: browser.runtime.getManifest().version } : undefined;
+  const shotsState = shotAccess(tabId);
+  return r?.env ? { ...r.env, extVersion: browser.runtime.getManifest().version, ...(shotsState !== 'unknown' ? { shots: shotsState } : {}) } : undefined;
 }
 
 async function postJson<T>(a: UploadAuthLike, path: string, body: unknown): Promise<T> {
@@ -225,11 +238,17 @@ function handlersFor(svc: CaptureService): { [K in ReviewKey]: (req: BgRequestMa
       await load();
       return { items: tabOf(tabIdOf(sender)).items.map(view) };
     },
-    'review.context': async (_req, sender) => ({ context: (await readContext(svc, tabIdOf(sender))).context }),
+    'review.context': async (_req, sender) => {
+      const tabId = tabIdOf(sender);
+      // the toolbar polls this every 5 s while awake: probe screenshots once, and again while blocked
+      const tab = await browser.tabs.get(tabId).catch(() => null);
+      const shotsState = tab?.active ? await probeShots(tabId, () => shots.run(() => browser.tabs.captureVisibleTab(tab.windowId, { format: 'jpeg', quality: 10 }))) : shotAccess(tabId);
+      return { context: (await readContext(svc, tabId)).context, shots: shotsState };
+    },
     'review.shot': async (req, sender) => {
       const tabId = tabIdOf(sender);
       const tab = await browser.tabs.get(tabId);
-      const png = await dataUrlToBlob(await capture(tab.windowId));
+      const png = await dataUrlToBlob(await capture(tab.windowId, tabId));
       const crop = await cropImage(png, req.rect, req.vw, { cssPixels: true });
       const blobId = await putBlob(`review-${crypto.randomUUID()}`, crop.blob);
       hooks.shots++;
