@@ -157,7 +157,7 @@ export function loadEnv() {
       .filter(Boolean),
     /**
      * The injector (apps/injector, D-157): INJECTOR_SECRET is the HMAC key shared with it (empty
-     * turns /review/start off); INJECTOR_ORIGINS lists the app origins it fronts, comma separated;
+     * turns the review links, /go, off); INJECTOR_ORIGINS is an optional hard allowlist of app origins on top of the projects (D-201);
      * INJECTOR_COOKIE_DAYS is how long a reviewer cookie lasts.
      */
     injector: {

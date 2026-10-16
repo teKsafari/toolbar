@@ -5,6 +5,7 @@ import { defineConfig } from '@playwright/test';
 // Headless, so it needs no display.
 export default defineConfig({
   testDir: './injector',
+  testMatch: 'injector.spec.ts',
   timeout: 120_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,

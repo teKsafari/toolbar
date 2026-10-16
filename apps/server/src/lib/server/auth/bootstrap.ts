@@ -10,6 +10,7 @@ import { activeWorkspaceId, listWorkspaces } from './workspaces.ts';
 import { supportLinkUrl } from '../dashboard/links.ts';
 import { env } from '../env.ts';
 import { projectsOfUser } from '../projects.ts';
+import { siteAccessOf } from '../projects/access.ts';
 import { brandingDto, getBrand } from '../branding/index.ts';
 import { setting } from '../settings/index.ts';
 
@@ -97,5 +98,7 @@ export async function extBootstrap(db: Db, me: Person, opts: { workspaceId?: str
     branding: brandingDto(await getBrand(db)),
     // D-123: the extension runs only on these origins
     projects: await projectsOfUser(db, me.id),
+    // D-200: all sites with a project per origin, or the strict project-origins mode
+    siteAccess: await siteAccessOf(db, me.id),
   };
 }

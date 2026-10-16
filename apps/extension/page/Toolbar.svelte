@@ -221,6 +221,16 @@
     mode = 'stopping';
   }
 
+  /** The menu names the reviewer; a bootstrap that failed at load (offline, a navigation) is tried again. */
+  function toggleMenu() {
+    menuOpen = !menuOpen;
+    if (menuOpen && !who)
+      void bootstrap().then(
+        (b) => (who = b.user.email),
+        () => undefined,
+      );
+  }
+
   function signOut() {
     location.href = `/__toolbar/logout?next=${encodeURIComponent(location.pathname + location.search)}`;
   }
@@ -318,7 +328,7 @@
     <div class="menu" role="menu">
       {#if who}<div class="who">Signed in as {who}</div>{/if}
       <button type="button" role="menuitem" onclick={() => ((minimized = true), (menuOpen = false))}>Hide toolbar</button>
-      <button type="button" role="menuitem" onclick={signOut}>Turn off review on this site</button>
+      <button type="button" role="menuitem" onclick={signOut}>Stop reviewing on this site</button>
     </div>
   {/if}
 
@@ -335,7 +345,7 @@
         <button type="button" onclick={startTrace} disabled={busy}>Start trace</button>
       {/if}
       <span class="sep"></span>
-      <button type="button" class="icon" aria-label="More" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}>⋯</button>
+      <button type="button" class="icon" aria-label="More" aria-expanded={menuOpen} onclick={toggleMenu}>⋯</button>
     {/if}
   </div>
 </div>

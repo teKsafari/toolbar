@@ -350,7 +350,7 @@ func TestLoginRedirectsToServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	loc, _ := url.Parse(res.Header.Get("Location"))
-	if loc.Path != "/review/start" || loc.Query().Get("origin") != r.origin() || loc.Query().Get("next") != "/a" {
+	if loc.Path != "/go" || loc.Query().Get("site") != r.origin() || loc.Query().Get("next") != "/a" {
 		t.Fatalf("location %v", loc)
 	}
 }
@@ -446,5 +446,16 @@ func TestUpstreamsByHost(t *testing.T) {
 	res.Body.Close()
 	if string(b) != "other:nuru.example" {
 		t.Fatalf("got %q", b)
+	}
+}
+
+func TestLogoutRevokesTokenAndDropsCookie(t *testing.T) {
+	r := newRig(t)
+	res, _ := r.get(t, "/__toolbar/logout?next=/x", withCookie(r.cookie(t, r.origin(), time.Now().Add(time.Hour))))
+	if res.StatusCode != http.StatusSeeOther || res.Header.Get("Location") != "/x" || !strings.Contains(strings.Join(res.Header.Values("Set-Cookie"), "\n"), "Max-Age=0") {
+		t.Fatalf("logout: %d %v", res.StatusCode, res.Header)
+	}
+	if p := r.serverSeen.paths; len(p) != 1 || p[0] != "/api/v1/ext/logout" || r.serverSeen.last().Get("Authorization") != "Bearer tb_dev_secret" {
+		t.Fatalf("revoke not called: %v", p)
 	}
 }

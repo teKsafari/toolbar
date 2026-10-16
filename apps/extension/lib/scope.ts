@@ -1,33 +1,58 @@
-// Where the extension runs (PLAN "Zero integration", D-123, D-126). The manifest asks for no
-// site at install: `optional_host_permissions` only, plus the server's own origin. After sign-in
-// the bootstrap names the user's projects; the popup asks for their origins from a click
-// (chrome.permissions.request), and this module registers the capture scripts for the origins
-// that are both a project's and granted. Nothing else gets a content script.
+// Where the extension runs (PLAN "Zero integration", D-123, D-126, D-200). The manifest asks for
+// no site at install: `optional_host_permissions` only, plus the server's own origin. The server's
+// bootstrap names the site access mode:
+//
+// - `all` (default, D-200): the popup asks Chrome once for every site (http://*/* and
+//   https://*/*), and this module registers the capture scripts everywhere but the server itself
+//   and the domains on the blocked-sites list (J-012). A page with no project yet uses its
+//   workspace's new-project defaults; the server makes the project at the first capture.
+// - `projects` (strict, D-126): the popup asks for the origins of the user's projects from a
+//   click, and the scripts are registered for the origins that are both a project's and granted.
 //
 // Test builds (WXT_TEST_HOOKS=1) keep <all_urls> in the manifest so the area suites can run
 // without a permission prompt, and register the capture scripts everywhere, as Part 1 did, unless
-// storage key `tb:test-scope` is 'projects' (the zero-integration specs set it).
+// storage key `tb:test-scope` says otherwise: 'projects' forces the strict mode (the
+// zero-integration specs), 'release' follows the server's mode as a release build does.
 import { browser } from 'wxt/browser';
 import { STORAGE, type AuthState, type StorageValues } from '@toolbar/shared/ext';
-import { allOrigins, bodyPolicyOf, matchPatternOf, OPEN_BODY_POLICY, originMatches, projectForUrl, type BodyPolicy, type ProjectScope } from '@toolbar/shared/projects';
+import { allOrigins, bodyPolicyOf, matchPatternOf, OPEN_BODY_POLICY, originMatches, pageOrigin, projectForUrl, type BodyPolicy, type ProjectPreset, type ProjectScope } from '@toolbar/shared/projects';
+import { DEFAULT_REPLAY_BLOCKED_SITES, isReplayBlocked } from '@toolbar/shared/areas/ext-ui';
 import type { MaskingPreset } from '@toolbar/shared/events';
 import { TEST_HOOKS } from './flags';
+import { accountServerUrl } from './server-url';
 
 export const TEST_SCOPE_KEY = 'tb:test-scope';
 export const ALL_SITES = ['<all_urls>'];
+/** What `all` mode asks Chrome for once (D-200): the optional host permissions the manifest declares. */
+export const ALL_SITE_PATTERNS = ['http://*/*', 'https://*/*'];
+
+/**
+ * 'test': a test build in Part 1 mode, every site; 'all': all sites with a project per origin
+ * (D-200); 'projects': the strict mode, project origins only (D-126).
+ */
+export type ScopeMode = 'test' | 'all' | 'projects';
 
 export interface Scope {
-  /** 'all': a test build in Part 1 mode; 'projects': the release behavior */
-  mode: 'all' | 'projects';
+  mode: ScopeMode;
   signedIn: boolean;
   projects: ProjectScope[];
-  /** project origins with host permission */
+  /** strict mode: project origins with host permission */
   granted: string[];
-  /** project origins still without host permission */
+  /** strict mode: project origins still without host permission */
   missing: string[];
+  /** `all` mode: Chrome granted every site */
+  allSites: boolean;
+  /** `all` mode: the server's own origin, never captured */
+  serverOrigin: string | null;
+  /** `all` mode: domains of the blocked-sites list (J-012), where no capture script runs */
+  blocked: string[];
+  /** masking preset and step window a new project of each workspace starts with */
+  defaults: { workspaceId: string; maskingPreset: ProjectPreset; traceOpenMs: number }[];
+  /** where a capture outside every project goes, so its preset is that workspace's default */
+  activeWorkspaceId: string | null;
 }
 
-async function local<K extends 'auth' | 'bootstrap'>(k: K): Promise<StorageValues[K] | null> {
+async function local<K extends 'auth' | 'bootstrap' | 'settings'>(k: K): Promise<StorageValues[K] | null> {
   const { key } = STORAGE[k];
   try {
     return ((await browser.storage.local.get(key))[key] as StorageValues[K] | undefined) ?? null;
@@ -36,12 +61,13 @@ async function local<K extends 'auth' | 'bootstrap'>(k: K): Promise<StorageValue
   }
 }
 
-async function testMode(): Promise<'all' | 'projects'> {
-  if (!TEST_HOOKS) return 'projects';
+async function testScope(): Promise<'test' | 'projects' | 'release'> {
+  if (!TEST_HOOKS) return 'release';
   try {
-    return (await browser.storage.local.get(TEST_SCOPE_KEY))[TEST_SCOPE_KEY] === 'projects' ? 'projects' : 'all';
+    const v = (await browser.storage.local.get(TEST_SCOPE_KEY))[TEST_SCOPE_KEY];
+    return v === 'projects' || v === 'release' ? v : 'test';
   } catch {
-    return 'all';
+    return 'test';
   }
 }
 
@@ -52,44 +78,87 @@ export async function projects(): Promise<ProjectScope[]> {
   return (await local('bootstrap'))?.data.projects ?? [];
 }
 
-async function hasOrigin(origin: string): Promise<boolean> {
+async function has(patterns: string[]): Promise<boolean> {
   try {
-    return await browser.permissions.contains({ origins: [matchPatternOf(origin)] });
+    return await browser.permissions.contains({ origins: patterns });
   } catch {
     return false;
   }
 }
 
 export async function scope(): Promise<Scope> {
-  const [mode, list, auth] = await Promise.all([testMode(), projects(), local('auth')]);
+  const [test, auth, boot, settings] = await Promise.all([testScope(), local('auth'), local('bootstrap'), local('settings')]);
+  const signedIn = !!(auth as AuthState | null)?.token;
+  const list = signedIn ? (boot?.data.projects ?? []) : [];
+  const site = signedIn ? boot?.data.siteAccess : undefined;
+  const mode: ScopeMode = test === 'test' ? 'test' : test === 'projects' ? 'projects' : (site?.mode ?? 'projects');
+  const activeWorkspaceId = (auth as AuthState | null)?.activeWorkspaceId ?? boot?.data.activeWorkspaceId ?? null;
+  const base = { mode, signedIn, projects: list, defaults: site?.defaults ?? [], activeWorkspaceId, granted: [] as string[], missing: [] as string[], allSites: false, serverOrigin: null as string | null, blocked: [] as string[] };
+  if (mode === 'test') return base;
+  if (mode === 'all') {
+    const replayBlocked = (settings as { replayBlockedSites?: string[] } | null)?.replayBlockedSites;
+    return {
+      ...base,
+      allSites: await has(ALL_SITE_PATTERNS),
+      serverOrigin: pageOrigin(await accountServerUrl(auth as AuthState | null)),
+      // the list as stored, or the shipped defaults before the person changed it (lib/bg/ui.ts)
+      blocked: replayBlocked ?? [...DEFAULT_REPLAY_BLOCKED_SITES],
+    };
+  }
   const origins = allOrigins(list);
-  const has = await Promise.all(origins.map(hasOrigin));
-  return {
-    mode,
-    signedIn: !!(auth as AuthState | null)?.token,
-    projects: list,
-    granted: origins.filter((_, i) => has[i]),
-    missing: origins.filter((_, i) => !has[i]),
-  };
+  const ok = await Promise.all(origins.map((o) => has([matchPatternOf(o)])));
+  return { ...base, granted: origins.filter((_, i) => ok[i]), missing: origins.filter((_, i) => !ok[i]) };
 }
 
 /** Match patterns the capture scripts are registered for under this scope. */
 export function patternsOf(s: Scope): string[] {
-  return s.mode === 'all' ? ALL_SITES : s.granted.map(matchPatternOf);
+  if (s.mode === 'test') return ALL_SITES;
+  if (s.mode === 'all') return s.signedIn && s.allSites ? ALL_SITE_PATTERNS : [];
+  return s.granted.map(matchPatternOf);
+}
+
+/** Match patterns no capture script runs on (`all` mode): the server, and the blocked sites with their subdomains. */
+export function excludesOf(s: Scope): string[] {
+  if (s.mode !== 'all') return [];
+  const out = s.serverOrigin ? [matchPatternOf(s.serverOrigin)] : [];
+  for (const d of s.blocked) out.push(`*://${d}/*`, `*://*.${d}/*`);
+  return out;
+}
+
+/** Why the extension does not run on `url`, or null when it may. */
+export function outOfScope(s: Scope, url: string | null | undefined): 'restricted' | 'signed-out' | 'needs-all-sites' | 'server' | 'blocked' | 'not-in-project' | null {
+  if (!url || !/^https?:/i.test(url)) return 'restricted';
+  if (s.mode === 'test') return null;
+  if (s.mode === 'all') {
+    if (!s.signedIn) return 'signed-out';
+    if (s.serverOrigin && pageOrigin(url) === s.serverOrigin) return 'server';
+    if (isReplayBlocked(url, s.blocked)) return 'blocked';
+    return s.allSites ? null : 'needs-all-sites';
+  }
+  return s.granted.some((o) => originMatches(o, url)) ? null : 'not-in-project';
 }
 
 /** Whether the extension may run on `url`. */
 export function inScope(s: Scope, url: string | null | undefined): boolean {
-  if (!url || !/^https?:/i.test(url)) return false;
-  if (s.mode === 'all') return true;
-  return s.granted.some((o) => originMatches(o, url));
+  return outOfScope(s, url) === null;
 }
 
-/** Masking preset and body policy for a page (D-125): the project's, or none outside one. */
+/**
+ * Masking preset and body policy for a page (D-125): the project's; in `all` mode a page with no
+ * project yet takes its workspace's new-project preset, which the project the server makes at the
+ * first capture starts with; none outside a project in strict mode.
+ */
 export function presetFor(s: Scope, url: string | null | undefined): { maskingPreset: MaskingPreset; bodyPolicy: BodyPolicy; project: ProjectScope | null } {
   const p = projectForUrl(s.projects, url);
-  if (!p) return { maskingPreset: s.mode === 'all' ? 'staging' : 'none', bodyPolicy: OPEN_BODY_POLICY, project: null };
-  return { maskingPreset: p.maskingPreset, bodyPolicy: bodyPolicyOf(p), project: p };
+  if (p) return { maskingPreset: p.maskingPreset, bodyPolicy: bodyPolicyOf(p), project: p };
+  if (s.mode === 'test') return { maskingPreset: 'staging', bodyPolicy: OPEN_BODY_POLICY, project: null };
+  if (s.mode === 'all') {
+    const d = s.defaults.find((x) => x.workspaceId === s.activeWorkspaceId) ?? s.defaults[0];
+    const preset = d?.maskingPreset ?? 'staging';
+    const origin = pageOrigin(url);
+    return { maskingPreset: preset, bodyPolicy: bodyPolicyOf({ maskingPreset: preset, origins: origin ? [origin] : [], bodyAllowlist: [] }), project: null };
+  }
+  return { maskingPreset: 'none', bodyPolicy: OPEN_BODY_POLICY, project: null };
 }
 
 /** The project's workspace for a page, so its capture lands where the origin check passes. */

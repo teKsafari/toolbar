@@ -50,7 +50,7 @@ import { COUNTDOWN_FROM, DEFAULT_REPLAY_BLOCKED_SITES, isReplayBlocked, isRestri
 import type { Rect } from '@toolbar/shared/events';
 import { TEST_HOOKS } from '../flags';
 import { ensureContent } from '../registration';
-import { inScope, presetFor, scope } from '../scope';
+import { ALL_SITE_PATTERNS, outOfScope, presetFor, scope } from '../scope';
 import { matchPatternOf } from '@toolbar/shared/projects';
 
 // ---------------------------------------------------------------- errors
@@ -422,16 +422,20 @@ async function refreshBootstrap() {
 
 // ---------------------------------------------------------------- flows
 
-/** What the popup shows about host access on the tab's page (D-126). */
+/** What the popup shows about host access on the tab's page (D-126, D-200). */
 async function siteAccess(url: string | null): Promise<SiteAccess> {
   const sc = await scope();
   const p = presetFor(sc, url).project;
+  const reason = outOfScope(sc, url);
   return {
     project: p ? { id: p.id, name: p.name, maskingPreset: p.maskingPreset } : null,
-    allowed: inScope(sc, url),
+    allowed: reason === null,
+    mode: sc.mode,
+    reason,
     missing: sc.missing.map(matchPatternOf),
     projectCount: sc.projects.length,
-    allSites: sc.mode === 'all',
+    allSites: sc.mode === 'test' || sc.allSites,
+    allSitePatterns: ALL_SITE_PATTERNS,
   };
 }
 
@@ -651,14 +655,23 @@ const handlers: Handlers = {
       return { session };
     }
     const tab = await settingsFor(tabId);
-    // D-126: page captures run only on granted project origins; desktop recordings anywhere
+    // D-126, D-200: page captures run only in the scope; desktop recordings anywhere
     const pageCapture = !(req.mode === 'video' && (req.recordMode ?? (await getSettings()).recordMode) !== 'tab');
-    if (pageCapture && !inScope(await scope(), tab.url)) {
-      const sc = await scope();
+    const sc = await scope();
+    const why = pageCapture ? outOfScope(sc, tab.url) : null;
+    if (why) {
       const p = presetFor(sc, tab.url).project;
       throw new BgFailure(
         'permission_denied',
-        p ? `Allow access to ${p.name} first: open the extension menu and click Allow.` : 'This site is not in any of your projects. A workspace admin can add it under Settings, Projects.',
+        why === 'server'
+          ? 'The extension does not run on its own server’s pages. Record the desktop instead.'
+          : why === 'needs-all-sites'
+          ? 'Allow access to all sites first: open the extension menu and click Allow.'
+          : why === 'blocked'
+            ? 'This site is on your blocked sites list, so the extension does not run here.'
+            : p
+              ? `Allow access to ${p.name} first: open the extension menu and click Allow.`
+              : 'This site is not in any of your projects. A workspace admin can add it under Settings, Projects.',
       );
     }
     // a tab opened before install or update has no in-page UI yet

@@ -1,15 +1,16 @@
-// Registers the two capture content scripts at runtime (architecture section 10). Part 2
-// (D-126): the matches are the project origins the user granted (lib/scope.ts), and no script
-// runs anywhere else; test builds in Part 1 mode pass <all_urls>.
+// Registers the two capture content scripts at runtime (architecture section 10). Part 2: in the
+// strict mode (D-126) the matches are the project origins the user granted; in `all` mode (D-200)
+// every http(s) site once Chrome granted them, less the server and the blocked sites
+// (lib/scope.ts). No script runs anywhere else; test builds in Part 1 mode pass <all_urls>.
 import { browser } from 'wxt/browser';
-import { inScope, patternsOf, scope } from './scope';
+import { excludesOf, inScope, patternsOf, scope } from './scope';
 
 export const CAPTURE_SCRIPTS = [
   { id: 'capture-main', js: ['content-scripts/capture-main.js'], world: 'MAIN' as const },
   { id: 'capture', js: ['content-scripts/capture.js'], world: 'ISOLATED' as const },
 ];
 
-export async function registerCaptureScripts(matches: string[]) {
+export async function registerCaptureScripts(matches: string[], excludeMatches: string[] = []) {
   const existing = new Set((await browser.scripting.getRegisteredContentScripts()).map((s) => s.id));
   if (!matches.length) {
     const ids = CAPTURE_SCRIPTS.map((s) => s.id).filter((id) => existing.has(id));
@@ -19,6 +20,7 @@ export async function registerCaptureScripts(matches: string[]) {
   const scripts = CAPTURE_SCRIPTS.map((s) => ({
     ...s,
     matches,
+    excludeMatches,
     runAt: 'document_start' as const,
     allFrames: true,
     persistAcrossSessions: true,
@@ -49,7 +51,7 @@ async function hasContent(tabId: number): Promise<boolean> {
  */
 export async function ensureContent(tabId: number): Promise<boolean> {
   const tab = await browser.tabs.get(tabId).catch(() => null);
-  if (!tab || !inScope(await scope(), tab.url)) return false; // D-126: never outside the granted project origins
+  if (!tab || !inScope(await scope(), tab.url)) return false; // D-126, D-200: never outside the scope
   if (await hasContent(tabId)) return true;
   try {
     for (const s of CAPTURE_SCRIPTS) await browser.scripting.executeScript({ target: { tabId }, files: [s.world === 'MAIN' ? '/content-scripts/capture-main.js' : '/content-scripts/capture.js'], world: s.world, injectImmediately: true });
@@ -81,10 +83,12 @@ export function syncRegistration(): Promise<string[]> {
   const run = chain.then(async () => {
     const s = await scope();
     const patterns = patternsOf(s);
-    const key = patterns.join(' ');
-    await registerCaptureScripts(patterns);
+    const excludes = excludesOf(s);
+    const key = `${patterns.join(' ')}|${excludes.join(' ')}`;
+    await registerCaptureScripts(patterns, excludes);
     if (key !== last) {
-      const grew = patterns.some((p) => !last.split(' ').includes(p));
+      const [lastPatterns = '', lastExcludes = ''] = last.split('|');
+      const grew = patterns.some((p) => !lastPatterns.split(' ').includes(p)) || lastExcludes.split(' ').some((x) => x && !excludes.includes(x));
       last = key;
       if (grew) await injectIntoOpenTabs().catch(() => undefined);
     }

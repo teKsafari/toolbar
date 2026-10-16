@@ -380,6 +380,8 @@ export const listCapturesQuerySchema = pageQuerySchema.extend({
   sources: csvOf(z.enum(CAPTURE_SOURCES)),
   authors: csvOf(idSchema),
   recordingLinkId: idSchema.optional(),
+  /** captures of one project (D-200) */
+  projectId: idSchema.optional(),
   hasIssue: boolQuery,
   q: z.string().max(500).optional(),
   from: isoSchema.optional(),

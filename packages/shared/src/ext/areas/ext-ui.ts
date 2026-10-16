@@ -21,18 +21,27 @@ export interface PopupContext {
   site: SiteAccess;
 }
 
-/** The popup's view of host access for the tab's page (D-123, D-126). */
+/** The popup's view of host access for the tab's page (D-123, D-126, D-200). */
 export interface SiteAccess {
   /** the project whose origins cover the page */
   project: { id: string; name: string; maskingPreset: 'staging' | 'production' } | null;
   /** capture scripts may run on this page */
   allowed: boolean;
-  /** match patterns of the user's project origins that still lack host access */
+  /**
+   * 'all': all sites with a project per origin (D-200); 'projects': the strict mode, project
+   * origins only (D-126); 'test': a test build in Part 1 mode, where every site is allowed
+   */
+  mode: 'test' | 'all' | 'projects';
+  /** why the extension does not run here; null when it does */
+  reason: 'restricted' | 'signed-out' | 'needs-all-sites' | 'server' | 'blocked' | 'not-in-project' | null;
+  /** strict mode: match patterns of the user's project origins that still lack host access */
   missing: string[];
   /** how many projects the signed-in user has across workspaces */
   projectCount: number;
-  /** a test build in Part 1 mode, where every site is allowed */
+  /** `all` mode: Chrome granted every site; test mode: always */
   allSites: boolean;
+  /** `all` mode: the match patterns to ask Chrome for once */
+  allSitePatterns: string[];
 }
 
 /** Extra service-worker requests: `'name': { req: {...}; res: {...} }`. */

@@ -1,8 +1,10 @@
 <script lang="ts">
-  // Host access (D-126). The extension holds no site at install. On a page of one of the user's
-  // projects it asks, from this click, for the origins of all their projects at once; on any
-  // other page it says so and records nothing. The worker registers the capture scripts when
-  // Chrome reports the grant (lib/bg/scope.ts), so this screen only has to ask.
+  // Host access (D-126, D-200). The extension holds no site at install. In `all` mode (the
+  // default) it asks Chrome once, from this click, for every site, right after sign-in on any
+  // page. In the strict mode, on a page of one of the user's projects it asks for the origins of
+  // all their projects at once; on any other page it says so and records nothing. The worker
+  // registers the capture scripts when Chrome reports the grant (lib/bg/scope.ts), so this
+  // screen only has to ask.
   import { browser } from 'wxt/browser';
   import { Button, Icon } from '@toolbar/ui';
   import type { SiteAccess } from '@toolbar/shared/ext';
@@ -18,8 +20,10 @@
     error = '';
     busy = true;
     try {
-      // first await of the click: Chrome needs the user gesture for the prompt
-      const granted = await browser.permissions.request({ origins: [...site.missing] });
+      // first await of the click: Chrome needs the user gesture for the prompt. `all` mode
+      // (D-200) asks once for every site; the strict mode for the project origins.
+      const origins = site.reason === 'needs-all-sites' ? [...site.allSitePatterns] : [...site.missing];
+      const granted = await browser.permissions.request({ origins });
       if (!granted) {
         error = 'Access was not granted. Nothing is recorded on this site.';
         return;
@@ -39,7 +43,29 @@
   }
 </script>
 
-{#if site.project}
+{#if site.reason === 'needs-all-sites'}
+  <div class="card" data-screen="site-access" data-testid="site-access" data-state="needs-all-sites">
+    <Icon name="globe" size={28} />
+    <p><strong class="title">Allow access to all sites</strong></p>
+    <p class="muted">
+      Chrome asks once. The extension then runs on the sites you visit, so a capture holds the console, the network and the page. Each site you capture on becomes a project your team can rename and merge.
+    </p>
+    <ul class="muted small">
+      <li>What it records stays in this browser until you send a capture to your server.</li>
+      <li>It never runs on {store.serverUrl ? new URL(store.serverUrl).host : 'your server'} or on your blocked sites.</li>
+      <li>Revoke it any time in Chrome’s extension details, under Site access.</li>
+    </ul>
+    <Button variant="primary" loading={busy} onclick={allow} data-testid="site-allow-all">Allow</Button>
+    {#if error}<p class="err" role="alert">{error}</p>{/if}
+  </div>
+{:else if site.reason === 'blocked'}
+  <div class="card" data-screen="site-access" data-testid="site-access" data-state="blocked">
+    <Icon name="globe" size={28} />
+    <p><strong class="title">Off on this site</strong></p>
+    <p class="muted">{host} is on your blocked sites list, so the extension does not run here. Remove it from the list to capture.</p>
+    <Button size="sm" onclick={() => (store.screen = 'sites')} data-testid="site-blocked-list">Blocked sites</Button>
+  </div>
+{:else if site.project}
   <div class="card" data-screen="site-access" data-testid="site-access" data-state="needs-grant">
     <Icon name="globe" size={28} />
     <p><strong class="title">Allow on {site.project.name}</strong></p>
@@ -98,6 +124,15 @@
     color: var(--nb-text-muted);
     font-size: var(--nb-text-md);
     margin-bottom: 8px;
+  }
+  .small {
+    margin: 0 0 10px;
+    padding-left: 18px;
+    text-align: left;
+    font-size: var(--nb-text-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
   .row {
     display: flex;

@@ -110,7 +110,7 @@ class PopupStore {
     // the auth area answers from its cache when it is fresh, and storage.onChanged updates us
     // D-126: on a page the extension may not run on, the project list may be new: fetch it now
     const site = this.context?.site;
-    void send('bootstrap.get', { refresh: !!site && !site.allowed && !site.allSites && !this.context?.isServerPage });
+    void send('bootstrap.get', { refresh: !!site && !site.allowed && site.reason === 'not-in-project' && !this.context?.isServerPage });
   }
 
   private async fill() {

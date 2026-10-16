@@ -1,41 +1,78 @@
-# Coolify: Traefik dynamic configuration for the open-toolbar injector (apps/injector, D-157).
+# Coolify: Traefik dynamic configuration for the open-toolbar injector (apps/injector, D-157, D-201).
+# Step by step: docs/injector-on-coolify.md.
 #
-# Copy to /data/coolify/proxy/dynamic/open-toolbar-injector.yml on the Coolify server (Servers >
-# Proxy > Dynamic Configurations in the UI writes the same folder). Traefik's file provider picks
-# it up without a restart. Traefik v3 syntax, which current Coolify ships; for Traefik v2 replace
-# HeaderRegexp with HeadersRegexp.
+# Add it in Coolify under Servers > <server> > Proxy > Dynamic Configurations (it lands in
+# /data/coolify/proxy/dynamic/). Traefik picks it up without a restart. Traefik v3 syntax, as the
+# traefik:v3.7 proxy Coolify runs.
 #
-# Only the hosts named here go through the injector, and only for two kinds of request:
-#   - anything under /__toolbar/ (sign-in hand-off, the bundle, the upload relay);
+# One router for every host, no list of apps. It sends the injector only:
+#   - requests under /__toolbar/ (the sign-in hand-off, the toolbar bundle, its upload relay);
 #   - requests that carry the reviewer cookie (tb_review, or __Host-tb_review on https).
-# Every other request to the same host keeps going straight to the app through the router
-# Coolify made from the app's labels, so visitors never pass through the injector and an injector
-# outage only affects reviewers. The high priority makes these routers win over Coolify's own.
+# Every other request keeps going straight to its app through the router Coolify made from the
+# app's labels, so visitors never pass through the injector. The injector sends a reviewer's
+# request back into this proxy (INJECTOR_LOOPBACK) without the cookie, so the second pass takes
+# Coolify's router to the app.
 #
-# Replace nuru.example.org with your app's host (one router per host, or several Host() matchers
-# joined with ||), and keep the names of the entry points and the certificate resolver that your
-# Coolify proxy uses (Coolify's defaults: http, https, letsencrypt).
+# While the injector is down, Traefik's health check moves reviewers to the fallback within a few
+# seconds: this proxy again, with the X-Open-Toolbar-Pass header that the rule leaves out, so they
+# get the plain app (no toolbar) instead of an error.
+#
+# Before you save it: replace both REPLACE_WITH_PASS_VALUE with the output of
+#   docker exec open-toolbar-injector /injector pass-value
+# It is an HMAC of INJECTOR_SECRET: page scripts cannot know it, so they cannot use the header to
+# get the reviewer cookie past the injector. Changing INJECTOR_SECRET changes it.
 http:
   routers:
-    open-toolbar-injector-nuru:
+    open-toolbar-injector:
       entryPoints:
         - https
       rule: >-
-        Host(`nuru.example.org`) &&
-        (PathPrefix(`/__toolbar/`) || HeaderRegexp(`Cookie`, `(^|;\s*)(__Host-)?tb_review=`))
-      priority: 10000
+        HostRegexp(`.+`) &&
+        (PathPrefix(`/__toolbar/`) || HeaderRegexp(`Cookie`, `(^|;\s*)(__Host-)?tb_review=`)) &&
+        !Header(`X-Open-Toolbar-Pass`, `REPLACE_WITH_PASS_VALUE`)
+      # above the routers Coolify generates, whose priority is the length of their rule
+      priority: 100000
+      middlewares:
+        - open-toolbar-pass
+        - open-toolbar-compress
       service: open-toolbar-injector
-      tls:
-        certResolver: letsencrypt
+      # the certificates Coolify's routers obtained for each host serve this router too
+      tls: {}
+
+  middlewares:
+    open-toolbar-pass:
+      headers:
+        customRequestHeaders:
+          X-Open-Toolbar-Pass: REPLACE_WITH_PASS_VALUE
+    # Coolify's routers compress (its "gzip" middleware); the injector asks the app for an
+    # uncompressed page, so compress here on the way out. Server-sent events are left alone.
+    open-toolbar-compress:
+      compress: {}
 
   services:
     open-toolbar-injector:
+      failover:
+        service: open-toolbar-injector-main
+        fallback: open-toolbar-injector-bypass
+    open-toolbar-injector-main:
       loadBalancer:
-        # The injector container's name on the `coolify` network (see docker-compose.injector.yml).
+        # the injector container's name on the coolify network (docker-compose.injector.yml)
         servers:
           - url: http://open-toolbar-injector:8080
         passHostHeader: true
         healthCheck:
           path: /__toolbar/health
-          interval: 10s
-          timeout: 3s
+          interval: 3s
+          timeout: 1s
+    open-toolbar-injector-bypass:
+      loadBalancer:
+        # this proxy itself (Coolify names its container coolify-proxy)
+        servers:
+          - url: https://coolify-proxy:443
+        passHostHeader: true
+        serversTransport: open-toolbar-self
+
+  serversTransports:
+    # the hop from the proxy to itself, inside the coolify network
+    open-toolbar-self:
+      insecureSkipVerify: true

@@ -34,9 +34,10 @@
     window.close();
   };
   const restricted = $derived(!!store.context?.restricted);
-  // D-126: outside a granted project origin the page cannot be captured (our own server's pages can)
+  // D-126, D-200: outside the scope the page cannot be captured (our own server's pages offer the
+  // desktop); in `all` mode without the one grant, every page asks for it
   const site = $derived(store.context?.site);
-  const blocked = $derived(!!site && !site.allowed && !site.allSites && !store.context?.isServerPage);
+  const blocked = $derived(!!site && !site.allowed && (site.reason === 'needs-all-sites' || !store.context?.isServerPage));
 </script>
 
 <main data-popup data-loading={store.loading}>
@@ -99,6 +100,11 @@
     {#if site?.project && site.allowed}
       <p class="project" data-testid="site-project" data-preset={site.project.maskingPreset}>
         {site.project.name} · {site.project.maskingPreset === 'production' ? 'Production masking' : 'Staging masking'}
+      </p>
+    {/if}
+    {#if site?.mode === 'all' && site.allSites}
+      <p class="project" data-testid="site-all-sites" title="To take it back: chrome://extensions, this extension's Details, Site access">
+        Access to all sites. Revoke it in Chrome's extension details, under Site access.
       </p>
     {/if}
   {/if}

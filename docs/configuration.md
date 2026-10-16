@@ -58,6 +58,7 @@ Each setting is in one of five places (D-194). **Required** values boot the serv
 | `TRANSCRIBE_PROVIDER`, `TRANSCRIBE_API_KEY`, `OPENAI_API_KEY`, `TRANSCRIBE_MODEL`, `TRANSCRIBE_BASE_URL`, `TRANSCRIBE_LANGUAGE`, `TRANSCRIBE_TIMESTAMPS`, `TRANSCRIBE_CHUNK_SECONDS`, `TRANSCRIBE_CONCURRENCY` | Settings > Server, Transcription | Read per job, so an admin can switch provider, try it with Test connection and roll back without a deploy. The key is sealed at rest. |
 | `TRANSCRIBE_MAX_MINUTES`, `TRANSCRIBE_MONTHLY_MINUTES` | Settings > Server, Limits | Cost caps an admin tunes as usage grows. |
 | `MAX_RECORDING_MIN` | Settings > Server, Capture defaults | Read when the extension loads its bootstrap. |
+| `SITE_ACCESS` | Settings > Server, Capture defaults | Where the extension captures (D-200). Read per request and sent in the extension's bootstrap, so a switch reaches each extension within 10 minutes, or at a popup open once its copy is a minute old. |
 | (no variable) masking preset and trace step window for new projects | Settings > Server, Capture defaults, and Workspace | Instance defaults that each workspace admin can replace for their workspace. |
 | `SHARE_LINK_DAYS`, `EXPORT_MAX_MB`, `SUPPORT_RECORDING_LINK` | Settings > Server, Sharing and export | Policies read per request. |
 | (no variable) recording link uploads per address | Settings > Server, Limits | Abuse limit of the public recording links, read per request. |
@@ -74,7 +75,7 @@ Each setting is in one of five places (D-194). **Required** values boot the serv
 | `FEATURE_EMAIL`, `FEATURE_TRACKERS`, `FEATURE_SLACK`, `FEATURE_CLI`, `FEATURE_AI`, `FEATURE_ADMIN_EXTRAS`, `CLI_BUNDLE_PATH`, `AUTH_MAGIC_LINK` | Paused | Features paused by docs/scope.md; the flags stay in the code. |
 | `SMTP_URL`, `MAIL_FROM`, `SMTP_PORT`, `MAILPIT_UI_PORT` | Paused | Mail, only through `docker-compose.mail.yml`. |
 | `AI_PROVIDER`, `AI_BASE_URL`, `AI_MODEL`, `AI_API_KEY`, `AI_TIMEOUT_MS` | Paused | AI text, only with `FEATURE_AI`. |
-| `INJECTOR_UPSTREAMS`, `INJECTOR_UPSTREAM`, `TOOLBAR_SERVER_URL`, `TOOLBAR_PUBLIC_URL`, `INJECTOR_TRUST_FORWARDED`, `INJECTOR_SCAN_LIMIT`, `INJECTOR_LISTEN`, `INJECTOR_ASSETS` | Injector container | Read by the injector, never by this server. |
+| `INJECTOR_LOOPBACK`, `INJECTOR_LOOPBACK_INSECURE`, `INJECTOR_UPSTREAMS`, `INJECTOR_UPSTREAM`, `TOOLBAR_SERVER_URL`, `TOOLBAR_PUBLIC_URL`, `INJECTOR_TRUST_FORWARDED`, `INJECTOR_SCAN_LIMIT`, `INJECTOR_LISTEN`, `INJECTOR_ASSETS` | Injector container | Read by the injector, never by this server. |
 | `TOOLBAR_SERVER`, `TOOLBAR_TOKEN` | Agent side | Read by the coding agent's shell. |
 | `WXT_SERVER_URL`, `WXT_APP_NAME`, `WXT_APP_ICON`, `WXT_MANIFEST_KEY`, `WXT_GECKO_ID`, `RELEASE_TAG`, `FIREFOX`, `WXT_DEV_PORT`, `WXT_TEST_HOOKS`, `WXT_OUT_SUFFIX` | Build | Read when you build the extension. |
 
@@ -86,7 +87,7 @@ Instance admins (`ADMIN_EMAILS`, or the first account when it is empty) see Sett
 |---|---|
 | Sign-in | The provider and its redirect URI, read-only from the environment, with Test discovery URL; allowed email domains, the button name, scopes |
 | Transcription | Provider (off, local whisper.cpp, an OpenAI-compatible endpoint), API key, model, endpoint, whisper.cpp URL, languages, timestamps, chunk length, parallel requests, with Test connection |
-| Capture defaults | Masking preset and trace step window for new projects, longest recording |
+| Capture defaults | Site access (all sites, or project origins only), masking preset and trace step window for new projects, longest recording |
 | Sharing and export | Share link lifetime, export page size, the extension's "report a problem" link |
 | Limits | Longest audio transcribed, hosted transcription minutes per month, recording link uploads per address in 10 minutes |
 
@@ -102,6 +103,19 @@ Settings are stored in the `instance_setting` table, row `instance`.
 ### Workspace settings
 
 Settings, General has a New projects section for workspace admins: the masking preset and trace step window a new project starts with. Empty follows the instance's Capture defaults. Existing projects keep their own values; an API client that leaves them out of `POST /api/v1/workspaces/<id>/projects` gets these defaults.
+
+### Site access
+
+Settings > Server, Capture defaults, Site access picks where the extension captures (D-200). `SITE_ACCESS` sets it from the environment and locks the field.
+
+| Mode | The extension | The server |
+|---|---|---|
+| All sites (`all`, the default) | Right after sign-in the popup shows one screen that explains the request, and Chrome asks once for the optional host permissions `http://*/*` and `https://*/*`. The capture scripts then run on every site except this server and the reviewer's blocked sites. The options page can ask again or remove the access. | The first capture on an origin with no project makes one in the capture's workspace: named after the host, with that one origin, and the workspace's masking preset and trace step window (else the instance's). |
+| Project origins only (`projects`) | On a page of a project, the popup's Allow asks Chrome for the origins of all the person's projects; nowhere else does a script run (D-126). | A capture from an origin outside the workspace's projects gets 403 `origin_not_allowed`. Nothing is made automatically. |
+
+In both modes a project lists exact origins (`https://staging.nuru.sh`, `http://localhost:5173`) and domains (`*.nuru.sh` covers nuru.sh and every subdomain, over https only unless `http://*.nuru.sh` is listed too). An exact origin wins over a domain, and a longer domain over a shorter one. Admins edit the list in Settings > Projects or on the project's page, and merge two projects there: the second one's origins and captures move into the first, which keeps its own preset and step window. The sidebar lists the projects with their captures.
+
+`SITE_ACCESS` has a row in the tables on this page like every Settings > Server variable, and `apps/server/test/config-docs.test.ts` fails if it loses it.
 
 ## How to read the tables
 
@@ -122,6 +136,7 @@ Each row gives the variable, its default, an example, and what it does with when
 | `MIGRATE_ON_START` | `1` | `0` | Applies database migrations at start. Set `0` when you run `pnpm --filter @toolbar/server db:migrate` yourself before a deploy. |
 | `MIGRATIONS_DIR` | `./drizzle` next to the server | `/app/drizzle` | Where the migration files live. Only for a custom image layout. |
 | `MAX_RECORDING_MIN` | empty (no cap) | `15` | Settings > Server, Capture defaults. Longest recording in minutes; the extension's timer stops there. Set it to keep recordings short on a small server. |
+| `SITE_ACCESS` | `all` | `projects` | Settings > Server, Capture defaults (D-200). `all`: after sign-in the extension asks Chrome once for every site and captures anywhere but this server and the reviewer's blocked sites; the first capture on an origin makes a project for it, which an admin can merge with others. `projects`: the strict mode, where the extension captures only on origins listed in projects, each approved in Chrome, and the server refuses captures from other origins (`origin_not_allowed`) and makes no project by itself. Set `projects` when reviewers must not record outside the apps an admin named. See [Site access](#site-access). |
 | `SUPPORT_RECORDING_LINK` | empty | `https://feedback.example.com/r/abc`, or `off` | Settings > Server, Sharing and export. Where the extension menu's "report a problem" goes. Empty: a "Problem reports" recording link owned by the server's first account, made on first use. `off` hides it. |
 | `NODE_ENV` | `production` in the image, `development` in `pnpm dev` | `production` | Turns on production behaviour: sign-in rate limits, no response-shape checks in the share routes. Leave it to the image. |
 
@@ -347,26 +362,28 @@ Paused with `FEATURE_AI` (D-084). With the flag on, any OpenAI-compatible chat e
 
 ## Injector
 
-The injector (`apps/injector/README.md`, D-157) adds the toolbar to apps behind it for signed-in reviewers, with no extension and no change to the app. It is a container of its own (`apps/injector/Dockerfile`, Coolify file in `deploy/injector/`). The server issues the reviewer cookies it accepts. Reviewers start at `https://<app host>/__toolbar/login`.
+The injector (`apps/injector/README.md`, D-157, D-201) adds the toolbar to apps behind it for signed-in reviewers, with no extension and no change to the app. It is a container of its own (`apps/injector/Dockerfile`, Coolify files in `deploy/injector/`, steps in [docs/injector-on-coolify.md](injector-on-coolify.md)). The server issues the reviewer cookies it accepts. Reviewers start from a review link, `<server>/go/<project id>`, which Settings, Projects shows for each origin of a project ("Copy review link", "Open with toolbar"); `https://<app host>/__toolbar/login` leads to the same page.
 
 You set variables in two places: the open-toolbar server (this table) and the injector container (the next table). `INJECTOR_SECRET` goes in both, with the same value.
 
 | Variable | Default | Example | Purpose and when to change |
 |---|---|---|---|
-| `INJECTOR_SECRET` | empty | output of `openssl rand -base64 48` | Server and injector container, the same value on both: the HMAC key that signs reviewer cookies, at least 32 characters. Empty on the server: `/review/start` answers 404 and no cookie is issued; on a public URL the server refuses a shorter value. Empty on the injector: it logs a warning and passes every request through without the toolbar; shorter than 32 characters: it exits at start. Set it when you deploy the injector; changing it signs every reviewer out of every site. |
-| `INJECTOR_ORIGINS` | empty | `https://nuru.example.org` | The app origins behind the injector, comma separated. The server signs cookies for these origins only. Empty: the origins of the projects (Settings, Projects) in the reviewer's own workspaces. |
+| `INJECTOR_SECRET` | empty | output of `openssl rand -base64 48` | Server and injector container, the same value on both: the HMAC key that signs reviewer cookies, at least 32 characters. It also derives the `X-Open-Toolbar-Pass` value of the Traefik file (`/injector pass-value` prints it). Empty on the server: review links say they are off and no cookie is issued; on a public URL the server refuses a shorter value. Empty on the injector: it logs a warning and passes every request through without the toolbar; shorter than 32 characters: it exits at start. Set it when you deploy the injector; changing it signs every reviewer out of every site and changes the pass value in the Traefik file. |
+| `INJECTOR_ORIGINS` | empty | `https://nuru.example.org` | An optional hard allowlist on top of the projects, comma separated: with it set, the server signs a reviewer cookie only for an origin that is both in this list and in a project of the reviewer's workspaces, and review links for other origins say the server does not review that site. Empty: every project origin can be reviewed. Set it to fence the injector to a few apps whatever workspace admins add. |
 | `INJECTOR_COOKIE_DAYS` | `7` | `30` | How long a reviewer cookie and its device token last, 1 to 90 days. Each sign-in on a site makes a device token named "Review on <host>" under Settings, Connected browsers; revoking it ends the reviewer's uploads at once and the injection when the cookie expires. |
 
 ### Injector container
 
-Read by `apps/injector` (Go), never by the server. Values are trimmed; an empty value means the default. The injector exits at start with a message when a URL is not `http(s)://host` or when neither upstream variable is set.
+Read by `apps/injector` (Go), never by the server. Values are trimmed; an empty value means the default. The injector exits at start with a message when a URL is not `http(s)://host` or when none of `INJECTOR_LOOPBACK`, `INJECTOR_UPSTREAMS` and `INJECTOR_UPSTREAM` is set. A request goes to its host's `INJECTOR_UPSTREAMS` entry first, else back into the proxy (`INJECTOR_LOOPBACK`), else to `INJECTOR_UPSTREAM`.
 
 | Variable | Default | Example | Purpose and when to change |
 |---|---|---|---|
-| `INJECTOR_UPSTREAMS` | empty | `nuru.example.org=http://nuru-app:3000,admin.nuru.example.org=http://nuru-admin:3000` | `host=url` pairs, comma, space or newline separated: for each public host, the app container the injector forwards to. One injector can front several apps. Hosts compare in lower case without the port. Set it, or `INJECTOR_UPSTREAM`, when you put an app behind the injector; add a pair for each new app. |
-| `INJECTOR_UPSTREAM` | empty | `http://nuru-app:3000` | The app for hosts not listed in `INJECTOR_UPSTREAMS`. Enough on its own when the injector fronts one app. With neither set the injector refuses to start. |
-| `TOOLBAR_SERVER_URL` | empty | `http://open-toolbar-server:3000` | The open-toolbar server as the injector container reaches it, usually its container name on the shared Docker network. The injector relays the toolbar's uploads (`/__toolbar/api/...`) there. Empty: those uploads answer 503, so comments and traces from the page fail. Change it when the server's container or network address changes. |
-| `TOOLBAR_PUBLIC_URL` | `TOOLBAR_SERVER_URL` | `https://feedback.example.org` | The open-toolbar server as reviewers' browsers reach it (the server's `PUBLIC_URL`). `/__toolbar/login` sends reviewers there to sign in. Empty and no `TOOLBAR_SERVER_URL`: the login page answers 503. Set it whenever the injector reaches the server at an internal address. |
+| `INJECTOR_LOOPBACK` | empty | `https://coolify-proxy:443` | Loopback mode (D-201): the proxy in front of the injector, as scheme, host and port. The injector sends each reviewer request back there with the original `Host`, the app's host as the TLS server name and no reviewer cookie, and the proxy routes it to the app as it routes everyone else, so the injector needs no list of apps. Use https: Coolify's routers redirect http to https. Coolify's file sets it; change it only when your proxy container has another name or port. |
+| `INJECTOR_LOOPBACK_INSECURE` | `0` | `1` | `1` skips the certificate check on the loopback hop. Leave it at `0` when the proxy serves the apps with real certificates (Let's Encrypt on Coolify): the injector checks them against the system roots for each app host. Set `1` only for a proxy with a self-signed certificate, as in the local test (`apps/injector/test/coolify-like/`). |
+| `INJECTOR_UPSTREAMS` | empty | `nuru.example.org=http://nuru-app:3000,admin.nuru.example.org=http://nuru-admin:3000` | Explicit mode: `host=url` pairs, comma, space or newline separated, for each public host the app container the injector forwards to. Hosts compare in lower case without the port. A listed host skips the loopback. Use it without a proxy that can route the second pass, or to pin one host to a container. |
+| `INJECTOR_UPSTREAM` | empty | `http://nuru-app:3000` | Explicit mode: the app for hosts not listed in `INJECTOR_UPSTREAMS` when `INJECTOR_LOOPBACK` is empty. Enough on its own when the injector fronts one app, as in `apps/injector/test/run.sh`. |
+| `TOOLBAR_SERVER_URL` | empty | `https://toolbar.example.org` | The open-toolbar server as the injector container reaches it: its public address works anywhere, an internal one (`http://server-<uuid>:3000`) saves a hop. The injector relays the toolbar's uploads (`/__toolbar/api/...`) there and revokes a reviewer's device token there on "Stop reviewing". Empty: those uploads answer 503, so comments and traces from the page fail. Required in the Coolify file. |
+| `TOOLBAR_PUBLIC_URL` | `TOOLBAR_SERVER_URL` | `https://feedback.example.org` | The open-toolbar server as reviewers' browsers reach it (the server's `PUBLIC_URL`). `/__toolbar/login` sends reviewers to its review page. Empty and no `TOOLBAR_SERVER_URL`: the login page answers 503. Set it whenever `TOOLBAR_SERVER_URL` is an internal address. |
 | `INJECTOR_TRUST_FORWARDED` | `1` | `0` | `1` reads the scheme and host of each request from `X-Forwarded-Proto` and `X-Forwarded-Host`, which Traefik and most proxies set; the cookie name (`__Host-` on https), the origin check and the upstream choice depend on them. Set `0` when browsers talk to the injector directly, so a client cannot claim another host. |
 | `INJECTOR_SCAN_LIMIT` | `262144` (256 KB) | `524288` | Bytes of an HTML page the injector reads looking for `<head>` before it gives up and sends the page unchanged. Raise it for apps that stream a very long preamble before the head; lower values save memory per request. |
 | `INJECTOR_LISTEN` | `:8080` | `127.0.0.1:9090` | Address and port the injector listens on, and the container healthcheck calls. Change it when 8080 clashes with something else in the container's network namespace, and update the Traefik file (`deploy/injector/traefik-open-toolbar-injector.yml`) to match. |

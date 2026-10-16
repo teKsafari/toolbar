@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
 	"fmt"
 	"log/slog"
@@ -16,6 +19,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -33,24 +37,30 @@ const pageHeader = "X-Toolbar-Page"
 const skipHeader = "X-Review-Skip"
 
 type Config struct {
-	Listen          string
-	Upstream        *url.URL            // default app
-	Upstreams       map[string]*url.URL // by lower-case host (no port)
-	ServerURL       *url.URL            // open-toolbar server, as the injector reaches it
-	PublicServerURL *url.URL            // open-toolbar server, as browsers reach it
-	Secret          []byte
-	AssetsDir       string
-	TrustForwarded  bool
-	ScanLimit       int
+	Listen           string
+	Upstream         *url.URL            // default app (explicit mode)
+	Upstreams        map[string]*url.URL // by lower-case host (no port; explicit mode)
+	Loopback         *url.URL            // the proxy in front, to forward back into (loopback mode, loop.go)
+	LoopbackInsecure bool                // skip the certificate check on the loopback hop
+	LoopbackRoots    *x509.CertPool      // tests only; nil means the system roots
+	ServerURL        *url.URL            // open-toolbar server, as the injector reaches it
+	PublicServerURL  *url.URL            // open-toolbar server, as browsers reach it
+	Secret           []byte
+	AssetsDir        string
+	TrustForwarded   bool
+	ScanLimit        int
 }
 
 type Injector struct {
 	cfg        Config
 	log        *slog.Logger
 	app        *httputil.ReverseProxy
+	loop       *httputil.ReverseProxy // nil without INJECTOR_LOOPBACK
 	api        *httputil.ReverseProxy
 	bundleHash string
+	pass       string // the X-Open-Toolbar-Pass value (loop.go)
 	now        func() time.Time
+	warned     sync.Map // one-time warnings by key
 }
 
 type ctxKey struct{}
@@ -64,8 +74,17 @@ func NewInjector(cfg Config, log *slog.Logger) *Injector {
 	if cfg.ScanLimit <= 0 {
 		cfg.ScanLimit = defaultScanLimit
 	}
-	in := &Injector{cfg: cfg, log: log, now: time.Now}
+	in := &Injector{cfg: cfg, log: log, now: time.Now, pass: passValue(cfg.Secret)}
 	in.bundleHash = fileHash(filepath.Join(cfg.AssetsDir, bundleName))
+	if cfg.Loopback != nil {
+		in.loop = &httputil.ReverseProxy{
+			Rewrite:        in.rewriteApp,
+			ModifyResponse: in.modifyApp,
+			FlushInterval:  -1,
+			ErrorHandler:   in.upstreamError,
+			Transport:      newLoopTransport(cfg.Loopback, cfg.LoopbackInsecure, cfg.LoopbackRoots),
+		}
+	}
 	in.app = &httputil.ReverseProxy{
 		Rewrite:        in.rewriteApp,
 		ModifyResponse: in.modifyApp,
@@ -135,25 +154,113 @@ func (in *Injector) reviewer(r *http.Request) (reviewClaims, bool) {
 	return c, true
 }
 
-func (in *Injector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (in *Injector) warnOnce(key, msg string, args ...any) {
+	if _, done := in.warned.LoadOrStore(key, true); !done {
+		in.log.Warn(msg, args...)
+	}
+}
+
+func (in *Injector) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	w := &statusWriter{ResponseWriter: rw}
+	start := time.Now()
+	kind := "app"
+	defer func() {
+		if r.URL.Path == toolbarPrefix+"health" {
+			return // Traefik's and Docker's health checks, every few seconds
+		}
+		// One line per request. Only reviewers and /__toolbar/ reach the injector behind the Traefik
+		// file, so this is the reviewers' traffic; a visitor's request here means the router is wrong.
+		// The path only: query strings can hold secrets.
+		in.log.Info("request", "kind", kind, "method", r.Method, "host", r.Host, "path", r.URL.Path, "status", w.status, "injected", w.Header().Get("X-Toolbar-Injected") == "1", "ms", time.Since(start).Milliseconds())
+	}()
+	if looped(r) {
+		kind = "loop"
+		in.warnOnce("loop", "a request came back to the injector after it forwarded it: check that the Traefik router matches only /__toolbar/ and the reviewer cookie (deploy/injector/traefik-open-toolbar-injector.yml)", "host", r.Host)
+		http.Error(w, "open-toolbar injector: request loop", http.StatusLoopDetected)
+		return
+	}
+	// Health checks (Traefik's, Docker's) come without the router's middleware.
+	if in.cfg.Loopback != nil && in.pass != "" && r.URL.Path != toolbarPrefix+"health" {
+		switch v := r.Header.Get(passHeader); {
+		case v == "":
+			in.warnOnce("pass-missing", "requests arrive without "+passHeader+": the Traefik file's router lacks the open-toolbar-pass middleware, so reviewers get errors instead of the plain app while the injector is down")
+		case !hmac.Equal([]byte(v), []byte(in.pass)):
+			in.warnOnce("pass-wrong", passHeader+" in the Traefik file does not match INJECTOR_SECRET: run `/injector pass-value` in the injector container and put its output in the file")
+		}
+	}
+	r.Header.Del(passHeader)
 	if strings.HasPrefix(r.URL.Path, toolbarPrefix) {
+		kind = "toolbar"
 		in.serveToolbar(w, r)
 		return
 	}
-	in.app.ServeHTTP(w, r)
+	target, loop := in.upstreamFor(r)
+	switch {
+	case loop:
+		kind = "loopback"
+		in.loop.ServeHTTP(w, r)
+	case target != nil:
+		in.app.ServeHTTP(w, r)
+	default:
+		http.Error(w, "open-toolbar injector: no upstream for this host", http.StatusBadGateway)
+	}
 }
+
+// statusWriter records the status for the request log. Unwrap lets http.ResponseController reach
+// the connection for flushes and WebSocket hijacks.
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (s *statusWriter) WriteHeader(code int) {
+	if s.status == 0 {
+		s.status = code
+	}
+	s.ResponseWriter.WriteHeader(code)
+}
+
+func (s *statusWriter) Write(b []byte) (int, error) {
+	if s.status == 0 {
+		s.status = http.StatusOK
+	}
+	return s.ResponseWriter.Write(b)
+}
+
+func (s *statusWriter) Flush() {
+	if f, ok := s.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Hijack: the reverse proxy takes the connection over after the app agreed to switch protocols
+// (WebSockets) and writes the 101 itself.
+func (s *statusWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	c, rw, err := http.NewResponseController(s.ResponseWriter).Hijack()
+	if err == nil && s.status == 0 {
+		s.status = http.StatusSwitchingProtocols
+	}
+	return c, rw, err
+}
+
+func (s *statusWriter) Unwrap() http.ResponseWriter { return s.ResponseWriter }
 
 // ---------- the app ----------
 
-func (in *Injector) upstreamFor(r *http.Request) *url.URL {
+// upstreamFor picks where a request goes: the host's INJECTOR_UPSTREAMS entry, else back into the
+// proxy (INJECTOR_LOOPBACK, loop is true), else INJECTOR_UPSTREAM.
+func (in *Injector) upstreamFor(r *http.Request) (target *url.URL, loop bool) {
 	host := strings.ToLower(r.Host)
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h
 	}
 	if u, ok := in.cfg.Upstreams[host]; ok {
-		return u
+		return u, false
 	}
-	return in.cfg.Upstream
+	if in.loop != nil {
+		return in.cfg.Loopback, true
+	}
+	return in.cfg.Upstream, false
 }
 
 // wantsDocument: only top-level page loads get the toolbar. Fetches of HTML fragments (htmx,
@@ -176,8 +283,18 @@ func wantsDocument(r *http.Request) bool {
 }
 
 func (in *Injector) rewriteApp(pr *httputil.ProxyRequest) {
-	target := in.upstreamFor(pr.In)
-	pr.SetURL(target)
+	target, loop := in.upstreamFor(pr.In)
+	if loop {
+		// Back into the proxy with the app's own host: the URL keeps the host, so the TLS server
+		// name and the connection pool follow it, and the transport dials INJECTOR_LOOPBACK.
+		pr.SetURL(&url.URL{Scheme: target.Scheme, Host: pr.In.Host})
+		// No pass header here: the second pass has no reviewer cookie and is not under
+		// /__toolbar/, so it misses the injector router anyway, and the header would hand its
+		// value to every app (loop.go).
+		pr.Out.Header.Add("Via", "1.1 "+viaToken)
+	} else {
+		pr.SetURL(target)
+	}
 	pr.Out.Host = pr.In.Host // the app sees the host the browser used, as behind Traefik alone
 	copyForwarded(pr)
 	stripReviewCookie(pr.Out.Header)
@@ -278,7 +395,11 @@ func (in *Injector) modifyApp(resp *http.Response) (err error) {
 }
 
 func (in *Injector) upstreamError(w http.ResponseWriter, r *http.Request, err error) {
-	in.log.Warn("upstream error", "path", r.URL.Path, "err", err.Error())
+	if certError(err) && in.cfg.Loopback != nil {
+		in.log.Error("loopback: the proxy's certificate for this host did not verify against the system roots; set INJECTOR_LOOPBACK_INSECURE=1 if the proxy uses a self-signed certificate", "host", r.Host, "err", err.Error())
+	} else {
+		in.log.Warn("upstream error", "host", r.Host, "path", r.URL.Path, "err", err.Error())
+	}
 	w.WriteHeader(http.StatusBadGateway)
 }
 
@@ -288,8 +409,12 @@ func (in *Injector) serveToolbar(w http.ResponseWriter, r *http.Request) {
 	sub := strings.TrimPrefix(r.URL.Path, toolbarPrefix)
 	switch {
 	case sub == "health":
-		w.Header().Set("Content-Type", "text/plain")
-		_, _ = w.Write([]byte("ok\n"))
+		// Readable from the server's hand-off page on another origin, which checks that the
+		// injector answers on the app before it sends the reviewer there.
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		_, _ = w.Write([]byte(`{"ok":true,"service":"open-toolbar-injector"}` + "\n"))
 	case sub == "session":
 		in.serveSession(w, r)
 	case sub == "login":
@@ -363,22 +488,45 @@ func (in *Injector) serveLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := *in.cfg.PublicServerURL
-	u.Path = strings.TrimSuffix(u.Path, "/") + "/review/start"
+	u.Path = strings.TrimSuffix(u.Path, "/") + "/go"
 	q := url.Values{}
-	q.Set("origin", in.requestOrigin(r))
+	q.Set("site", in.requestOrigin(r))
 	q.Set("next", safeNext(r.URL.Query().Get("next")))
 	u.RawQuery = q.Encode()
 	w.Header().Set("Cache-Control", "no-store")
 	http.Redirect(w, r, u.String(), http.StatusFound)
 }
 
-// /__toolbar/logout: drops the cookie; the next page load has no toolbar.
+// /__toolbar/logout: revokes the cookie's device token on the server (best effort) and drops the
+// cookie; the next page load has no toolbar.
 func (in *Injector) serveLogout(w http.ResponseWriter, r *http.Request) {
+	if c, ok := in.reviewer(r); ok && in.cfg.ServerURL != nil {
+		in.revoke(r.Context(), c.Token)
+	}
 	for _, name := range []string{cookieNameSecure, cookieNamePlain} {
 		http.SetCookie(w, &http.Cookie{Name: name, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, Secure: name == cookieNameSecure, SameSite: http.SameSiteLaxMode})
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	http.Redirect(w, r, safeNext(r.URL.Query().Get("next")), http.StatusSeeOther)
+}
+
+// revoke ends a device token: the server's extension sign-out route revokes the token it is called with.
+func (in *Injector) revoke(ctx context.Context, token string) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+	defer cancel()
+	u := *in.cfg.ServerURL
+	u.Path = strings.TrimSuffix(u.Path, "/") + "/api/v1/ext/logout"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), nil)
+	if err != nil {
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		in.log.Warn("logout: could not revoke the device token", "err", err.Error())
+		return
+	}
+	_ = res.Body.Close()
 }
 
 // GET /__toolbar/status: {"reviewer":true|false} for the bundle and for tests. Says nothing else.

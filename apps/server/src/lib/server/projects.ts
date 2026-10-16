@@ -1,12 +1,11 @@
 // Projects (D-123 to D-127): CRUD for the dashboard and API, the extension's bootstrap list, and
 // the origin check every capture passes on submit.
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import type { Project } from '@toolbar/shared/api';
-import { projectForUrl, TRACE_OPEN_MS, traceOpenMsOf, type ProjectScope } from '@toolbar/shared/projects';
+import { TRACE_OPEN_MS, traceOpenMsOf, type ProjectScope } from '@toolbar/shared/projects';
 import type { Db } from './db/index.ts';
 import { member, project } from './db/schema/index.ts';
 import { fail } from './share/http.ts';
-import { env } from './env.ts';
 import { setting } from './settings/index.ts';
 import { getSettings } from './auth/workspaces.ts';
 
@@ -101,37 +100,5 @@ export async function deleteProject(db: Db, id: string): Promise<void> {
   await db.delete(project).where(eq(project.id, id));
 }
 
-/**
- * The allowlist check on submit (PLAN "Zero integration", D-124). A capture of a web page must
- * come from an origin of one of the workspace's projects. Exempt: a workspace with no project
- * yet (nothing to check against, and the extension captures nowhere there), desktop recordings
- * (kind `screen`: the whole screen, no page hooks), pages of this server itself (J-019), and
- * captures without an http(s) page.
- */
-export async function projectForCapture(
-  db: Db,
-  workspaceId: string,
-  input: { pageUrl: string | null | undefined; kind: string },
-): Promise<Row | null> {
-  const rows = await db.select().from(project).where(and(eq(project.organizationId, workspaceId)));
-  if (!rows.length) return null;
-  const url = input.pageUrl ?? '';
-  const match = projectForUrl(rows, url);
-  if (match) return match;
-  if (input.kind === 'screen' || !/^https?:\/\//i.test(url) || sameOrigin(url, env.publicUrl)) return null;
-  let origin = url;
-  try {
-    origin = new URL(url).origin;
-  } catch {
-    /* keep */
-  }
-  fail('origin_not_allowed', `${origin} is not an origin of any project in this workspace. A workspace admin can add it under Settings, Projects.`);
-}
-
-function sameOrigin(a: string, b: string): boolean {
-  try {
-    return new URL(a).origin === new URL(b).origin;
-  } catch {
-    return false;
-  }
-}
+// The origin check on submit, projects made by a first capture, merging and the injector's
+// origin check live in ./projects/access.ts (D-200).
