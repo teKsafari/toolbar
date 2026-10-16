@@ -27,7 +27,7 @@ test('J-181 J-027: the record chord shows a veil and a 3-2-1 count, goes live un
   const veil = page.locator(`${UI} [data-nb-veil]`);
   await expect(veil).toBeVisible();
   const veilBg = await veil.evaluate((el) => getComputedStyle(el).backgroundColor);
-  expect(veilBg).toBe('rgba(18, 18, 17, 0.5)');
+  expect(veilBg).toBe('rgba(11, 11, 11, 0.45)'); // D-176 near-black veil
   const count = page.locator(`${UI} [data-nb-count]`);
   await expect(count).toHaveText('3');
   await expect(count).toHaveText('2', { timeout: 2000 });
@@ -62,18 +62,18 @@ test('J-027: a click on the veil pauses the count and a second click resumes it'
   await page.close();
 });
 
-test('J-028 J-029 J-033: the bar is a dark pill about 295x40 at bottom centre with stop, pause, timer, mic, pen, blur; pause freezes the timer; the icon is a red camera', async ({ context, sw }) => {
+test('J-028 J-029 J-033: the bar is a dark pill about 295x46 at bottom centre with stop, pause, timer, mic, pen, blur; pause freezes the timer; the icon is a red camera', async ({ context, sw }) => {
   const { page, tabId } = await labPage(context);
   await startLive(sw, page, tabId);
   const b = (await bar(page).boundingBox())!;
   const vp = await page.evaluate(() => ({ w: document.documentElement.clientWidth, h: innerHeight }));
-  expect(b.height).toBe(40);
+  expect(b.height).toBe(46); // 46 px since the parity fixes (J-028)
   expect(b.width).toBeGreaterThan(240);
   expect(b.width).toBeLessThan(330);
   expect(Math.abs(b.x + b.width / 2 - vp.w / 2)).toBeLessThan(2);
   expect(Math.round(vp.h - (b.y + b.height))).toBe(70);
   const bg = await bar(page).evaluate((el) => getComputedStyle(el).backgroundColor);
-  expect(bg).toBe('rgb(26, 25, 24)');
+  expect(bg).toBe('rgb(19, 19, 19)'); // --nb-chrome (D-175)
   for (const sel of ['[data-nb-stop]', '[data-nb-pause]', '[data-nb-timer]', '[data-nb-mic]', '[data-nb-tool="pen"]', '[data-nb-tool="blur"]'])
     await expect(bar(page).locator(sel)).toBeVisible();
   // in a shadow root: the page cannot select it
@@ -227,10 +227,10 @@ test('J-013: with a cap the timer shows it, turns orange then red, and the recor
   await expect(bar(page)).toHaveAttribute('data-stage', 'warn');
   await expect(bar(page).locator('[data-nb-cap]')).toHaveText(' / 0:13');
   const warn = await bar(page).locator('[data-nb-timer]').evaluate((el) => getComputedStyle(el).color);
-  expect(warn).toBe('rgb(245, 165, 36)');
+  expect(warn).toBe('rgb(251, 191, 36)'); // chrome warning (D-176)
   await expect(bar(page)).toHaveAttribute('data-stage', 'danger', { timeout: 6000 });
   const danger = await bar(page).locator('[data-nb-timer]').evaluate((el) => getComputedStyle(el).color);
-  expect(danger).toBe('rgb(240, 103, 90)');
+  expect(danger).toBe('rgb(248, 113, 113)'); // chrome danger (D-176)
   await expect.poll(async () => (await stats(sw)).stops, { timeout: 15000 }).toContain('cap');
   await expect.poll(async () => (await session(sw)).state).toBe('draft');
   await sw.evaluate(() => chrome.storage.local.remove('tb:bootstrap'));

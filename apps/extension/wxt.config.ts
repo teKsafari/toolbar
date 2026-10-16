@@ -135,6 +135,9 @@ export default defineConfig({
       // the bundled fonts are SIL OFL 1.1 (D-175): their licence texts ship beside the .woff2 files
       const fontDir = resolve(_wxt.config.root, '../../packages/ui/fonts');
       for (const f of readdirSync(fontDir).filter((n) => n.startsWith('OFL-'))) files.push({ relativeDest: `assets/${f}`, absoluteSrc: join(fontDir, f) });
+      // the in-page UI registers the same faces on the host document (registerFonts), so they sit at
+      // fixed, web-accessible paths with their licences (fonts/*.woff2, fonts/OFL-*.txt)
+      for (const f of readdirSync(fontDir).filter((n) => n.endsWith('.woff2') || n.startsWith('OFL-'))) files.push({ relativeDest: `fonts/${f}`, absoluteSrc: join(fontDir, f) });
       if (!appIcon) return;
       const icons = await renderIcons(appIcon);
       const dir = mkdtempSync(join(tmpdir(), 'tb-icons-'));

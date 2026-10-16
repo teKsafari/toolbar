@@ -261,7 +261,7 @@ test('a reopened video draft saves for later from its close button; toast with v
   // put the worker's real bridge back: later suites in this worker reopen drafts through it
   await sw.evaluate(() => __tbDrafts.setCaptureBridge((globalThis as unknown as { __realBridge: never }).__realBridge));
   // view reopens it with the trim and the AI text
-  await page.locator('toolbar-root').getByRole('button', { name: 'View' }).click();
+  await page.locator('toolbar-root').getByRole('button', { name: 'View', exact: true }).click();
   f = page.frameLocator('iframe[data-nb-editor]');
   await expect(f.getByTestId('length')).toHaveText('4 seconds');
   await expect(f.getByTestId('ai-ghost-title')).toHaveText(AI.title);

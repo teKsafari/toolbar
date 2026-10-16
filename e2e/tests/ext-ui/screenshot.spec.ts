@@ -17,7 +17,7 @@ test('J-180 J-025: the screenshot chord arms screenshot mode with a trailing cur
   await expect.poll(async () => (await session(sw)).state).toBe('arming-screenshot');
   expect(Date.now() - t0).toBeLessThan(budget(500));
 
-  // the pill appears once the mouse moves, about 5 px right and 20 px below the pointer
+  // the pill appears once the mouse moves, 5 px right and 5 px below the pointer (parity fix, J-025)
   await expect(page.locator(`${UI} [data-nb-cursor-pill]`)).toHaveCount(0);
   await page.mouse.move(300, 300);
   await page.mouse.move(320, 310);
@@ -25,7 +25,7 @@ test('J-180 J-025: the screenshot chord arms screenshot mode with a trailing cur
   await expect(pill).toBeVisible();
   const box = (await pill.boundingBox())!;
   expect(Math.round(box.x)).toBe(325);
-  expect(Math.round(box.y)).toBe(330);
+  expect(Math.round(box.y)).toBe(315);
   expect(box.width).toBeGreaterThan(120);
   expect(box.width).toBeLessThan(260);
   // not dimmed: the overlay is transparent

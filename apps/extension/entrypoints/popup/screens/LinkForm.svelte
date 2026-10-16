@@ -137,11 +137,26 @@
     color: var(--nb-text);
     font: var(--nb-text-base) var(--nb-font-sans);
   }
+  input,
+  select,
+  .select {
+    transition:
+      border-color var(--nb-dur-fast) var(--nb-ease-out),
+      box-shadow var(--nb-dur-fast) var(--nb-ease-out);
+  }
+  input::placeholder {
+    color: var(--nb-text-faint);
+  }
   input:focus,
   select:focus,
   .select:focus-visible {
-    outline: 2px solid var(--nb-focus);
-    outline-offset: -1px;
+    outline: none;
+    border-color: var(--nb-focus);
+    box-shadow: var(--nb-focus-ring);
+  }
+  .select:hover,
+  select:hover {
+    background: var(--nb-surface-sunken);
   }
   .select {
     display: flex;
@@ -168,10 +183,11 @@
     left: 0;
     right: 0;
     z-index: 5;
-    padding: 4px;
-    border-radius: var(--nb-radius-md);
-    background: var(--nb-chrome);
-    color: var(--nb-on-chrome);
+    padding: 6px;
+    border-radius: var(--nb-radius-lg);
+    border: 1px solid var(--nb-border);
+    background: var(--nb-surface-raised);
+    color: var(--nb-text);
     box-shadow: var(--nb-shadow-lg);
   }
   .menu button {
@@ -188,11 +204,11 @@
     font: var(--nb-text-md) var(--nb-font-sans);
   }
   .menu button:hover {
-    background: var(--nb-chrome-2);
+    background: var(--nb-surface-sunken);
   }
   .menu-note {
     margin: 4px 8px 6px;
-    color: var(--nb-on-chrome-muted);
+    color: var(--nb-text-muted);
     font: var(--nb-text-sm) / 1.35 var(--nb-font-sans);
   }
   .actions {
@@ -223,6 +239,10 @@
   }
   .url input {
     font: var(--nb-text-md) var(--nb-font-mono);
+  }
+  .again:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
   .again {
     all: unset;

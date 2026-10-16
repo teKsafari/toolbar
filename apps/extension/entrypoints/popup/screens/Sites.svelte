@@ -60,9 +60,18 @@
     color: var(--nb-text);
     font: var(--nb-text-base) var(--nb-font-sans);
   }
+  input {
+    transition:
+      border-color var(--nb-dur-fast) var(--nb-ease-out),
+      box-shadow var(--nb-dur-fast) var(--nb-ease-out);
+  }
+  input::placeholder {
+    color: var(--nb-text-faint);
+  }
   input:focus {
-    outline: 2px solid var(--nb-focus);
-    outline-offset: -1px;
+    outline: none;
+    border-color: var(--nb-focus);
+    box-shadow: var(--nb-focus-ring);
   }
   form button {
     all: unset;
@@ -71,8 +80,17 @@
     border-radius: var(--nb-radius-md);
     background: var(--nb-accent);
     color: var(--nb-on-accent);
+    box-shadow: var(--nb-shadow-primary);
     font: var(--nb-weight-medium) var(--nb-text-base) / 34px var(--nb-font-sans);
     cursor: pointer;
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out);
+  }
+  form button:hover:not(:disabled) {
+    background: var(--nb-accent-hover);
+  }
+  form button:focus-visible {
+    outline: 2px solid var(--nb-focus);
+    outline-offset: 2px;
   }
   form button:disabled {
     opacity: 0.5;

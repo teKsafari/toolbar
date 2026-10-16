@@ -254,8 +254,12 @@
     border-radius: var(--nb-radius-pill);
     background: var(--nb-chrome);
     color: var(--nb-on-chrome);
-    box-shadow: var(--nb-shadow-lg);
+    box-shadow:
+      inset 0 0 0 1px var(--nb-chrome-border),
+      inset 0 1px 0 rgb(255 255 255 / 0.06),
+      var(--nb-shadow-lg);
     font: var(--nb-weight-medium) var(--nb-text-md) / 1 var(--nb-font-sans);
+    letter-spacing: var(--nb-tracking-ui);
     pointer-events: auto;
     user-select: none;
     animation: nb-rise var(--nb-dur-med) var(--nb-ease-out);
@@ -286,10 +290,12 @@
     padding: 4px;
     display: flex;
     flex-direction: column;
-    border-radius: var(--nb-radius-md);
+    border-radius: var(--nb-radius-lg);
     background: var(--nb-chrome);
     color: var(--nb-on-chrome);
-    box-shadow: var(--nb-shadow-lg);
+    box-shadow:
+      inset 0 0 0 1px var(--nb-chrome-border),
+      var(--nb-shadow-lg);
   }
   .nb-micmenu button {
     all: unset;
@@ -335,6 +341,9 @@
     border-radius: 50%;
     cursor: pointer;
     color: var(--nb-on-chrome);
+    transition:
+      background-color var(--nb-dur-fast) var(--nb-ease-out),
+      color var(--nb-dur-fast) var(--nb-ease-out);
   }
   .nb-b:hover:not(:disabled) {
     background: var(--nb-chrome-2);
@@ -342,7 +351,7 @@
   .nb-b:focus-visible,
   .nb-done:focus-visible,
   .nb-swatch:focus-visible {
-    outline: 2px solid var(--nb-focus);
+    outline: 2px solid var(--nb-chrome-accent);
     outline-offset: 1px;
   }
   .nb-b:disabled {
@@ -350,11 +359,11 @@
     cursor: default;
   }
   .nb-b.on {
-    background: var(--nb-chrome-2);
-    color: var(--nb-accent);
+    background: var(--nb-chrome-accent);
+    color: var(--nb-on-chrome-accent);
   }
   .nb-stop {
-    color: #f0675a;
+    color: var(--nb-chrome-danger);
   }
   .nb-mic.off {
     color: var(--nb-on-chrome-muted);
@@ -383,10 +392,10 @@
     animation: nb-blink 1.2s steps(2, start) infinite;
   }
   .nb-bar[data-stage='warn'] .nb-timer {
-    color: #f5a524;
+    color: var(--nb-chrome-warning);
   }
   .nb-bar[data-stage='danger'] .nb-timer {
-    color: #f0675a;
+    color: var(--nb-chrome-danger);
   }
   .nb-cap {
     color: inherit;
@@ -397,14 +406,14 @@
     width: 1px;
     height: 20px;
     margin: 0 4px;
-    background: var(--nb-chrome-2);
+    background: var(--nb-chrome-border);
   }
   .nb-dot {
     width: 10px;
     height: 10px;
     margin: 0 6px 0 8px;
     border-radius: 50%;
-    background: #e0402f;
+    background: var(--nb-chrome-danger);
   }
   .nb-count {
     min-width: 18px;
@@ -435,7 +444,7 @@
     cursor: pointer;
   }
   .nb-swatch.sel {
-    border-color: #fff;
+    border-color: var(--nb-on-chrome);
     box-shadow: 0 0 0 2px var(--nb-chrome), 0 0 0 3px var(--sw);
   }
   .nb-done {
@@ -444,10 +453,15 @@
     padding: 0 12px;
     margin-left: 4px;
     border-radius: var(--nb-radius-pill);
-    background: var(--nb-accent);
-    color: var(--nb-on-accent);
+    background: var(--nb-chrome-accent);
+    color: var(--nb-on-chrome-accent);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5);
     cursor: pointer;
     font: var(--nb-weight-semibold) var(--nb-text-md) / 28px var(--nb-font-sans);
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out);
+  }
+  .nb-done:hover {
+    background: var(--nb-chrome-accent-hover);
   }
   [data-tip]::after {
     content: attr(data-tip);
@@ -461,7 +475,9 @@
     color: var(--nb-on-chrome);
     font: var(--nb-weight-medium) var(--nb-text-sm) / 1.2 var(--nb-font-sans);
     white-space: nowrap;
-    box-shadow: var(--nb-shadow-md);
+    box-shadow:
+      inset 0 0 0 1px var(--nb-chrome-border),
+      var(--nb-shadow-md);
     opacity: 0;
     pointer-events: none;
     transition:

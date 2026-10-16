@@ -54,7 +54,7 @@
     <p class="hint">Your self-hosted {brand.name} server. Captures, links and sign-in go there.</p>
     <div class="row">
       <input id="server" type="url" bind:value placeholder={fallback} data-server-input />
-      <Button type="submit" variant="primary" data-server-save>Save</Button>
+      <Button type="submit" variant="primary" size="lg" data-server-save>Save</Button>
     </div>
     {#if error}<p class="err" role="alert">{error}</p>{/if}
     {#if saved}<p class="ok" role="status">{saved}</p>{/if}
@@ -63,37 +63,55 @@
 </main>
 
 <style>
+  /* An extension page in the teksafari language (D-176): the canvas, a Nunito page title, one
+     surface card with a header rule, a 36 px field with the 3 px focus ring. */
   :global(body) {
     margin: 0;
     background: var(--nb-bg);
     color: var(--nb-text);
     font: var(--nb-text-base) / var(--nb-leading-normal) var(--nb-font-sans);
+    letter-spacing: var(--nb-tracking-ui);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   main {
     max-width: 640px;
-    margin: 48px auto;
+    margin: 56px auto;
     padding: 0 16px;
   }
   h1 {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font: var(--nb-weight-semibold) var(--nb-text-2xl) / 1.2 var(--nb-font-sans);
-    color: var(--nb-accent-text);
+    gap: 10px;
+    margin: 0 0 24px;
+    font: var(--nb-weight-medium) var(--nb-text-3xl) / 1.2 var(--nb-font-display);
+    letter-spacing: var(--nb-tracking-tight);
+    color: var(--nb-text);
   }
   form {
-    padding: 20px;
+    padding: 0 20px 20px;
     border: 1px solid var(--nb-border);
     border-radius: var(--nb-radius-lg);
     background: var(--nb-surface);
   }
   label {
-    font-weight: var(--nb-weight-semibold);
+    display: block;
+    margin: 0 -20px;
+    padding: 14px 20px 12px;
+    border-bottom: 1px solid var(--nb-border);
+    font: var(--nb-weight-semibold) var(--nb-text-base) / 1.4 var(--nb-font-sans);
+  }
+  .hint {
+    margin: 14px 0 12px;
   }
   .hint,
   .foot {
     color: var(--nb-text-muted);
     font-size: var(--nb-text-md);
+  }
+  .foot {
+    margin: 16px 0 0;
+    color: var(--nb-text-faint);
   }
   .row {
     display: flex;
@@ -101,13 +119,32 @@
   }
   input {
     flex: 1;
-    height: 34px;
-    padding: 0 10px;
+    min-width: 0;
+    box-sizing: border-box;
+    height: var(--nb-control-lg);
+    padding: 0 12px;
     border: 1px solid var(--nb-border-strong);
     border-radius: var(--nb-radius-md);
     background: var(--nb-surface);
     color: var(--nb-text);
     font: var(--nb-text-base) var(--nb-font-mono);
+    letter-spacing: 0;
+    transition:
+      border-color var(--nb-dur-fast) var(--nb-ease-out),
+      box-shadow var(--nb-dur-fast) var(--nb-ease-out);
+  }
+  input::placeholder {
+    color: var(--nb-text-faint);
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--nb-focus);
+    box-shadow: var(--nb-focus-ring);
+  }
+  .err,
+  .ok {
+    margin: 12px 0 0;
+    font-size: var(--nb-text-md);
   }
   .err {
     color: var(--nb-danger);

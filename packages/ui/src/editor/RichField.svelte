@@ -226,6 +226,7 @@
   .nb-rf-edit > :global(:first-child) {
     font-size: var(--nb-text-2xl);
     font-weight: var(--nb-weight-semibold);
+    letter-spacing: var(--nb-tracking-tight);
     line-height: 1.3;
     margin-bottom: 6px;
   }
@@ -247,6 +248,7 @@
     color: var(--nb-text-faint);
     font-size: var(--nb-text-2xl);
     font-weight: var(--nb-weight-semibold);
+    letter-spacing: var(--nb-tracking-tight);
     line-height: 1.3;
   }
   .nb-rf-empty::after {
@@ -268,6 +270,7 @@
   .nb-rf-gtitle {
     font-size: var(--nb-text-2xl);
     font-weight: var(--nb-weight-semibold);
+    letter-spacing: var(--nb-tracking-tight);
     line-height: 1.3;
     margin-bottom: 6px;
     pointer-events: auto;

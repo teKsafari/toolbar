@@ -1,7 +1,13 @@
 html, body { margin: 0; }
+/* a screen taller than the popup scrolls down only; the fixed 400 px body never scrolls sideways */
+html { overflow-x: hidden; }
 body {
   width: 400px;
   background: var(--nb-surface);
   color: var(--nb-text);
   font: var(--nb-text-base) / var(--nb-leading-normal) var(--nb-font-sans);
+  letter-spacing: var(--nb-tracking-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }

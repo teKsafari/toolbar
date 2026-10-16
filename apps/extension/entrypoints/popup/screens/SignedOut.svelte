@@ -21,7 +21,7 @@
 
 <div class="out" data-screen="signed-out" data-testid="signed-out">
   <Icon name="logo" size={32} />
-  <p><strong>Sign in to start capturing</strong></p>
+  <p><strong class="title">Sign in to start capturing</strong></p>
   <p class="muted">{brand.name} saves your captures to <span class="mono" data-server-url>{store.serverUrl}</span>.</p>
   <Button variant="primary" loading={busy} onclick={signIn} data-sign-in>Sign in</Button>
   {#if error}<p class="err" role="alert">{error}</p>{/if}
@@ -29,6 +29,13 @@
 </div>
 
 <style>
+  /* empty-state heading in the display face (D-176) */
+  strong.title {
+    display: block;
+    font: var(--nb-weight-medium) var(--nb-text-xl) / 1.3 var(--nb-font-display);
+    letter-spacing: var(--nb-tracking-tight);
+    text-wrap: balance;
+  }
   .out {
     display: flex;
     flex-direction: column;
@@ -62,6 +69,15 @@
     margin-top: 4px;
     color: var(--nb-accent-text);
     font-size: var(--nb-text-md);
+    font-weight: var(--nb-weight-medium);
     cursor: pointer;
+  }
+  .change:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .change:focus-visible {
+    outline: 2px solid var(--nb-focus);
+    outline-offset: 2px;
   }
 </style>

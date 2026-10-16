@@ -1,23 +1,36 @@
+/* The one-time microphone page (J-014): the canvas and one surface card, the page title in the
+   display face (D-176). */
 body {
   margin: 0;
   min-height: 100vh;
   display: grid;
   place-items: center;
-  background: var(--nb-bg, #faf8f4);
-  color: var(--nb-text, #1d1b16);
-  font: 14px/1.5 ui-sans-serif, system-ui, sans-serif;
+  padding: 0 16px;
+  box-sizing: border-box;
+  background: var(--nb-bg);
+  color: var(--nb-text);
+  font: var(--nb-text-base) / var(--nb-leading-relaxed) var(--nb-font-sans);
+  letter-spacing: var(--nb-tracking-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 .card {
+  box-sizing: border-box;
+  width: 100%;
   max-width: 28rem;
   padding: 24px;
-  border-radius: 12px;
-  background: var(--nb-surface, #fff);
-  border: 1px solid var(--nb-border, #e4dfd4);
+  border-radius: var(--nb-radius-lg);
+  background: var(--nb-surface);
+  border: 1px solid var(--nb-border);
 }
 h1 {
-  font-size: 16px;
   margin: 0 0 8px;
+  font: var(--nb-weight-medium) var(--nb-text-2xl) / 1.25 var(--nb-font-display);
+  letter-spacing: var(--nb-tracking-tight);
+  text-wrap: balance;
 }
 p {
   margin: 0;
+  color: var(--nb-text-body);
+  text-wrap: pretty;
 }

@@ -58,7 +58,7 @@ test('J-212: hovering a row for 2 s shows its chord in a dark pill', async ({ co
   await expect(tip).toHaveCount(0);
   await expect(tip).toHaveText('Ctrl+Shift+S', { timeout: 3000 });
   const bg = await tip.evaluate((el) => getComputedStyle(el).backgroundColor);
-  expect(bg).toBe('rgb(26, 25, 24)');
+  expect(bg).toBe('rgb(19, 19, 19)'); // --nb-chrome (D-175)
   await popup.close();
   await page.close();
 });
@@ -254,7 +254,7 @@ test('J-015 J-232: the recording-link form shows the domain with a red dot and a
   await expect(popup.locator('[data-link-name]')).toBeFocused();
   await expect(popup.locator('[data-link-domain]')).toContainText(new URL(server.url).host);
   const dot = popup.locator('[data-domain-status="default"]');
-  expect(await dot.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(194, 46, 31)');
+  expect(await dot.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(220, 38, 38)'); // --nb-danger (D-175)
   await popup.locator('[data-link-domain]').click();
   await expect(popup.locator('[data-domain-menu] [aria-checked="true"]')).toContainText(new URL(server.url).host);
   await popup.locator('[data-domain-menu] [aria-checked="true"]').click();
@@ -345,7 +345,7 @@ test('J-218: Drafts lists thumbnail, host and age with view and trash; trash tur
   const trash = popup.locator('[data-draft-trash="d-shot"]');
   await trash.click();
   await expect(trash).toHaveText('Delete');
-  expect(await trash.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(194, 46, 31)');
+  expect(await trash.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(220, 38, 38)'); // --nb-danger (D-175)
   await trash.click();
   await expect(rows).toHaveCount(1);
   await popup.locator('[data-draft-view="d-video"]').click().catch(() => undefined);
@@ -388,7 +388,7 @@ test('X-07: the popup renders with the shared tokens in light and dark', async (
   await popup.emulateMedia({ colorScheme: 'light' });
   expect(await popup.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(255, 255, 255)');
   await popup.emulateMedia({ colorScheme: 'dark' });
-  expect(await popup.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(26, 25, 24)');
+  expect(await popup.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(19, 19, 19)');
   await popup.screenshot({ path: 'test-results/popup-dark.png' });
   await popup.emulateMedia({ colorScheme: 'light' });
   await popup.screenshot({ path: 'test-results/popup-light.png' });

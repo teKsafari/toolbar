@@ -75,6 +75,10 @@
     border-radius: 4px;
     box-sizing: border-box;
     background: var(--nb-accent-tint);
+    /* hairlines of the opposite colour keep the outline readable on any page (D-176) */
+    box-shadow:
+      0 0 0 1px var(--nb-on-accent),
+      inset 0 0 0 1px var(--nb-on-accent);
   }
   .nb-blur-tip {
     position: absolute;
@@ -84,6 +88,9 @@
     border-radius: var(--nb-radius-sm);
     background: var(--nb-chrome);
     color: var(--nb-on-chrome);
+    box-shadow:
+      inset 0 0 0 1px var(--nb-chrome-border),
+      var(--nb-shadow-md);
     font: var(--nb-weight-medium) var(--nb-text-sm) / 1.2 var(--nb-font-sans);
     white-space: nowrap;
   }

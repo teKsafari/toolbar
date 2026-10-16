@@ -134,15 +134,21 @@
     display: flex;
     align-items: center;
     border-radius: var(--nb-radius-pill);
-    background: rgb(26 25 24 / 0.62);
-    color: #fff;
+    background: color-mix(in srgb, var(--nb-chrome) 78%, transparent);
+    color: var(--nb-on-chrome);
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 0.08),
+      var(--nb-shadow-md);
     font: var(--nb-weight-medium) var(--nb-text-base) / 1 var(--nb-font-sans);
-    backdrop-filter: blur(4px);
+    letter-spacing: var(--nb-tracking-ui);
+    backdrop-filter: blur(6px);
   }
   .nb-shot-size {
     height: 24px;
     padding: 0 8px;
     font: var(--nb-text-sm) / 1 var(--nb-font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
   }
   .nb-delay {
     position: fixed;
@@ -153,13 +159,17 @@
     border-radius: 50%;
     display: grid;
     place-items: center;
-    background: var(--nb-accent-tint);
-    border: 2px solid var(--nb-accent);
-    color: var(--nb-accent-text);
-    font: var(--nb-weight-semibold) 24px / 1 var(--nb-font-sans);
+    background: var(--nb-chrome);
+    border: 0;
+    color: var(--nb-on-chrome);
+    font: var(--nb-weight-medium) 26px / 1 var(--nb-font-display);
+    font-variant-numeric: tabular-nums;
     pointer-events: none;
-    backdrop-filter: blur(6px);
-    box-shadow: var(--nb-shadow-md);
+    box-shadow:
+      inset 0 0 0 1px var(--nb-chrome-border),
+      inset 0 0 0 3px var(--nb-chrome),
+      inset 0 0 0 4px var(--nb-chrome-accent),
+      var(--nb-shadow-lg);
   }
   .nb-delay-cancel {
     all: unset;
@@ -169,13 +179,21 @@
     height: 34px;
     padding: 0 16px;
     border-radius: var(--nb-radius-pill);
-    background: rgb(26 25 24 / 0.7);
-    color: #fff;
+    background: var(--nb-chrome);
+    color: var(--nb-on-chrome);
+    box-shadow:
+      inset 0 0 0 1px var(--nb-chrome-border),
+      var(--nb-shadow-lg);
     cursor: pointer;
     pointer-events: auto;
     font: var(--nb-weight-medium) var(--nb-text-md) / 34px var(--nb-font-sans);
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out);
+  }
+  .nb-delay-cancel:hover {
+    background: var(--nb-chrome-2);
   }
   .nb-delay-cancel:focus-visible {
-    outline: 2px solid var(--nb-focus);
+    outline: 2px solid var(--nb-chrome-accent);
+    outline-offset: 2px;
   }
 </style>

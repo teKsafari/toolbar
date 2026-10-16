@@ -38,7 +38,7 @@ test('screenshot editor opens in-page over a dimmed page with preview, tool pill
   await expect(f.getByTestId('field')).toBeFocused();
   // the backdrop dims the page
   const bg = await f.getByTestId('editor-backdrop').evaluate((el) => getComputedStyle(el).backgroundColor);
-  expect(bg).toMatch(/rgba?\(18, 18, 17, 0\.5\)|rgba\(0, 0, 0, 0\.6\)/);
+  expect(bg).toMatch(/rgba\(17, 24, 39, 0\.4\)|rgba\(0, 0, 0, 0\.6\)/); // --nb-overlay, light and dark (D-175)
 
   // page CSS does not leak in: a hostile rule on the page leaves the editor alone
   await page.addStyleTag({ content: '* { font-family: monospace !important; color: rgb(255, 0, 0) !important; } button { display: none !important; }' });

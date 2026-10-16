@@ -110,12 +110,14 @@
     justify-content: space-between;
     height: 44px;
   }
+  /* the product name in the display face beside the logo, in the text colour (D-176) */
   .brand {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font: var(--nb-weight-semibold) var(--nb-text-lg) / 1 var(--nb-font-sans);
-    color: var(--nb-accent-text);
+    gap: 7px;
+    font: var(--nb-weight-semibold) var(--nb-text-lg) / 1 var(--nb-font-display);
+    letter-spacing: var(--nb-tracking-tight);
+    color: var(--nb-text);
   }
   .actions {
     display: inline-flex;
@@ -134,7 +136,12 @@
     background: var(--nb-info-tint);
     color: var(--nb-info);
     font: var(--nb-weight-semibold) var(--nb-text-sm) / 1 var(--nb-font-sans);
+    font-variant-numeric: tabular-nums;
     cursor: pointer;
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out);
+  }
+  .drafts-pill:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--nb-info) 18%, transparent);
   }
   .drafts-pill:disabled {
     cursor: default;
@@ -151,8 +158,12 @@
     border-radius: var(--nb-radius-sm);
     color: var(--nb-text-muted);
     cursor: pointer;
+    transition:
+      background-color var(--nb-dur-fast) var(--nb-ease-out),
+      color var(--nb-dur-fast) var(--nb-ease-out);
   }
-  :global(.icon-btn:hover) {
+  :global(.icon-btn:hover),
+  :global(.icon-btn[aria-expanded='true']) {
     background: var(--nb-surface-sunken);
     color: var(--nb-text);
   }

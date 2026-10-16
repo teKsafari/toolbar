@@ -42,7 +42,7 @@
 {#if site.project}
   <div class="card" data-screen="site-access" data-testid="site-access" data-state="needs-grant">
     <Icon name="globe" size={28} />
-    <p><strong>Allow on {site.project.name}</strong></p>
+    <p><strong class="title">Allow on {site.project.name}</strong></p>
     <p class="muted">
       {host} belongs to your project <strong>{site.project.name}</strong>. The extension needs access to record console, network and the page here.
       {#if site.missing.length > 1}This grants all {sites} of your projects.{/if}
@@ -53,7 +53,7 @@
 {:else}
   <div class="card" data-screen="site-access" data-testid="site-access" data-state="not-in-project">
     <Icon name="globe" size={28} />
-    <p><strong>Not part of a project</strong></p>
+    <p><strong class="title">Not part of a project</strong></p>
     <p class="muted">
       {#if site.projectCount}
         {host} is not an origin of your projects, so nothing is recorded here.
@@ -72,6 +72,13 @@
 {/if}
 
 <style>
+  /* empty-state heading in the display face (D-176) */
+  strong.title {
+    display: block;
+    font: var(--nb-weight-medium) var(--nb-text-xl) / 1.3 var(--nb-font-display);
+    letter-spacing: var(--nb-tracking-tight);
+    text-wrap: balance;
+  }
   .card {
     display: flex;
     flex-direction: column;

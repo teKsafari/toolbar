@@ -750,7 +750,9 @@
     opacity: 0;
     transition: opacity 0.3s var(--nb-ease-out);
     font-family: var(--nb-font-sans);
+    letter-spacing: var(--nb-tracking-ui);
     color: var(--nb-text);
+    -webkit-font-smoothing: antialiased;
   }
   .nb-ed-backdrop.nb-shown {
     opacity: 1;
@@ -760,8 +762,10 @@
     height: min(730px, calc(100vh - 48px));
     display: grid;
     grid-template-columns: minmax(0, 1fr) clamp(300px, 27%, 380px);
+    box-sizing: border-box;
     border-radius: var(--nb-radius-xl);
     background: var(--nb-surface);
+    border: 1px solid var(--nb-border);
     box-shadow: var(--nb-shadow-lg);
     overflow: hidden;
   }
@@ -786,8 +790,10 @@
     border-radius: var(--nb-radius-md);
     background: var(--nb-surface);
     color: var(--nb-text);
+    box-shadow: var(--nb-shadow-sm);
     cursor: pointer;
     font: var(--nb-weight-medium) var(--nb-text-md) / 1 var(--nb-font-sans);
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out);
   }
   .nb-ed-close.nb-wide {
     width: auto;
@@ -889,9 +895,11 @@
     border: 1px solid var(--nb-border-strong);
     border-radius: var(--nb-radius-md);
     background: var(--nb-surface);
+    box-shadow: var(--nb-shadow-sm);
     font: var(--nb-weight-medium) var(--nb-text-md) / 1 var(--nb-font-sans);
     cursor: pointer;
     min-width: 0;
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out);
   }
   .nb-ed-select:hover:not(:disabled) {
     background: var(--nb-surface-sunken);
@@ -996,6 +1004,12 @@
     color: var(--nb-text);
     font: var(--nb-text-md) var(--nb-font-sans);
   }
+  .nb-ed-fields input:focus,
+  .nb-ed-fields select:focus {
+    outline: none;
+    border-color: var(--nb-focus);
+    box-shadow: var(--nb-focus-ring);
+  }
   .nb-ed-atts {
     list-style: none;
     margin: 0;
@@ -1044,6 +1058,9 @@
     border-radius: var(--nb-radius-md);
     color: var(--nb-text-muted);
     cursor: pointer;
+    transition:
+      background-color var(--nb-dur-fast) var(--nb-ease-out),
+      color var(--nb-dur-fast) var(--nb-ease-out);
   }
   .nb-ed-icon:hover {
     background: var(--nb-surface-sunken);
@@ -1125,11 +1142,19 @@
     border-radius: var(--nb-radius-md);
     background: var(--nb-accent);
     color: var(--nb-on-accent);
+    box-shadow: var(--nb-shadow-primary);
     font: var(--nb-weight-semibold) var(--nb-text-base) / 1 var(--nb-font-sans);
     cursor: pointer;
+    transition:
+      background-color var(--nb-dur-fast) var(--nb-ease-out),
+      transform var(--nb-dur-fast) var(--nb-ease-out);
   }
   .nb-ed-create:hover:not(:disabled) {
     background: var(--nb-accent-hover);
+  }
+  .nb-ed-create:active:not(:disabled) {
+    background: var(--nb-accent-active);
+    transform: translateY(1px);
   }
   .nb-ed-create:disabled {
     opacity: 0.6;

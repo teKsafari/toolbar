@@ -50,7 +50,7 @@ Sign-in, step by step:
 
 ## The page bundle (D-158)
 
-`apps/extension/page/` (`pnpm --filter @toolbar/extension build:page`, output `apps/extension/.output/page/toolbar.js`, about 66 KB gzipped). It runs the same capture code as the extension: the MAIN-world hooks and the isolated-world recorder of `@toolbar/capture`, both in the page's realm and joined by their usual bridge, with `PageSession` as the `Transport`. It keeps the last 60 seconds of console, errors, network, user events and DOM replay in memory. The UI is a small bar at the bottom of the page:
+`apps/extension/page/` (`pnpm --filter @toolbar/extension build:page`, output `apps/extension/.output/page/toolbar.js`, about 73 KB gzipped, with the bundled OFL fonts and their licences beside it, which it registers on the page from `/__toolbar/`). It runs the same capture code as the extension: the MAIN-world hooks and the isolated-world recorder of `@toolbar/capture`, both in the page's realm and joined by their usual bridge, with `PageSession` as the `Transport`. It keeps the last 60 seconds of console, errors, network, user events and DOM replay in memory. The UI is a small bar at the bottom of the page:
 
 - **Comment**: pick an element, write, send. Without a trace it creates an instant-replay capture of the last minute with the comment as an annotation on that element's locator. During a trace it joins the trace.
 - **Start trace / Stop trace**: a capture that streams events and DOM replay to the server every two seconds and follows the reviewer across pages of the tab (its id and chunk counters live in `sessionStorage`). Stop asks for an optional note.
