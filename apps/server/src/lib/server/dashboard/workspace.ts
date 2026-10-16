@@ -2,7 +2,8 @@
 // profile and account deletion (J-175, J-225), onboarding (J-169).
 import { and, asc, count, desc, eq, inArray, isNull, lt, max, ne, sql } from 'drizzle-orm';
 import { seatRoleOf, type Member, type SeatRole, type WorkspaceSettings } from '@toolbar/shared/api';
-import { ONBOARDING_STEPS } from '@toolbar/shared/areas/dashboard';
+import { onboardingSteps } from '@toolbar/shared/areas/dashboard';
+import { env } from '../env.ts';
 import type { Db } from '../db/index.ts';
 import {
   apiToken,
@@ -300,12 +301,13 @@ export async function onboarding(db: Db, userId: string, workspaceId: string | n
   if (workspaceId) {
     const [mem] = await db.select({ n: count() }).from(member).where(eq(member.organizationId, workspaceId));
     done.invite = Number(mem?.n ?? 0) > 1;
-    const [i] = await db.select({ n: count() }).from(integration).where(eq(integration.organizationId, workspaceId));
+    // trackers paused: only a webhook ticks the step (an old tracker row is hidden, D-170)
+    const [i] = env.features.trackers ? await db.select({ n: count() }).from(integration).where(eq(integration.organizationId, workspaceId)) : [{ n: 0 }];
     const [h] = await db.select({ n: count() }).from(webhook).where(eq(webhook.organizationId, workspaceId));
     done.integration = Number(i?.n ?? 0) + Number(h?.n ?? 0) > 0;
   }
   return {
-    steps: ONBOARDING_STEPS.map((s) => ({ id: s.id, label: s.label, href: s.href, done: done[s.id] ?? false })),
+    steps: onboardingSteps({ trackers: env.features.trackers }).map((s) => ({ ...s, done: done[s.id] ?? false })),
     dismissed: raw.onboardingDismissed === true,
   };
 }

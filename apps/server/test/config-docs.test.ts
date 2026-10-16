@@ -78,7 +78,7 @@ function agentVars(): Map<string, string> {
   return found;
 }
 
-const COMPOSE_FILES = ['docker-compose.yml', 'docker-compose.coolify.yml'];
+const COMPOSE_FILES = ['docker-compose.yml', 'docker-compose.coolify.yml', 'docker-compose.mail.yml'];
 /** Coolify generates SERVICE_* values itself (docs/configuration.md, "Coolify"). */
 const isCoolifyMagic = (n: string) => n.startsWith('SERVICE_');
 
@@ -179,5 +179,16 @@ describe('docs/configuration.md', () => {
     const asked = [...coolify.matchAll(/\$\{([A-Z_]+):\?\}/g)].map((m) => m[1]).sort();
     expect(asked).toEqual(['ALLOWED_EMAIL_DOMAINS', 'OIDC_CLIENT_ID', 'OIDC_CLIENT_SECRET', 'OIDC_ISSUER']);
     expect(coolify).not.toMatch(/^\s+ports:/m);
+  });
+
+  it('keeps mail out of the default and Coolify compose files (docs/scope.md, D-171)', () => {
+    for (const f of ['docker-compose.yml', 'docker-compose.coolify.yml']) {
+      const s = read(f);
+      expect(s, f).not.toMatch(/mailpit|SMTP_URL|MAIL_FROM|SMTP_PORT|MAILPIT_UI_PORT|profiles: \[mail\]/);
+    }
+    // the paused mail lives in the opt-in override only
+    const mail = read('docker-compose.mail.yml');
+    expect(mail).toMatch(/^ {2}mailpit:$/m);
+    expect(mail).toContain('SMTP_URL: ${SMTP_URL:-smtp://mailpit:1025}');
   });
 });

@@ -1,0 +1,17 @@
+# Paused mail (FEATURE_EMAIL, docs/scope.md): an override file, never part of the default
+# deployment (D-079, D-171). It adds Mailpit, which catches every mail for development and tests,
+# and turns mail on in the server:
+#   docker compose -f docker-compose.yml -f docker-compose.mail.yml up -d
+# Inbox at http://localhost:8025. To send through a real provider instead, set SMTP_URL and
+# MAIL_FROM (docs/configuration.md, "Mail").
+services:
+  server:
+    environment:
+      FEATURE_EMAIL: ${FEATURE_EMAIL:-1}
+      SMTP_URL: ${SMTP_URL:-smtp://mailpit:1025}
+      MAIL_FROM: ${MAIL_FROM:-}
+
+  mailpit:
+    image: axllent/mailpit:v1.31.5
+    ports: ["127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025", "127.0.0.1:${SMTP_PORT:-1025}:1025"]
+    restart: unless-stopped

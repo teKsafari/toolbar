@@ -14,7 +14,7 @@ let transport: ReturnType<typeof nodemailer.createTransport> | null = null;
 let warned = false;
 
 /**
- * SMTP_URL, e.g. smtp://mailpit:1025 with the compose `mail` profile. Mail is paused by owner
+ * SMTP_URL, e.g. smtp://mailpit:1025 with the override docker-compose.mail.yml. Mail is paused by owner
  * scope unless FEATURE_EMAIL is on (D-079), and without SMTP_URL nothing leaves the server.
  */
 export async function sendMail(to: string, subject: string, text: string, html?: string) {

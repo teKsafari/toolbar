@@ -56,6 +56,8 @@ export interface ToolDef<S extends z.ZodObject = z.ZodObject> {
   description: string;
   input: S;
   write?: boolean;
+  /** a paused feature (docs/scope.md): the tool is listed and callable only while its flag is on */
+  feature?: 'ai';
   annotations: { readOnlyHint: boolean; destructiveHint?: boolean; idempotentHint?: boolean; openWorldHint: false };
   run(ctx: ToolCtx, args: z.output<S>): Promise<ToolResult>;
 }
@@ -424,6 +426,7 @@ const getChapters = define({
   title: 'Get video chapters',
   description: 'Chapters of a video capture: a title with start and end times each. Empty with a reason when the server has none.',
   input: z.object({ capture, intent }),
+  feature: 'ai', // AI chapters are paused (J-096, D-172)
   annotations: READ,
   async run({ db, principal }, a) {
     const c = await resolveCapture(db, principal, a.capture);
@@ -979,11 +982,13 @@ export const TOOLS: ToolDef[] = [
   ...HANDOFF_TOOLS,
 ];
 
-export const toolByName = new Map(TOOLS.map((t) => [t.name, t]));
+/** The tools this server offers: a paused feature's tools only while its flag is on (D-172). */
+export const activeTools = () => TOOLS.filter((t) => !t.feature || env.features[t.feature]);
+const toolByName = (name: string) => activeTools().find((t) => t.name === name);
 
 /** tools/list entries: JSON Schema of the input (as the caller writes it), annotations, title. */
 export function toolList(canWrite: boolean) {
-  return TOOLS.filter((t) => canWrite || !t.write).map((t) => {
+  return activeTools().filter((t) => canWrite || !t.write).map((t) => {
     const schema = z.toJSONSchema(t.input, { io: 'input', unrepresentable: 'any' }) as Record<string, unknown>;
     delete schema.$schema;
     return { name: t.name, title: t.title, description: t.description, inputSchema: schema, annotations: { title: t.title, ...t.annotations } };
@@ -991,7 +996,7 @@ export function toolList(canWrite: boolean) {
 }
 
 export async function callTool(ctx: ToolCtx, name: string, args: unknown): Promise<ToolResult> {
-  const t = toolByName.get(name);
+  const t = toolByName(name);
   if (!t) return { isError: true, content: [text(`Unknown tool ${name}.`)] };
   if (t.write && !ctx.principal.canWrite)
     return { isError: true, content: [text('This connection is read-only. Reconnect the agent with the "comment and organise" permission, or use a token with an MCP write scope.')] };

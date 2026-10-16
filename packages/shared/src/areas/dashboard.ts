@@ -150,3 +150,14 @@ export const ONBOARDING_STEPS = [
   { id: 'integration', label: 'Connect an app', href: '/settings/integrations' },
 ] as const;
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number]['id'];
+
+/**
+ * The checklist as shown: with the paused trackers off (FEATURE_TRACKERS, docs/scope.md), the
+ * last step points at webhooks, one of the three agent channels, instead of the hidden
+ * integrations page (D-170).
+ */
+export function onboardingSteps(features: { trackers: boolean }) {
+  return ONBOARDING_STEPS.map((s) =>
+    s.id === 'integration' && !features.trackers ? { id: s.id, label: 'Add a webhook', href: '/settings/webhooks' } : { id: s.id, label: s.label, href: s.href },
+  );
+}

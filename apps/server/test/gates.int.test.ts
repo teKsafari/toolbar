@@ -14,8 +14,8 @@ import type { RequestEvent } from '@sveltejs/kit';
 
 const base = process.env.DATABASE_URL ?? 'postgres://toolbar:toolbar@localhost:5432/toolbar';
 const MAILPIT = process.env.MAILPIT_URL ?? 'http://localhost:8025';
-// The paused mail (FEATURE_EMAIL) lands in Mailpit, which runs only with the compose profile
-// `mail` (D-116): the mail tests skip without it.
+// The paused mail (FEATURE_EMAIL) lands in Mailpit, which runs only with the override file
+// docker-compose.mail.yml (D-116, D-171): the mail tests skip without it.
 const mailpitUp = await fetch(`${MAILPIT}/api/v1/info`).then((r) => r.ok, () => false);
 const itMail = it.skipIf(!mailpitUp);
 const name = `toolbar_gatestest_${process.pid}`;

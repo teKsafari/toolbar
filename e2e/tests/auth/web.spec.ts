@@ -1,6 +1,6 @@
 // Auth area, web app (J-217, X-06, J-221, J-123, J-234, J-125, J-124, J-148). Runs against
 // SERVER_URL with the mock OIDC provider (e2e/fixtures/oidc.ts); the mail parts need
-// FEATURE_EMAIL and Mailpit on :8025 (compose profile `mail`), the password test
+// FEATURE_EMAIL and Mailpit on :8025 (override docker-compose.mail.yml), the password test
 // AUTH_DEV_PASSWORD=1. Needs no extension.
 import { execFileSync } from 'node:child_process';
 import { test, expect, chromium, type Browser, type Page } from '@playwright/test';

@@ -205,16 +205,19 @@ test('the server stores a packet with its annotation and returns it with the cap
   const api = await context.newPage();
   await signInOidc(api, SERVER_URL, `locator-${Date.now()}@toolbar.test`, { name: 'Locator Reviewer' });
   const me = await (await api.request.get(`${SERVER_URL}/api/v1/me`)).json();
+  // a cookie-session multipart post needs its Origin, as a browser sends it: a production build
+  // keeps SvelteKit's CSRF check, which answers 403 without one (vite dev does not check)
+  const sameOrigin = { origin: new URL(SERVER_URL).origin };
   const created = await api.request.post(`${SERVER_URL}/api/v1/recordings`, {
     data: { clientId: crypto.randomUUID(), kind: 'screenshot', workspaceId: me.activeWorkspaceId, page: { url: locator.url, title: locator.title ?? '' }, startedAt: Date.now() },
   });
   expect(created.status()).toBe(201);
   const { id } = await created.json();
   const png = Buffer.from(crop!.dataUrl.split(',')[1]!, 'base64');
-  const asset = await api.request.post(`${SERVER_URL}/api/v1/assets`, { multipart: { kind: 'crop', recordingId: id, file: { name: 'a01.png', mimeType: 'image/png', buffer: png } } });
+  const asset = await api.request.post(`${SERVER_URL}/api/v1/assets`, { headers: sameOrigin, multipart: { kind: 'crop', recordingId: id, file: { name: 'a01.png', mimeType: 'image/png', buffer: png } } });
   expect(asset.status(), await asset.text()).toBe(201);
   const { id: assetId } = await asset.json();
-  const shot = await api.request.post(`${SERVER_URL}/api/v1/assets`, { multipart: { kind: 'screenshot', recordingId: id, file: { name: 'shot.png', mimeType: 'image/png', buffer: png } } });
+  const shot = await api.request.post(`${SERVER_URL}/api/v1/assets`, { headers: sameOrigin, multipart: { kind: 'screenshot', recordingId: id, file: { name: 'shot.png', mimeType: 'image/png', buffer: png } } });
   const fin = await api.request.post(`${SERVER_URL}/api/v1/recordings/${id}/finalize`, {
     data: { title: 'Locator round trip', screenshotAssetId: (await shot.json()).id, annotations: [{ assetId, comment: 'Save does nothing visible', shapes: [], locator }] },
   });

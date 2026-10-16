@@ -20,7 +20,7 @@ Status: design for Part 1, step 2 (Jam replica), written so Part 2 lands as addi
 | Object storage | Garage | `dxflrs/garage:v2.4.1` | See section 7. |
 | S3 client | `@aws-sdk/client-s3` | 3.11xx | `forcePathStyle: true`. |
 | Transcription | whisper.cpp server, or a hosted OpenAI-compatible model (`gpt-transcribe`) | `ghcr.io/ggml-org/whisper.cpp:main` (whisper.cpp v1.9.5), pin by digest | See section 12. |
-| Mail (paused, compose profile `mail`) | Mailpit | `axllent/mailpit:v1.31.5` | Catches the paused mail (FEATURE_EMAIL) in development and tests; the default compose file sends no mail (D-079, D-114). |
+| Mail (paused, override `docker-compose.mail.yml`) | Mailpit | `axllent/mailpit:v1.31.5` | Catches the paused mail (FEATURE_EMAIL) in development and tests; the default compose file holds no mail service or settings (D-079, D-114, D-171). |
 | Validation | zod | 4.x | Shared schema checks on the server. |
 | Tests | vitest 5.0.x; `@playwright/test` **1.63.0** | | 1.63.0 matches the Chromium build already cached on this VM (`~/.cache/ms-playwright/chromium-1243`). |
 | CLI build | tsdown | 0.23.x | Bundles `packages/cli` into one ESM file for `npx`. |
@@ -423,7 +423,6 @@ services:
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-0000000000000000000000000000000000000000000000000000000000000000} # !
       TRANSCRIBE_PROVIDER: ${TRANSCRIBE_PROVIDER:-whispercpp}
       WHISPER_URL: http://whisper:8080
-      SMTP_URL: ${SMTP_URL:-}                             # paused mail (FEATURE_EMAIL); empty sends nothing
       EXTENSION_IDS: ${EXTENSION_IDS:-<dev id from the manifest key>}
       OIDC_ISSUER: ${OIDC_ISSUER:-}                       # ! sign-in (docs/configuration.md, D-114)
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}                 # !
@@ -465,12 +464,6 @@ services:
     volumes: [whisper-models:/models]
     restart: unless-stopped
 
-  mailpit:                                       # paused mail only: --profile mail
-    image: axllent/mailpit:v1.31.5
-    profiles: [mail]
-    ports: ["8025:8025"]                         # inbox UI on http://localhost:8025
-    restart: unless-stopped
-
   oidc-mock:                                     # development and e2e sign-in: --profile dev
     image: ghcr.io/navikt/mock-oauth2-server:2.1.10
     profiles: [dev]
@@ -478,6 +471,8 @@ services:
 
 volumes: { pg: {}, garage-meta: {}, garage-data: {}, whisper-models: {} }
 ```
+
+The paused mail is not in this file: `docker-compose.mail.yml` is an override that adds Mailpit and sets `FEATURE_EMAIL=1` and `SMTP_URL=smtp://mailpit:1025` on the server (`docker compose -f docker-compose.yml -f docker-compose.mail.yml up -d`, D-171).
 
 Placeholder keys must match Garage's format (`GK` plus hex for the key id, hex for the secret); generate real ones with `scripts/gen-secrets.sh`, which writes `.env` with `openssl rand -hex`. The `apps/server/Dockerfile` is multi-stage: `node:24-bookworm-slim`, `corepack enable`, `pnpm install --frozen-lockfile`, `pnpm --filter @toolbar/server build`, `pnpm deploy --prod`. The runtime stage installs `ffmpeg` and runs `node build`.
 

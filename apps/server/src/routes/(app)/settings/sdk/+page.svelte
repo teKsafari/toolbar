@@ -22,7 +22,7 @@ window.toolbar?.setMetadata(() => ({
 <Section title="Custom metadata" description="Attach your own data, such as the user id, plan or build, to every capture made on your app." testid="sdk-metadata">
   <ol class="steps">
     <li>Add the call below to your app's code, after sign-in. Nothing to install: the extension provides <code>window.toolbar</code> on each page.</li>
-    <li>Make a capture. The data shows in the capture's info tab as custom metadata, and agents read it through MCP and the CLI.</li>
+    <li>Make a capture. The data shows in the capture's info tab as custom metadata, and agents read it through MCP and the HTTP API.</li>
   </ol>
   <div class="code">
     <pre data-testid="sdk-snippet">{snippet}</pre>

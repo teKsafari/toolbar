@@ -241,12 +241,12 @@ open-toolbar sends no mail by default (docs/scope.md, D-079). Invites work by li
 
 | Variable | Default | Example | Purpose and when to change |
 |---|---|---|---|
-| `SMTP_URL` | empty | `smtps://user:pass@smtp.example.com:465` | Where mail goes, used only with `FEATURE_EMAIL=1`. Empty: nothing is sent. |
+| `SMTP_URL` | empty (`smtp://mailpit:1025` in `docker-compose.mail.yml`) | `smtps://user:pass@smtp.example.com:465` | Where mail goes, used only with `FEATURE_EMAIL=1`. Empty: nothing is sent. Read only through `docker-compose.mail.yml`; the default compose file does not pass it. |
 | `MAIL_FROM` | `"<app name>" <noreply@<PUBLIC_URL host>>` | `"Acme Review" <review@acme.example>` | The sender. Set it to an address your mail provider lets you send from. |
-| `SMTP_PORT` | `1025` | `11025` | Compose `mail` profile only: host port of Mailpit's SMTP, on `127.0.0.1`. |
-| `MAILPIT_UI_PORT` | `8025` | `18025` | Compose `mail` profile only: host port of Mailpit's inbox, on `127.0.0.1`. |
+| `SMTP_PORT` | `1025` | `11025` | `docker-compose.mail.yml` only: host port of Mailpit's SMTP, on `127.0.0.1`. |
+| `MAILPIT_UI_PORT` | `8025` | `18025` | `docker-compose.mail.yml` only: host port of Mailpit's inbox, on `127.0.0.1`. |
 
-For development: `FEATURE_EMAIL=1 SMTP_URL=smtp://mailpit:1025 docker compose --profile mail up -d`, inbox at http://localhost:8025.
+The default `docker-compose.yml` holds no mail service and no mail settings (docs/scope.md). Mail comes back only with the override file `docker-compose.mail.yml`, which adds Mailpit and sets `FEATURE_EMAIL=1` and `SMTP_URL=smtp://mailpit:1025` on the server: `docker compose -f docker-compose.yml -f docker-compose.mail.yml up -d`, inbox at http://localhost:8025. For a real provider, set `SMTP_URL` and `MAIL_FROM` in `.env` and use the same override (D-171).
 
 ## AI text
 
@@ -307,7 +307,7 @@ Read by the coding agent's shell, not by any service: the Agent Skill (`skills/o
 
 | Variable | Default | Example | Purpose and when to change |
 |---|---|---|---|
-| `COMPOSE_PROFILES` | empty; `.env.example` sets `whisper` | `whisper`, `whisper,dev` | Docker Compose's own variable: which optional services start. `whisper` is the local transcriber, `dev` the mock OIDC provider, `mail` Mailpit. Drop `whisper` when `TRANSCRIBE_PROVIDER` is `openai-compatible` or `none`. |
+| `COMPOSE_PROFILES` | empty; `.env.example` sets `whisper` | `whisper`, `whisper,dev` | Docker Compose's own variable: which optional services start. `whisper` is the local transcriber, `dev` the mock OIDC provider. Mailpit is in the override file `docker-compose.mail.yml`, not a profile. Drop `whisper` when `TRANSCRIBE_PROVIDER` is `openai-compatible` or `none`. |
 | `OIDC_MOCK_PORT` | `3311` | `13311` | `dev` profile only: host port of the mock OIDC provider. The issuer the server and browser share is `http://oidc.localhost:<port>/<any name>`. |
 
 ## Coolify

@@ -56,10 +56,15 @@ test('J-169: the setup card lists four steps as links, ticks done ones, and can 
   const card = page.getByTestId('onboarding');
   await expect(card.getByRole('link')).toHaveCount(4);
   await expect(card.locator('li.done')).toHaveCount(0);
+  // trackers paused (docs/scope.md, D-170): the last step points at webhooks, never at the hidden integrations page
+  const trackers = await featureOn('trackers');
+  const last = trackers ? { label: 'Connect an app', href: '/settings/integrations' } : { label: 'Add a webhook', href: '/settings/webhooks' };
+  await expect(card.getByRole('link').last()).toHaveAttribute('href', last.href);
+  if (!trackers) await expect(card.locator('a[href="/settings/integrations"]')).toHaveCount(0);
   const { activeWorkspaceId } = await me(page);
   await json(page, 'POST', `/api/v1/workspaces/${activeWorkspaceId}/webhooks`, { url: 'http://127.0.0.1:9/never', events: ['capture.deleted'] });
   await go(page, '/');
-  await expect(card.locator('li.done')).toHaveText(['Connect an app']);
+  await expect(card.locator('li.done')).toHaveText([last.label]);
   await page.getByTestId('onboarding-dismiss').click();
   await expect(card).toBeHidden();
   await go(page, '/');

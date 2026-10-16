@@ -38,7 +38,7 @@ test('form: one row per field, email and password masked, bodies redacted (J-068
   await page.close();
 });
 
-test('navigation rows name the cause; full loads follow a tab-hidden row (J-069, J-032 data)', async ({ context, sw, mock: _ }) => {
+test('navigation rows name the cause; a full load in a visible tab adds no tab-hidden row (J-069, J-032 data)', async ({ context, sw, mock: _ }) => {
   const page = await context.newPage();
   await page.goto(LAB_URL); // typed address
   const tabId = await tabIdOf(sw, page);
@@ -61,10 +61,11 @@ test('navigation rows name the cause; full loads follow a tab-hidden row (J-069,
   const s = await ring(sw, tabId);
   const navs = byKind(s, 'nav').filter((e) => e.ctx === 'top').map((e) => `${e.data.type}:${e.data.cause ?? ''}:${new URL(String(e.data.url)).pathname}`);
   expect(navs).toEqual(expect.arrayContaining(['load:typed:/', 'pushState::/form', 'load:reload:/form', 'load:link:/slow-raw', 'load:back_forward:/form']));
-  // each full load after the first is preceded by a visibility false row from the old document
+  // the tab stays visible through every load, so no Tab hidden row appears: pagehide and frames
+  // unloading no longer report one (commit 1fcb157, G3 bug 7; D-172)
   const seq = s.events.filter((e) => (e.kind === 'nav' && e.data.type === 'load' && e.ctx === 'top') || (e.kind === 'user' && e.data.type === 'visibility'));
-  const reloadIdx = seq.findIndex((e) => e.kind === 'nav' && e.data.cause === 'reload');
-  expect(seq[reloadIdx - 1]).toMatchObject({ kind: 'user', data: { type: 'visibility', visible: false } });
+  expect(seq.filter((e) => e.kind === 'nav')).toHaveLength(4);
+  expect(seq.filter((e) => e.kind === 'user' && e.data.visible === false)).toEqual([]);
   await page.close();
 });
 

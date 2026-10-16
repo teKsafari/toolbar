@@ -7,9 +7,10 @@
 # every variable. Put a TLS proxy (Caddy, Traefik, nginx) in front of the server's port.
 #
 # Profiles: `whisper` runs the local transcriber (COMPOSE_PROFILES=whisper in .env.example);
-# `dev` adds a mock OIDC provider for development and tests; `mail` adds Mailpit for the paused
-# mail. Postgres, Garage and whisper publish their ports on 127.0.0.1 only, for `pnpm dev` and
-# backups from the host; nothing but the server is reachable from other machines.
+# `dev` adds a mock OIDC provider for development and tests. This file sends no mail; the paused
+# mail lives in the override docker-compose.mail.yml (D-171). Postgres, Garage and whisper
+# publish their ports on 127.0.0.1 only, for `pnpm dev` and backups from the host; nothing but
+# the server is reachable from other machines.
 # Coolify: use docker-compose.coolify.yml instead.
 name: toolbar
 
@@ -53,9 +54,6 @@ services:
       STT_URL: ${STT_URL:-}
       STT_API_KEY: ${STT_API_KEY:-}
       STT_MODEL: ${STT_MODEL:-}
-      # mail is paused (FEATURE_EMAIL); with the `mail` profile: SMTP_URL=smtp://mailpit:1025
-      SMTP_URL: ${SMTP_URL:-}
-      MAIL_FROM: ${MAIL_FROM:-}
       EXTENSION_IDS: ${EXTENSION_IDS:-fmongfmimgdafigcahdpofnmmhljpnei}
       # sign-in (docs/configuration.md): the one OIDC provider and the domain allowlist
       OIDC_ISSUER: ${OIDC_ISSUER:-}
@@ -154,14 +152,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 300s
-
-  # Paused mail (FEATURE_EMAIL, docs/scope.md): Mailpit catches it for development and tests.
-  #   FEATURE_EMAIL=1 SMTP_URL=smtp://mailpit:1025 docker compose --profile mail up -d
-  mailpit:
-    image: axllent/mailpit:v1.31.5
-    profiles: [mail]
-    ports: ["127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025", "127.0.0.1:${SMTP_PORT:-1025}:1025"]
-    restart: unless-stopped
 
   # Development and e2e sign-in (docs/scope.md, "Sign-in"): a mock OpenID Connect provider. It
   # signs in anyone with any claims, so it never belongs in a real deployment.

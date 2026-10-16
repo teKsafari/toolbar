@@ -15,7 +15,7 @@
 # allowlist that admits the *.test addresses the suites use. AUTH_DEV_PASSWORD=1 stays on for the
 # seeded accounts (dana@ and sam@toolbar.test), which have only a password. Paused features stay
 # off, so their tests skip with "paused (docs/scope.md)"; MAIL=1 turns FEATURE_EMAIL on with
-# Mailpit (profile `mail`), and FEATURES="FEATURE_AI=1 FEATURE_TRACKERS=1 ..." sets others.
+# Mailpit (the override docker-compose.mail.yml, D-171), and FEATURES="FEATURE_AI=1 FEATURE_TRACKERS=1 ..." sets others.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
@@ -37,11 +37,11 @@ pnpm --filter @toolbar/cli build >/dev/null || exit 1
 # behind, and some area tests count what a workspace holds.
 fresh() {
   step "stack"
-  if [ "${KEEP:-0}" != 1 ]; then docker compose --profile dev --profile mail --profile whisper down -v || exit 1; fi
-  local profiles=(--profile dev --profile whisper) mail=()
-  if [ "${MAIL:-0}" = 1 ]; then profiles+=(--profile mail); mail=(FEATURE_EMAIL=1 SMTP_URL=smtp://mailpit:1025); fi
+  if [ "${KEEP:-0}" != 1 ]; then docker compose -f docker-compose.yml -f docker-compose.mail.yml --profile dev --profile whisper down -v || exit 1; fi
+  local profiles=(-f docker-compose.yml --profile dev --profile whisper)
+  if [ "${MAIL:-0}" = 1 ]; then profiles+=(-f docker-compose.mail.yml); fi
   # shellcheck disable=SC2086
-  env "${mail[@]}" ${FEATURES:-} \
+  env ${FEATURES:-} \
     OIDC_ISSUER=http://oidc.localhost:3311/toolbar OIDC_CLIENT_ID=toolbar OIDC_CLIENT_SECRET=dev OIDC_PROVIDER_NAME="Dev SSO" \
     ALLOWED_EMAIL_DOMAINS=test AUTH_DEV_PASSWORD=1 AUTH_RATE_LIMIT=off \
     docker compose "${profiles[@]}" up --build -d || exit 1

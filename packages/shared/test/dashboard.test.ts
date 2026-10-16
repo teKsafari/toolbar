@@ -5,6 +5,7 @@ import {
   filtersFromParams,
   filtersToParams,
   kindsOf,
+  onboardingSteps,
   parseIssueRefs,
   refOfUrl,
   relativeTime,
@@ -12,6 +13,13 @@ import {
 import { ROUTES } from '../src/api/index.ts';
 
 describe('dashboard helpers', () => {
+  it('J-169, D-170: the setup steps point at webhooks while trackers are paused', () => {
+    const off = onboardingSteps({ trackers: false });
+    expect(off.map((s) => s.href)).toEqual(['/settings/browsers', '/', '/settings/members', '/settings/webhooks']);
+    expect(off.at(-1)!.label).toBe('Add a webhook');
+    expect(onboardingSteps({ trackers: true }).at(-1)).toEqual({ id: 'integration', label: 'Connect an app', href: '/settings/integrations' });
+  });
+
   it('J-160: filters survive a round trip through the URL', () => {
     const id = '019a0000-0000-7000-8000-000000000001';
     const p = filtersToParams({ types: ['video', 'screenshot'], sources: ['upload'], authors: [id], link: null }, new URLSearchParams('x=1'));

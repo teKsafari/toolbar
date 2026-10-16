@@ -29,14 +29,15 @@ import { connect, destinationHandler, linkedIssuesOf, options, sendCapture, inte
 import { recent, search } from '../src/lib/server/search/index.ts';
 import { seatOf } from '../src/lib/server/share/access.ts';
 import { ApiError } from '../src/lib/server/share/http.ts';
+import { env } from '../src/lib/server/env.ts';
 
 const base = process.env.DATABASE_URL ?? 'postgres://toolbar:toolbar@localhost:5432/toolbar';
 // these tests cover the paused mail code too (docs/scope.md, FEATURE_EMAIL)
 process.env.FEATURE_EMAIL = '1';
-process.env.SMTP_URL ||= 'smtp://localhost:1025'; // Mailpit (compose profile `mail`)
+process.env.SMTP_URL ||= 'smtp://localhost:1025'; // Mailpit (docker-compose.mail.yml)
 const MAILPIT = process.env.MAILPIT_URL ?? 'http://localhost:8025';
-// The paused mail (FEATURE_EMAIL) lands in Mailpit, which runs only with the compose profile
-// `mail` (D-116): the mail tests skip without it.
+// The paused mail (FEATURE_EMAIL) lands in Mailpit, which runs only with the override file
+// docker-compose.mail.yml (D-116, D-171): the mail tests skip without it.
 const mailpitUp = await fetch(`${MAILPIT}/api/v1/info`).then((r) => r.ok, () => false);
 const itMail = it.skipIf(!mailpitUp);
 const name = `toolbar_dashtest_${process.pid}`;
@@ -451,6 +452,8 @@ describe.skipIf(!reachable)('dashboard (integration)', () => {
     const w = (await createWorkspace(db, { userId: u.id, email: u.email, name: 'Solo', domainJoin: false })).id;
     let ob = await onboarding(db, u.id, w);
     expect(ob.steps.map((s) => s.done)).toEqual([false, false, false, false]);
+    // trackers paused by default (D-170): the step names webhooks, not the hidden integrations page
+    expect(ob.steps.at(-1)).toMatchObject(env.features.trackers ? { href: '/settings/integrations' } : { label: 'Add a webhook', href: '/settings/webhooks' });
     await mkCapture({ organizationId: w, authorUserId: u.id });
     await db.insert(schema.member).values({ organizationId: w, userId: sam.id, role: 'creator' });
     ob = await onboarding(db, u.id, w);

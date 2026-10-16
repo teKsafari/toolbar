@@ -60,9 +60,10 @@ describe('MCP protocol (J-149 to J-151)', () => {
     expect(r.error.code).toBe(-32601);
   });
 
-  it('lists tools with schemas, titles, annotations and an intent field; hides writes when read-only', () => {
+  it('lists tools with schemas, titles, annotations and an intent field; hides writes when read-only', async () => {
     const all = toolList(true);
-    expect(all.length).toBe(TOOLS.length);
+    // get_chapters belongs to the paused AI features (FEATURE_AI, D-172)
+    expect(all.length).toBe(TOOLS.length - 1);
     for (const t of all) {
       expect(t.inputSchema.type).toBe('object');
       expect((t.inputSchema.properties as Record<string, unknown>).intent).toBeDefined();
@@ -70,8 +71,16 @@ describe('MCP protocol (J-149 to J-151)', () => {
       expect(typeof t.annotations.readOnlyHint).toBe('boolean');
     }
     const names = all.map((t) => t.name);
-    for (const n of ['get_capture', 'get_console_logs', 'get_network_requests', 'get_user_events', 'get_metadata', 'get_screenshots', 'get_frames', 'get_transcript', 'get_chapters', 'search', 'search_captures', 'list_captures', 'list_folders', 'list_members', 'create_comment', 'update_capture', 'delete_comment'])
+    for (const n of ['get_capture', 'get_console_logs', 'get_network_requests', 'get_user_events', 'get_metadata', 'get_screenshots', 'get_frames', 'get_transcript', 'search', 'search_captures', 'list_captures', 'list_folders', 'list_members', 'create_comment', 'update_capture', 'delete_comment'])
       expect(names).toContain(n);
+    expect(names).not.toContain('get_chapters');
+    expect((await callTool({ db: noDb, principal: principal(true) }, 'get_chapters', { capture: 'x' })).content[0]).toMatchObject({ text: 'Unknown tool get_chapters.' });
+    process.env.FEATURE_AI = '1';
+    try {
+      expect(toolList(true).map((t) => t.name)).toContain('get_chapters');
+    } finally {
+      delete process.env.FEATURE_AI;
+    }
     const ro = toolList(false).map((t) => t.name);
     expect(ro).not.toContain('create_comment');
     expect(ro).toContain('get_capture');
