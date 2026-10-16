@@ -6,6 +6,8 @@ import { fail } from '../share/http.ts';
 import { captureAccess, type RecordingRow } from '../share/access.ts';
 import type { BuiltFolder } from './assemble.ts';
 import { fileBytes } from './folder.ts';
+import type { ExportScope } from './export.ts';
+import { workspaceFor } from '../dashboard/core.ts';
 
 /** The capture, for a member of its workspace; share links, upload tokens and anonymous callers are refused. */
 export async function folderCapture(event: RequestEvent, id: string): Promise<RecordingRow> {
@@ -24,4 +26,10 @@ export function folderIndex(f: BuiltFolder): FolderIndex {
     readme: f.readme,
     readmeTokens: f.readmeTokens,
   };
+}
+
+/** Workspace and seat of a bulk export (D-182): the one asked for, or the caller's active workspace. */
+export async function exportScope(event: RequestEvent, workspace: string | undefined): Promise<ExportScope> {
+  const ws = await workspaceFor(db, event, workspace ?? null, 'viewer');
+  return { userId: ws.userId, workspaceId: ws.workspaceId, seat: ws.seat };
 }

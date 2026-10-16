@@ -2,7 +2,8 @@
 // its file listing and single files (the MCP tools read the same), resolving feedback, and the
 // Agent Skill. routes.ts spreads this list into ROUTE_LIST.
 import { z } from 'zod';
-import { api, defineRoute, idSchema, isoSchema, okSchema } from '../common.ts';
+import { api, csvOf, defineRoute, idSchema, isoSchema, okSchema } from '../common.ts';
+import { RECORDING_KINDS } from '../../constants.ts';
 
 export const folderFileSchema = z.object({ path: z.string(), bytes: z.number().int().nonnegative(), about: z.string(), contentType: z.string() });
 
@@ -142,4 +143,120 @@ export const getSkill = defineRoute({
   summary: 'The Agent Skill (SKILL.md) for pulling, reading and resolving feedback, with this server as the default.',
 });
 
-export const handoffAreaRoutes = [getFeedbackFolder, getFolderIndex, getFolderFile, getResolution, resolveFeedback, reopenFeedback, getSkill] as const;
+// ---------- bulk export (D-182) ----------
+
+/** A date (`2026-10-01`) or a date and time, as the since and until filters take them. */
+const dateQuery = z
+  .string()
+  .trim()
+  .refine((s) => !Number.isNaN(Date.parse(s)), 'an ISO date such as 2026-10-01 or 2026-10-01T12:00:00Z');
+
+/** Filters of the bulk export, the feedback list, the index and the MCP list_feedback tool. */
+export const feedbackFiltersSchema = z.object({
+  /** workspace id; default the caller's active workspace */
+  workspace: idSchema.optional(),
+  /** project id (Settings, Projects) */
+  project: idSchema.optional(),
+  /** folder id, or `none` for unfiled captures */
+  folder: z.union([idSchema, z.literal('none')]).optional(),
+  /** unresolved (default), resolved or all */
+  status: z.enum(['unresolved', 'resolved', 'all']).default('unresolved'),
+  /** created at or after (inclusive) */
+  since: dateQuery.optional(),
+  /** created before (exclusive); a bare date means the start of that day, UTC */
+  until: dateQuery.optional(),
+  /** capture kinds, comma separated */
+  kind: csvOf(z.enum(RECORDING_KINDS)),
+  /** who made the capture: a user id, an email address, or `me` */
+  creator: z.string().trim().min(1).max(320).optional(),
+  /** captures in one page (default 50, at most 200); the size cap can end a page earlier */
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  /** the next-page cursor from the previous answer (header x-next-cursor, or nextCursor) */
+  cursor: z.string().max(400).optional(),
+});
+export type FeedbackFilters = z.infer<typeof feedbackFiltersSchema>;
+
+export const feedbackListItemSchema = z.object({
+  id: idSchema,
+  url: z.string(),
+  createdAt: isoSchema,
+  kind: z.enum(RECORDING_KINDS),
+  title: z.string(),
+  reviewer: z.string().nullable(),
+  pageUrl: z.string().nullable(),
+  /** host and route pattern of the page (`app.test/lessons/:id`) */
+  route: z.string().nullable(),
+  status: z.enum(['open', 'resolved']),
+  /** dead, stuck, silent and error spans; null without events */
+  outcomes: z.object({ dead: z.number().int(), stuck: z.number().int(), silent: z.number().int(), error: z.number().int() }).nullable(),
+  consoleErrors: z.number().int(),
+  failedRequests: z.number().int(),
+  /** one line from the reviewer's words */
+  summary: z.string(),
+  /** `.feedback/<id>` */
+  dir: z.string(),
+  folderUrl: z.string(),
+  pullCommand: z.string(),
+});
+export type FeedbackListItem = z.infer<typeof feedbackListItemSchema>;
+
+export const feedbackListSchema = z.object({
+  items: z.array(feedbackListItemSchema),
+  total: z.number().int().nonnegative(),
+  returned: z.number().int().nonnegative(),
+  hasMore: z.boolean(),
+  nextCursor: z.string().nullable(),
+  /** why the page ended early: the limit or the export's size cap */
+  stoppedBy: z.enum(['limit', 'size']).nullable(),
+  /** this page as an archive, and its INDEX.md */
+  exportUrl: z.string(),
+  indexUrl: z.string(),
+  /** curl ... | tar xz for this page */
+  pullCommand: z.string(),
+});
+export type FeedbackList = z.infer<typeof feedbackListSchema>;
+
+export const exportFeedback = defineRoute({
+  name: 'handoff.export',
+  method: 'GET',
+  path: api('/feedback/export'),
+  auth: 'member',
+  scope: 'read',
+  query: feedbackFiltersSchema,
+  response: 'binary',
+  errors: ['unauthorized', 'forbidden', 'not_found', 'invalid_query'],
+  area: 'agent',
+  tasks: ['P2-handoff'],
+  summary:
+    'Every matching capture at once, as a streamed gzipped tar (`curl ... | tar xz`): `.feedback/INDEX.md` (a table of the captures and digests across them) and one `.feedback/<id>/` folder per capture in the per-capture layout. Filters: workspace, project, folder, status (unresolved by default, resolved, all), since, until, kind, creator, limit. A page stops at `limit` captures or at the size cap (EXPORT_MAX_MB); the `x-next-cursor` header and a line in INDEX.md carry the cursor of the next page, whose index is INDEX-<n>.md.',
+});
+
+export const listAllFeedback = defineRoute({
+  name: 'handoff.list',
+  method: 'GET',
+  path: api('/feedback'),
+  auth: 'member',
+  scope: 'read',
+  query: feedbackFiltersSchema,
+  response: feedbackListSchema,
+  errors: ['unauthorized', 'forbidden', 'not_found', 'invalid_query'],
+  area: 'agent',
+  tasks: ['P2-handoff'],
+  summary: 'The captures the export would hold, as JSON: id, date, reviewer, route, outcome counts, one-line summary, folder URL and pull command of each, and the next-page cursor. Same filters and pages as /feedback/export.',
+});
+
+export const getFeedbackIndex = defineRoute({
+  name: 'handoff.index',
+  method: 'GET',
+  path: api('/feedback/index'),
+  auth: 'member',
+  scope: 'read',
+  query: feedbackFiltersSchema,
+  response: 'markdown',
+  errors: ['unauthorized', 'forbidden', 'not_found', 'invalid_query'],
+  area: 'agent',
+  tasks: ['P2-handoff'],
+  summary: 'INDEX.md of one export page without the folders: the table of captures and the digests across them (routes with the most problems, repeated console errors, failing requests, recurring words). Same filters and pages as /feedback/export.',
+});
+
+export const handoffAreaRoutes = [getFeedbackFolder, getFolderIndex, getFolderFile, getResolution, resolveFeedback, reopenFeedback, getSkill, exportFeedback, listAllFeedback, getFeedbackIndex] as const;

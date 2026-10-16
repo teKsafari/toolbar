@@ -67,26 +67,38 @@ function paxRecord(key: string, value: string): string {
   return `${len}${body}`;
 }
 
+/**
+ * The tar blocks of one entry: a header for every parent directory not in `dirs` yet (added to it),
+ * a PAX header when the path does not fit ustar, the file header, the data and its padding. The
+ * streaming export writes these one entry at a time.
+ */
+export function tarEntryParts(e: TarEntry, dirs: Set<string>, mtime = Math.floor(Date.now() / 1000)): Uint8Array[] {
+  const parts: Uint8Array[] = [];
+  const segs = e.path.split('/');
+  for (let i = 1; i < segs.length; i++) {
+    const d = segs.slice(0, i).join('/') + '/';
+    if (dirs.has(d)) continue;
+    dirs.add(d);
+    parts.push(header(d, 0, '5', e.mtime ?? mtime));
+  }
+  const data = typeof e.data === 'string' ? enc.encode(e.data) : e.data;
+  if (!splitPath(e.path)) {
+    const pax = enc.encode(paxRecord('path', e.path));
+    parts.push(header(`PaxHeader/${e.path.slice(-80)}`, pax.length, 'x', e.mtime ?? mtime), pax, pad(pax.length));
+  }
+  parts.push(header(e.path, data.length, '0', e.mtime ?? mtime), data, pad(data.length));
+  return parts;
+}
+
+/** The two zero blocks that end an archive. */
+export const tarEnd = () => new Uint8Array(BLOCK * 2);
+
 /** The tar archive (uncompressed) of the entries; directories are added for every parent. */
 export function tar(entries: TarEntry[], mtime = Math.floor(Date.now() / 1000)): Uint8Array {
   const parts: Uint8Array[] = [];
   const dirs = new Set<string>();
-  for (const e of entries) {
-    const segs = e.path.split('/');
-    for (let i = 1; i < segs.length; i++) {
-      const d = segs.slice(0, i).join('/') + '/';
-      if (dirs.has(d)) continue;
-      dirs.add(d);
-      parts.push(header(d, 0, '5', e.mtime ?? mtime));
-    }
-    const data = typeof e.data === 'string' ? enc.encode(e.data) : e.data;
-    if (!splitPath(e.path)) {
-      const pax = enc.encode(paxRecord('path', e.path));
-      parts.push(header(`PaxHeader/${e.path.slice(-80)}`, pax.length, 'x', e.mtime ?? mtime), pax, pad(pax.length));
-    }
-    parts.push(header(e.path, data.length, '0', e.mtime ?? mtime), data, pad(data.length));
-  }
-  parts.push(new Uint8Array(BLOCK * 2));
+  for (const e of entries) parts.push(...tarEntryParts(e, dirs, mtime));
+  parts.push(tarEnd());
   const total = parts.reduce((n, p) => n + p.length, 0);
   const out = new Uint8Array(total);
   let off = 0;
