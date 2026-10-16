@@ -183,7 +183,7 @@ export async function brandFile(b: Brand, name: string): Promise<{ body: Buffer;
   const png = (body: Buffer) => ({ body, type: 'image/png' });
   if (name === 'logo.svg' || name === 'logo.png') {
     const l = b.logo.light;
-    if (!l) return name === 'logo.svg' ? { body: Buffer.from(defaultLogoSvg(b.accent)), type: 'image/svg+xml' } : png(await defaultRendition(b.accent, 'icon-512.png'));
+    if (!l) return name === 'logo.svg' ? { body: Buffer.from(defaultLogoSvg(b.accent, b.accentDark)), type: 'image/svg+xml' } : png(await defaultRendition(b.accent, 'icon-512.png'));
     if (ext(l.type) !== name.split('.')[1]) return null;
     return { body: await stored(keys.brand(l.hash, name)), type: l.type };
   }

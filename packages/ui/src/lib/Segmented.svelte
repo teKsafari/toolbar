@@ -44,8 +44,9 @@
     display: flex;
     gap: 2px;
     padding: 2px;
-    border-radius: var(--nb-radius-md);
+    border-radius: var(--nb-radius-pill);
     background: var(--nb-surface-sunken);
+    border: 1px solid var(--nb-border);
   }
   .nb-opt {
     all: unset;
@@ -56,8 +57,10 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    border-radius: var(--nb-radius-sm);
+    padding: 0 var(--nb-space-3);
+    border-radius: var(--nb-radius-pill);
     cursor: pointer;
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out);
     color: var(--nb-text-muted);
     font: var(--nb-weight-medium) var(--nb-text-md) / 1 var(--nb-font-sans);
   }
@@ -67,9 +70,10 @@
   .nb-opt.sel {
     background: var(--nb-surface);
     color: var(--nb-text);
-    box-shadow: var(--nb-shadow-sm);
+    box-shadow: 0 0 0 1px var(--nb-border-strong), var(--nb-shadow-sm);
   }
   .nb-opt:focus-visible {
     outline: 2px solid var(--nb-focus);
+    outline-offset: 1px;
   }
 </style>

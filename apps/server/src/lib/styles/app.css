@@ -4,19 +4,51 @@ body {
   background: var(--nb-bg);
   color: var(--nb-text);
   font: var(--nb-text-base) / var(--nb-leading-normal) var(--nb-font-sans);
+  font-synthesis-weight: none;
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
-a { color: var(--nb-accent-text); }
-h1 { font-size: var(--nb-text-2xl); font-weight: var(--nb-weight-semibold); margin: 0 0 var(--nb-space-4); }
-h2 { font-size: var(--nb-text-lg); font-weight: var(--nb-weight-semibold); margin: 0 0 var(--nb-space-2); }
+/* links are the accent (black by default, as teksafari.org), told apart by a quiet underline */
+a { color: var(--nb-accent-text); text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-underline-offset: 2px; }
+a:hover { text-decoration-color: currentColor; }
+/* Nunito for page titles only; Inter carries section and panel titles (language section 10) */
+h1 {
+  font: var(--nb-weight-medium) var(--nb-text-3xl) / 1.2 var(--nb-font-display);
+  letter-spacing: var(--nb-tracking-tight);
+  text-wrap: balance;
+  margin: 0 0 var(--nb-space-4);
+}
+h2 { font-size: var(--nb-text-lg); font-weight: var(--nb-weight-semibold); margin: 0 0 var(--nb-space-2); text-wrap: balance; }
+p { text-wrap: pretty; }
+code, kbd, samp, pre { font-family: var(--nb-font-mono); }
 .muted { color: var(--nb-text-muted); }
+/* mono uppercase label: eyebrows, column headers, stat labels */
+.eyebrow {
+  font: var(--nb-weight-normal) var(--nb-text-xs) / 1.4 var(--nb-font-mono);
+  letter-spacing: var(--nb-tracking-label);
+  text-transform: uppercase;
+  color: var(--nb-text-faint);
+}
 .empty {
   display: grid; place-items: center; gap: var(--nb-space-2); padding: 64px 16px;
   color: var(--nb-text-muted); text-align: center;
 }
+.empty :is(h1, h2, h3) { font-family: var(--nb-font-display); font-weight: var(--nb-weight-medium); letter-spacing: var(--nb-tracking-tight); color: var(--nb-text); }
 input[type='text'], input[type='email'], input[type='password'], input[type='url'], input[type='search'], input[type='number'] {
   height: var(--nb-control-lg); padding: 0 var(--nb-space-3); width: 100%;
   border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md);
   background: var(--nb-surface); color: var(--nb-text); font: inherit;
+  transition: border-color var(--nb-dur-fast) var(--nb-ease-out), box-shadow var(--nb-dur-fast) var(--nb-ease-out);
 }
-input:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
+input::placeholder, textarea::placeholder { color: var(--nb-text-faint); opacity: 1; }
+/* fields: the border turns the focus colour (>= 3:1) and the site's soft 3 px ring sits outside it */
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: none;
+  border-color: var(--nb-focus);
+  box-shadow: var(--nb-focus-ring);
+}
+/* iOS zooms into fields under 16 px */
+@media (pointer: coarse) {
+  input, textarea, select { font-size: max(16px, 1em); }
+}

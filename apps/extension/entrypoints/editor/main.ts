@@ -1,6 +1,7 @@
 // Editor page (J-037): loaded in an iframe that the content script puts over the page, or as a
 // tab of its own (tests, and pages where the frame cannot load). `?draft=<id>` names the draft.
 import { mount } from 'svelte';
+import '@toolbar/ui/fonts.css';
 import '@toolbar/ui/tokens.css';
 import './editor.css';
 import { Editor } from '@toolbar/ui/editor';

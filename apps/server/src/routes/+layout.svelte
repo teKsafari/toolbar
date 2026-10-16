@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '@toolbar/ui/fonts.css';
   import '@toolbar/ui/tokens.css';
   import '#lib/styles/app.css';
   import { Toaster } from '@toolbar/ui';

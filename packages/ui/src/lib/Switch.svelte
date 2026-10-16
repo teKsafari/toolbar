@@ -31,6 +31,7 @@
     border-radius: var(--nb-radius-pill);
     background: var(--nb-border-strong);
     cursor: pointer;
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.08);
     transition: background var(--nb-dur-fast) var(--nb-ease-out);
   }
   .nb-switch.on {
@@ -50,10 +51,12 @@
     height: 16px;
     border-radius: 50%;
     background: #fff;
-    box-shadow: var(--nb-shadow-sm);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
     transition: translate var(--nb-dur-fast) var(--nb-ease-out);
   }
+  /* the knob takes the text colour of the accent: white on black, near-black on the dark theme's near-white */
   .on .nb-knob {
+    background: var(--nb-on-accent);
     translate: 14px 0;
   }
 </style>

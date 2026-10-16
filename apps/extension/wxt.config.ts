@@ -1,5 +1,5 @@
 import { defineConfig } from 'wxt';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { COMMANDS, PRODUCT_NAME } from '@toolbar/shared';
@@ -132,6 +132,9 @@ export default defineConfig({
     },
     // WXT_APP_ICON: the rendered icons replace public/icon/*.png in this build's output only
     'build:publicAssets': async (_wxt, files) => {
+      // the bundled fonts are SIL OFL 1.1 (D-175): their licence texts ship beside the .woff2 files
+      const fontDir = resolve(_wxt.config.root, '../../packages/ui/fonts');
+      for (const f of readdirSync(fontDir).filter((n) => n.startsWith('OFL-'))) files.push({ relativeDest: `assets/${f}`, absoluteSrc: join(fontDir, f) });
       if (!appIcon) return;
       const icons = await renderIcons(appIcon);
       const dir = mkdtempSync(join(tmpdir(), 'tb-icons-'));

@@ -1,4 +1,4 @@
-// open-toolbar's icon set, drawn for this project: 24x24 grid, 1.75 px round strokes, no fills
+// open-toolbar's icon set, drawn for this project: 24x24 grid, 2 px round strokes (D-175), no fills
 // unless noted. Each icon is a list of SVG child elements as markup strings.
 
 export const icons = {
@@ -109,7 +109,7 @@ export type IconName = keyof typeof icons;
 export const iconNames = Object.keys(icons) as IconName[];
 
 /** Standalone SVG markup, for places that are not Svelte (extension action icon, favicons). */
-export function iconSvg(name: IconName, { size = 24, color = 'currentColor', stroke = 1.75 } = {}): string {
+export function iconSvg(name: IconName, { size = 24, color = 'currentColor', stroke = 2 } = {}): string {
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" ` +
     `stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round">${icons[name].join('')}</svg>`

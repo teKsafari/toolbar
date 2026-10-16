@@ -1,0 +1,29 @@
+/* Bundled faces of the teksafari.org language (D-175). Self-hosted: Vite emits the files with the
+   server and with the extension, and nothing loads from Google at runtime. Latin subset of each
+   variable wght axis, unmodified, from @fontsource-variable/{inter,nunito,geist-mono} 5.3.0.
+   SIL Open Font License 1.1; the licence texts sit beside the files in packages/ui/fonts/.
+   The tb-* family names keep these apart from a host page's own Inter or Nunito. */
+@font-face {
+  font-family: 'tb-inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../fonts/inter-latin-wght-normal.woff2') format('woff2-variations'), url('../fonts/inter-latin-wght-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'tb-nunito';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 1000;
+  src: url('../fonts/nunito-latin-wght-normal.woff2') format('woff2-variations'), url('../fonts/nunito-latin-wght-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'tb-geist-mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../fonts/geist-mono-latin-wght-normal.woff2') format('woff2-variations'), url('../fonts/geist-mono-latin-wght-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

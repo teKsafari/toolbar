@@ -2,6 +2,7 @@
 // prompt, so this extension page asks once; the grant then covers the offscreen recorder.
 // With no microphone the page closes itself and the mic stays off.
 import { browser } from 'wxt/browser';
+import '@toolbar/ui/fonts.css';
 import '@toolbar/ui/tokens.css';
 import './style.css';
 

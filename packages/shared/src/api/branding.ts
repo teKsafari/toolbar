@@ -3,8 +3,8 @@
 import { z } from 'zod';
 import { api, defineRoute } from './common.ts';
 
-/** Default accent: ink 600 of the design tokens. */
-export const DEFAULT_ACCENT = '#3446cf';
+/** Default accent: black, as teksafari.org (D-175); the dark theme inverts it to near-white. */
+export const DEFAULT_ACCENT = '#000000';
 /** Icon sizes the server renders from the logo (favicons, apple-touch, extension icons). */
 export const BRAND_ICON_SIZES = [16, 32, 48, 128, 180, 512] as const;
 export type BrandIconSize = (typeof BRAND_ICON_SIZES)[number];

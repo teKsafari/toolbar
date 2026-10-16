@@ -7,14 +7,14 @@ open-toolbar shows its own name and a filled rectangle as its logo. On your serv
 1. **Environment variables**, read when the server starts. A value set here wins and is shown read-only in the admin page.
 2. **Settings > Server**, in the dashboard. Only the instance admin sees this page; it saves at once.
 
-When neither sets a field, the default applies: `open-toolbar`, the rectangle, accent `#3446cf`.
+When neither sets a field, the default applies: `open-toolbar`, the rectangle, accent `#000000` (black, shown as near-white `#fafafa` on dark pages).
 
 | Variable | Example | What it does |
 |---|---|---|
 | `APP_NAME` | `Acme Review` | Product name in titles, headers, mail, the MCP server title and the extension. 1 to 40 letters, digits, spaces or `. , ' & ( ) + _ -`. |
 | `APP_LOGO_URL` | `https://acme.example/logo.svg` or `file:///brand/logo.svg` | Logo, SVG or PNG, at most 512 KB. The server fetches it once at start (5 s timeout, redirects only on the same host) and keeps a copy in object storage. A `file:` path is inside the server container, so mount it as a volume. If the fetch fails, the server logs a warning and shows the default. |
 | `APP_LOGO_DARK_URL` | | Logo for dark pages. Optional. |
-| `APP_ACCENT` | `#0b7a5c` | Accent colour for buttons, links and the default logo. The server picks white or near-black text on it and refuses a colour where neither reads well. Dark pages get a lighter shade of it. |
+| `APP_ACCENT` | `#0b7a5c` | Accent colour for buttons, links, focus rings, the toolbar's main button and the default logo. The server picks white or near-black text on it and refuses a colour where neither reads well. Hover and pressed shades, link text and focus are derived from it and kept at WCAG AA contrast: a light accent gets darker link text on light pages. Dark pages get a lighter shade of it, lightened until it reads on dark surfaces; black and greys turn near-white there instead. Page background, surfaces, text and the red, green and amber status colours stay neutral whatever the accent. |
 | `ADMIN_EMAILS` | `ops@acme.example,lee@acme.example` | Who may open Settings > Server. Each address must be verified by your sign-in provider. |
 
 Without `ADMIN_EMAILS`, the first account created on the server is the instance admin. On a server reachable from the internet someone else could sign up first, so set `ADMIN_EMAILS`; the server logs a warning at start when it is empty on a public URL.

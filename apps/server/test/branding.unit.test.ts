@@ -13,7 +13,7 @@ describe('resolveBrand', () => {
   it('falls back to the defaults', () => {
     const b = resolveBrand(inputs({}));
     expect(b.name).toBe('open-toolbar');
-    expect(b.accent).toBe('#3446cf');
+    expect(b.accent).toBe('#000000');
     expect(b.onAccent).toBe('#ffffff');
     expect(b.logo).toEqual({ light: null, dark: null });
     expect(b.locked).toEqual({ name: false, accent: false, logo: false, logoDark: false });
@@ -31,7 +31,7 @@ describe('resolveBrand', () => {
   it('ignores invalid env values with a warning', () => {
     const b = resolveBrand(inputs({ env: { name: '<script>', accent: 'red' }, stored: { name: 'Stored' } }));
     expect(b.name).toBe('Stored');
-    expect(b.accent).toBe('#3446cf');
+    expect(b.accent).toBe('#000000');
     expect(b.locked.name).toBe(false);
     expect(b.warnings).toHaveLength(2);
   });
@@ -49,8 +49,15 @@ describe('resolveBrand', () => {
 describe('accent colours', () => {
   it('picks readable text on the accent', () => {
     expect(onAccentOf('#3446cf')).toBe('#ffffff');
-    expect(onAccentOf('#ffd866')).toBe('#121211');
+    expect(onAccentOf('#ffd866')).toBe('#0b0b0b');
     expect(contrast('#000000', '#ffffff')).toBeCloseTo(21, 0);
+  });
+  it('inverts the black default for dark pages and lightens other accents until they read', () => {
+    const d = resolveBrand(inputs({}));
+    expect([d.accentDark, d.onAccentDark]).toEqual(['#fafafa', '#0b0b0b']);
+    const n = resolveBrand(inputs({ stored: { accent: '#1e2a5a' } }));
+    expect(contrast(n.accentDark, '#1b1b1b')).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(n.onAccentDark, n.accentDark)).toBeGreaterThanOrEqual(4.5);
   });
   it('rejects malformed colours', () => {
     expect(validAccent('#0B7A5C')).toBe('#0b7a5c');

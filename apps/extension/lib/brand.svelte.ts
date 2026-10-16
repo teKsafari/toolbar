@@ -3,6 +3,7 @@
 import { browser } from 'wxt/browser';
 import { STORAGE, type AuthState, type BrandCache } from '@toolbar/shared/ext';
 import { BUILD_NAME } from './flags';
+import { BASE_ACCENT, accentVars } from '@toolbar/ui/accent';
 
 export const brand = $state({
   name: BUILD_NAME,
@@ -40,16 +41,31 @@ export function loadBrand(): void {
   });
 }
 
-/** Accent variables for an element (or the page root), cleared when the default applies. */
-export function applyAccent(el: HTMLElement, accent: string | null, onAccent: string | null): void {
-  for (const [k, v] of [
-    ['--nb-accent', accent],
-    ['--nb-accent-hover', accent && `color-mix(in oklch, ${accent} 82%, black)`],
-    ['--nb-accent-text', accent && `color-mix(in oklch, ${accent} 82%, black)`],
-    ['--nb-on-accent', onAccent],
-    ['--nb-accent-tint', accent && `color-mix(in srgb, ${accent} 12%, transparent)`],
-  ] as const) {
-    if (v) el.style.setProperty(k, v);
-    else el.style.removeProperty(k);
+const ACCENT_KEYS = Object.keys(accentVars(BASE_ACCENT, 'light'));
+const darkQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
+const following = new WeakMap<HTMLElement, () => void>();
+
+/**
+ * Accent variables for an element (or the page root), cleared when the default applies. The
+ * values come from the shared derivation (D-175), for the OS theme, and follow it when it
+ * changes: the black default would vanish on the dark theme if one value served both.
+ * `onAccent` is kept for callers; the derivation picks the text colour of each theme itself.
+ */
+export function applyAccent(el: HTMLElement, accent: string | null, _onAccent?: string | null): void {
+  following.get(el)?.();
+  following.delete(el);
+  const custom = accent && /^#[0-9a-fA-F]{6}$/.test(accent) && accent.toLowerCase() !== BASE_ACCENT ? accent.toLowerCase() : null;
+  const paint = () => {
+    const vars = custom ? accentVars(custom, darkQuery?.matches ? 'dark' : 'light') : null;
+    for (const k of ACCENT_KEYS) {
+      const v = vars?.[k];
+      if (v) el.style.setProperty(k, v);
+      else el.style.removeProperty(k);
+    }
+  };
+  paint();
+  if (custom && darkQuery) {
+    darkQuery.addEventListener('change', paint);
+    following.set(el, () => darkQuery.removeEventListener('change', paint));
   }
 }

@@ -26,6 +26,8 @@
 </div>
 
 <style>
+  /* teksafari.org toasts (D-175): a surface card with a quiet edge, 16 px radius, the floating
+     shadow; the status shows in the icon colour only. */
   .nb-toaster {
     position: fixed;
     z-index: var(--nb-z-overlay);
@@ -41,31 +43,48 @@
     pointer-events: auto;
     display: flex;
     align-items: center;
-    gap: var(--nb-space-2);
+    gap: 10px;
     min-width: 240px;
     max-width: 420px;
-    padding: 10px 12px;
-    border-radius: var(--nb-radius-lg);
-    background: var(--nb-chrome);
-    color: var(--nb-on-chrome);
+    padding: 12px 12px 12px 16px;
+    border: 1px solid var(--nb-border);
+    border-radius: var(--nb-radius-xl);
+    background: var(--nb-surface-raised);
+    color: var(--nb-text);
     box-shadow: var(--nb-shadow-lg);
-    font: var(--nb-text-base) / var(--nb-leading-tight) var(--nb-font-sans);
+    font: var(--nb-weight-medium) var(--nb-text-base) / var(--nb-leading-tight) var(--nb-font-sans);
     animation: nb-slide var(--nb-dur-med) var(--nb-ease-out);
   }
+  .nb-ticon { display: inline-flex; color: var(--nb-text-muted); }
   .nb-success .nb-ticon { color: var(--nb-success); }
   .nb-error .nb-ticon { color: var(--nb-danger); }
+  .nb-info .nb-ticon { color: var(--nb-info); }
   .nb-msg { flex: 1; }
   .nb-act, .nb-x {
     all: unset;
     cursor: pointer;
     border-radius: var(--nb-radius-sm);
-    color: var(--nb-on-chrome);
+    color: var(--nb-text);
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out);
   }
-  .nb-act { padding: 4px 8px; background: var(--nb-chrome-2); font-weight: var(--nb-weight-medium); }
-  .nb-x { display: grid; place-items: center; width: 20px; height: 20px; color: var(--nb-on-chrome-muted); }
-  .nb-act:focus-visible, .nb-x:focus-visible { outline: 2px solid var(--nb-focus); }
+  .nb-act {
+    padding: 0 10px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--nb-border-strong);
+    background: var(--nb-surface);
+    box-shadow: var(--nb-shadow-sm);
+    font: var(--nb-weight-medium) var(--nb-text-md) / 1 var(--nb-font-sans);
+  }
+  .nb-x { display: grid; place-items: center; width: 24px; height: 24px; color: var(--nb-text-muted); }
+  @media (hover: hover) {
+    .nb-act:hover { background: var(--nb-surface-sunken); }
+    .nb-x:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
+  }
+  .nb-act:focus-visible, .nb-x:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
   @keyframes nb-slide {
-    from { opacity: 0; transform: translateX(12px); }
+    from { opacity: 0; transform: translateY(8px); }
   }
   @media (prefers-reduced-motion: reduce) {
     .nb-toast { animation: none; }

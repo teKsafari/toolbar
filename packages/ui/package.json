@@ -13,6 +13,9 @@
     },
     "./tokens": "./src/tokens.ts",
     "./tokens.css": "./src/tokens.css",
+    "./fonts.css": "./src/fonts.css",
+    "./accent": "./src/accent.ts",
+    "./fonts": "./src/fonts.ts",
     "./icons": "./src/icons.ts",
     "./editor": "./src/editor/index.ts",
     "./viewer": "./src/viewer/index.ts"

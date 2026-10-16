@@ -1,44 +1,52 @@
-// Design tokens for open-toolbar (D-018, D-019). Source of truth; src/tokens.css is generated from
-// this file with `pnpm --filter @toolbar/ui gen:tokens`, and a unit test fails if they drift.
+// Design tokens for open-toolbar (D-018, D-019; teksafari.org language D-174, D-175). Source of
+// truth; src/tokens.css is generated from this file with `pnpm --filter @toolbar/ui gen:tokens`,
+// and a unit test fails if they drift.
 //
-// The palette is our own: "ink" (a cobalt blue-violet) for the accent on warm "paper"
-// neutrals, with "marker" amber for capture areas and highlights. Red is kept for errors,
-// stop and destructive actions.
+// Light follows teksafari.org: a #fafafa canvas, white surfaces with 1 px cool-grey edges (the
+// Tailwind gray scale), black as the one action colour. Dark is the site's isometric kit: hue-free
+// near-blacks that get lighter as they rise, with the accent inverted to near-white. Status
+// colours are AA-safe Tailwind steps and never follow the accent. The capture "marker" amber
+// stays for capture areas and highlights. See docs/design/teksafari-language.md.
+
+import { BASE_ACCENT, accentTokens, deriveAccent } from './accent.ts';
 
 export const palette = {
-  ink: {
-    50: '#eef0fd',
-    100: '#dde2fb',
-    200: '#bcc5f7',
-    300: '#94a1f1',
-    400: '#6d7deb',
-    500: '#4b5ce3',
-    600: '#3446cf',
-    700: '#2938ab',
-    800: '#232f86',
-    900: '#1f2968',
-  },
-  paper: {
+  /** Tailwind gray: the light theme's neutrals (cool, a little blue). */
+  gray: {
     0: '#ffffff',
-    25: '#fcfbf8',
-    50: '#f7f6f2',
-    100: '#efede7',
-    200: '#e3e0d8',
-    300: '#cfcbc0',
-    400: '#a9a499',
-    500: '#7d786e',
-    600: '#5f5b53',
-    700: '#45423c',
-    800: '#2c2a27',
-    850: '#232220',
-    900: '#1a1918',
-    950: '#121211',
+    25: '#fafafa',
+    50: '#f9fafb',
+    100: '#f3f4f6',
+    200: '#e5e7eb',
+    300: '#d1d5db',
+    400: '#9ca3af',
+    500: '#6b7280',
+    600: '#4b5563',
+    700: '#374151',
+    800: '#1f2937',
+    900: '#111827',
+  },
+  /** Hue-free near-blacks of the isometric kit: the dark theme and the always-dark chrome. */
+  neutral: {
+    950: '#0b0b0b',
+    900: '#131313',
+    875: '#171717',
+    850: '#1b1b1b',
+    800: '#262626',
+    750: '#2e2e2e',
+    700: '#3e3e3e',
+    600: '#6e6e6e',
+    500: '#8a8a8f',
+    400: '#a3a3a3',
+    300: '#c2c2c2',
+    200: '#e6e6e6',
+    100: '#fafafa',
   },
   marker: { 300: '#ffd866', 400: '#ffc933', 500: '#f2b100', 600: '#c98f00' },
-  red: { 400: '#f0675a', 500: '#e0402f', 600: '#c22e1f', 700: '#9c2418' },
-  green: { 400: '#4cc28a', 500: '#239a64', 600: '#1b7d51' },
-  amber: { 400: '#f5a524', 500: '#d88a0b', 600: '#b06d00' },
-  sky: { 400: '#4fb3e8', 500: '#1d93d0', 600: '#1676a8' },
+  red: { 300: '#fca5a5', 400: '#f87171', 600: '#dc2626', 700: '#b91c1c' },
+  green: { 400: '#4ade80', 700: '#15803d' },
+  amber: { 400: '#fbbf24', 700: '#b45309' },
+  blue: { 400: '#60a5fa', 700: '#1d4ed8' },
 } as const;
 
 /** Annotation swatches (six, like the observed density of J-049's palette card; our own hues). */
@@ -46,83 +54,117 @@ export const annotationColors = ['#e0402f', '#f2b100', '#239a64', '#1d93d0', '#3
 
 export type ThemeName = 'light' | 'dark';
 
+const g = palette.gray;
+const n = palette.neutral;
+const baseAccent = deriveAccent(BASE_ACCENT);
+const tint = (hex: string, a: number) => {
+  const v = parseInt(hex.slice(1), 16);
+  return `rgb(${(v >> 16) & 255} ${(v >> 8) & 255} ${v & 255} / ${a})`;
+};
+
 /** Semantic color tokens. Components use only these. */
 export const themes: Record<ThemeName, Record<string, string>> = {
   light: {
-    bg: palette.paper[50],
-    surface: palette.paper[0],
-    'surface-2': palette.paper[25],
-    'surface-sunken': palette.paper[100],
-    border: palette.paper[200],
-    'border-strong': palette.paper[300],
-    text: palette.paper[900],
-    'text-muted': palette.paper[600],
-    'text-faint': palette.paper[500],
-    accent: palette.ink[600],
-    'accent-hover': palette.ink[700],
-    'accent-text': palette.ink[700],
-    'on-accent': '#ffffff',
-    'accent-tint': 'rgb(52 70 207 / 0.12)',
+    bg: g[25],
+    surface: g[0],
+    'surface-2': g[50],
+    'surface-sunken': g[100],
+    'surface-raised': g[0],
+    border: g[200],
+    'border-strong': g[300],
+    text: g[900],
+    /** long-form paragraphs */
+    'text-body': g[700],
+    /** secondary text; AA on every surface, sunken and hover included */
+    'text-muted': g[600],
+    /** metadata, placeholders, timestamps; AA on surface and canvas, not on sunken fills */
+    'text-faint': g[500],
+    ...accentTokens(baseAccent.light, baseAccent.dark),
+    'focus-ring': '0 0 0 3px color-mix(in srgb, var(--nb-focus) 25%, transparent)',
     'capture-tint': 'rgb(242 177 0 / 0.28)',
-    focus: palette.ink[500],
     danger: palette.red[600],
     'danger-hover': palette.red[700],
     'on-danger': '#ffffff',
-    'danger-tint': 'rgb(224 64 47 / 0.10)',
-    warning: palette.amber[600],
-    'warning-tint': 'rgb(245 165 36 / 0.14)',
-    success: palette.green[600],
-    'success-tint': 'rgb(35 154 100 / 0.12)',
-    info: palette.sky[600],
-    'info-tint': 'rgb(29 147 208 / 0.10)',
-    /** Dark chrome (recording bar, menus, tooltips) stays dark in both themes. */
-    chrome: palette.paper[900],
-    'chrome-2': palette.paper[800],
-    'on-chrome': palette.paper[50],
-    'on-chrome-muted': palette.paper[400],
-    overlay: 'rgb(18 18 17 / 0.5)',
+    'danger-tint': tint(palette.red[600], 0.1),
+    warning: palette.amber[700],
+    'warning-tint': tint(palette.amber[700], 0.12),
+    success: palette.green[700],
+    'success-tint': tint(palette.green[700], 0.1),
+    info: palette.blue[700],
+    'info-tint': tint(palette.blue[700], 0.1),
+    /** Dark chrome (recording bar, toolbar, tooltips) stays dark in both themes. */
+    chrome: n[900],
+    'chrome-2': n[800],
+    'chrome-border': n[750],
+    'on-chrome': n[100],
+    'on-chrome-muted': n[400],
+    overlay: 'rgb(17 24 39 / 0.4)',
+    /** secondary and ghost buttons: hairline lift plus an inset top highlight */
+    'shadow-sm': '0 1px 2px rgb(23 23 23 / 0.06), inset 0 1px 0 rgb(255 255 255 / 0.8)',
+    /** primary and danger buttons */
+    'shadow-primary': '0 1px 2px rgb(0 0 0 / 0.2), inset 0 1px 0 rgb(255 255 255 / 0.16)',
+    /** small floating layers on the app's own pages (tooltips, the knob of a switch) */
+    'shadow-md': '0 4px 12px rgb(23 23 23 / 0.08), 0 1px 2px rgb(23 23 23 / 0.06)',
+    /** floating layers: popovers, menus, toasts, the in-page toolbar */
+    'shadow-lg': '0 18px 40px rgb(23 23 23 / 0.12), 0 1px 3px rgb(23 23 23 / 0.06)',
   },
   dark: {
-    bg: palette.paper[950],
-    surface: palette.paper[900],
-    'surface-2': palette.paper[850],
-    'surface-sunken': '#0d0d0c',
-    border: palette.paper[800],
-    'border-strong': palette.paper[700],
-    text: palette.paper[50],
-    'text-muted': palette.paper[400],
-    'text-faint': palette.paper[500],
-    accent: palette.ink[400],
-    'accent-hover': palette.ink[300],
-    'accent-text': palette.ink[300],
-    'on-accent': palette.paper[950],
-    'accent-tint': 'rgb(109 125 235 / 0.18)',
+    bg: n[950],
+    surface: n[900],
+    'surface-2': n[875],
+    /** the hover wash and sunken fills; in dark it is lighter than the surface, as surfaces rise */
+    'surface-sunken': n[850],
+    'surface-raised': n[850],
+    border: n[800],
+    'border-strong': n[700],
+    text: n[200],
+    'text-body': n[300],
+    'text-muted': n[400],
+    'text-faint': n[500],
+    ...accentTokens(baseAccent.dark, baseAccent.dark),
+    'focus-ring': '0 0 0 3px color-mix(in srgb, var(--nb-focus) 40%, transparent)',
     'capture-tint': 'rgb(255 201 51 / 0.24)',
-    focus: palette.ink[300],
     danger: palette.red[400],
-    'danger-hover': '#f58a7f',
-    'on-danger': palette.paper[950],
-    'danger-tint': 'rgb(240 103 90 / 0.14)',
+    'danger-hover': palette.red[300],
+    'on-danger': n[950],
+    'danger-tint': tint(palette.red[400], 0.14),
     warning: palette.amber[400],
-    'warning-tint': 'rgb(245 165 36 / 0.14)',
+    'warning-tint': tint(palette.amber[400], 0.14),
     success: palette.green[400],
-    'success-tint': 'rgb(76 194 138 / 0.14)',
-    info: palette.sky[400],
-    'info-tint': 'rgb(79 179 232 / 0.14)',
-    chrome: palette.paper[850],
-    'chrome-2': palette.paper[800],
-    'on-chrome': palette.paper[50],
-    'on-chrome-muted': palette.paper[400],
+    'success-tint': tint(palette.green[400], 0.14),
+    info: palette.blue[400],
+    'info-tint': tint(palette.blue[400], 0.14),
+    chrome: n[850],
+    'chrome-2': n[800],
+    'chrome-border': n[750],
+    'on-chrome': n[100],
+    'on-chrome-muted': n[400],
     overlay: 'rgb(0 0 0 / 0.6)',
+    'shadow-sm': '0 1px 2px rgb(0 0 0 / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.04)',
+    'shadow-primary': '0 1px 2px rgb(0 0 0 / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.5)',
+    'shadow-md': '0 0 0 1px rgb(0 0 0 / 0.15), 0 2px 4px -1px rgb(0 0 0 / 0.3), 0 6px 12px -4px rgb(0 0 0 / 0.3)',
+    /** the isometric kit's layered lift: borders do the separating in dark, shadows only lift */
+    'shadow-lg':
+      'inset 0 1px 0 rgb(255 255 255 / 0.04), 0 0 0 1px rgb(0 0 0 / 0.15), 0 1px 1px -0.5px rgb(0 0 0 / 0.08), 0 3px 3px -1.5px rgb(0 0 0 / 0.08), 0 6px 6px -3px rgb(0 0 0 / 0.08), 0 12px 12px -6px rgb(0 0 0 / 0.08), 0 24px 40px -12px rgb(0 0 0 / 0.5)',
   },
 };
 
+const fallbackSans = "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Helvetica Neue', Arial, sans-serif";
+
+/**
+ * Three faces, three roles (fonts.css self-hosts them; nothing loads from Google). The tb-*
+ * family names keep the bundled files apart from a host page's own Inter or Nunito.
+ */
 export const font = {
-  sans: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Helvetica Neue', Arial, sans-serif",
-  mono: "ui-monospace, 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, 'Liberation Mono', monospace",
+  /** Inter: everything you read or click */
+  sans: `'tb-inter', 'Inter Variable', Inter, ${fallbackSans}`,
+  /** Nunito: page titles, empty-state headings, big numbers; never below 16 px */
+  display: `'tb-nunito', 'Nunito Variable', Nunito, ${fallbackSans}`,
+  /** Geist Mono: code, IDs, timings, uppercase eyebrows and column headers */
+  mono: "'tb-geist-mono', 'Geist Mono', ui-monospace, 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, 'Liberation Mono', monospace",
 } as const;
 
-/** Sizes in px. App UI 13 to 14, dev tools panels 12 mono, titles 18 to 20 (ergonomics.md). */
+/** Sizes in px. Tool density (language section 10): 13 to 14 body, 12 mono panels, 20 to 30 titles. */
 export const scale = {
   'text-xs': '11px',
   'text-sm': '12px',
@@ -132,11 +174,19 @@ export const scale = {
   'text-xl': '18px',
   'text-2xl': '20px',
   'text-3xl': '24px',
+  'text-4xl': '30px',
   'leading-tight': '1.25',
   'leading-normal': '1.5',
+  'leading-relaxed': '1.625',
   'weight-normal': '400',
   'weight-medium': '500',
   'weight-semibold': '600',
+  /** Nunito titles */
+  'tracking-tight': '-0.025em',
+  /** buttons */
+  'tracking-ui': '-0.01em',
+  /** mono uppercase eyebrows and column headers */
+  'tracking-label': '0.08em',
   'space-1': '4px',
   'space-2': '8px',
   'space-3': '12px',
@@ -144,21 +194,28 @@ export const scale = {
   'space-5': '20px',
   'space-6': '24px',
   'space-8': '32px',
+  'space-10': '40px',
+  'space-12': '48px',
   'radius-sm': '6px',
   'radius-md': '8px',
   'radius-lg': '12px',
   'radius-xl': '16px',
   'radius-pill': '999px',
   'control-sm': '28px',
-  'control-md': '34px',
-  'control-lg': '40px',
+  'control-md': '32px',
+  'control-lg': '36px',
+  /** touch targets and the popup's main actions */
+  'control-touch': '40px',
   'row-dense': '22px',
-  'shadow-sm': '0 1px 2px rgb(0 0 0 / 0.06)',
-  'shadow-md': '0 4px 14px rgb(0 0 0 / 0.10), 0 1px 3px rgb(0 0 0 / 0.08)',
-  'shadow-lg': '0 16px 40px rgb(0 0 0 / 0.18), 0 2px 6px rgb(0 0 0 / 0.10)',
-  'ease-out': 'cubic-bezier(0.2, 0.8, 0.2, 1)',
-  'dur-fast': '120ms',
-  'dur-med': '220ms',
+  row: '32px',
+  'icon-stroke': '2',
+  /** Tailwind's default curve, the site's for every transition */
+  'ease-out': 'cubic-bezier(0.4, 0, 0.2, 1)',
+  /** hover, press, colour */
+  'dur-fast': '150ms',
+  /** menus, popovers, accordions */
+  'dur-med': '200ms',
+  'dur-slow': '300ms',
   'z-overlay': '2147483000',
 } as const;
 
@@ -176,7 +233,7 @@ function block(sel: string, vars: Record<string, string>) {
  * the OS prefers it, unless `data-theme` pins a theme on an ancestor or the host.
  */
 export function tokensCss(): string {
-  const base = { ...scale, 'font-sans': font.sans, 'font-mono': font.mono };
+  const base = { ...scale, 'font-sans': font.sans, 'font-display': font.display, 'font-mono': font.mono };
   return [
     '/* Generated from tokens.ts by `pnpm --filter @toolbar/ui gen:tokens`. Do not edit. */',
     block(':root, :host', { ...base, ...themes.light }),
@@ -187,24 +244,4 @@ export function tokensCss(): string {
   ].join('\n\n');
 }
 
-// ---------- contrast helpers (used by tests and by the color picker later) ----------
-
-export function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace('#', '');
-  const n = parseInt(h.length === 3 ? [...h].map((c) => c + c).join('') : h, 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-function lum([r, g, b]: [number, number, number]) {
-  const f = (c: number) => {
-    const s = c / 255;
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  };
-  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
-}
-
-/** WCAG 2.x contrast ratio between two hex colors. */
-export function contrast(a: string, b: string): number {
-  const [x, y] = [lum(hexToRgb(a)), lum(hexToRgb(b))].sort((p, q) => q - p) as [number, number];
-  return (x + 0.05) / (y + 0.05);
-}
+export { contrast, hexToRgb } from './contrast.ts';

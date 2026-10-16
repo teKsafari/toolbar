@@ -7,3 +7,4 @@ export { default as Toaster } from './lib/Toaster.svelte';
 export { toasts, type Toast, type ToastKind } from './lib/toast.svelte.ts';
 export { icons, iconNames, iconSvg, type IconName } from './icons.ts';
 export * from './tokens.ts';
+export { BASE_ACCENT, ACCENT_INK, accentCss, accentTokens, accentVars, deriveAccent, mix, onAccentOf, type AccentSet } from './accent.ts';

@@ -66,23 +66,25 @@
     position: absolute;
     z-index: 10;
     min-width: 180px;
-    padding: var(--nb-space-2);
+    padding: 6px;
     background: var(--nb-surface);
     color: var(--nb-text);
     border: 1px solid var(--nb-border);
     border-radius: var(--nb-radius-lg);
     box-shadow: var(--nb-shadow-lg);
     font: var(--nb-text-base) / var(--nb-leading-normal) var(--nb-font-sans);
-    animation: nb-pop-in var(--nb-dur-fast) var(--nb-ease-out);
+    transform-origin: top left;
+    animation: nb-pop-in var(--nb-dur-med) var(--nb-ease-out);
   }
+  /* the site's dropdown: surface, quiet edge, 12 px radius, 6 px inset, the floating shadow */
   .nb-bottom-start { top: calc(100% + 6px); left: 0; }
-  .nb-bottom-end { top: calc(100% + 6px); right: 0; }
-  .nb-bottom { top: calc(100% + 6px); left: 50%; translate: -50% 0; }
-  .nb-top-start { bottom: calc(100% + 6px); left: 0; }
-  .nb-top-end { bottom: calc(100% + 6px); right: 0; }
-  .nb-top { bottom: calc(100% + 6px); left: 50%; translate: -50% 0; }
+  .nb-bottom-end { top: calc(100% + 6px); right: 0; transform-origin: top right; }
+  .nb-bottom { top: calc(100% + 6px); left: 50%; translate: -50% 0; transform-origin: top center; }
+  .nb-top-start { bottom: calc(100% + 6px); left: 0; transform-origin: bottom left; }
+  .nb-top-end { bottom: calc(100% + 6px); right: 0; transform-origin: bottom right; }
+  .nb-top { bottom: calc(100% + 6px); left: 50%; translate: -50% 0; transform-origin: bottom center; }
   @keyframes nb-pop-in {
-    from { opacity: 0; transform: translateY(-2px); }
+    from { opacity: 0; transform: scale(0.97); }
   }
   @media (prefers-reduced-motion: reduce) {
     .nb-pop { animation: none; }

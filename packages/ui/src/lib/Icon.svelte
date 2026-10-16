@@ -9,7 +9,8 @@
     label?: string;
     class?: string;
   }
-  let { name, size = 16, stroke = 1.75, label, class: cls = '' }: Props = $props();
+  // stroke 2 on the 24 grid, as lucide draws (teksafari.org); 1.33 px at 16 px
+  let { name, size = 16, stroke = 2, label, class: cls = '' }: Props = $props();
 </script>
 
 <svg

@@ -1,5 +1,6 @@
 import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { readdirSync, readFileSync } from 'node:fs';
 import { defineConfig } from 'vitest/config';
 
 // Dev convenience: read the repo root .env (the same file docker compose reads).
@@ -27,9 +28,24 @@ const oauthFormOrigin = {
   },
 };
 
+/**
+ * The bundled fonts are SIL OFL 1.1 (D-175): their licence texts ship beside the .woff2 files
+ * Vite emits into _app/immutable/assets.
+ */
+const FONT_DIR = new URL('../../packages/ui/fonts/', import.meta.url);
+const fontLicences = {
+  name: 'tb-font-licences',
+  apply: 'build' as const,
+  generateBundle(this: { emitFile: (f: { type: 'asset'; fileName: string; source: string }) => void }) {
+    for (const f of readdirSync(FONT_DIR).filter((n) => n.startsWith('OFL-')))
+      this.emitFile({ type: 'asset', fileName: `_app/immutable/assets/${f}`, source: readFileSync(new URL(f, FONT_DIR), 'utf8') });
+  },
+};
+
 export default defineConfig({
   plugins: [
     oauthFormOrigin,
+    fontLicences,
     sveltekit({
       compilerOptions: {
         runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true),

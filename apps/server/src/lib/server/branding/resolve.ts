@@ -3,9 +3,9 @@
 import { createHash } from 'node:crypto';
 import { PRODUCT_NAME } from '@toolbar/shared';
 import { DEFAULT_ACCENT, BRAND_NAME_RE, type BrandingStored, type BrandLocks, type LogoRef } from '@toolbar/shared/api';
+import { deriveAccent, onAccentOf as uiOnAccentOf, mix as uiMix } from '@toolbar/ui/accent';
 
 export const DEFAULT_NAME = PRODUCT_NAME;
-const INK = '#121211';
 const WHITE = '#ffffff';
 
 export interface Brand {
@@ -32,15 +32,11 @@ export interface BrandInputs {
 }
 
 // ---------------------------------------------------------------- colour
-
-function rgb(hex: string): [number, number, number] {
-  const n = parseInt(hex.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-const toHex = (c: number[]) => '#' + c.map((v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, '0')).join('');
+// The rules live in @toolbar/ui/accent, shared with the tokens and the extension (D-175).
 
 function luminance(hex: string): number {
-  const [r, g, b] = rgb(hex).map((v) => {
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
     const s = v / 255;
     return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
   });
@@ -54,19 +50,10 @@ export function contrast(a: string, b: string): number {
 }
 
 /** Mix in sRGB: weight 0 gives `a`, 1 gives `b`. */
-export function mix(a: string, b: string, weight: number): string {
-  const x = rgb(a);
-  const y = rgb(b);
-  return toHex(x.map((v, i) => v + (y[i]! - v) * weight));
-}
+export const mix = uiMix;
 
 /** White or ink text on the accent, whichever reads better; null when neither reaches 4.5:1. */
-export function onAccentOf(accent: string): string | null {
-  const w = contrast(accent, WHITE);
-  const k = contrast(accent, INK);
-  const best = w >= k ? WHITE : INK;
-  return Math.max(w, k) >= 4.5 ? best : null;
-}
+export const onAccentOf = uiOnAccentOf;
 
 export function isHexColour(s: string | undefined | null): s is string {
   return !!s && /^#[0-9a-fA-F]{6}$/.test(s.trim());
@@ -79,11 +66,10 @@ export function validAccent(s: string | undefined | null): string | null {
   return onAccentOf(a) ? a : null;
 }
 
-/** The dark theme lightens the accent toward white, as the palette's own ink 400 does. */
+/** The dark theme's accent: lightened (or, for black and greys, inverted) until it reads on dark surfaces. */
 export function darkPair(accent: string): { accentDark: string; onAccentDark: string } {
-  if (accent === DEFAULT_ACCENT) return { accentDark: '#6d7deb', onAccentDark: INK };
-  const accentDark = mix(accent, WHITE, 0.3);
-  return { accentDark, onAccentDark: onAccentOf(accentDark) ?? INK };
+  const d = deriveAccent(accent).dark;
+  return { accentDark: d.accent, onAccentDark: d.on };
 }
 
 // ---------------------------------------------------------------- name
@@ -114,7 +100,12 @@ export function resolveBrand({ env, envLogo, stored }: BrandInputs): Brand {
   return { name, accent, onAccent: onAccentOf(accent) ?? WHITE, ...darkPair(accent), logo: { light, dark }, version, locked, warnings };
 }
 
-/** The built-in logo: a filled rectangle in the accent colour (D-083). */
-export function defaultLogoSvg(fill: string): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><rect x="2" y="7" width="20" height="10" fill="${fill}"/></svg>`;
+/**
+ * The built-in logo: a filled rectangle in the accent colour (D-083). With `dark`, the SVG
+ * switches to the dark-theme accent under `prefers-color-scheme: dark`, so the favicon of the
+ * black default stays visible on a dark tab strip; PNG renditions take the plain light fill.
+ */
+export function defaultLogoSvg(fill: string, dark?: string): string {
+  const style = dark ? `<style>@media (prefers-color-scheme: dark){rect{fill:${dark}}}</style>` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">${style}<rect x="2" y="7" width="20" height="10" fill="${fill}"/></svg>`;
 }
