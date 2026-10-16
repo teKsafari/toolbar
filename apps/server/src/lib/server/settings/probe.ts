@@ -1,4 +1,4 @@
-// Test buttons of Settings > Server (D-187): try the transcription provider and the OIDC discovery
+// Test buttons of Settings > Server (D-194): try the transcription provider and the OIDC discovery
 // document with the values on the form, before or after saving. Each probe makes one or two
 // requests with a short timeout and answers a sentence the page shows as is.
 import type { TestInstanceSettingResult } from '@toolbar/shared/api';

@@ -21,11 +21,11 @@ All five items of PLAN "Part 2, step 5" are done on main. Gate 5 waits on the ow
 - **Experiment 3 and hand-off** (`docs/agent-handoff-results.md`, diffs in `docs/agent-handoff/`, D-187): twelve runs on three real bugs with "Fix the problem reported in <share link>". Each agent pulled the folder and read README.md first; all three found the `+Inf` and Address bugs. Codex guessed on the stale-lesson bug and opencode broke a correct sentence there, which led to text provenance in README.md. Reopening a capture now reopens its pins.
 - **Demo** (D-191): README.md rewritten for users; DEMO.md with a 2:44 video (`docs/demo/nuru-demo.mp4`), a GIF and 15 screenshots, covering the Nuru scenario through Claude Code fixing the stale-lesson bug. Stack on :3000 rebuilt; release zips in `dist/` rebuilt.
 - **Secrets in e2e traces** (D-192): browser launches in e2e passed the whole environment to Chromium, so Playwright's retained traces of failed tests held `OPENAI_API_KEY` and other tokens. Launches now take `browserEnv()` from `e2e/fixtures/browser-env.ts`, and the leaky trace files on this machine are deleted. D-193: 34 more traces in an agent scratchpad and a saved `docker compose config` still held the key; both deleted, and a scan of `/tmp` and `/home/dev` finds the values only in the 0600 Codex credential file. The demo's share link is revoked and replaced by a placeholder in the cast.
+- **Environment clean-up** (D-194): six required values for `docker-compose.yml`, four for the Coolify file (`OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `ADMIN_EMAILS`); allowed domains, transcription, capture defaults, sharing and limits moved to Settings > Server, project defaults to the workspace. Whisper, dev and mail are opt-in files (`-f docker-compose.whisper.yml`, `-f docker-compose.dev.yml`, `-f docker-compose.mail.yml`); transcription is off by default; on a public URL with no allowed domains only `ADMIN_EMAILS` sign in until an admin exists. The local stack on :3000 runs with the dev and whisper files (docs/dev.md).
 - OpenAI spend in step 5: about 2.75 USD of the 3 USD cap (hand-off 2.74, Nuru 0.01, experiments 1 and 2 none). About 0.25 USD is left.
 
 ### Not done
 - Gate 5: the owner has not seen the product yet. Notify them with `repose-notify` once they can attach (ports 3000 and 3311 forward), or point them at DEMO.md.
-- `docker-compose.coolify.yml` is built but not yet deployed on a real Coolify.
 - Not pushed to `origin`; push when the owner asks.
 
 ## Earlier steps (all gates passed)

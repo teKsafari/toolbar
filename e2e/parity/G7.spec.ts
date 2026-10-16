@@ -739,7 +739,7 @@ test('S7.1 settings pages, members, workspaces and sign-in', async () => {
       return { heading: txt(await p.locator('h1').first().textContent().catch(() => '')), text: txt(await p.locator('main').textContent()).slice(0, 300) };
     })();
     await c.close();
-    // the scope's sign-in (docs/scope.md): one OIDC button against the dev profile's mock provider,
+    // the scope's sign-in (docs/scope.md): one OIDC button against the mock provider of docker-compose.dev.yml,
     // limited by the email-domain allowlist (the server runs with AUTH_ALLOWED_DOMAINS=example.com)
     const oidc = async (email: string) => {
       const c2 = await freshContext();

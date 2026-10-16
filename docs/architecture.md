@@ -388,10 +388,10 @@ export interface Transcriber {
     vtt: string; language?: string; model: string; billedSeconds: number; requests: number; mode: 'local' | 'native' | 'chunked';
   }>;
 }
-// TRANSCRIBE_PROVIDER = local (default) | openai | none; settings in config.ts, docs/configuration.md
+// TRANSCRIBE_PROVIDER = none (default, D-194) | local | openai; settings in config.ts, docs/configuration.md
 ```
 
-- `local` (default): whisper.cpp, `POST ${WHISPER_URL}/inference` multipart with `file`, `response_format=vtt`, `language=auto`. The server runs with `--convert` so ffmpeg in its image accepts WebM/Opus. Default model `base`; `WHISPER_MODEL=small` trades CPU for accuracy. whisper-server handles one request at a time, so the `transcribe` job runs one at a time with this provider. Good timestamps and usable English, unusable Swahili (word error rate 80 to 95%, `docs/research/transcription.md`).
+- `local`: whisper.cpp (the default until D-194 made `none` the default), `POST ${WHISPER_URL}/inference` multipart with `file`, `response_format=vtt`, `language=auto`. The server runs with `--convert` so ffmpeg in its image accepts WebM/Opus. Default model `base`; `WHISPER_MODEL=small` trades CPU for accuracy. whisper-server handles one request at a time, so the `transcribe` job runs one at a time with this provider. Good timestamps and usable English, unusable Swahili (word error rate 80 to 95%, `docs/research/transcription.md`).
 - `openai`: any OpenAI-compatible endpoint, `POST ${TRANSCRIBE_BASE_URL}/audio/transcriptions`, default model `gpt-transcribe`. The gpt-* models answer text only, so the server times the text itself (chunked mode):
   1. `audio.ts` decodes the voice track once to 16 kHz mono PCM with ffmpeg.
   2. `chunk.ts` finds pauses with an adaptive energy detector (30 ms frames, threshold at the local 10th percentile plus 0.35 of the spread to the 95th over a 10 s window, pauses of 0.3 s or more) and cuts chunks of at most `TRANSCRIBE_CHUNK_SECONDS` (30) at the centre of the longest pause in the second half of the window; with no pause it cuts hard and overlaps the next chunk by one second. Chunks with no voiced frame are not sent.
@@ -403,6 +403,8 @@ export interface Transcriber {
 - Why whisper.cpp: an official multi-arch image with ffmpeg inside, active releases (v1.9.5, October 2026), native VTT output, no Python stack, and good CPU speed.
 
 ## 13. docker compose
+
+The sketch below is the design from before the build. The files on main differ (D-021, D-171, D-194): `docker-compose.yml` holds only the server, Postgres and Garage, and takes six values (`PUBLIC_URL`, `BETTER_AUTH_SECRET`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `ADMIN_EMAILS`); whisper sits in `docker-compose.whisper.yml`, the mock OIDC provider and test switches in `docker-compose.dev.yml`, Mailpit in `docker-compose.mail.yml`; allowed email domains and transcription are set in Settings > Server, and transcription is off by default. `docs/configuration.md` describes the current files.
 
 `compose.yaml` at the repo root. `docker compose up` on a clean machine builds the server image and starts everything with dev defaults. For a real deploy (Coolify), set the variables marked `!`. The server refuses to start when `PUBLIC_URL` is not localhost and a secret still has its dev default.
 
@@ -482,7 +484,7 @@ Placeholder keys must match Garage's format (`GK` plus hex for the key id, hex f
 
 ```bash
 pnpm install
-docker compose --profile dev up -d postgres garage whisper oidc-mock
+docker compose -f docker-compose.yml -f docker-compose.whisper.yml -f docker-compose.dev.yml up -d postgres garage whisper oidc-mock
 pnpm --filter @toolbar/server db:migrate        # drizzle-kit migrate
 pnpm --filter @toolbar/server dev               # vite dev on http://localhost:3000
 pnpm --filter @toolbar/extension dev            # WXT watch build -> apps/extension/.output/chrome-mv3-dev

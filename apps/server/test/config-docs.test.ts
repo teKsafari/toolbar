@@ -1,6 +1,6 @@
 // docs/configuration.md must list every environment variable the code, the instance settings, the
 // compose files and .env.example use, and nothing else (D-151). A new variable without a row fails
-// here, as does a row whose variable nobody reads any more. Since D-187 it also checks the
+// here, as does a row whose variable nobody reads any more. Since D-194 it also checks the
 // classification table, and that the quickstart files ask for the required values only.
 import { describe, expect, it } from 'vitest';
 import { INSTANCE_FIELDS } from '@toolbar/shared/api';
@@ -83,7 +83,7 @@ function agentVars(): Map<string, string> {
 }
 
 const COMPOSE_FILES = ['docker-compose.yml', 'docker-compose.coolify.yml', 'docker-compose.mail.yml', 'docker-compose.whisper.yml', 'docker-compose.dev.yml'];
-/** The files a deployment uses (D-187): required values and wiring only, no dev or paused switches. */
+/** The files a deployment uses (D-194): required values and wiring only, no dev or paused switches. */
 const DEPLOYED = ['docker-compose.yml', 'docker-compose.coolify.yml'];
 /** Read by Docker Compose itself, not by a service (the Coolify file's whisper profile). */
 const COMPOSE_OWN = ['COMPOSE_PROFILES'];
@@ -152,7 +152,7 @@ function documented(): Row[] {
   return rows;
 }
 
-/** The values a person sets to boot a server (D-187). AUTH_SECRET is BETTER_AUTH_SECRET's short name. */
+/** The values a person sets to boot a server (D-194). AUTH_SECRET is BETTER_AUTH_SECRET's short name. */
 const REQUIRED = ['ADMIN_EMAILS', 'AUTH_SECRET', 'BETTER_AUTH_SECRET', 'OIDC_CLIENT_ID', 'OIDC_CLIENT_SECRET', 'OIDC_ISSUER', 'PUBLIC_URL'].sort();
 /** What the compose files fill in for the containers they run. */
 const WIRING = ['PORT', 'DATABASE_URL', 'S3_ENDPOINT', 'S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY', 'WHISPER_URL'];
@@ -194,7 +194,7 @@ describe('docs/configuration.md', () => {
     expect(stale).toEqual([]);
   });
 
-  it('keeps the basic deployment to the required values (D-187)', () => {
+  it('keeps the basic deployment to the required values (D-194)', () => {
     const required = rows.filter((r) => r.cells[3]!.startsWith('**Required')).map((r) => r.name);
     expect(required.sort()).toEqual(REQUIRED.filter((n) => n !== 'AUTH_SECRET'));
     // the Coolify file asks for exactly the values Coolify cannot generate, and passes no optional one
@@ -216,7 +216,7 @@ describe('docs/configuration.md', () => {
     expect(example).toContain('docs/configuration.md');
   });
 
-  it('keeps development, test and paused switches out of the deployed compose files (D-187)', () => {
+  it('keeps development, test and paused switches out of the deployed compose files (D-194)', () => {
     for (const f of DEPLOYED) {
       expect(read(f), f).not.toMatch(/AUTH_DEV_PASSWORD|AUTH_RATE_LIMIT|AUTH_MAGIC_LINK|FEATURE_[A-Z]|AI_PROVIDER|oidc-mock|OIDC_MOCK_PORT/);
     }
@@ -227,7 +227,7 @@ describe('docs/configuration.md', () => {
     expect(read('docker-compose.coolify.yml')).toMatch(/^ {2}whisper:\n {4}image: .*\n {4}profiles: \[whisper\]$/m);
   });
 
-  it('classifies every variable in "Where each setting lives" (D-187)', () => {
+  it('classifies every variable in "Where each setting lives" (D-194)', () => {
     const doc = read('docs/configuration.md');
     const at = doc.indexOf('## Where each setting lives');
     expect(at).toBeGreaterThan(0);

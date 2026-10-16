@@ -1,4 +1,4 @@
-// Settings > Server, instance settings (D-187): the five sections, inline validation, the
+// Settings > Server, instance settings (D-194): the five sections, inline validation, the
 // "Set by environment" lock, a section save that applies without a restart, the API key shown
 // only by its last four characters, the two test buttons, the admin-only guard, and a workspace's
 // defaults for new projects. Signs in as the seeded first account (dana@toolbar.test, the
@@ -51,7 +51,7 @@ test.afterAll(async () => {
   await browser?.close();
 });
 
-test('D-187: Settings > Server shows the five sections below branding', async () => {
+test('D-194: Settings > Server shows the five sections below branding', async () => {
   await go(page, '/settings/server');
   for (const s of ['signin', 'transcription', 'capture', 'sharing', 'limits']) await expect(page.getByTestId(`server-${s}`)).toBeVisible();
   await expect(page.getByTestId('server-signin').getByRole('heading', { name: 'Sign-in' })).toBeVisible();
@@ -60,7 +60,7 @@ test('D-187: Settings > Server shows the five sections below branding', async ()
   await expect(page.getByTestId('server-signin').getByText('Set by environment').first()).toBeVisible();
 });
 
-test('D-187: a field the environment sets is locked with a badge', async () => {
+test('D-194: a field the environment sets is locked with a badge', async () => {
   const locked = Object.entries(initial.locked).find(([, v]) => v);
   test.skip(!locked, 'no instance setting is set by the environment on this server (scripts/e2e-all.sh sets ALLOWED_EMAIL_DOMAINS)');
   const [key, envName] = locked!;
@@ -76,7 +76,7 @@ test('D-187: a field the environment sets is locked with a badge', async () => {
   expect(r.status()).toBe(409);
 });
 
-test('D-187: validation shows inline, a section saves its fields, and Reset puts the default back', async () => {
+test('D-194: validation shows inline, a section saves its fields, and Reset puts the default back', async () => {
   test.skip(!!initial.locked.exportMaxMb, 'EXPORT_MAX_MB is set on this server');
   await go(page, '/settings/server');
   const input = field('exportMaxMb').locator('input');
@@ -98,7 +98,7 @@ test('D-187: validation shows inline, a section saves its fields, and Reset puts
   expect((await settings()).values.exportMaxMb).toBe(200);
 });
 
-test('D-187: transcription: pick the hosted provider, Test connection, the key comes back masked', async () => {
+test('D-194: transcription: pick the hosted provider, Test connection, the key comes back masked', async () => {
   test.skip(!!initial.locked.transcribeProvider || !!initial.locked.transcribeApiKey || !!initial.locked.transcribeBaseUrl, 'the transcription provider is set by the environment here');
   await go(page, '/settings/server');
   const sec = page.getByTestId('server-transcription');
@@ -129,14 +129,14 @@ test('D-187: transcription: pick the hosted provider, Test connection, the key c
   await expect(page.getByTestId('reset-transcribeApiKey')).toHaveCount(0);
 });
 
-test('D-187: Test discovery URL reads the provider of the environment', async () => {
+test('D-194: Test discovery URL reads the provider of the environment', async () => {
   test.skip(!initial.oidc.configured, 'no OIDC provider on this server');
   await go(page, '/settings/server');
   await page.getByTestId('test-oidc').click();
   await expect(page.getByTestId('test-result-signin')).toContainText('Found the provider');
 });
 
-test('D-187: a workspace admin sets the defaults of new projects', async () => {
+test('D-194: a workspace admin sets the defaults of new projects', async () => {
   await go(page, '/settings/workspace');
   const sec = page.getByTestId('ws-project-defaults');
   await expect(sec).toBeVisible();
@@ -151,7 +151,7 @@ test('D-187: a workspace admin sets the defaults of new projects', async () => {
   await expect.poll(async () => (await json<{ settings: { defaultMaskingPreset: string | null } }>(page, 'GET', `/api/v1/workspaces/${(await me(page)).activeWorkspaceId}`)).settings.defaultMaskingPreset).toBeNull();
 });
 
-test('D-187: someone who is not the instance admin gets 404 on the page and 403 from the API', async () => {
+test('D-194: someone who is not the instance admin gets 404 on the page and 403 from the API', async () => {
   const other = await (await newContext(browser)).newPage();
   await signIn(other, uniqueEmail('test', 'notadmin'));
   const res = await other.goto(`${SERVER}/settings/server`);

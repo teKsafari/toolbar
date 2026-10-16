@@ -31,8 +31,8 @@ Node 24, pnpm 11.27 (`corepack enable` picks it up from `packageManager`; where 
 | 3100 to 3107, 3200 to 3207 | Area worktree servers and WXT dev servers (`docs/parallel.md`) |
 | 5432 | Postgres 18 |
 | 3900 | Garage S3 API |
-| 8080 | whisper.cpp server |
-| 3311 | Mock OIDC provider (compose profile `dev`), as `http://oidc.localhost:3311` |
+| 8080 | whisper.cpp server (`docker-compose.whisper.yml`) |
+| 3311 | Mock OIDC provider (`docker-compose.dev.yml`), as `http://oidc.localhost:3311` |
 | 8025 | Mailpit inbox UI (override `docker-compose.mail.yml`, only for the paused mail) |
 | 1025 | Mailpit SMTP (`docker-compose.mail.yml`) |
 | 5173, 5174 | Lab app (user service `toolbar-lab`), second origin |
@@ -42,35 +42,43 @@ Node 24, pnpm 11.27 (`corepack enable` picks it up from `packageManager`; where 
 
 ## Full stack in Docker
 
+`docker-compose.yml` holds the server, Postgres and Garage. Three files add to it with `-f` (D-194):
+
+| File | Adds |
+|---|---|
+| `docker-compose.dev.yml` | The mock OIDC provider and the switches tests set from the shell (`AUTH_DEV_PASSWORD`, `AUTH_RATE_LIMIT`, `ALLOWED_EMAIL_DOMAINS`, `TRANSCRIBE_PROVIDER`, the paused feature flags). Development and e2e only. |
+| `docker-compose.whisper.yml` | Local transcription: the whisper.cpp container, and `WHISPER_URL` on the server. |
+| `docker-compose.mail.yml` | The paused mail, with Mailpit. |
+
+The development stack, with the mock provider:
+
 ```sh
-docker compose --profile whisper up --build   # or -d; first run builds the server image and downloads the whisper model
-curl -s localhost:3000/api/health  # {"ok":true,"checks":{"db":{"ok":true},"s3":{"ok":true},"whisper":...}}
+env -u OPENAI_API_KEY \
+  OIDC_ISSUER=http://oidc.localhost:3311/toolbar OIDC_CLIENT_ID=toolbar OIDC_CLIENT_SECRET=dev OIDC_PROVIDER_NAME="Dev SSO" \
+  ALLOWED_EMAIL_DOMAINS=test AUTH_DEV_PASSWORD=1 AUTH_RATE_LIMIT=off \
+  docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+curl -s localhost:3000/api/health  # {"ok":true,"checks":{"db":{"ok":true},"s3":{"ok":true},...}}
 ```
 
-Open http://localhost:3000. Out of the box the server offers no sign-in method: sign-in is one OIDC provider that you configure (`docs/configuration.md`, "Sign-in"; D-114). For development, start the mock provider of the `dev` profile and point the server at it:
+Add `-f docker-compose.whisper.yml` (and `TRANSCRIBE_PROVIDER=local`, or pick "Local whisper.cpp" in Settings > Server) for transcripts; the first start downloads the whisper model. Use the same `-f` list for every later `docker compose` command on that stack (`ps`, `logs`, `down`), or Compose treats the services of the missing files as orphans.
 
-```sh
-OIDC_ISSUER=http://oidc.localhost:3311/toolbar OIDC_CLIENT_ID=toolbar OIDC_CLIENT_SECRET=dev \
-OIDC_PROVIDER_NAME="Dev SSO" docker compose --profile dev up -d
-```
-
-The login page then shows one "Sign in with Dev SSO" button. The mock's own page asks for a user name (it becomes the subject) and the ID token claims, for example `{"email": "you@example.test", "email_verified": true, "name": "You"}`; it signs whatever you give it, so it never belongs in a real deployment. Browsers resolve `*.localhost` to this machine and the server container reaches the same name through `host-gateway`, so both see one issuer (D-094). `ALLOWED_EMAIL_DOMAINS` limits who gets in; `test` admits every `*.test` address.
+Open http://localhost:3000. Without the dev file the server offers no sign-in method: sign-in is one OIDC provider that you configure (`docs/configuration.md`, "Sign-in"; D-114). The login page then shows one "Sign in with Dev SSO" button. The mock's own page asks for a user name (it becomes the subject) and the ID token claims, for example `{"email": "you@example.test", "email_verified": true, "name": "You"}`; it signs whatever you give it, so it never belongs in a real deployment. Browsers resolve `*.localhost` to this machine and the server container reaches the same name through `host-gateway`, so both see one issuer (D-094). `ALLOWED_EMAIL_DOMAINS=test` admits every `*.test` address. On a real server the allowed domains are set in Settings > Server; the dev file passes the variable so the suites can pin it, which locks that field in the admin page. On localhost without `ADMIN_EMAILS`, the first account becomes the instance admin and sees Settings > Server.
 
 The dev-only password sign-in stays available with `AUTH_DEV_PASSWORD=1`: sign in with any email and a password of 8+ characters (the account is created on first sign-in, with a personal workspace). The seeded accounts (`dana@toolbar.test`, `sam@toolbar.test`, password `toolbar-dev-password`) need it.
 
-Paused features (docs/scope.md) stay hidden unless their flag is set to 1: `FEATURE_EMAIL`, `FEATURE_TRACKERS`, `FEATURE_SLACK`, `FEATURE_CLI`, `FEATURE_AI`, `FEATURE_ADMIN_EXTRAS`. `/api/health` lists the ones that are on (`features`), and e2e tests of a paused feature read it and skip with "paused (docs/scope.md)" while the flag is off (`e2e/fixtures/features.ts`). Mail needs `FEATURE_EMAIL=1` and `SMTP_URL`, which the default compose file does not pass; the override file adds both and Mailpit: `docker compose -f docker-compose.yml -f docker-compose.mail.yml up -d` (D-171).
+Paused features (docs/scope.md) stay hidden unless their flag is set to 1: `FEATURE_EMAIL`, `FEATURE_TRACKERS`, `FEATURE_SLACK`, `FEATURE_CLI`, `FEATURE_AI`, `FEATURE_ADMIN_EXTRAS`. `/api/health` lists the ones that are on (`features`), and e2e tests of a paused feature read it and skip with "paused (docs/scope.md)" while the flag is off (`e2e/fixtures/features.ts`). Mail needs `FEATURE_EMAIL=1` and `SMTP_URL`, which the default compose file does not pass; `docker-compose.mail.yml` adds both and Mailpit: add `-f docker-compose.mail.yml` to the command (D-171).
 
-Compose works with no `.env`: every variable has a dev default. Whisper is optional and sits in the `whisper` profile (`.env.example` turns it on with `COMPOSE_PROFILES=whisper`; `pnpm stack` and `scripts/e2e-all.sh` start it). Postgres, Garage, whisper and Mailpit (override file) publish their ports on `127.0.0.1` only; the mock OIDC provider stays on all interfaces because the server container reaches it through the host gateway. `docker-compose.coolify.yml` is the Coolify variant (`docs/configuration.md`, "Coolify"). For anything beyond localhost, run `scripts/gen-secrets.sh https://your.host` to write `.env` with random secrets (`.env.example` lists every variable). The server refuses to start on a non-localhost `PUBLIC_URL` with dev secrets. Sign-in rate limits (3 tries per 10 s per address) are on in the image; `AUTH_RATE_LIMIT=off` turns them off for an e2e run.
+Compose works with no `.env`: every variable has a dev default. Whisper is optional and sits in `docker-compose.whisper.yml` (`pnpm stack` and `scripts/e2e-all.sh` add it). Transcription is off until `TRANSCRIBE_PROVIDER` is set or an admin picks a provider in Settings > Server. Postgres, Garage, whisper and Mailpit (override file) publish their ports on `127.0.0.1` only; the mock OIDC provider stays on all interfaces because the server container reaches it through the host gateway. `docker-compose.coolify.yml` is the Coolify variant (`docs/configuration.md`, "Coolify"); there the whisper service is a profile, `COMPOSE_PROFILES=whisper`. For anything beyond localhost, run `scripts/gen-secrets.sh https://your.host` to write `.env` with random secrets (`.env.example` lists every variable). The server refuses to start on a non-localhost `PUBLIC_URL` with dev secrets. Sign-in rate limits (3 tries per 10 s per address) are on in the image; `AUTH_RATE_LIMIT=off` turns them off for an e2e run.
 
-Both compose files read `OPENAI_API_KEY` from your shell as well as from `.env`. If it is set in the shell, `docker compose up` passes it into the server container (transcription then uses the hosted provider), and `docker compose config` prints its value in clear. Run `env -u OPENAI_API_KEY docker compose ...` when you want neither, and never save `docker compose config` output to a file that others can read (D-193).
+The compose files pass `OPENAI_API_KEY` to the server only from `.env` (`env_file`), never from your shell; a key there locks the API key field in Settings > Server. Keep `env -u OPENAI_API_KEY` in front of `docker compose` anyway, so a later edit that interpolates it cannot pick up the shell's key, and never save `docker compose config` output to a file that others can read: it prints `.env` values in clear (D-193).
 
-`docker compose down -v` wipes the database, the bucket and the whisper model.
+`docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.whisper.yml down -v` wipes the database, the bucket and the whisper model.
 
 ## Dev mode
 
 ```sh
 pnpm install
-pnpm stack                      # docker compose --profile dev up -d postgres garage whisper oidc-mock
+pnpm stack                      # docker compose -f docker-compose.yml -f docker-compose.whisper.yml -f docker-compose.dev.yml up -d postgres garage whisper oidc-mock
 docker compose stop server      # only if the compose server holds port 3000
 pnpm dev                        # server on :3000 (vite dev) and the extension watch build, in parallel
 pnpm dev:server                 # or one at a time
@@ -177,7 +185,7 @@ KEEP=1 scripts/e2e-all.sh                  # keep the running stack and its data
 
 The script does, in order:
 
-1. `docker compose down -v`, then `docker compose --profile dev --profile whisper up --build -d` with the mock OIDC provider configured (`OIDC_ISSUER=http://oidc.localhost:3311/toolbar`, `OIDC_CLIENT_ID=toolbar`, `OIDC_CLIENT_SECRET=dev`), `ALLOWED_EMAIL_DOMAINS=test`, `AUTH_DEV_PASSWORD=1` (for the seeded accounts) and `AUTH_RATE_LIMIT=off`, and waits for `/api/health`. Rate limits are off because the suites sign in many test accounts from one address, and Better Auth allows 3 sign-ins per 10 s per address in production. `MAIL=1` adds the override `docker-compose.mail.yml` (Mailpit, `FEATURE_EMAIL=1`); `FEATURES="FEATURE_AI=1 ..."` turns on other paused features, whose tests otherwise skip.
+1. `docker compose ... down -v`, then `docker compose -f docker-compose.yml -f docker-compose.whisper.yml -f docker-compose.dev.yml up --build -d` with the mock OIDC provider configured (`OIDC_ISSUER=http://oidc.localhost:3311/toolbar`, `OIDC_CLIENT_ID=toolbar`, `OIDC_CLIENT_SECRET=dev`), `ALLOWED_EMAIL_DOMAINS=test`, `AUTH_DEV_PASSWORD=1` (for the seeded accounts), `AUTH_RATE_LIMIT=off` and `TRANSCRIBE_PROVIDER=local`, and waits for `/api/health`. Rate limits are off because the suites sign in many test accounts from one address, and Better Auth allows 3 sign-ins per 10 s per address in production. `MAIL=1` adds the override `docker-compose.mail.yml` (Mailpit, `FEATURE_EMAIL=1`); `FEATURES="FEATURE_AI=1 ..."` turns on other paused features, whose tests otherwise skip.
 2. `pnpm --filter @toolbar/server db:seed` against the compose database (the server's defaults point at it). The seed prints a personal token; the script passes it as `TOOLBAR_E2E_TOKEN`, so `agent/cli-create.spec.ts` runs instead of skipping.
 3. Builds the release extension, the test extension and the CLI (`packages/cli/dist/open-toolbar.mjs`).
 4. Runs the area suites, then the flows. With `RUNS=n` it repeats steps 1, 2 and 4 n times. Logs go to `e2e/runs/area-N.log` and `e2e/runs/flows-N.log`; HTML reports to `e2e/playwright-report` and `e2e/playwright-report-flows`; flow screenshots to `e2e/flows-shots/`.
@@ -195,7 +203,7 @@ FLOWS_PICKER=fake npx playwright test -c playwright.flows.config.ts d-desktop e-
 
 `e2e/global-setup.ts` starts Xvfb (and openbox) on `E2E_DISPLAY` when no X server owns it, and stops them at the end. Overrides: `E2E_DISPLAY`, `E2E_VIEWPORT` (area suites: `390x844` gives each new page that viewport, to run a suite at phone width; tests that set their own size keep it), `LAB_URL`, `SERVER_URL`, `OIDC_MOCK_URL`, `MAILPIT_URL`, `E2E_EXT_BUILD` (area suites), `FLOWS_EXT_BUILD` (flows), `DATABASE_URL` (defaults to the compose one), `E2E_CALLBACK_HOST`. The flows write to `test-results-flows/`, so both suites can run side by side on different displays.
 
-The Part 2 scenario (`e2e/flows/p2-scenario.spec.ts`, D-163) runs in a browser of its own on a private display (E2E_DISPLAY plus 59, :179 by default) with a fake microphone that plays a FLEURS clip; it needs ffmpeg and the whisper profile. `P2_CLAUDE=1` adds a real Claude Code run that reads the folder over MCP and resolves it (it calls a model); `FLOWS_EXT_BUILD=release-zip` runs it on the unpacked release zip (unzip `dist/open-toolbar-extension-<v>-chrome.zip` into `apps/extension/.output/release-zip`).
+The Part 2 scenario (`e2e/flows/p2-scenario.spec.ts`, D-163) runs in a browser of its own on a private display (E2E_DISPLAY plus 59, :179 by default) with a fake microphone that plays a FLEURS clip; it needs ffmpeg and `docker-compose.whisper.yml` with `TRANSCRIBE_PROVIDER=local`. `P2_CLAUDE=1` adds a real Claude Code run that reads the folder over MCP and resolves it (it calls a model); `FLOWS_EXT_BUILD=release-zip` runs it on the unpacked release zip (unzip `dist/open-toolbar-extension-<v>-chrome.zip` into `apps/extension/.output/release-zip`).
 
 The locator suite (`e2e/tests/locator`, D-128) also uses two more builds of the lab, each skipped with a reason when absent: `LAB_DEV_URL` (default `http://localhost:5184`, `cd lab && npx vite dev --port 5184`) for `__svelte_meta`, and `LAB_MAPS_URL` (default `http://localhost:5186`, `cd lab && npx vite build --sourcemap && PORT=5186 node server.js`) for source-mapped stacks. Run that build in a worktree's `lab/`: it writes `lab/build`, and in the main checkout it would replace the build the `toolbar-lab` unit serves on :5173, where the first locator test expects no maps.
 

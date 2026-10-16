@@ -17,7 +17,7 @@ When neither sets a field, the default applies: `open-toolbar`, the rectangle, a
 | `APP_ACCENT` | `#0b7a5c` | Accent colour for buttons, links, focus rings, the toolbar's main button and the default logo. The server picks white or near-black text on it and refuses a colour where neither reads well. Hover and pressed shades, link text and focus are derived from it and kept at WCAG AA contrast: a light accent gets darker link text on light pages. Dark pages get a lighter shade of it, lightened until it reads on dark surfaces; black and greys turn near-white there instead. Page background, surfaces, text and the red, green and amber status colours stay neutral whatever the accent. |
 | `ADMIN_EMAILS` | `ops@acme.example,lee@acme.example` | Who may open Settings > Server. Each address must be verified by your sign-in provider. |
 
-Without `ADMIN_EMAILS`, the first account created on the server is the instance admin. On a server reachable from the internet someone else could sign up first, so set `ADMIN_EMAILS`; the server logs a warning at start when it is empty on a public URL.
+`ADMIN_EMAILS` is one of the six required values. On a public URL with no allowed email domains, only those addresses can sign in until an admin has (the bootstrap rule, `docs/configuration.md`, "Who gets in"); with it empty there, nobody can sign in and the server log says so at start. On localhost without `ADMIN_EMAILS`, the first account created is the instance admin. After the first sign-in, the admin sets allowed email domains and transcription on the same page, Settings > Server.
 
 ## Logos
 

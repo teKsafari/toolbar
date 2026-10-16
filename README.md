@@ -25,22 +25,26 @@ You need Docker with Compose and an OIDC provider (see [Sign-in](#sign-in)).
 ```sh
 git clone <this repository> open-toolbar && cd open-toolbar
 scripts/gen-secrets.sh https://feedback.example.com   # writes .env with PUBLIC_URL and random secrets
-$EDITOR .env                                          # OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, ALLOWED_EMAIL_DOMAINS
-docker compose up -d --build                          # server on :3000, Postgres, Garage S3, whisper.cpp
+$EDITOR .env                                          # OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, ADMIN_EMAILS
+docker compose up -d --build                          # server on :3000, Postgres, Garage S3
 curl -s localhost:3000/api/health                     # {"ok":true,...}
 ```
+
+After the first sign-in with an `ADMIN_EMAILS` address, open Settings > Server and set your allowed email domains and a transcription provider.
+
+For local transcription with whisper.cpp, add its compose file: `docker compose -f docker-compose.yml -f docker-compose.whisper.yml up -d --build`, then pick "Local whisper.cpp" in Settings > Server.
 
 Put a TLS proxy (Caddy, Traefik, nginx) in front of port 3000 and point `PUBLIC_URL` at the https address. The server refuses to start on a public URL while it still has the dev secrets.
 
 ## Coolify
 
-Deploy `docker-compose.coolify.yml` from this repository: + New, this Git repository, Build strategy "Compose", Docker Compose Location `/docker-compose.coolify.yml`. Coolify generates every secret and asks for the four sign-in values before the first deploy. Set the server's domain as `https://feedback.example.com:3000` and register `https://feedback.example.com/api/auth/callback/oidc` with your provider. No service publishes a host port; Coolify's proxy routes the domain.
+Deploy `docker-compose.coolify.yml` from this repository: + New, this Git repository, Build strategy "Compose", Docker Compose Location `/docker-compose.coolify.yml`. Coolify generates every secret, the Postgres user included, and asks for four values before the first deploy: `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` and `ADMIN_EMAILS`. Set the server's domain as `https://feedback.example.com:3000` and register `https://feedback.example.com/api/auth/callback/oidc` with your provider. No service publishes a host port; Coolify's proxy routes the domain. After the first sign-in, set allowed domains and transcription in Settings > Server. For local transcription, add `COMPOSE_PROFILES=whisper` under Environment Variables.
 
 ## Sign-in
 
-Sign-in goes through one generic OIDC provider that you configure with `OIDC_ISSUER`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`. Any provider with a discovery document works: Keycloak, Authentik, Okta, Microsoft Entra ID, GitLab and others. `ALLOWED_EMAIL_DOMAINS` decides who gets in, and removing a domain later cuts off its sessions and tokens at their next request.
+Sign-in goes through one generic OIDC provider that you configure with `OIDC_ISSUER`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`. Any provider with a discovery document works: Keycloak, Authentik, Okta, Microsoft Entra ID, GitLab and others. `ADMIN_EMAILS` names the instance admins. The allowed email domains, set in Settings > Server, decide who else gets in, and removing a domain later cuts off its sessions and tokens at their next request. On a public URL, until an admin has signed in, only `ADMIN_EMAILS` addresses can sign in.
 
-Google Workspace is a standard OIDC provider, so it needs no special code: use the issuer `https://accounts.google.com`, create an OAuth client of type "Web application" in Google Cloud, and set `ALLOWED_EMAIL_DOMAINS` to your Workspace domain. The server also checks Google's `hd` claim when it is present. `docs/configuration.md`, "Google Workspace", has the steps.
+Google Workspace is a standard OIDC provider, so it needs no special code: use the issuer `https://accounts.google.com`, create an OAuth client of type "Web application" in Google Cloud, and after your first sign-in add your Workspace domain under Settings > Server, Sign-in. The server also checks Google's `hd` claim when it is present. `docs/configuration.md`, "Google Workspace", has the steps.
 
 Email and password accounts stay off. They exist only for development and tests, behind `AUTH_DEV_PASSWORD=1`.
 
@@ -101,7 +105,7 @@ In tests on real bugs, Claude Code, Codex and opencode each found the cause from
 
 ## Configuration
 
-Five values make a working server: `PUBLIC_URL`, `BETTER_AUTH_SECRET`, `OIDC_ISSUER`, `OIDC_CLIENT_ID` with `OIDC_CLIENT_SECRET`, and `ALLOWED_EMAIL_DOMAINS`. Everything else has a default. `docs/configuration.md` documents every variable with its default, an example and when to change it.
+Six values make a working server: `PUBLIC_URL`, `BETTER_AUTH_SECRET`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` and `ADMIN_EMAILS`. An instance admin sets the rest in Settings > Server while the server runs: allowed email domains, the sign-in button name, transcription, capture defaults, share link lifetime and limits. A workspace admin picks the masking preset and trace step window of new projects. Each of those still has a variable; when set, it wins and locks its field in the admin page. `docs/configuration.md` lists every variable, where it lives, its default and when to change it.
 
 ## Branding
 
@@ -109,19 +113,19 @@ Set the instance's name, logo and accent colour with `APP_NAME`, `APP_LOGO_URL` 
 
 ## Transcription
 
-Voice notes become WebVTT transcripts on your server. Pick the provider with `TRANSCRIBE_PROVIDER`:
+Voice notes become WebVTT transcripts on your server. Transcription is off until an instance admin picks a provider in Settings > Server, Transcription (or pins one with `TRANSCRIBE_PROVIDER`), and Test connection checks it:
 
-- `local` (default): whisper.cpp in the `whisper` compose service. No key, no cost, and no audio leaves your server. Good for English; its Swahili is unreadable.
-- `openai`: OpenAI's `gpt-transcribe`, or any OpenAI-compatible endpoint (`TRANSCRIBE_BASE_URL`, for example Groq). Set `OPENAI_API_KEY` or `TRANSCRIBE_API_KEY`. Far better on Swahili and mixed Swahili and English, and faster than whisper.cpp on a CPU.
-- `none`: no transcripts.
+- `local`: whisper.cpp, started by `docker-compose.whisper.yml`. No key, no cost, and no audio leaves your server. Good for English; its Swahili is unreadable.
+- `openai`: OpenAI's `gpt-transcribe`, or any OpenAI-compatible endpoint (`TRANSCRIBE_BASE_URL`, for example Groq). Paste the key in Settings > Server, where it is stored encrypted, or set `TRANSCRIBE_API_KEY`. Far better on Swahili and mixed Swahili and English, and faster than whisper.cpp on a CPU.
+- `none` (default): no transcripts.
 
-Limits of the hosted provider: OpenAI takes at most 25 MB per request, so the server cuts the voice track at pauses into chunks of 30 s or less, and recording length is bounded only by `TRANSCRIBE_MAX_MINUTES` (60). `gpt-transcribe` costs $0.0045 a minute: a five-minute note is about $0.02, an hour about $0.28. `TRANSCRIBE_MONTHLY_MINUTES` caps a month's hosted audio. Only the microphone audio goes to the provider: no video, screenshots, console, network data or names.
+Limits of the hosted provider: OpenAI takes at most 25 MB per request, so the server cuts the voice track at pauses into chunks of 30 s or less, and recording length is bounded only by the longest-audio limit (60 minutes). `gpt-transcribe` costs $0.0045 a minute: a five-minute note is about $0.02, an hour about $0.28. Settings > Server, Limits holds both that limit and an optional monthly cap on hosted minutes. Only the microphone audio goes to the provider: no video, screenshots, console, network data or names.
 
 ## Privacy and masking
 
 - Redaction runs in the extension's isolated world before anything leaves the page: `Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key` and headers matching `token|secret|key` go, as do password and token fields; JWTs, email addresses and card numbers are scrubbed.
 - Each project picks a masking preset. **Staging, own team** keeps text unmasked and keeps bodies for the app's own API. **Production** masks all text and inputs, blocks media, and keeps bodies only for allowlisted URLs. The preset is written into each feedback folder's header.
-- Share links use a 128-bit token in the path, expire after 14 days (`SHARE_LINK_DAYS`), can be revoked, and send `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex`. A share link shows a summary; the full folder needs a personal token of a workspace member.
+- Share links use a 128-bit token in the path, expire after 14 days (Settings > Server, Sharing and export), can be revoked, and send `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex`. A share link shows a summary; the full folder needs a personal token of a workspace member.
 - The extension holds no client secret. It signs in through `chrome.identity.launchWebAuthFlow` against your server, and every record stores who left it: issuer, subject, email and name.
 
 ## Paused
@@ -130,11 +134,11 @@ These stay in the code behind flags that default to off, with their UI hidden: G
 
 ## Development
 
-`docs/dev.md` covers the layout, ports, the mock OIDC provider of the `dev` compose profile, dev mode with hot reload, builds, unit tests and the e2e suites. Short version:
+`docs/dev.md` covers the layout, ports, the mock OIDC provider of `docker-compose.dev.yml`, dev mode with hot reload, builds, unit tests and the e2e suites. Short version:
 
 ```sh
 pnpm install
-pnpm stack        # Postgres, Garage, whisper and the mock OIDC provider in Docker
+pnpm stack        # Postgres, Garage, whisper and the mock OIDC provider in Docker (dev and whisper files)
 pnpm dev          # server on :3000 and the extension watch build
 pnpm -r test      # unit tests
 ```

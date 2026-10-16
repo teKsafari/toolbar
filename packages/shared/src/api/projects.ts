@@ -82,7 +82,7 @@ export const listProjects = defineRoute({
 export const createProjectBodySchema = z.object({
   name: nameSchema,
   origins: originListSchema.pipe(z.array(z.string()).min(1, 'Add at least one origin')),
-  /** left out: the workspace's default, else the instance's (D-187) */
+  /** left out: the workspace's default, else the instance's (D-194) */
   maskingPreset: projectPresetSchema.optional(),
   bodyAllowlist: allowlistSchema.default([]),
   traceOpenMs: traceOpenMsSchema.optional(),

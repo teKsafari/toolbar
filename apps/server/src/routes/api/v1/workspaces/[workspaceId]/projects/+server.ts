@@ -13,7 +13,7 @@ export const GET = apiRoute(ROUTES['projects.list'], async ({ event, params }) =
 
 export const POST = apiRoute(ROUTES['projects.create'], async ({ event, params, body }) => {
   const { userId } = await workspaceFor(db, event, params.workspaceId, 'admin');
-  // preset and step window left out: the workspace's defaults, else the instance's (D-187)
+  // preset and step window left out: the workspace's defaults, else the instance's (D-194)
   const d = await projectDefaults(db, params.workspaceId);
   const r = await createProject(db, params.workspaceId, userId, {
     ...body,

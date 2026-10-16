@@ -1,5 +1,5 @@
 # Local transcription (whisper.cpp on the CPU, no key, no audio leaves the server): an override
-# file, off by default (D-187).
+# file, off by default (D-194).
 #   docker compose -f docker-compose.yml -f docker-compose.whisper.yml up -d
 # Then choose "Local whisper.cpp" under Settings > Server, Transcription, and click Test
 # connection. The first start downloads the model, which takes a few minutes. WHISPER_MODEL picks

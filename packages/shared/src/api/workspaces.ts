@@ -36,9 +36,9 @@ export const workspaceSettingsSchema = z.object({
   restrictInvites: z.boolean(),
   /** a viewer who creates a capture becomes creator (J-222) */
   autoApproveCreators: z.boolean(),
-  /** masking preset of new projects; null: the instance default (Settings > Server, D-187) */
+  /** masking preset of new projects; null: the instance default (Settings > Server, D-194) */
   defaultMaskingPreset: z.enum(PROJECT_PRESETS).nullable(),
-  /** trace step window of new projects in ms; null: the instance default (D-166, D-187) */
+  /** trace step window of new projects in ms; null: the instance default (D-166, D-194) */
   defaultTraceOpenMs: z.number().int().min(TRACE_OPEN_MS.min).max(TRACE_OPEN_MS.max).nullable(),
 });
 export type WorkspaceSettings = z.infer<typeof workspaceSettingsSchema>;

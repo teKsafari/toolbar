@@ -46,9 +46,9 @@ Fixed on the way: the folder had no `voice/` for toolbar voice notes and no imag
 | Sign-in with Google and any OIDC provider; email and password off by default | built | D-114: one generic OIDC provider (Google Workspace through it); `AUTH_DEV_PASSWORD` dev only |
 | Extension signs in with `launchWebAuthFlow`, server is the OIDC client, ID pinned by `key` | built | D-011, D-022; scenario step 1 |
 | Every record stores issuer, subject, email and name | built | Scenario step 4 checks all five items |
-| Only allowlisted reviewers submit (email domains) | built | `ALLOWED_EMAIL_DOMAINS` and Google `hd`; group allowlists are out of scope (docs/scope.md: groups are not in Google's ID token) |
+| Only allowlisted reviewers submit (email domains) | built | Allowed email domains (Settings > Server, Sign-in, or `ALLOWED_EMAIL_DOMAINS`; D-194) and Google `hd`; group allowlists are out of scope (docs/scope.md: groups are not in Google's ID token) |
 | No seat limits, no paid tiers | built | None exist |
-| Deploys on Coolify as a compose service | built | D-153 `docker-compose.coolify.yml`; checked against Coolify's docs, not deployed on a real Coolify (needs the owner's server) |
+| Deploys on Coolify as a compose service | built | D-153 `docker-compose.coolify.yml`; D-194: four values (`OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `ADMIN_EMAILS`), Coolify generates the rest, the Postgres user included |
 | Comment on an element | built | Scenario `c`; area suite `tests/reviewer` |
 | Highlight text | built | Scenario `t` |
 | Rectangle, arrow, freehand | built | Arrow in the scenario; all three in `tests/reviewer` |
@@ -89,12 +89,12 @@ Fixed on the way: the folder had no `voice/` for toolbar voice notes and no imag
 | Exactly three channels: MCP, HTTP API with the folder download, signed webhooks | built | Scenario steps 5 to 7 |
 | Paused: trackers, Slack, CLI, notification email, AI, retention and audit logs, social and password sign-in | paused (as asked) | Flags off; UI hidden; parity rows "paused" |
 | Kept: in-app @mentions, invites by link, joining by email domain, webhooks | built | Flows L and N; scenario step 7 |
-| Transcription: local whisper.cpp by default, hosted OpenAI-compatible model with a key, chunks, limits documented | built | D-130 to D-133; scenario transcript from whisper.cpp; live test with `gpt-transcribe` |
+| Transcription: local whisper.cpp by default, hosted OpenAI-compatible model with a key, chunks, limits documented | built | D-130 to D-133; scenario transcript from whisper.cpp; live test with `gpt-transcribe`. Since D-194 transcription is off until an admin picks a provider in Settings > Server, and whisper.cpp starts from `docker-compose.whisper.yml` |
 | Sign-in: one generic OIDC provider, email-domain allowlist and `hd`, mock OIDC in the `dev` profile, password only with `AUTH_DEV_PASSWORD=1`, no SMTP | built | D-114; every e2e suite signs in through the mock |
 | Deliverable 1: extension release (store zip and unpacked build) | built | D-155; the scenario ran on the unpacked release zip |
-| Deliverable 2: `docker-compose.yml` with defaults plus the required values | built | D-151, D-152; the scenario stack |
-| Deliverable 3: `docker-compose.coolify.yml` | built | D-153; not yet deployed on a real Coolify |
-| Configuration: required values only; `docs/configuration.md` for every variable | built | D-151, D-154 (drift test); D-167: the injector container and the agent side are documented there and the drift test scans the injector's Go code and the Agent Skill |
+| Deliverable 2: `docker-compose.yml` with defaults plus the required values | built | D-151, D-152, D-194: six values, whisper, dev and mail in opt-in files; the scenario stack |
+| Deliverable 3: `docker-compose.coolify.yml` | built | D-153, D-194: four values |
+| Configuration: required values only; `docs/configuration.md` for every variable | built | D-151, D-154 (drift test); D-194: instance settings in Settings > Server, "Where each setting lives" table checked by the drift test; D-167: the injector container and the agent side are documented there and the drift test scans the injector's Go code and the Agent Skill |
 
 ### Part 1 suites and Part 2 area suites, rerun on main (2026-10-15)
 

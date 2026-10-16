@@ -61,7 +61,7 @@
     }
   }
 
-  // D-187: project defaults of this workspace; empty means the server's (Settings > Server)
+  // D-194: project defaults of this workspace; empty means the server's (Settings > Server)
   const inst = $derived(data.instanceDefaults);
   // svelte-ignore state_referenced_locally
   let windowSec = $state(data.ws.settings.defaultTraceOpenMs ? String(data.ws.settings.defaultTraceOpenMs / 1000) : '');

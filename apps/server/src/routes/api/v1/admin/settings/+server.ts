@@ -1,4 +1,4 @@
-// GET and PATCH /api/v1/admin/settings (instance admins, D-187): effective server settings with
+// GET and PATCH /api/v1/admin/settings (instance admins, D-194): effective server settings with
 // their locks and defaults; a partial update stores fields (null resets one) and applies at once.
 import { ROUTES } from '@toolbar/shared/api';
 import { db } from '#lib/server/db/index.ts';

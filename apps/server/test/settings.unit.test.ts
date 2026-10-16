@@ -1,4 +1,4 @@
-// Instance settings (D-187) without a database: precedence (environment > stored > default), the
+// Instance settings (D-194) without a database: precedence (environment > stored > default), the
 // lenient parsing of the old variables, validation and locks of an update, the masked API key,
 // and the two test probes against recorded answers.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';

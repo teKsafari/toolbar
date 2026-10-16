@@ -1,8 +1,8 @@
 // Instance admin (D-112): the person who may change instance-wide settings such as branding and
-// Settings > Server (D-187). With ADMIN_EMAILS set: a user whose email is listed and verified.
+// Settings > Server (D-194). With ADMIN_EMAILS set: a user whose email is listed and verified.
 // Without it: the first account on the server (the rule J-177's support link uses too).
 //
-// Bootstrap rule (D-187): on a public URL with no allowed email domains, anyone the provider signs
+// Bootstrap rule (D-194): on a public URL with no allowed email domains, anyone the provider signs
 // in could otherwise be the first account. There, until an instance admin exists, only a verified
 // address of ADMIN_EMAILS may sign in; with ADMIN_EMAILS empty nobody can, and the login page
 // says why. Once an admin exists, the admin's choice of allowed domains applies.

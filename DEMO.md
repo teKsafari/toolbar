@@ -86,6 +86,9 @@ All captures of the workspace, with filters by type, source and creator, folders
 A running instance and the extension are ready on this repose machine (project `toolbar`).
 
 1. **The server.** While you are attached (`repose attach toolbar`), every port here appears on your laptop: open http://localhost:3000. Sign in with "Sign in with Dev SSO". The mock provider asks for a user name and claims; to see the Nuru captures, use the user name `sub-amani@nuru.test` and the claims `{"email": "amani@nuru.test", "email_verified": true, "name": "Amani Reviewer"}`. Any `*.test` address gets in. The seeded account `dana@toolbar.test` with password `toolbar-dev-password` works too. Dev SSO needs port 3311 as well, so use attach. `repose open 3000` forwards only one port, which is enough for the password sign-in.
+
+   The stack runs with the development and whisper files (`docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.whisper.yml`, `docs/dev.md`). `dana@toolbar.test`, the first account, is the instance admin: Settings > Server shows where allowed domains, transcription and the rest are set. Allowed domains are pinned to `test` here. Transcription starts off, so for transcripts of new voice notes sign in as Dana once and pick "Local whisper.cpp" under Settings > Server, Transcription.
+
 2. **The extension.** Copy the release zip to your laptop and load it unpacked:
 
    ```sh

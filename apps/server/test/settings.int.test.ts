@@ -1,4 +1,4 @@
-// Instance settings (D-187) against a throwaway Postgres database: the admin-only routes, the
+// Instance settings (D-194) against a throwaway Postgres database: the admin-only routes, the
 // sealed API key in `instance_setting`, a change taking effect without a restart (and on another
 // replica after the cache expires), the environment lock, workspace project defaults, and the
 // bootstrap rule. Route handlers are called directly with the locals the hooks would set. Skips

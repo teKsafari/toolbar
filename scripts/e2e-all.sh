@@ -11,7 +11,7 @@
 # (default :120); never :99. The stack runs with AUTH_RATE_LIMIT=off, because the suites sign in
 # many test accounts from one address. Logs land in e2e/runs/.
 #
-# Sign-in goes through the mock OIDC provider of docker-compose.dev.yml (D-114, D-187), with an
+# Sign-in goes through the mock OIDC provider of docker-compose.dev.yml (D-114, D-194), with an
 # allowlist that admits the *.test addresses the suites use. AUTH_DEV_PASSWORD=1 stays on for the
 # seeded accounts (dana@ and sam@toolbar.test), which have only a password. Paused features stay
 # off, so their tests skip with "paused (docs/scope.md)". Transcription runs on the local whisper.cpp

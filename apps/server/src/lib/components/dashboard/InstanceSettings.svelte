@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings > Server, instance settings (D-187): one section per INSTANCE_SECTIONS entry, fields
+  // Settings > Server, instance settings (D-194): one section per INSTANCE_SECTIONS entry, fields
   // from INSTANCE_FIELDS. A field an environment variable sets is read-only with a badge. Each
   // section saves its changed fields with one button; an emptied field resets to its default.
   // Values are checked here with the same schemas the server uses, so errors show before saving.

@@ -1,4 +1,4 @@
-// Transcription settings (docs/configuration.md "Transcription", D-087, D-187). Settings > Server
+// Transcription settings (docs/configuration.md "Transcription", D-087, D-194). Settings > Server
 // holds them; each variable below, when set, wins and locks its field. Read on every call, so a
 // test, a saved setting or a restart with new values needs no module reload.
 //
@@ -46,7 +46,7 @@ const read = (name: string, fallback = ''): string => {
 
 /**
  * The effective transcription settings: each field from its environment variable when set, else
- * from Settings > Server, else the default (D-187). The provider is `none` until an admin picks
+ * from Settings > Server, else the default (D-194). The provider is `none` until an admin picks
  * one; docker-compose.whisper.yml runs the local whisper.cpp and points WHISPER_URL at it.
  */
 export function transcribeConfig(): TranscribeConfig {

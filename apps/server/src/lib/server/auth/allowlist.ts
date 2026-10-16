@@ -1,7 +1,7 @@
 // The sign-in allowlist (docs/scope.md, "Sign-in", D-094, D-114): only addresses of the allowed
 // email domains get an account, a session or a working token. Kept free of Better Auth imports,
 // so token resolution can use it without loading the auth instance. The list is an instance
-// setting (D-187): ALLOWED_EMAIL_DOMAINS when set, else Settings > Server.
+// setting (D-194): ALLOWED_EMAIL_DOMAINS when set, else Settings > Server.
 import { allowedDomains } from '../settings/index.ts';
 
 export const DOMAIN_REFUSED = 'This server only lets in addresses of its allowed email domains.';

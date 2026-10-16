@@ -1,7 +1,7 @@
 # Development and e2e only (docs/dev.md): never part of a deployment. Adds the mock OpenID Connect
 # provider, which signs in anyone with any claims, and passes the switches tests set from the
 # shell: password sign-in, rate limits off, paused feature flags, and the instance settings the
-# suites pin (each one set here locks its field in Settings > Server, D-187).
+# suites pin (each one set here locks its field in Settings > Server, D-194).
 #   OIDC_ISSUER=http://oidc.localhost:3311/toolbar OIDC_CLIENT_ID=toolbar OIDC_CLIENT_SECRET=dev \
 #   OIDC_PROVIDER_NAME="Dev SSO" docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 services:

@@ -9,7 +9,7 @@ export const load = async ({ parent }) => {
   return {
     projects: (await listProjects(db, activeWorkspaceId)).map(projectDto),
     workspaceId: activeWorkspaceId,
-    /** what a new project starts with (D-187) */
+    /** what a new project starts with (D-194) */
     defaults: await projectDefaults(db, activeWorkspaceId),
     admin: activeWorkspace?.role === 'admin',
   };

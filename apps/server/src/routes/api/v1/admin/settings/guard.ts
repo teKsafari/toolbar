@@ -1,4 +1,4 @@
-// Instance admins only (D-112, D-187): everyone else gets 401 or 403.
+// Instance admins only (D-112, D-194): everyone else gets 401 or 403.
 import type { RequestEvent } from '@sveltejs/kit';
 import { db } from '#lib/server/db/index.ts';
 import { isInstanceAdmin } from '#lib/server/auth/instance.ts';

@@ -116,7 +116,7 @@ const authenticate: Handle = async ({ event, resolve }) => {
   const res = await svelteKitHandler({ event, resolve, auth, building });
   // A provider callback refused by the allowlist (D-114: unverified address, foreign `hd`) ends in
   // a bare 403 from Better Auth; send the person back to the sign-in page, which names the reason.
-  // While the bootstrap gate is closed (D-187) the refusal is that one: no admin yet.
+  // While the bootstrap gate is closed (D-194) the refusal is that one: no admin yet.
   if (res.status === 403 && event.url.pathname.startsWith('/api/auth/callback/')) {
     const code = (await bootstrapGateClosed(db).catch(() => false)) ? 'no_admin' : 'FORBIDDEN';
     return new Response(null, { status: 303, headers: { location: `${env.publicUrl}/login?error=${code}` } });
@@ -130,7 +130,7 @@ const authenticate: Handle = async ({ event, resolve }) => {
  */
 const brand: Handle = async ({ event, resolve }) => {
   if (event.url.pathname === '/api/health') return resolve(event);
-  // instance settings (D-187): re-read at most every 15 s, so a change on another replica arrives
+  // instance settings (D-194): re-read at most every 15 s, so a change on another replica arrives
   await refreshSettings(db);
   const b = await getBrand(db);
   event.locals.brand = b;

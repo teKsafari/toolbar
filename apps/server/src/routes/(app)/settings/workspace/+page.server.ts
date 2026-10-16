@@ -11,7 +11,7 @@ export const load = async ({ parent, locals }) => {
   return {
     ws: await workspaceDetail(db, activeWorkspaceId, locals.user.id),
     sso: env.auth.oidc ? [setting('oidcProviderName') ?? env.auth.oidc.name] : [],
-    /** the instance defaults a workspace's project defaults fall back to (D-187) */
+    /** the instance defaults a workspace's project defaults fall back to (D-194) */
     instanceDefaults: await projectDefaults(db, null),
   };
 };

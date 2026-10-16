@@ -72,7 +72,7 @@ export async function traceConfigOf(db: Db, rec: { projectId: string | null }): 
 }
 
 /**
- * Masking preset and trace step window of a new project (D-187): the workspace's defaults
+ * Masking preset and trace step window of a new project (D-194): the workspace's defaults
  * (Settings, General), else the instance's (Settings > Server, Capture defaults).
  */
 export async function projectDefaults(db: Db, workspaceId: string | null): Promise<{ maskingPreset: Row['maskingPreset']; traceOpenMs: number }> {

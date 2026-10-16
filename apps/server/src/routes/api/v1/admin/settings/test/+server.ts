@@ -1,4 +1,4 @@
-// POST /api/v1/admin/settings/test (instance admins, D-187): try the transcription provider or
+// POST /api/v1/admin/settings/test (instance admins, D-194): try the transcription provider or
 // the OIDC discovery document with the form's values; nothing is stored.
 import { ROUTES } from '@toolbar/shared/api';
 import { apiRoute } from '#lib/server/share/http.ts';

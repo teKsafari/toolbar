@@ -1,4 +1,4 @@
-// Instance settings (D-187): Settings > Server stores them in `instance_setting` row `instance`;
+// Instance settings (D-194): Settings > Server stores them in `instance_setting` row `instance`;
 // an environment variable that is set wins and locks the field (as branding, D-112). Readers call
 // the synchronous `setting(key)`, which works from a cache that `refreshSettings(db)` fills: the
 // request hook and the job worker refresh it at most every 15 s, and a save replaces it at once,
@@ -43,7 +43,7 @@ const warnOnce = (m: string) => {
 
 const raw = (name: string, src: NodeJS.ProcessEnv): string => (src[name] ?? '').trim();
 
-/** Numeric env values outside the range are clamped (the behaviour before D-187). */
+/** Numeric env values outside the range are clamped (the behaviour before D-194). */
 const RANGE: Partial<Record<InstanceKey, [number, number, boolean]>> = {
   transcribeChunkSeconds: [5, 600, false],
   transcribeConcurrency: [1, 16, true],
@@ -133,7 +133,7 @@ export function defaultOf<K extends InstanceKey>(key: K): Values[K] {
     allowedEmailDomains: () => [],
     oidcProviderName: () => (googleIssuer() ? 'Google' : 'SSO'),
     oidcScopes: () => ['openid', 'email', 'profile'],
-    // off until an admin picks a provider (D-187); whisper is an extra compose file
+    // off until an admin picks a provider (D-194); whisper is an extra compose file
     transcribeProvider: () => 'none',
     transcribeModel: () => DEFAULT_HOSTED_MODEL,
     transcribeApiKey: () => null,

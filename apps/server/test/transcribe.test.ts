@@ -88,7 +88,7 @@ describe('transcription settings', () => {
     for (const k of Object.keys(process.env)) if (/^(TRANSCRIBE_|STT_|OPENAI_API_KEY|WHISPER_)/.test(k)) delete process.env[k];
   };
 
-  it('defaults to off (D-187), 30 s chunks, 60 min per recording, no monthly cap', () => {
+  it('defaults to off (D-194), 30 s chunks, 60 min per recording, no monthly cap', () => {
     clear();
     const c = transcribeConfig();
     expect(c).toMatchObject({ provider: 'none', baseUrl: 'https://api.openai.com/v1', model: 'gpt-transcribe', chunkSeconds: 30, maxMinutes: 60, monthlyMinutes: null, concurrency: 4, timestamps: 'auto', languages: [] });

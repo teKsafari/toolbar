@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings > Server (D-112, D-187): the instance name, logo (light and dark) and accent colour that
+  // Settings > Server (D-112, D-194): the instance name, logo (light and dark) and accent colour that
   // the sign-in page, share pages, mail and the extension show, then the instance settings
   // (sign-in, transcription, capture defaults, sharing and export, limits). A value the server
   // environment sets is shown read-only. Branding saves at once; the preview follows before saving.

@@ -1,4 +1,4 @@
-// Settings > Server (D-112, D-187): instance branding and the instance settings, for instance
+// Settings > Server (D-112, D-194): instance branding and the instance settings, for instance
 // admins only; everyone else gets 404.
 import { error } from '@sveltejs/kit';
 import { db } from '#lib/server/db/index.ts';

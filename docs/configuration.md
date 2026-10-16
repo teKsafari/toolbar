@@ -40,7 +40,7 @@ Postgres and Garage keep working with their built-in credentials, because the co
 
 ## Where each setting lives
 
-Each setting is in one of five places (D-187). **Required** values boot the server and stay in the environment. **Wiring** is what the compose files and Coolify fill in for the containers they run; you set it only outside them. **Settings > Server** fields belong to the instance admin, who changes them at runtime; the variable, when set, locks the field. **Workspace** settings belong to a workspace admin and have no variable. **Optional environment** covers deployment details that take effect at start, belong to another container, or depend on the image. **Dev and tests**, **Paused**, **Build** and **Older names** stay out of every compose file you deploy.
+Each setting is in one of five places (D-194). **Required** values boot the server and stay in the environment. **Wiring** is what the compose files and Coolify fill in for the containers they run; you set it only outside them. **Settings > Server** fields belong to the instance admin, who changes them at runtime; the variable, when set, locks the field. **Workspace** settings belong to a workspace admin and have no variable. **Optional environment** covers deployment details that take effect at start, belong to another container, or depend on the image. **Dev and tests**, **Paused**, **Build** and **Older names** stay out of every compose file you deploy.
 
 | Setting | Where | Why there |
 |---|---|---|
@@ -148,7 +148,7 @@ The redirect URI to register with the provider is `<PUBLIC_URL>/api/auth/callbac
 
 ### Who gets in
 
-**Bootstrap rule (D-187).** On a public `PUBLIC_URL` (anything but localhost) with no allowed email domains, the first account would otherwise belong to whoever your provider signs in first, and a Google provider signs in any Gmail address. So until an instance admin exists, the server lets in only a verified address listed in `ADMIN_EMAILS`. Everyone else returns to the login page with "This server has no admin yet. Until one signs in, only the addresses in ADMIN_EMAILS can sign in." With `ADMIN_EMAILS` empty there, nobody can sign in, and the server log says so at start. Once an admin has signed in, the allowed domains the admin sets in Settings > Server decide; leaving them empty admits anyone the provider signs in, and the admin page warns about that. On localhost, and on a server with allowed domains, the rule does not apply, and without `ADMIN_EMAILS` the first account is the instance admin.
+**Bootstrap rule (D-194).** On a public `PUBLIC_URL` (anything but localhost) with no allowed email domains, the first account would otherwise belong to whoever your provider signs in first, and a Google provider signs in any Gmail address. So until an instance admin exists, the server lets in only a verified address listed in `ADMIN_EMAILS`. Everyone else returns to the login page with "This server has no admin yet. Until one signs in, only the addresses in ADMIN_EMAILS can sign in." With `ADMIN_EMAILS` empty there, nobody can sign in, and the server log says so at start. Once an admin has signed in, the allowed domains the admin sets in Settings > Server decide; leaving them empty admits anyone the provider signs in, and the admin page warns about that. On localhost, and on a server with allowed domains, the rule does not apply, and without `ADMIN_EMAILS` the first account is the instance admin.
 
 With allowed email domains set, the server checks the provider's claims at every sign-in:
 
@@ -233,7 +233,7 @@ Media (recordings, screenshots, voice notes, attachments) goes to an S3-compatib
 
 Voice audio becomes a WebVTT transcript on the server: the microphone track of a recording or a trace, and each voice note attached to a comment (D-087). Viewers see it as captions and under the comment, and agents read it over MCP and the HTTP API.
 
-Transcription is off until an instance admin picks a provider under Settings > Server, Transcription (D-187):
+Transcription is off until an instance admin picks a provider under Settings > Server, Transcription (D-194):
 
 - **Local whisper.cpp**: the `whisper` service of `docker-compose.whisper.yml` (on Coolify, `COMPOSE_PROFILES=whisper`). No key, no cost, and no audio leaves your server. Good for English; Swahili comes out unusable.
 - **OpenAI-compatible endpoint**: by default OpenAI's `gpt-transcribe`. Needs a key. Much better on Swahili and mixed Swahili and English, and faster than whisper.cpp on a CPU. It costs money and sends the voice audio to the provider.

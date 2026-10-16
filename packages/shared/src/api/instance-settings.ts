@@ -1,4 +1,4 @@
-// Instance settings (D-187): what an instance admin changes in Settings > Server at runtime,
+// Instance settings (D-194): what an instance admin changes in Settings > Server at runtime,
 // stored in `instance_setting` row `instance`. Precedence per field, as branding (D-112): an
 // environment variable that is set wins and locks the field, else the stored value, else the
 // default. The specs below drive the server's resolver, the admin API and the settings page.
@@ -229,7 +229,7 @@ export const adminInstanceSettingsSchema = z.object({
   /** fields with a value stored by an admin */
   stored: z.record(z.string(), z.boolean()),
   defaults: z.record(z.string(), z.unknown()),
-  /** the provider, set by environment only (D-187): shown read-only with its redirect URI */
+  /** the provider, set by environment only (D-194): shown read-only with its redirect URI */
   oidc: z.object({
     configured: z.boolean(),
     issuer: z.string().nullable(),
@@ -237,7 +237,7 @@ export const adminInstanceSettingsSchema = z.object({
     providerId: z.string(),
     redirectUri: z.string(),
   }),
-  /** D-187 bootstrap rule: on a public URL with no allowed domains only ADMIN_EMAILS get in until an admin exists */
+  /** D-194 bootstrap rule: on a public URL with no allowed domains only ADMIN_EMAILS get in until an admin exists */
   bootstrap: z.object({ publicUrl: z.boolean(), adminEmails: z.boolean(), openSignIn: z.boolean() }),
 });
 export type AdminInstanceSettings = z.infer<typeof adminInstanceSettingsSchema>;
@@ -261,7 +261,7 @@ export const getInstanceSettings = defineRoute({
   response: adminInstanceSettingsSchema,
   errors: ['forbidden'],
   area: 'server-core',
-  tasks: ['D-187'],
+  tasks: ['D-194'],
   summary: 'Instance admins: effective server settings, which ones the environment locks, and the defaults.',
 });
 
@@ -274,7 +274,7 @@ export const updateInstanceSettings = defineRoute({
   response: adminInstanceSettingsSchema,
   errors: ['forbidden', 'locked_by_env', 'invalid_body'],
   area: 'server-core',
-  tasks: ['D-187'],
+  tasks: ['D-194'],
   summary: 'Instance admins: change server settings; null resets a field. Takes effect without a restart.',
 });
 
@@ -287,7 +287,7 @@ export const testInstanceSetting = defineRoute({
   response: testInstanceSettingResponseSchema,
   errors: ['forbidden'],
   area: 'server-core',
-  tasks: ['D-187'],
+  tasks: ['D-194'],
   summary: 'Instance admins: try the transcription provider or the OIDC discovery document.',
 });
 
