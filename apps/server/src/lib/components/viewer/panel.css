@@ -38,4 +38,6 @@
 .vp-gutter { all: unset; display: grid; place-items: center; width: 18px; height: 22px; color: var(--nb-text-muted); cursor: pointer; opacity: 0; }
 .vp-row:hover .vp-gutter, .vp-gutter:focus-visible { opacity: 1; }
 .vp-gutter:hover { color: var(--nb-accent-text); }
+/* the 2 px ring the other dev-tools controls show (D-178), inside the 18 px gutter (D-179) */
+.vp-gutter:focus-visible { color: var(--nb-text); outline: 2px solid var(--nb-focus); outline-offset: -2px; border-radius: var(--nb-radius-sm); }
 .vp-time { padding-top: 3px; color: var(--nb-text-faint); white-space: nowrap; cursor: default; }

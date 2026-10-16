@@ -145,7 +145,7 @@
   .name input { color: var(--nb-text); font-weight: var(--nb-weight-normal); }
   .link { all: unset; color: var(--nb-accent-text); cursor: pointer; font-size: var(--nb-text-md); }
   select, .dom {
-    height: var(--nb-control-md); border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md); background: var(--nb-surface);
+    height: var(--nb-control-lg); border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md); background: var(--nb-surface);
     color: var(--nb-text); padding: 0 8px; font: inherit; font-size: var(--nb-text-md); max-width: 240px;
   }
   .pill { font-size: var(--nb-text-xs); font-weight: var(--nb-weight-medium); padding: 2px 8px; border-radius: var(--nb-radius-pill); background: var(--nb-surface-sunken); color: var(--nb-text-muted); }

@@ -1,0 +1,18 @@
+light active folder count rgb(107, 114, 128) on rgb(243, 244, 246): 4.39:1
+light html color-scheme: normal
+light seek focus: active=true fv=true outline=none 3px rgb(75, 85, 99) offset=0px
+light /settings/workspace fields: input[text](ws-name)=36 select(ws-default-access)=32 input[text](ws-domain)=32
+light /settings/members fields: input[text](invite-link-url)=34
+light /settings/server fields: input[text](brand-name)=36 input[color](brand-accent-picker)=36 input[text](brand-accent)=36
+light /settings/privacy fields: input[text](blocked-input)=34
+light /settings/profile fields: input[text](first-name)=36 input[text](last-name)=36 select(role-hint)=36 input[email]=36
+light /settings/tokens fields: (none)
+dark active folder count rgb(138, 138, 143) on rgb(27, 27, 27): 5.01:1
+dark html color-scheme: normal
+dark seek focus: active=true fv=true outline=none 3px rgb(163, 163, 163) offset=0px
+dark /settings/workspace fields: input[text](ws-name)=36 select(ws-default-access)=32 input[text](ws-domain)=32
+dark /settings/members fields: input[text](invite-link-url)=34
+dark /settings/server fields: input[text](brand-name)=36 input[color](brand-accent-picker)=36 input[text](brand-accent)=36
+dark /settings/privacy fields: input[text](blocked-input)=34
+dark /settings/profile fields: input[text](first-name)=36 input[text](last-name)=36 select(role-hint)=36 input[email]=36
+dark /settings/tokens fields: (none)

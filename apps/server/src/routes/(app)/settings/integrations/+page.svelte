@@ -145,7 +145,7 @@
 
 <style>
   .lead { margin: -8px 0 16px; }
-  .q { max-width: 320px; height: 34px; margin-bottom: 16px; }
+  .q { max-width: 320px; margin-bottom: 16px; }
   .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   @media (max-width: 640px) { .grid { grid-template-columns: minmax(0, 1fr); } }
   .tile { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); background: var(--nb-surface); }
@@ -161,7 +161,6 @@
   .open { display: inline-flex; align-items: center; gap: 4px; font-size: var(--nb-text-md); text-decoration: none; }
   .cf { display: flex; flex-direction: column; gap: 10px; }
   .cf label { display: flex; flex-direction: column; gap: 4px; font-size: var(--nb-text-md); }
-  .cf input { height: 34px; }
   .small { font-size: var(--nb-text-sm); margin: 0; }
   .err { color: var(--nb-danger); margin: 0; }
   /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */

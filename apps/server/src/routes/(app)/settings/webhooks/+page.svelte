@@ -193,7 +193,6 @@
   .res.pending { color: var(--nb-warning); }
   .f { display: flex; flex-direction: column; gap: 12px; }
   .f label { display: flex; flex-direction: column; gap: 6px; font-size: var(--nb-text-md); font-weight: var(--nb-weight-medium); }
-  .f input[type='url'] { height: 34px; }
   fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
   legend { font-size: var(--nb-text-md); margin-bottom: 4px; }
   .cb { flex-direction: row !important; align-items: center; gap: 8px !important; }

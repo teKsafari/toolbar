@@ -224,11 +224,13 @@ The site gives no dark rules, so these follow from its light structure and the i
 | Edge | `#e5e7eb` | `#262626` |
 | Control border | `#d1d5db` | `#3e3e3e` |
 | Heading text | `#111827` | `#e6e6e6` |
-| Body text | `#374151` | `#a3a3a3` (7.8:1) |
+| Body text | `#374151` (10.3:1 on surface) | `#c2c2c2` (10.4:1 on surface; was `#a3a3a3` here, see below) |
 | Muted text | `#6b7280` | `#8a8a8f` (5.7:1); `#6e6e6e` only for decoration |
 | Primary (default accent) | `#000000` on `#ffffff` text | `#fafafa` with `#0b0b0b` text (inverts, as Linear and Vercel do) |
 | Primary hover / active | `#1a1a1a` / `#333333` | `#e6e6e6` / `#d4d4d4` |
 | Focus ring | black at 25 % | white at 40 % |
+
+As built (D-175, D-179): `packages/ui` has four text steps, one more than this table. Light: text `#111827`, body `#374151`, muted `#4b5563`, faint `#6b7280`. Dark: text `#e6e6e6`, body `#c2c2c2`, muted `#a3a3a3`, faint `#8a8a8f`. D-175 moved muted one step darker in light so it passes AA on sunken fills, which pushed the dark steps down by one as well: `#a3a3a3` became muted, and body took `#c2c2c2`, which keeps it a step above muted and at the light body's contrast.
 
 Rules: surfaces get lighter as they rise (canvas, surface, raised), never darker; borders do the separation that shadows cannot in dark; keep shadows only on floating layers; the neutral blacks are hue-free while the light greys are cool, which matches the site's iso kit and keeps an admin accent from clashing.
 

@@ -97,8 +97,8 @@
   {#if data.link?.url}
     <div class="linkrow">
       <input type="text" readonly value={data.link.url} aria-label="Invite link" data-testid="invite-link-url" />
-      <Button icon="copy" onclick={copyLink} data-testid="invite-link-copy">Copy</Button>
-      {#if admin}<Button variant="ghost" icon="replay" onclick={resetLink} data-testid="invite-link-reset">Reset</Button>{/if}
+      <Button size="lg" icon="copy" onclick={copyLink} data-testid="invite-link-copy">Copy</Button>
+      {#if admin}<Button size="lg" variant="ghost" icon="replay" onclick={resetLink} data-testid="invite-link-reset">Reset</Button>{/if}
     </div>
   {/if}
   <Field label="Only admins can invite" hint="Creators no longer see the invite button or link.">
@@ -218,8 +218,8 @@
   .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
   .head h1 { margin: 0; }
   .linkrow { display: flex; gap: 8px; }
-  .linkrow input { flex: 1; min-width: 0; height: 34px; font-family: var(--nb-font-mono); font-size: var(--nb-text-sm); }
-  .filter { height: 32px; max-width: 280px; }
+  .linkrow input { flex: 1; min-width: 0; font-family: var(--nb-font-mono); font-size: var(--nb-text-sm); }
+  .filter { max-width: 280px; }
   /* The table fits its column, so the role and row menus open outside it instead of being cut
      off by a scroll box (J-222); on a phone the last-active column goes (J-124, J-173). */
   .tablewrap { overflow: visible; }

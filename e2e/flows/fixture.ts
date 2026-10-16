@@ -180,22 +180,30 @@ export async function pickEntireScreenInPage(win = { x: 0, y: 0, w: 1440 }, time
     await new Promise((r) => setTimeout(r, 150));
   }
   await new Promise((r) => setTimeout(r, 500));
-  clickAt(left + 491, top + 96); // Entire Screen
-  await new Promise((r) => setTimeout(r, 1000)); // the thumbnail paints
-  // Share stays disabled until the screen thumbnail is selected, and under load the thumbnail can
-  // paint after the first click on it: then the picker is still up, so pick and share again (a
-  // full flows run failed once that way and passed alone). The user's clicks stay 3.
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt) console.log(`picker: still open after Share, picking the screen again (try ${attempt + 1})`);
-    clickAt(left + 170, top + 225); // the screen
-    await new Promise((r) => setTimeout(r, 300));
-    clickAt(left + 610 - 57, top + 574); // Share
-    for (let i = 0; i < 50; i++) {
-      if (!dimmed(pixel(left - 30, top + 300))) return 3;
-      await new Promise((r) => setTimeout(r, 100));
+  const until = async (ok: () => boolean, ms: number) => {
+    for (const t0 = Date.now(); Date.now() - t0 < ms; await new Promise((r) => setTimeout(r, 100))) if (ok()) return true;
+    return false;
+  };
+  // Share is light grey (#e5e5e5) until the screen thumbnail is selected, then blue (#0b57d0).
+  // Under load the tab strip, the thumbnail and the button can each take a click late, so every
+  // step waits for its outcome on screen instead of a fixed pause, and repeats what did not take
+  // (D-178 repeated only the thumbnail and Share, and a full flows run on a busy machine still
+  // failed that way, D-179). The user's clicks stay 3.
+  const share = { x: left + 610 - 57, y: top + 574 };
+  const shareOn = () => { const [r, g, b] = pixel(share.x, share.y); return b > 150 && r < 90 && g < 140; };
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (attempt) console.log(`picker: still open after Share (Share ${shareOn() ? 'enabled' : 'disabled'}), try ${attempt + 1}`);
+    if (!shareOn()) {
+      clickAt(left + 491, top + 96); // Entire Screen (a request for a screen opens on it already)
+      await new Promise((r) => setTimeout(r, attempt ? 1500 : 1000)); // the thumbnail paints
+      clickAt(left + 170, top + 225); // the screen
+      if (!(await until(shareOn, 4000))) continue;
     }
+    clickAt(share.x, share.y);
+    if (await until(() => !up(), 6000)) return 3;
   }
-  throw new Error('the share picker stayed open after Share');
+  xshot('picker-stuck');
+  throw new Error(`the share picker stayed open after Share (Share ${shareOn() ? 'enabled' : 'disabled'}; screen in flows-shots/picker-stuck.png)`);
 }
 
 /**

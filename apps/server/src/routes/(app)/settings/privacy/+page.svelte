@@ -68,7 +68,7 @@
 <Section title="Instant replay never records on" description="Instant replay keeps the last minutes of a tab on your computer. It stays off on these sites." testid="blocked-section">
   <form class="add" onsubmit={add}>
     <input type="text" bind:value={site} placeholder="bank.example.com" aria-label="Site to block" data-testid="blocked-input" />
-    <Button type="submit" icon="plus" disabled={!site.trim()} data-testid="blocked-add">Add</Button>
+    <Button size="lg" type="submit" icon="plus" disabled={!site.trim()} data-testid="blocked-add">Add</Button>
   </form>
   {#if blocked.length}
     <ul class="chips" data-testid="blocked-list">
@@ -104,12 +104,11 @@
   .ticks :global(svg) { color: var(--nb-success); margin-top: 3px; }
   .small { font-size: var(--nb-text-sm); margin: 0; }
   .add { display: flex; gap: 8px; max-width: 420px; }
-  .add input { height: 34px; }
   .chips { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
   .chips li { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 4px 0 10px; border-radius: var(--nb-radius-pill); border: 1px solid var(--nb-border); background: var(--nb-surface); font: var(--nb-text-sm) var(--nb-font-mono); }
   .chips button { all: unset; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; }
   .chips button:hover { background: var(--nb-surface-sunken); }
-  select { height: 34px; border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md); background: var(--nb-surface); color: var(--nb-text); padding: 0 8px; font: inherit; font-size: var(--nb-text-md); }
+  select { height: var(--nb-control-lg); border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md); background: var(--nb-surface); color: var(--nb-text); padding: 0 8px; font: inherit; font-size: var(--nb-text-md); }
   /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
   .chips button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
 </style>

@@ -193,7 +193,6 @@
   @media (max-width: 560px) { .presets { grid-template-columns: 1fr; } .presets dd { margin-bottom: 6px; } }
   .f { display: flex; flex-direction: column; gap: 12px; }
   .f > label { display: flex; flex-direction: column; gap: 6px; font-size: var(--nb-text-md); font-weight: var(--nb-weight-medium); }
-  .f input[type='text'] { height: 34px; }
   textarea { font: var(--nb-text-md) / 1.4 var(--nb-font-mono, monospace); resize: vertical; }
   .hint { font-size: var(--nb-text-sm); color: var(--nb-text-muted); }
   .err { font-size: var(--nb-text-sm); color: var(--nb-danger); }

@@ -99,6 +99,22 @@ describe('tokens', () => {
     expect([themes.dark.bg, themes.dark.surface, themes.dark.accent, themes.dark['on-accent']]).toEqual(['#0b0b0b', '#131313', '#fafafa', '#0b0b0b']);
   });
 
+  it('keeps dark body text a step above muted, near the light theme\'s contrast (D-179)', () => {
+    const d = themes.dark;
+    expect([d.text, d['text-body'], d['text-muted'], d['text-faint']]).toEqual(['#e6e6e6', '#c2c2c2', '#a3a3a3', '#8a8a8f']);
+    expect(contrast(d['text-body']!, d.surface!)).toBeGreaterThan(contrast(d['text-muted']!, d.surface!));
+    expect(Math.abs(contrast(d['text-body']!, d.surface!) - contrast(themes.light['text-body']!, themes.light.surface!))).toBeLessThan(0.5);
+  });
+
+  it('sets color-scheme on pages for each theme, not on shadow hosts (D-179)', () => {
+    const css = tokensCss();
+    expect(css).toMatch(/:root, \[data-theme="light"\] \{\n  color-scheme: light;/);
+    expect(css).toMatch(/@media \(prefers-color-scheme: dark\) \{\n  :root:not\(\[data-theme="light"\]\) \{\n    color-scheme: dark;/);
+    expect(css).toMatch(/\[data-theme="dark"\] \{\n  color-scheme: dark;/);
+    expect(css).not.toMatch(/:host[^{]*\{[^}]*color-scheme/);
+    expect(shadowTokensCss()).not.toMatch(/[^-]color-scheme: (light|dark)/);
+  });
+
   it('declares the bundled faces first in each stack', () => {
     const css = tokensCss();
     expect(css).toMatch(/--nb-font-sans: 'tb-inter'/);

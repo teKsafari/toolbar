@@ -250,9 +250,21 @@ export function tokensCss(): string {
     `@media (prefers-color-scheme: dark) {\n${block(':root:not([data-theme="light"]), :host(:not([data-theme="light"]))', themes.dark).replace(/^/gm, '  ')}\n}`,
     block('[data-theme="dark"], :host([data-theme="dark"])', themes.dark),
     block('[data-theme="light"], :host([data-theme="light"])', themes.light),
+    COLOR_SCHEME,
     '',
   ].join('\n\n');
 }
+
+/**
+ * `color-scheme` for pages, so Chromium draws scrollbars, select popups, autofill and other
+ * native parts in the page's theme (D-179); before, dark pages got light scrollbars. Pages only:
+ * on a shadow host in someone else's page it would change how iframes under it blend.
+ */
+const COLOR_SCHEME = [
+  ':root, [data-theme="light"] {\n  color-scheme: light;\n}',
+  '@media (prefers-color-scheme: dark) {\n  :root:not([data-theme="light"]) {\n    color-scheme: dark;\n  }\n}',
+  '[data-theme="dark"] {\n  color-scheme: dark;\n}',
+].join('\n\n');
 
 /**
  * The same tokens for the extension's in-page shadow roots (`tokens.shadow.css`): `:host` only,

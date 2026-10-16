@@ -160,6 +160,8 @@
   .dragging a.over { border: 1px solid var(--nb-accent); background: var(--nb-accent-tint); }
   .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .count { font: var(--nb-text-xs) var(--nb-font-mono); font-variant-numeric: tabular-nums; color: var(--nb-text-faint); }
+  /* on the sunken wash of the hovered and current row, faint is 4.4:1; muted keeps 6.9:1 (D-175, D-179) */
+  a:hover .count, a.active .count { color: var(--nb-text-muted); }
   .none { padding: 4px 10px; font-size: var(--nb-text-sm); color: var(--nb-text-faint); }
   .add { display: flex; align-items: center; gap: 8px; padding: 2px 8px; color: var(--nb-text-muted); }
   .add input { height: 28px; padding: 0 8px; font-size: var(--nb-text-md); }
