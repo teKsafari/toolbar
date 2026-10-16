@@ -96,7 +96,7 @@ Then do the onboarding below for the lab and open its review link.
 For each app you want reviewed, in the open-toolbar dashboard (`https://toolbar.teksafari.com`):
 
 1. **Settings**, **Projects**. Add a project, or edit one, and put the app's origin in **Origins**, for example `https://lab-toolbar.teksafari.com`. With the extension's automatic projects (D-200) the origin may already be in a project; then there is nothing to add.
-2. Under each origin of the project: **Copy review link** copies `https://toolbar.teksafari.com/go/<project id>` (with `?site=` when the project has several origins). **Open with toolbar** opens the app with the toolbar for you, right away.
+2. On the project's page (its name in the sidebar) or in Settings, Projects, under each origin: **Copy review link** copies `https://toolbar.teksafari.com/go/<project id>` (with `?site=` when the project has several origins). **Open with toolbar** opens the app with the toolbar for you, right away.
 3. Send the link to the reviewer. They click it, sign in with Google if they are not signed in yet, press **Open <host> with the toolbar**, and land on the app with the toolbar at the bottom of the page.
 
 The reviewer needs an account on the server and membership of the workspace that holds the project (Settings, Members, invite link). The toolbar's menu shows who is signed in and has **Stop reviewing on this site**, which removes the cookie and revokes its device token. Reviewers also find their review sessions under Settings, Connected browsers, as "Review on <host>".
