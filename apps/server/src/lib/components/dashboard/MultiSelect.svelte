@@ -59,12 +59,13 @@
   .fb {
     all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px;
     border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md); background: var(--nb-surface); color: var(--nb-text);
-    font-size: var(--nb-text-md); cursor: pointer; white-space: nowrap;
+    font-size: var(--nb-text-md); letter-spacing: var(--nb-tracking-ui); cursor: pointer; white-space: nowrap; box-shadow: var(--nb-shadow-sm);
+    transition: border-color var(--nb-dur-fast) var(--nb-ease-out), background-color var(--nb-dur-fast) var(--nb-ease-out);
   }
-  .fb:hover { background: var(--nb-surface-sunken); }
+  .fb:hover { border-color: color-mix(in srgb, var(--nb-text-faint) 60%, var(--nb-border-strong)); }
   .fb:focus-visible { outline: 2px solid var(--nb-focus); }
   .fb.has { border-color: var(--nb-accent); }
-  .n { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--nb-accent); color: var(--nb-on-accent); font-size: var(--nb-text-xs); }
+  .n { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--nb-accent); color: var(--nb-on-accent); font: var(--nb-weight-medium) var(--nb-text-xs) var(--nb-font-mono); font-variant-numeric: tabular-nums; }
   .ms { display: flex; flex-direction: column; gap: 1px; width: 240px; max-height: 320px; overflow-y: auto; }
   .q { height: 30px; margin-bottom: 4px; font-size: var(--nb-text-md); }
   .opt { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--nb-radius-md); cursor: pointer; }

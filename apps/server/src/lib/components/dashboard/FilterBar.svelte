@@ -54,16 +54,18 @@
     background: var(--nb-accent-tint); color: var(--nb-accent-text); font-size: var(--nb-text-md); animation: chip-in var(--nb-dur-med) var(--nb-ease-out);
   }
   .chip button { all: unset; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; }
-  .chip button:hover { background: rgb(0 0 0 / 0.08); }
+  .chip button:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
   .chip button:focus-visible { outline: 2px solid var(--nb-focus); }
   @keyframes chip-in { from { opacity: 0; transform: translateX(-6px); } }
   .search {
     all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; min-width: 200px;
-    border: 1px solid var(--nb-border); border-radius: var(--nb-radius-md); color: var(--nb-text-faint); cursor: text; font-size: var(--nb-text-md);
+    border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md); background: var(--nb-surface); color: var(--nb-text-faint); cursor: text; font-size: var(--nb-text-md);
+    transition: border-color var(--nb-dur-fast) var(--nb-ease-out);
   }
+  .search:hover { border-color: color-mix(in srgb, var(--nb-text-faint) 60%, var(--nb-border-strong)); }
   .search span { flex: 1; }
   .search:focus-visible { outline: 2px solid var(--nb-focus); }
-  kbd { font: 11px var(--nb-font-mono); }
+  kbd { font: 11px var(--nb-font-mono); padding: 0 4px; border: 1px solid var(--nb-border); border-radius: 4px; background: var(--nb-surface-2); }
   @media (max-width: 860px) { .search { display: none; } }
   @media (prefers-reduced-motion: reduce) { .chip { animation: none; } }
 </style>

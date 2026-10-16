@@ -191,31 +191,32 @@
   .mk {
     position: absolute; bottom: 2px; translate: -50% 0; display: inline-flex; align-items: center; gap: 2px;
     height: 18px; min-width: 18px; padding: 0 4px; border-radius: 999px; border: 0; cursor: pointer;
-    font: 600 10px var(--nb-font-mono); color: #fff; background: #c22e1f;
+    font: 600 10px var(--nb-font-mono); color: #ffffff; background: #dc2626;
   }
-  .mk-net-fail { background: #e04a6e; }
-  .mk-pen, .mk-blur, .mk-mark { background: #f2b100; color: #1a1918; }
-  .mk-pause, .mk-resume, .mk-nav, .mk-voice { background: #6d7deb; min-width: 10px; height: 10px; padding: 0; }
-  .mk .dot { width: 4px; height: 4px; border-radius: 50%; background: #fff; }
-  .bubble { background: #2c2a27; color: #f7f6f2; bottom: 22px; border: 1px solid #45423c; }
+  .mk-net-fail { background: #e11d48; }
+  .mk-pen, .mk-blur, .mk-mark { background: #fbbf24; color: #0b0b0b; }
+  .mk-pause, .mk-resume, .mk-nav, .mk-voice { background: #60a5fa; min-width: 10px; height: 10px; padding: 0; }
+  .mk .dot { width: 4px; height: 4px; border-radius: 50%; background: #ffffff; }
+  .bubble { background: var(--nb-chrome); color: var(--nb-on-chrome); bottom: 22px; border: 1px solid var(--nb-chrome-border); }
   .mk:hover { filter: brightness(1.15); z-index: 2; }
   .tip {
     position: absolute; bottom: 24px; z-index: 3; display: flex; flex-direction: column; gap: 2px;
-    max-width: min(280px, 100%); box-sizing: border-box; padding: 6px 10px; border-radius: 8px; background: #1a1918; color: #f7f6f2; font-size: var(--nb-text-sm);
+    max-width: min(280px, 100%); box-sizing: border-box; padding: 6px 10px; border-radius: var(--nb-radius-md); border: 1px solid var(--nb-chrome-border); background: var(--nb-chrome); color: var(--nb-on-chrome); font-size: var(--nb-text-sm);
     box-shadow: var(--nb-shadow-lg); pointer-events: none; white-space: nowrap;
   }
   .markers.two .tip { bottom: 44px; }
-  .tip span { overflow: hidden; text-overflow: ellipsis; color: #d6d2c8; }
+  .tip span { overflow: hidden; text-overflow: ellipsis; color: var(--nb-on-chrome-muted); }
   .bar { position: relative; height: 14px; margin: 0 6px; cursor: pointer; touch-action: none; }
-  .bar::before { content: ''; position: absolute; inset: 5px 0; border-radius: 2px; background: rgb(255 255 255 / 0.28); }
-  .bar:focus-visible { outline: 2px solid var(--nb-focus); border-radius: 4px; }
-  .fill { position: absolute; left: 0; top: 5px; height: 4px; border-radius: 2px; background: #6d7deb; }
-  .split { position: absolute; top: 4px; width: 2px; height: 6px; background: #0d0d0c; translate: -1px 0; z-index: 1; }
-  .knob { position: absolute; top: 2px; width: 10px; height: 10px; border-radius: 50%; background: #fff; translate: -50% 0; }
+  .bar::before { content: ''; position: absolute; inset: 5px 0; border-radius: 2px; background: rgb(255 255 255 / 0.24); }
+  .bar:focus-visible { outline: 2px solid #fafafa; border-radius: 4px; }
+  /* the played part takes the chrome accent: near-white by default, the admin accent when set */
+  .fill { position: absolute; left: 0; top: 5px; height: 4px; border-radius: 2px; background: var(--nb-chrome-accent); }
+  .split { position: absolute; top: 4px; width: 2px; height: 6px; background: #0b0b0b; translate: -1px 0; z-index: 1; }
+  .knob { position: absolute; top: 2px; width: 10px; height: 10px; border-radius: 50%; background: #ffffff; box-shadow: 0 1px 2px rgb(0 0 0 / 0.4); translate: -50% 0; }
   .preview {
     position: absolute; bottom: 20px; translate: -50% 0; display: flex; flex-direction: column; align-items: center; gap: 4px;
-    padding: 4px; border-radius: 8px; background: #1a1918; color: #f7f6f2; pointer-events: none; z-index: 4;
+    padding: 4px; border-radius: var(--nb-radius-md); border: 1px solid var(--nb-chrome-border); background: var(--nb-chrome); color: var(--nb-on-chrome); pointer-events: none; z-index: 4;
   }
-  .preview canvas { width: 160px; height: 90px; border-radius: 4px; background: #000; }
+  .preview canvas { width: 160px; height: 90px; border-radius: 4px; background: #000000; }
   .preview span { font: 500 var(--nb-text-sm) var(--nb-font-mono); white-space: nowrap; padding: 0 4px; }
 </style>

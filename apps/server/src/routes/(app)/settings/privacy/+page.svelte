@@ -106,8 +106,8 @@
   .add { display: flex; gap: 8px; max-width: 420px; }
   .add input { height: 34px; }
   .chips { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
-  .chips li { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 4px 0 10px; border-radius: var(--nb-radius-pill); background: var(--nb-surface-sunken); font-size: var(--nb-text-md); }
+  .chips li { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 4px 0 10px; border-radius: var(--nb-radius-pill); border: 1px solid var(--nb-border); background: var(--nb-surface); font: var(--nb-text-sm) var(--nb-font-mono); }
   .chips button { all: unset; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; }
-  .chips button:hover { background: var(--nb-border); }
+  .chips button:hover { background: var(--nb-surface-sunken); }
   select { height: 34px; border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md); background: var(--nb-surface); color: var(--nb-text); padding: 0 8px; font: inherit; font-size: var(--nb-text-md); }
 </style>

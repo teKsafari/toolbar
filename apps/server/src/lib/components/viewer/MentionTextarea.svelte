@@ -110,9 +110,10 @@
 
 <style>
   .wrap { position: relative; flex: 1; min-width: 0; display: flex; }
-  textarea { flex: 1; min-width: 0; resize: none; border: 0; outline: none; background: transparent; color: var(--nb-text); font: inherit; line-height: 1.45; padding: 6px 0; max-height: 240px; }
-  .picker { position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 30; min-width: 260px; padding: 4px; border-radius: var(--nb-radius-md); background: var(--nb-surface); border: 1px solid var(--nb-border); box-shadow: var(--nb-shadow-lg); display: flex; flex-direction: column; }
-  .picker button { all: unset; display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer; font-size: var(--nb-text-md); }
+  /* the composer around it shows the focus, so the field itself has neither border nor ring */
+  textarea, textarea:focus-visible { flex: 1; min-width: 0; resize: none; border: 0; outline: none; box-shadow: none; background: transparent; color: var(--nb-text); font: inherit; line-height: 1.45; padding: 6px 0; max-height: 240px; }
+  .picker { position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 30; min-width: 260px; padding: 6px; border-radius: var(--nb-radius-lg); background: var(--nb-surface); border: 1px solid var(--nb-border); box-shadow: var(--nb-shadow-lg); display: flex; flex-direction: column; }
+  .picker button { all: unset; display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: var(--nb-radius-sm); cursor: pointer; font-size: var(--nb-text-md); }
   .picker button.on, .picker button:hover { background: var(--nb-accent-tint); }
   .n { font-weight: 500; }
   .e { margin-left: auto; color: var(--nb-text-faint); font-size: var(--nb-text-sm); }

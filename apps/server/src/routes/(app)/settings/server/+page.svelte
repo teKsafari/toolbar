@@ -4,6 +4,7 @@
   // sets is shown read-only. Changes save at once; the preview follows before saving.
   import { invalidateAll } from '$app/navigation';
   import { toasts } from '@toolbar/ui';
+  import { deriveAccent } from '@toolbar/ui/accent';
   import type { AdminBranding } from '@toolbar/shared/api';
   import Section from '#lib/components/dashboard/Section.svelte';
   import Field from '#lib/components/dashboard/Field.svelte';
@@ -76,6 +77,8 @@
   }
 
   const previewAccent = $derived(/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : b.accent);
+  // each pane shows its theme's accent, as the pages do: the dark one lightens (black turns near-white)
+  const pv = $derived(deriveAccent(previewAccent));
 </script>
 
 <svelte:head><title>Server · Settings</title></svelte:head>
@@ -106,10 +109,10 @@
 </Section>
 
 <Section title="Preview" description="The sign-in header, a browser tab and the extension's toolbar icon." testid="server-preview">
-  <div class="preview" style:--pv-accent={previewAccent} style:--pv-on={b.onAccent}>
-    {#each ['light', 'dark'] as theme (theme)}
+  <div class="preview">
+    {#each ['light', 'dark'] as const as theme (theme)}
       {@const src = theme === 'dark' && b.logo.dark ? b.logo.dark : b.logo.light}
-      <div class="pane {theme}">
+      <div class="pane {theme}" style:--pv-accent={pv[theme].accent} style:--pv-on={pv[theme].on}>
         <div class="hdr">
           {#if b.defaultLogo}<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><rect x="2" y="7" width="20" height="10" fill="var(--pv-accent)" /></svg>{:else}<img {src} alt="" height="28" />{/if}
           <span data-testid="brand-preview-name-{theme}">{name.trim() || a.defaults.name}</span>
@@ -127,19 +130,32 @@
   .note { margin: 0 0 16px; max-width: 60ch; }
   input[type='text'] { width: 220px; }
   input.hex { width: 96px; font-family: var(--nb-font-mono); }
-  input[type='color'] { width: 36px; height: 30px; padding: 0; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-md); background: none; }
-  .btn { padding: 5px 12px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-md); background: var(--nb-surface); color: var(--nb-text); cursor: pointer; }
-  .btn:disabled { opacity: 0.55; cursor: default; }
+  input[type='color'] { width: 36px; height: var(--nb-control-lg); padding: 3px; border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md); background: var(--nb-surface); cursor: pointer; }
+  input[type='color']::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type='color']::-webkit-color-swatch { border: 0; border-radius: 4px; }
+  /* a secondary button: white, control border, the site's lift */
+  .btn {
+    height: var(--nb-control-md); padding: 0 12px; border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md);
+    background: var(--nb-surface); color: var(--nb-text); font: var(--nb-weight-medium) var(--nb-text-md) var(--nb-font-sans); letter-spacing: var(--nb-tracking-ui);
+    cursor: pointer; box-shadow: var(--nb-shadow-sm); transition: border-color var(--nb-dur-fast) var(--nb-ease-out);
+  }
+  .btn:hover:not(:disabled) { border-color: color-mix(in srgb, var(--nb-text-faint) 60%, var(--nb-border-strong)); }
+  .btn:active:not(:disabled) { transform: translateY(1px); }
+  .btn:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; }
+  .btn:disabled { opacity: 0.5; cursor: default; }
   .link { all: unset; color: var(--nb-accent-text); cursor: pointer; font-size: var(--nb-text-sm); }
   .preview { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  /* the two canvases of the token themes (light #fafafa, dark #0b0b0b), not the page's own theme */
   .pane { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: var(--nb-radius-lg); border: 1px solid var(--nb-border); }
-  .pane.light { background: #fbfaf7; color: #1d1b18; }
-  .pane.dark { background: #1d1b18; color: #f3f1ec; }
-  .hdr { display: flex; align-items: center; gap: 8px; font-weight: var(--nb-weight-semibold); font-size: var(--nb-text-lg); min-width: 0; }
+  .pane.light { background: #fafafa; color: #111827; border-color: #e5e7eb; }
+  .pane.dark { background: #0b0b0b; color: #e6e6e6; border-color: #262626; }
+  .hdr { display: flex; align-items: center; gap: 8px; font: var(--nb-weight-semibold) var(--nb-text-lg) / 1.2 var(--nb-font-display); letter-spacing: var(--nb-tracking-tight); min-width: 0; }
   .hdr img { height: 28px; width: auto; max-width: 140px; object-fit: contain; }
   .hdr span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tab { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px 8px 0 0; background: rgb(127 127 127 / 0.15); font-size: var(--nb-text-sm); width: fit-content; max-width: 100%; overflow: hidden; white-space: nowrap; }
-  .tb { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 6px; background: rgb(127 127 127 / 0.15); width: fit-content; }
-  .cta { all: unset; align-self: flex-start; padding: 6px 14px; border-radius: var(--nb-radius-md); background: var(--pv-accent); color: var(--pv-on); font-weight: var(--nb-weight-medium); }
+  .tab { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px 8px 0 0; font-size: var(--nb-text-sm); width: fit-content; max-width: 100%; overflow: hidden; white-space: nowrap; }
+  .tb { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 6px; width: fit-content; }
+  .light .tab, .light .tb { background: #f3f4f6; }
+  .dark .tab, .dark .tb { background: #1b1b1b; }
+  .cta { all: unset; align-self: flex-start; height: var(--nb-control-md); line-height: var(--nb-control-md); padding: 0 14px; border-radius: var(--nb-radius-md); background: var(--pv-accent); color: var(--pv-on); font: var(--nb-weight-medium) var(--nb-text-md) var(--nb-font-sans); box-shadow: 0 1px 2px rgb(0 0 0 / 0.2), inset 0 1px 0 rgb(255 255 255 / 0.16); }
   @media (max-width: 560px) { input[type='text'] { width: 150px; } }
 </style>

@@ -86,7 +86,7 @@
   .bar { margin-bottom: 12px; }
   .tablewrap { overflow-x: auto; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); background: var(--nb-surface); margin-bottom: 12px; }
   table { width: 100%; border-collapse: collapse; font-size: var(--nb-text-md); }
-  th { text-align: left; font-size: var(--nb-text-xs); color: var(--nb-text-faint); font-weight: var(--nb-weight-semibold); padding: 8px 10px; border-bottom: 1px solid var(--nb-border); }
+  th { text-align: left; font: var(--nb-weight-normal) 10.5px / 1.4 var(--nb-font-mono); letter-spacing: var(--nb-tracking-label); text-transform: uppercase; color: var(--nb-text-faint); padding: 8px 10px; border-bottom: 1px solid var(--nb-border); }
   td { padding: 8px 10px; border-bottom: 1px solid var(--nb-border); }
   tr:last-child td { border-bottom: 0; }
   .who { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }

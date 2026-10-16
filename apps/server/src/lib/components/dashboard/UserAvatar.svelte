@@ -23,10 +23,11 @@
   .ua {
     display: inline-grid; place-items: center; flex: none; width: var(--s); height: var(--s); border-radius: 50%;
     object-fit: cover; font-size: calc(var(--s) * 0.42); font-weight: var(--nb-weight-semibold); line-height: 1;
-    background: hsl(var(--h, 230) 45% 88%); color: hsl(var(--h, 230) 45% 28%);
+    /* quiet tints: colour stays in photographs (language section 1); the hue only tells people apart */
+    background: hsl(var(--h, 230) 22% 91%); color: hsl(var(--h, 230) 30% 30%);
   }
-  :global([data-theme='dark']) .ua:not(img) { background: hsl(var(--h, 230) 30% 30%); color: hsl(var(--h, 230) 60% 88%); }
+  :global([data-theme='dark']) .ua:not(img) { background: hsl(var(--h, 230) 14% 22%); color: hsl(var(--h, 230) 30% 84%); }
   @media (prefers-color-scheme: dark) {
-    :global(:root:not([data-theme='light'])) .ua:not(img) { background: hsl(var(--h, 230) 30% 30%); color: hsl(var(--h, 230) 60% 88%); }
+    :global(:root:not([data-theme='light'])) .ua:not(img) { background: hsl(var(--h, 230) 14% 22%); color: hsl(var(--h, 230) 30% 84%); }
   }
 </style>

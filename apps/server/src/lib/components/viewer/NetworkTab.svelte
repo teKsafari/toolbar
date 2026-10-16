@@ -186,11 +186,16 @@
   .hrow, .nrow { display: grid; grid-template-columns: var(--cols); column-gap: 0; align-items: center; padding: 0 10px 0 4px; border-left: 3px solid transparent; }
   .hrow { position: sticky; top: 0; z-index: 1; height: 26px; background: var(--nb-surface); border-bottom: 1px solid var(--nb-border-strong); }
   .hrow .h:first-child { grid-column: 2; }
-  .h { all: unset; display: inline-flex; align-items: center; gap: 2px; min-width: 0; padding-right: 4px; overflow: hidden; text-overflow: ellipsis; font: 600 var(--nb-text-xs) var(--nb-font-sans); color: var(--nb-text-muted); cursor: pointer; white-space: nowrap; }
+  .h { all: unset; display: inline-flex; align-items: center; gap: 2px; min-width: 0; padding-right: 4px; overflow: hidden; text-overflow: ellipsis; font: var(--nb-weight-medium) var(--nb-text-xs) var(--nb-font-sans); letter-spacing: 0.01em; color: var(--nb-text-faint); cursor: pointer; white-space: nowrap; }
+  .h:hover { color: var(--nb-text); }
+  .h:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: -2px; }
   .nrow { cursor: pointer; padding-top: 0; min-height: 20px; }
   .nrow > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 4px 1px 0; line-height: 18px; }
   .nrow :global(.vp-gutter) { width: 14px; height: 20px; }
+  /* selected: the accent tint with the 2 px accent bar (language section 10) */
   .nrow.sel { background: var(--nb-accent-tint) !important; }
+  .nrow.sel::after { content: ''; position: absolute; left: -3px; top: 0; bottom: 0; width: 2px; background: var(--nb-accent); }
+  .nrow.failed:not(.sel)::after { content: ''; position: absolute; left: -3px; top: 0; bottom: 0; width: 2px; background: var(--nb-danger); }
   .nrow.failed { background: var(--nb-danger-tint); color: var(--nb-danger); }
   .nrow.pending .c-s { color: var(--nb-text-faint); font-style: italic; }
   .c-i { color: var(--nb-text-faint); }
@@ -199,7 +204,7 @@
   .c-d { display: flex; min-width: 0; }
   .op { font-weight: 600; }
   .c-w { position: relative; height: 20px; }
-  .wf { position: absolute; top: 7px; height: 6px; border-radius: 2px; background: var(--nb-accent); opacity: 0.75; }
+  .wf { position: absolute; top: 7px; height: 6px; border-radius: 3px; background: var(--nb-text-faint); opacity: 0.7; }
   .wf.pend { background: repeating-linear-gradient(90deg, var(--nb-text-faint) 0 4px, transparent 4px 7px); }
   .failed .wf { background: var(--nb-danger); }
   .g { opacity: 0; }

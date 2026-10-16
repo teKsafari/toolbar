@@ -105,8 +105,9 @@
   .ic { flex: none; color: var(--nb-text-faint); padding-top: 1px; }
   .msg { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tag { color: var(--nb-accent-text); }
-  .attr { all: unset; flex: none; font: 10px var(--nb-font-sans); padding: 0 6px; height: 16px; line-height: 16px; border-radius: 999px; background: var(--nb-surface-sunken); color: var(--nb-text-muted); cursor: pointer; }
-  .attrs { grid-column: 2 / -1; display: grid; grid-template-columns: max-content 1fr; gap: 1px 10px; margin: 0 0 6px 19px; padding: 6px 8px; border-radius: 6px; background: var(--nb-surface-sunken); }
+  .attr { all: unset; flex: none; font: var(--nb-weight-medium) 10px var(--nb-font-sans); padding: 0 6px; height: 16px; line-height: 16px; border-radius: 999px; background: var(--nb-surface-sunken); color: var(--nb-text-muted); cursor: pointer; }
+  .attr:hover { color: var(--nb-text); }
+  .attrs { grid-column: 2 / -1; display: grid; grid-template-columns: max-content 1fr; gap: 1px 10px; margin: 0 0 6px 19px; padding: 6px 8px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-sm); background: var(--nb-surface-2); }
   .attrs dt { color: var(--nb-text-muted); }
   .attrs dd { margin: 0; word-break: break-all; }
   .trace-sum { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px 4px; }
@@ -114,5 +115,5 @@
   .oc-changed { background: var(--nb-success-tint); color: var(--nb-success); }
   .oc-error, .oc-stuck { background: var(--nb-danger-tint); color: var(--nb-danger); }
   .oc-dead, .oc-silent { background: var(--nb-warning-tint); color: var(--nb-warning); }
-  .banner { display: flex; gap: 8px; align-items: center; margin: 8px; padding: 8px 10px; border-radius: var(--nb-radius-md); background: var(--nb-info-tint); color: var(--nb-text); font-size: var(--nb-text-md); }
+  .banner { display: flex; gap: 8px; align-items: center; margin: 8px; padding: 8px 10px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-md); background: var(--nb-surface-2); color: var(--nb-text); font-size: var(--nb-text-md); }
 </style>

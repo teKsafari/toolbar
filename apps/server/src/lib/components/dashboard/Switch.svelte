@@ -25,8 +25,9 @@
   .sw:disabled { opacity: 0.5; cursor: default; }
   .sw:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; }
   .knob {
-    position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff;
-    box-shadow: var(--nb-shadow-sm); transition: transform var(--nb-dur-fast) var(--nb-ease-out);
+    position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.2); transition: transform var(--nb-dur-fast) var(--nb-ease-out), background-color var(--nb-dur-fast) var(--nb-ease-out);
   }
-  .sw[aria-checked='true'] .knob { transform: translateX(14px); }
+  /* the knob takes on-accent: on the near-white dark accent a white knob would vanish */
+  .sw[aria-checked='true'] .knob { transform: translateX(14px); background: var(--nb-on-accent); }
 </style>

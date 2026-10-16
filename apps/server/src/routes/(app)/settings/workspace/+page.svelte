@@ -137,17 +137,17 @@
   .logo { all: unset; position: relative; width: 64px; height: 64px; border-radius: var(--nb-radius-lg); overflow: hidden; cursor: pointer; background: var(--nb-accent); color: var(--nb-on-accent); display: grid; place-items: center; }
   .logo:disabled { cursor: default; }
   .logo img { width: 100%; height: 100%; object-fit: cover; }
-  .letter { font-size: 28px; font-weight: var(--nb-weight-semibold); }
-  .over { position: absolute; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / 0.45); color: #fff; opacity: 0; transition: opacity var(--nb-dur-fast); }
+  .letter { font: var(--nb-weight-medium) 28px / 1 var(--nb-font-display); }
+  .over { position: absolute; inset: 0; display: grid; place-items: center; background: rgb(11 11 11 / 0.5); color: #fafafa; opacity: 0; transition: opacity var(--nb-dur-fast) var(--nb-ease-out); }
   .logo:hover .over, .logo:focus-visible .over { opacity: 1; }
   .logo:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; }
-  .name { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 4px; font-size: var(--nb-text-md); color: var(--nb-text-muted); }
-  .name input { color: var(--nb-text); }
+  .name { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 6px; font-size: var(--nb-text-md); font-weight: var(--nb-weight-medium); color: var(--nb-text); }
+  .name input { color: var(--nb-text); font-weight: var(--nb-weight-normal); }
   .link { all: unset; color: var(--nb-accent-text); cursor: pointer; font-size: var(--nb-text-md); }
   select, .dom {
-    height: 34px; border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md); background: var(--nb-surface);
+    height: var(--nb-control-md); border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md); background: var(--nb-surface);
     color: var(--nb-text); padding: 0 8px; font: inherit; font-size: var(--nb-text-md); max-width: 240px;
   }
-  .pill { font-size: var(--nb-text-sm); padding: 2px 8px; border-radius: var(--nb-radius-pill); background: var(--nb-surface-sunken); color: var(--nb-text-muted); }
+  .pill { font-size: var(--nb-text-xs); font-weight: var(--nb-weight-medium); padding: 2px 8px; border-radius: var(--nb-radius-pill); background: var(--nb-surface-sunken); color: var(--nb-text-muted); }
   .pill.on { background: var(--nb-success-tint); color: var(--nb-success); }
 </style>

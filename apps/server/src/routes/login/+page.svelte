@@ -91,23 +91,33 @@
 </main>
 
 <style>
+  /* the site's form card (contact page): surface, edge border, 12 px radius, the brand in a header
+     above an edge rule; no shadow */
   .login {
-    max-width: 360px;
-    margin: 14vh auto 48px;
-    padding: 0 16px;
+    box-sizing: border-box;
+    width: min(400px, calc(100% - 32px));
+    margin: 12vh auto 48px;
+    padding: 0 24px 24px;
     display: flex;
     flex-direction: column;
     gap: var(--nb-space-3);
+    background: var(--nb-surface);
+    border: 1px solid var(--nb-border);
+    border-radius: var(--nb-radius-lg);
   }
-  .brand { display: flex; align-items: center; gap: 8px; font-weight: var(--nb-weight-semibold); font-size: var(--nb-text-lg); margin-bottom: var(--nb-space-4); }
-  h1 { font-size: var(--nb-text-xl); margin: 0; }
-  .sub { margin: -4px 0 var(--nb-space-2); color: var(--nb-text-muted); }
+  .brand {
+    display: flex; align-items: center; gap: 10px; margin: 0 -24px var(--nb-space-3); padding: 14px 24px;
+    border-bottom: 1px solid var(--nb-border);
+    font: var(--nb-weight-semibold) var(--nb-text-lg) / 1.2 var(--nb-font-display); letter-spacing: var(--nb-tracking-tight);
+  }
+  h1 { font-size: var(--nb-text-2xl); margin: 0; }
+  .sub { margin: -4px 0 var(--nb-space-2); color: var(--nb-text-muted); line-height: var(--nb-leading-relaxed); }
   .providers { display: flex; flex-direction: column; gap: var(--nb-space-2); }
   .providers form { display: flex; flex-direction: column; }
   .stack { display: flex; flex-direction: column; gap: var(--nb-space-2); }
-  label { font-size: var(--nb-text-md); color: var(--nb-text-muted); margin-top: var(--nb-space-1); }
+  label { font-size: var(--nb-text-md); font-weight: var(--nb-weight-medium); color: var(--nb-text); margin-top: var(--nb-space-2); }
   :global(.full) { width: 100%; margin-top: var(--nb-space-1); }
-  .or { display: flex; align-items: center; gap: 10px; color: var(--nb-text-faint); font-size: var(--nb-text-sm); margin: var(--nb-space-1) 0; }
+  .or { display: flex; align-items: center; gap: 10px; color: var(--nb-text-faint); font: var(--nb-text-xs) var(--nb-font-mono); letter-spacing: var(--nb-tracking-label); text-transform: uppercase; margin: var(--nb-space-1) 0; }
   .or::before, .or::after { content: ''; flex: 1; border-top: 1px solid var(--nb-border); }
   .hint { font-size: var(--nb-text-sm); color: var(--nb-text-faint); margin: 0; }
   .link { all: unset; cursor: pointer; color: var(--nb-accent-text); font-size: var(--nb-text-md); }
@@ -115,11 +125,11 @@
   .link:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; border-radius: 2px; }
   .swap { align-self: center; }
   .err { color: var(--nb-danger); margin: 0; }
-  .sent { display: flex; flex-direction: column; gap: var(--nb-space-2); }
+  .sent { display: flex; flex-direction: column; gap: var(--nb-space-2); padding-top: var(--nb-space-2); }
   .sent p { margin: 0; }
   .sent form { display: flex; align-items: center; gap: var(--nb-space-3); margin-top: var(--nb-space-2); }
   .badge {
-    display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
-    background: var(--nb-success-tint); color: var(--nb-success);
+    display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: var(--nb-radius-md);
+    border: 1px solid var(--nb-border); background: var(--nb-surface-2); color: var(--nb-success);
   }
 </style>

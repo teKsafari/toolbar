@@ -45,6 +45,6 @@ window.toolbar?.setMetadata(() => ({
   code { font-size: var(--nb-text-sm); }
   .code { position: relative; }
   .code :global(button) { position: absolute; top: 8px; right: 8px; }
-  pre { margin: 0 0 10px; padding: 12px 14px; border-radius: var(--nb-radius-md); background: var(--nb-surface-2); font: var(--nb-text-sm) var(--nb-font-mono); overflow-x: auto; }
+  pre { margin: 0 0 10px; padding: 12px 14px; border-radius: var(--nb-radius-md); border: 1px solid var(--nb-border); background: var(--nb-surface-2); font: var(--nb-text-sm) / 1.6 var(--nb-font-mono); overflow-x: auto; }
   .alt { color: var(--nb-text-muted); }
 </style>

@@ -57,8 +57,9 @@
 
 <style>
   .help {
-    all: unset; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--nb-border);
-    background: var(--nb-surface); color: var(--nb-text-muted); cursor: pointer;
+    all: unset; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--nb-border-strong);
+    background: var(--nb-surface); color: var(--nb-text-muted); cursor: pointer; box-shadow: var(--nb-shadow-sm);
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out);
   }
   .help:hover { color: var(--nb-text); background: var(--nb-surface-sunken); }
   .help:focus-visible { outline: 2px solid var(--nb-focus); }
@@ -66,13 +67,13 @@
   a { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: var(--nb-radius-md); color: var(--nb-text); text-decoration: none; }
   a:hover { background: var(--nb-surface-sunken); }
   hr { border: 0; border-top: 1px solid var(--nb-border); margin: 6px 0; width: 100%; }
-  .label { padding: 2px 8px 4px; font-size: var(--nb-text-xs); color: var(--nb-text-faint); font-weight: var(--nb-weight-semibold); }
+  .label { padding: 4px 8px 4px; font: var(--nb-weight-normal) 10.5px / 1.4 var(--nb-font-mono); letter-spacing: var(--nb-tracking-label); text-transform: uppercase; color: var(--nb-text-faint); }
   .kb { display: flex; justify-content: space-between; padding: 3px 8px; font-size: var(--nb-text-sm); color: var(--nb-text-muted); }
-  kbd { font: var(--nb-text-xs) var(--nb-font-mono); }
-  .seg { display: flex; gap: 2px; padding: 2px; margin: 0 6px 4px; border-radius: var(--nb-radius-md); background: var(--nb-surface-sunken); }
+  kbd { font: var(--nb-text-xs) var(--nb-font-mono); padding: 0 4px; border: 1px solid var(--nb-border); border-radius: 4px; background: var(--nb-surface-2); }
+  .seg { display: flex; gap: 2px; padding: 2px; margin: 0 6px 4px; border-radius: var(--nb-radius-pill); background: var(--nb-surface-sunken); }
   .seg button {
     all: unset; flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 4px 0;
-    border-radius: var(--nb-radius-sm); font-size: var(--nb-text-sm); color: var(--nb-text-muted); cursor: pointer;
+    border-radius: var(--nb-radius-pill); font-size: var(--nb-text-sm); color: var(--nb-text-muted); cursor: pointer;
   }
   .seg button[aria-checked='true'] { background: var(--nb-surface); color: var(--nb-text); box-shadow: var(--nb-shadow-sm); }
 </style>

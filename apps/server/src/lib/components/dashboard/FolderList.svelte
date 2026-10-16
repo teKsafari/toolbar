@@ -136,7 +136,7 @@
   .head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 2px; }
   .title {
     all: unset; display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px; border-radius: var(--nb-radius-sm);
-    font-size: var(--nb-text-sm); color: var(--nb-text-faint); font-weight: var(--nb-weight-semibold); cursor: pointer;
+    font: var(--nb-weight-normal) 10.5px / 1.4 var(--nb-font-mono); letter-spacing: var(--nb-tracking-label); text-transform: uppercase; color: var(--nb-text-faint); cursor: pointer;
   }
   .title:hover { color: var(--nb-text); }
   .title:focus-visible, .plus:focus-visible { outline: 2px solid var(--nb-focus); }
@@ -149,15 +149,17 @@
   .plus:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
   ul { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
   a {
-    display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: var(--nb-radius-md);
-    color: var(--nb-text-muted); text-decoration: none; border: 1px solid transparent;
+    display: flex; align-items: center; gap: 10px; height: var(--nb-control-md); padding: 0 8px; border-radius: var(--nb-radius-md);
+    color: var(--nb-text-muted); text-decoration: none; border: 1px solid transparent; letter-spacing: var(--nb-tracking-ui);
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out);
   }
   a:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
-  a.active { background: var(--nb-accent-tint); color: var(--nb-accent-text); font-weight: var(--nb-weight-medium); }
+  a.active { background: var(--nb-surface-sunken); color: var(--nb-text); font-weight: var(--nb-weight-medium); }
+  a:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: -2px; }
   .dragging a { border: 1px dashed var(--nb-border-strong); }
   .dragging a.over { border: 1px solid var(--nb-accent); background: var(--nb-accent-tint); }
   .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .count { font-size: var(--nb-text-xs); color: inherit; opacity: 0.8; }
+  .count { font: var(--nb-text-xs) var(--nb-font-mono); font-variant-numeric: tabular-nums; color: var(--nb-text-faint); }
   .none { padding: 4px 10px; font-size: var(--nb-text-sm); color: var(--nb-text-faint); }
   .add { display: flex; align-items: center; gap: 8px; padding: 2px 8px; color: var(--nb-text-muted); }
   .add input { height: 28px; padding: 0 8px; font-size: var(--nb-text-md); }

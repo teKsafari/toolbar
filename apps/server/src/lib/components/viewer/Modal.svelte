@@ -34,8 +34,8 @@
 
 <style>
   .backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: var(--nb-overlay); padding: 16px; }
-  .dlg { width: min(420px, 100%); padding: 20px; border-radius: var(--nb-radius-lg); background: var(--nb-surface); color: var(--nb-text); box-shadow: var(--nb-shadow-lg); }
-  h2 { margin: 0 0 8px; font-size: var(--nb-text-lg); }
-  .body { color: var(--nb-text-muted); margin-bottom: 16px; }
+  .dlg { width: min(420px, 100%); padding: 20px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); background: var(--nb-surface); color: var(--nb-text); box-shadow: var(--nb-shadow-lg); }
+  h2 { margin: 0 0 8px; font-size: var(--nb-text-lg); font-weight: var(--nb-weight-semibold); letter-spacing: var(--nb-tracking-ui); }
+  .body { color: var(--nb-text-muted); margin-bottom: 20px; line-height: var(--nb-leading-relaxed); }
   .actions { display: flex; justify-content: flex-end; gap: 8px; }
 </style>

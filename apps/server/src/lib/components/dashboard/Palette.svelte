@@ -287,17 +287,18 @@
 <style>
   .pal {
     width: min(1000px, calc(100vw - 24px)); max-height: min(640px, calc(100vh - 80px)); margin-top: 10vh; padding: 0;
-    border: 1px solid var(--nb-border); border-radius: var(--nb-radius-xl); background: var(--nb-surface); color: var(--nb-text);
+    border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); background: var(--nb-surface); color: var(--nb-text);
     box-shadow: var(--nb-shadow-lg); overflow: hidden;
   }
   .pal::backdrop { background: var(--nb-overlay); }
   .box { display: flex; flex-direction: column; max-height: inherit; }
   .field { display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid var(--nb-border); color: var(--nb-text-faint); }
-  .field input { flex: 1; height: 52px; border: 0; background: transparent; color: var(--nb-text); font-size: var(--nb-text-lg); outline: none; padding: 0; }
-  kbd { font: var(--nb-text-xs) var(--nb-font-mono); padding: 2px 5px; border-radius: 4px; border: 1px solid var(--nb-border); color: var(--nb-text-faint); }
+  .field input { flex: 1; height: 52px; border: 0; background: transparent; color: var(--nb-text); font-size: var(--nb-text-lg); letter-spacing: var(--nb-tracking-ui); outline: none; padding: 0; box-shadow: none; }
+  .field input:focus-visible { box-shadow: none; }
+  kbd { font: var(--nb-text-xs) var(--nb-font-mono); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--nb-border); background: var(--nb-surface-2); color: var(--nb-text-faint); }
   .split { display: flex; min-height: 280px; overflow: hidden; flex: 1; }
   .list { flex: 1; overflow-y: auto; padding: 6px; min-width: 0; }
-  .glabel { padding: 10px 10px 4px; font-size: var(--nb-text-xs); color: var(--nb-text-faint); font-weight: var(--nb-weight-semibold); }
+  .glabel { padding: 10px 10px 6px; font: var(--nb-weight-normal) 10.5px / 1.4 var(--nb-font-mono); letter-spacing: var(--nb-tracking-label); text-transform: uppercase; color: var(--nb-text-faint); }
   .row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: var(--nb-radius-md); cursor: pointer; min-height: 40px; }
   .row.on { background: var(--nb-accent-tint); }
   .lab { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -313,12 +314,12 @@
   .preview { width: 340px; flex: none; border-left: 1px solid var(--nb-border); padding: 16px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
   .pthumb { position: relative; aspect-ratio: 16 / 10; border-radius: var(--nb-radius-md); overflow: hidden; background: var(--nb-surface-sunken); display: grid; place-items: center; color: var(--nb-text-faint); }
   .pthumb img { width: 100%; height: 100%; object-fit: cover; }
-  .dur { position: absolute; right: 6px; bottom: 6px; padding: 1px 6px; border-radius: var(--nb-radius-pill); background: rgb(0 0 0 / 0.65); color: #fff; font-size: var(--nb-text-xs); }
-  .ptitle { margin-top: 4px; }
+  .dur { position: absolute; right: 6px; bottom: 6px; padding: 1px 6px; border-radius: var(--nb-radius-pill); background: rgb(11 11 11 / 0.66); color: #fafafa; font: var(--nb-text-xs) var(--nb-font-mono); font-variant-numeric: tabular-nums; }
+  .ptitle { margin-top: 4px; font-weight: var(--nb-weight-medium); letter-spacing: var(--nb-tracking-ui); }
   .purl { font-size: var(--nb-text-sm); color: var(--nb-text-muted); overflow-wrap: anywhere; }
-  .match { margin-top: 6px; padding: 8px 10px; border-radius: var(--nb-radius-md); background: var(--nb-surface-2); }
+  .match { margin-top: 6px; padding: 8px 10px; border-radius: var(--nb-radius-md); border: 1px solid var(--nb-border); background: var(--nb-surface-2); }
   .match p { margin: 4px 0 0; font-size: var(--nb-text-md); }
-  .mf { font-size: var(--nb-text-xs); color: var(--nb-text-faint); }
+  .mf { font: var(--nb-weight-normal) 10.5px / 1.4 var(--nb-font-mono); letter-spacing: var(--nb-tracking-label); text-transform: uppercase; color: var(--nb-text-faint); }
   mark { background: var(--nb-capture-tint); color: inherit; border-radius: 2px; padding: 0 1px; }
   .foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 16px; border-top: 1px solid var(--nb-border); font-size: var(--nb-text-sm); color: var(--nb-text-faint); }
   .hints { display: inline-flex; gap: 14px; }

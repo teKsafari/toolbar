@@ -72,10 +72,10 @@
 <style>
   .sel {
     display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 10px 6px 6px; margin-bottom: 18px;
-    border-radius: var(--nb-radius-lg); background: var(--nb-accent-tint); color: var(--nb-accent-text);
+    border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); background: var(--nb-surface); color: var(--nb-text);
   }
-  .x { all: unset; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; }
-  .x:hover { background: rgb(0 0 0 / 0.06); }
+  .x { all: unset; display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--nb-radius-md); cursor: pointer; color: var(--nb-text-muted); }
+  .x:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
   .x:focus-visible { outline: 2px solid var(--nb-focus); }
   .grow { flex: 1; }
 </style>

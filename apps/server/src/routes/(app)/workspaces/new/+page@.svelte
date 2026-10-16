@@ -57,23 +57,23 @@
 </div>
 
 <style>
-  .close { position: fixed; top: 16px; right: 16px; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: var(--nb-text-muted); }
+  .close { position: fixed; top: 16px; right: 16px; display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--nb-radius-md); color: var(--nb-text-muted); transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out); }
   .close:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
   .namerow { display: flex; align-items: center; gap: 10px; }
   .namerow input { flex: 1; min-width: 0; }
   .wrap { max-width: 440px; margin: 72px auto 32px; padding: 0 16px; display: flex; flex-direction: column; gap: var(--nb-space-6); }
   form { display: flex; flex-direction: column; gap: var(--nb-space-2); }
-  h1 { margin: 0; font-size: var(--nb-text-xl); }
-  h2 { font-size: var(--nb-text-md); color: var(--nb-text-muted); }
-  p { margin: 0; }
-  label { font-size: var(--nb-text-md); color: var(--nb-text-muted); }
+  h1 { margin: 0; font-size: var(--nb-text-3xl); }
+  h2 { font: var(--nb-weight-normal) 10.5px / 1.4 var(--nb-font-mono); letter-spacing: var(--nb-tracking-label); text-transform: uppercase; color: var(--nb-text-faint); }
+  p { margin: 0; color: var(--nb-text-body); line-height: var(--nb-leading-relaxed); }
+  label { font-size: var(--nb-text-md); font-weight: var(--nb-weight-medium); color: var(--nb-text); }
   .check { display: flex; align-items: flex-start; gap: 10px; margin-top: var(--nb-space-2); color: var(--nb-text); cursor: pointer; }
   .check input { margin-top: 3px; accent-color: var(--nb-accent); }
   .hint { display: block; font-size: var(--nb-text-sm); color: var(--nb-text-faint); }
   .actions { display: flex; flex-direction: column; margin-top: var(--nb-space-3); }
   .err { color: var(--nb-danger); }
   ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-  li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-md); }
+  li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-md); background: var(--nb-surface); }
   .grow { flex: 1; }
   .join { font-weight: var(--nb-weight-medium); }
 </style>

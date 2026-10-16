@@ -215,7 +215,7 @@
 />
 
 <style>
-  .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
   .head h1 { margin: 0; }
   .linkrow { display: flex; gap: 8px; }
   .linkrow input { flex: 1; min-width: 0; height: 34px; font-family: var(--nb-font-mono); font-size: var(--nb-text-sm); }
@@ -230,8 +230,11 @@
     .last { display: none; }
     td { padding: 8px 4px; }
   }
-  th { text-align: left; font-size: var(--nb-text-xs); color: var(--nb-text-faint); font-weight: var(--nb-weight-semibold); padding: 6px 8px; border-bottom: 1px solid var(--nb-border); }
+  /* the language's table header: mono 10.5 px uppercase, faint, over an edge rule */
+  th { text-align: left; font: var(--nb-weight-normal) 10.5px / 1.4 var(--nb-font-mono); letter-spacing: var(--nb-tracking-label); text-transform: uppercase; color: var(--nb-text-faint); padding: 6px 8px; border-bottom: 1px solid var(--nb-border); }
   td { padding: 8px; border-bottom: 1px solid var(--nb-border); vertical-align: middle; }
+  tbody tr { transition: background-color var(--nb-dur-fast) var(--nb-ease-out); }
+  tbody tr:hover { background: var(--nb-surface-2); }
   tr:last-child td { border-bottom: 0; }
   .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .col { display: flex; flex-direction: column; min-width: 0; }
@@ -239,7 +242,7 @@
   .e { font-size: var(--nb-text-sm); color: var(--nb-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .role, .rolestatic { white-space: nowrap; }
-  .you, .own { font-size: var(--nb-text-xs); padding: 0 6px; border-radius: var(--nb-radius-pill); background: var(--nb-surface-sunken); color: var(--nb-text-muted); font-weight: var(--nb-weight-normal); }
+  .you, .own { font-size: var(--nb-text-xs); padding: 0 7px; border-radius: var(--nb-radius-pill); background: var(--nb-surface-sunken); color: var(--nb-text-muted); font-weight: var(--nb-weight-medium); }
   .role { all: unset; display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: var(--nb-radius-md); cursor: pointer; }
   .role:hover { background: var(--nb-surface-sunken); }
   .role:focus-visible { outline: 2px solid var(--nb-focus); }

@@ -97,7 +97,7 @@
 <style>
   .agent { display: flex; flex-direction: column; gap: var(--nb-space-3); padding: var(--nb-space-3); overflow: auto; font-size: var(--nb-text-md); }
   .card { display: grid; gap: var(--nb-space-2); padding: var(--nb-space-3); border: 1px solid var(--nb-border); border-radius: var(--nb-radius-md); background: var(--nb-surface-2); }
-  h3 { margin: 0; font-size: var(--nb-text-base); font-weight: var(--nb-weight-semibold); }
+  h3 { margin: 0; font-size: var(--nb-text-base); font-weight: var(--nb-weight-semibold); letter-spacing: var(--nb-tracking-ui); }
   .muted { color: var(--nb-text-muted); margin: 0; }
   .small { font-size: var(--nb-text-sm); }
   .note { color: var(--nb-text-muted); display: flex; gap: 6px; align-items: center; margin: 0; }
@@ -107,8 +107,9 @@
   .link { background: none; border: 0; padding: 0; color: var(--nb-accent-text); font: inherit; cursor: pointer; text-decoration: none; }
   .link:hover { text-decoration: underline; }
   .chips { display: flex; gap: var(--nb-space-1); }
-  .chips button { all: unset; cursor: pointer; padding: 4px 10px; border-radius: var(--nb-radius-pill); border: 1px solid var(--nb-border-strong); color: var(--nb-text-muted); font-size: var(--nb-text-sm); }
-  .chips button.on { background: var(--nb-accent-tint); border-color: transparent; color: var(--nb-accent-text); font-weight: var(--nb-weight-medium); }
+  .chips button { all: unset; cursor: pointer; padding: 4px 10px; border-radius: var(--nb-radius-pill); border: 1px solid transparent; color: var(--nb-text-muted); font-size: var(--nb-text-sm); font-weight: var(--nb-weight-medium); }
+  .chips button:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
+  .chips button.on { background: var(--nb-surface); border-color: var(--nb-border-strong); color: var(--nb-text); box-shadow: var(--nb-shadow-sm); }
   .chips button:focus-visible { outline: 2px solid var(--nb-focus); }
   .more { display: grid; gap: var(--nb-space-1); border-top: 1px solid var(--nb-border); padding-top: var(--nb-space-3); }
   code { font-family: var(--nb-font-mono); font-size: var(--nb-text-sm); background: var(--nb-surface-sunken); padding: 1px 4px; border-radius: 4px; word-break: break-all; }

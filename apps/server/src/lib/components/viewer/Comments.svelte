@@ -145,13 +145,15 @@
 
 <style>
   .comments { display: flex; flex-direction: column; gap: 2px; padding-bottom: 12px; }
-  .h { display: flex; align-items: center; gap: 8px; margin: 8px 2px 4px; font-size: var(--nb-text-base); }
-  .n { font-size: var(--nb-text-sm); color: var(--nb-text-muted); font-weight: 500; }
+  .h { display: flex; align-items: center; gap: 8px; margin: 8px 2px 4px; font-size: var(--nb-text-base); font-weight: var(--nb-weight-semibold); letter-spacing: var(--nb-tracking-ui); }
+  .n { font: var(--nb-text-sm) var(--nb-font-mono); font-variant-numeric: tabular-nums; color: var(--nb-text-faint); }
   .none { margin: 4px 2px 8px; color: var(--nb-text-muted); font-size: var(--nb-text-md); }
   .thread { display: flex; flex-direction: column; border-bottom: 1px solid var(--nb-border); padding: 2px 0; }
   .thread:last-of-type { border-bottom: 0; }
   .toggle { all: unset; display: inline-flex; align-items: center; gap: 4px; margin: 6px 2px; font-size: var(--nb-text-md); color: var(--nb-text-muted); cursor: pointer; }
+  .toggle:hover { color: var(--nb-text); }
+  .toggle:focus-visible { outline: 2px solid var(--nb-focus); border-radius: 4px; }
   .dock { position: sticky; bottom: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0 12px; background: linear-gradient(transparent, var(--nb-bg) 30%); }
   .dock > :global(.composer) { align-self: stretch; }
-  .jump { all: unset; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px 0 6px; border-radius: 999px; background: var(--nb-chrome); color: var(--nb-on-chrome); font-size: var(--nb-text-md); cursor: pointer; box-shadow: var(--nb-shadow-md); }
+  .jump { all: unset; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px 0 6px; border-radius: 999px; background: var(--nb-chrome); color: var(--nb-on-chrome); font-size: var(--nb-text-md); font-weight: var(--nb-weight-medium); cursor: pointer; box-shadow: var(--nb-shadow-lg); }
 </style>

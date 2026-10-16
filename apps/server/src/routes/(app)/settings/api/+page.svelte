@@ -35,7 +35,7 @@
   h1 { margin-bottom: 18px; }
   p { margin: 0; }
   code { font-size: var(--nb-text-sm); }
-  .ex { margin: 0; padding: 10px 12px; border-radius: var(--nb-radius-md); background: var(--nb-surface-2); font: var(--nb-text-sm) var(--nb-font-mono); overflow-x: auto; }
+  .ex { margin: 0; padding: 10px 12px; border-radius: var(--nb-radius-md); border: 1px solid var(--nb-border); background: var(--nb-surface-2); font: var(--nb-text-sm) / 1.6 var(--nb-font-mono); overflow-x: auto; }
   .tablewrap { overflow-x: auto; }
   table { border-collapse: collapse; font-size: var(--nb-text-sm); }
   td { padding: 5px 8px; border-bottom: 1px solid var(--nb-border); vertical-align: top; }
