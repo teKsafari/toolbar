@@ -35,6 +35,7 @@ import { api, type UploadAuthLike } from '../upload/client';
 import { allPendingIds, drain, rekey } from '../upload/queue';
 import { discardDraftData, uploadDraft } from '../upload/draft';
 import { createDraft, saveDraft } from './drafts';
+import { cardStill, pageMaskRects, type MaskRects } from './card-still';
 import { CAPTURE_KEYS, getAuth, getPrivate, getSettings, getStore, serverUrl, setPrivate, setStore } from './store';
 import { installWebRequest } from './webrequest';
 import { isReplayBlocked } from '@toolbar/shared/areas/ext-ui';
@@ -1174,15 +1175,8 @@ export class CaptureService {
     const durationMs = now - start;
     const draftKey = uuidv7();
     // A still of the page as it is now: the drafts list and the dashboard card show it, since a
-    // DOM replay has no video frame to take one from (J-158).
-    let thumb: Blob | null = null;
-    try {
-      const geo = await this.geometry(id);
-      const shot = await dataUrlToBlob(await this.shots.run(() => browser.tabs.captureVisibleTab(tab.windowId, { format: 'png' })));
-      thumb = (await cropImage(shot, null, geo?.viewport.w ?? tab.width ?? 1280, { cssPixels: true })).blob;
-    } catch {
-      thumb = null; // not the active tab, or a page that refuses captures: no still
-    }
+    // DOM replay has no video frame to take one from (J-158). Card-sized and masked per preset (D-183).
+    const thumb = (await this.cardStillOf(tab))?.blob ?? null;
     let replaySegmentBlobIds: string[] = [];
     if (this.replay.tabs[id]?.video) {
       const r = await this.offscreen<{ ok: boolean; blobIds?: string[] }>({ to: 'offscreen', type: 'replay-video-flush', tabId: id, recordingId: draftKey, upload: { serverUrl: '', token: '' } });
@@ -1273,6 +1267,33 @@ export class CaptureService {
     await discardDraftData(draft, await this.uploadAuth());
     await saveDraft({ ...draft, status: 'failed', error: 'discarded', updatedAt: Date.now() });
     if (this.session.state === 'draft' && this.session.draftId === draftId) await this.apply({ type: 'DISCARD' });
+  }
+
+  /**
+   * The card image of a DOM replay or a trace (D-183): a still of the tab scaled to the card width,
+   * masked like its recording when the page's project uses the production preset (text lines,
+   * fields and media painted over; pixelated when the page cannot be read). Null when the tab is
+   * not the active one of its window or refuses captures.
+   */
+  async cardStillOf(tab: { id?: number; windowId?: number; url?: string }): Promise<{ blob: Blob; width: number; height: number } | null> {
+    if (tab.id == null || tab.windowId == null || isRestrictedUrl(tab.url)) return null;
+    try {
+      const preset = presetFor(await scope(), tab.url).maskingPreset;
+      // the rects first, then the still at once, so both show the same page
+      const rects =
+        preset === 'production'
+          ? await browser.scripting
+              .executeScript({ target: { tabId: tab.id }, func: pageMaskRects })
+              .then(([r]) => (r?.result as MaskRects | undefined) ?? null)
+              .catch(() => null)
+          : null;
+      const shoot = () => this.shots.run(() => browser.tabs.captureVisibleTab(tab.windowId!, { format: 'png' }));
+      // a keyframe from the trace's own queue may have used this second's capture quota: one more try
+      const url = await shoot().catch(async () => (await new Promise((r) => setTimeout(r, 600)), shoot()));
+      return await cardStill(await dataUrlToBlob(url), preset, rects);
+    } catch {
+      return null;
+    }
   }
 
   /** captureVisibleTab through the shared queue (two calls a second at most); locator crops use it (D-128). */

@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { gunzipSync, gzipSync } from 'node:zlib';
-import { and, asc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm';
 import type { CaptureEvent, StreamName } from '@toolbar/shared';
 import type { Trim } from '@toolbar/shared/api';
 import { db as defaultDb, type Db } from '../db/index.ts';
@@ -16,6 +16,7 @@ import { deleteKeys, getBytes, getObject, keys, putFile, putObjectWith } from '.
 import { computeEventIndex, dedupeEvents, parseNdjson, parseRrwebNdjson, rrwebNdjsonParts, sortEvents, trimEvents, trimRrweb, videoOffsetOf } from '../event-index.ts';
 import { imageThumb, joinWebm, posterFrame, probe, RENDITION_HEIGHTS, renderRendition, trimWebm, withTmp, type Probe } from '../media/ffmpeg.ts';
 import { pickScreenshots, type Rendition } from '../media/proxy.ts';
+import { placeholderThumb } from '../media/placeholder.ts';
 import { createTranscriber, parseVtt, transcribeConfig, voiceNoteStream } from '../transcribe/index.ts';
 import { dbLedger, runTranscription } from '../transcribe/run.ts';
 import { decodePcm } from '../transcribe/audio.ts';
@@ -213,9 +214,7 @@ async function runFinalize(rec: typeof recording.$inferSelect, attempts: number)
     if (!hasVideo) {
       const all = await db.select().from(asset).where(eq(asset.recordingId, id));
       const { main } = pickScreenshots(all);
-      // a DOM replay sends a still of the page as its card image (J-158)
-      // a trace takes its first keyframe; a reviewer toolbar submit (kind feedback) its first element crop
-      const still = main ? null : (all.find((a) => a.kind === 'thumb') ?? all.find((a) => a.kind === 'keyframe') ?? (rec.kind === 'feedback' ? all.find((a) => a.kind === 'feedback') : undefined));
+      const still = main ? null : stillOf(all, rec.kind);
       if (still) {
         const src = join(dir, 'still');
         await writeFile(src, await getBytes(still.s3Key));
@@ -235,6 +234,8 @@ async function runFinalize(rec: typeof recording.$inferSelect, attempts: number)
         height = main.height;
       }
     }
+    // nothing to take a picture from (an injector capture, an older DOM-only replay): the placeholder card (D-183)
+    if (!thumbKey) thumbKey = await putPlaceholder(rec);
   });
 
   if ((await loadRec(id))?.deletedAt) return;
@@ -331,32 +332,83 @@ async function remuxVideo(payload: unknown) {
 
 // ---------- thumbnail ----------
 
-async function thumbnail(payload: unknown) {
-  const id = recIdOf(payload);
-  const atMs = Number((payload as { atMs?: number }).atMs ?? 1000);
+/**
+ * The still a capture without video and without a screenshot takes its card image from: the
+ * still the extension sent (`thumb`: instant replay and traces, masked per preset, D-183; J-158),
+ * else a trace's first keyframe, else a reviewer toolbar submit's first element crop.
+ */
+function stillOf<A extends { kind: string }>(all: A[], kind: string): A | undefined {
+  return all.find((a) => a.kind === 'thumb') ?? all.find((a) => a.kind === 'keyframe') ?? (kind === 'feedback' ? all.find((a) => a.kind === 'feedback') : undefined);
+}
+
+/** Store the placeholder card (page title, host, kind) as the capture's thumbnail; returns its key. */
+async function putPlaceholder(rec: NonNullable<Awaited<ReturnType<typeof loadRec>>>): Promise<string> {
+  const key = keys.final(rec.id, 'thumb.webp');
+  await putObjectWith(key, await placeholderThumb(rec), { contentType: 'image/webp' });
+  return key;
+}
+
+/**
+ * The card image of one capture, from the best source it has: a video frame at `atMs`, the shown
+ * screenshot, a still or keyframe, else the placeholder card. Sets `recording.thumb_key`.
+ */
+export async function makeThumbnail(id: string, atMs = 1000): Promise<string | null> {
   const rec = await loadRec(id);
-  if (!rec || rec.deletedAt) return;
+  if (!rec || rec.deletedAt) return null;
   const [s] = await db
     .select()
     .from(recordingStream)
     .where(and(eq(recordingStream.recordingId, id), eq(recordingStream.name, 'video')));
-  await withTmp(async (dir) => {
+  const key = await withTmp(async (dir) => {
     const thumb = join(dir, 'thumb.webp');
+    const all = await db.select().from(asset).where(eq(asset.recordingId, id));
+    const { main } = pickScreenshots(all);
+    const still = main ?? stillOf(all, rec.kind);
     if (s?.finalKey) {
       const src = join(dir, 'v.webm');
       await downloadToFile(s.finalKey, src);
       await posterFrame(src, thumb, Math.min(atMs, Math.max(0, (rec.durationMs ?? 0) - 100)));
-    } else {
-      const { main } = pickScreenshots(await db.select().from(asset).where(eq(asset.recordingId, id)));
-      if (!main) return;
-      const src = join(dir, 'shot');
-      await writeFile(src, await getBytes(main.s3Key));
+    } else if (still) {
+      const src = join(dir, 'still');
+      await writeFile(src, await getBytes(still.s3Key));
       await imageThumb(src, thumb);
-    }
-    const key = keys.final(id, 'thumb.webp');
-    await putFile(key, thumb, 'image/webp');
-    await db.update(recording).set({ thumbKey: key }).where(eq(recording.id, id));
+    } else return putPlaceholder(rec);
+    const k = keys.final(id, 'thumb.webp');
+    await putFile(k, thumb, 'image/webp');
+    return k;
   });
+  await db.update(recording).set({ thumbKey: key }).where(eq(recording.id, id));
+  return key;
+}
+
+async function thumbnail(payload: unknown) {
+  await makeThumbnail(recIdOf(payload), Number((payload as { atMs?: number }).atMs ?? 1000));
+}
+
+/**
+ * Card images for captures made before every kind got one (D-183): ready captures without
+ * `thumb_key`, oldest id first, a batch per run; the next run starts after the last id, so a
+ * capture whose media cannot be read is skipped instead of retried forever.
+ */
+export const BACKFILL_BATCH = 25;
+async function backfillThumbs(payload: unknown) {
+  const after = (payload as { after?: string } | null)?.after;
+  const rows = await db
+    .select({ id: recording.id })
+    .from(recording)
+    .where(and(isNull(recording.thumbKey), isNull(recording.deletedAt), eq(recording.status, 'ready'), after ? gt(recording.id, after) : undefined))
+    .orderBy(asc(recording.id))
+    .limit(BACKFILL_BATCH);
+  let made = 0;
+  for (const r of rows) {
+    try {
+      if (await makeThumbnail(r.id)) made++;
+    } catch (e) {
+      console.warn(`[jobs] backfill-thumbs: no card image for ${r.id}:`, (e as Error).message);
+    }
+  }
+  if (rows.length) console.log(`[jobs] backfill-thumbs made ${made} of ${rows.length} card image(s)`);
+  if (rows.length === BACKFILL_BATCH) await enqueue(db, 'backfill-thumbs', { after: rows.at(-1)!.id });
 }
 
 // ---------- renditions (J-054: original plus 720p to 240p) ----------
@@ -531,6 +583,7 @@ export function registerServerCoreJobs() {
   registerJob('finalize-recording', finalizeRecording, 2);
   registerJob('remux-video', remuxVideo, 1);
   registerJob('thumbnail', thumbnail, 2);
+  registerJob('backfill-thumbs', backfillThumbs, 1);
   registerJob('renditions', renditions, 1);
   // whisper.cpp serves one request at a time; a hosted provider takes two recordings at once
   registerJob('transcribe', transcribe, transcribeConfig().provider === 'openai' ? 2 : 1);
@@ -550,6 +603,20 @@ export async function ensureRecurringJobs(d: Db = db) {
       .limit(1);
     if (!row) await enqueue(d, type, {}, { maxAttempts: 1000 });
   }
+  // D-183: captures from before every kind got a card image get one, once, in the background
+  const [missing] = await d
+    .select({ id: recording.id })
+    .from(recording)
+    .where(and(isNull(recording.thumbKey), isNull(recording.deletedAt), eq(recording.status, 'ready')))
+    .limit(1);
+  if (missing) {
+    const [pending] = await d
+      .select({ id: job.id })
+      .from(job)
+      .where(and(eq(job.type, 'backfill-thumbs'), isNull(job.doneAt)))
+      .limit(1);
+    if (!pending) await enqueue(d, 'backfill-thumbs', {});
+  }
 }
 
-export const _internal = { runFinalize, purgeRecording, renditions, transcribe, chapters };
+export const _internal = { runFinalize, purgeRecording, renditions, transcribe, chapters, backfillThumbs };

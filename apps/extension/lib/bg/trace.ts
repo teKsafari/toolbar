@@ -172,6 +172,8 @@ export class TraceController {
 
   private async finish(c: Stored, opts: { open?: boolean }): Promise<TraceResult> {
     const stoppedAt = Date.now();
+    const tab = await browser.tabs.get(c.tabId).catch(() => null);
+    const still = tab?.active ? await this.svc.cardStillOf(tab) : null;
     await this.svc.flushTabs([c.tabId]).catch(() => undefined);
     this.svc.detachTrace(c.tabId);
     await new Promise((r) => setTimeout(r, 150)); // the pages' last batches after detach
@@ -200,6 +202,8 @@ export class TraceController {
       await new Promise((res) => setTimeout(res, Math.min(30_000, 1000 * 2 ** (attempt - 1))));
     }
     for (const [stream, s] of streams) await withRetry(() => api.completeStream(auth, id, stream as 'events' | 'rrweb', s));
+    // the card image: the page as the trace stopped, masked per preset (D-183)
+    if (still) await withRetry(() => api.uploadAsset(auth, { kind: 'thumb', recordingId: id, width: still.width, height: still.height }, still.blob, 'thumb.webp')).catch(() => undefined);
     const durationMs = Math.max(0, stoppedAt - c.startedAt);
     const fin = await withRetry(() => api.finalize(auth, id, { title: `Trace: ${c.title || c.url}`.slice(0, 200), durationMs }));
     this.cur = null;
