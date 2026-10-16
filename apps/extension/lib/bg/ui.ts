@@ -13,7 +13,8 @@
 import { browser } from 'wxt/browser';
 import { migrateStorage } from '../migrate';
 import { applyBrandIcon, setIconBusy } from './brand';
-import { DEFAULT_SERVER_URL, uuidv7, type RecordingKind } from '@toolbar/shared';
+import { uuidv7, type RecordingKind } from '@toolbar/shared';
+import { accountServerUrl, resolveServerUrl } from '../server-url';
 import {
   DEFAULT_USER_SETTINGS,
   ROUTES,
@@ -94,12 +95,10 @@ async function saveSettings(patch: Partial<ExtensionSettings>): Promise<Extensio
   return next;
 }
 
+/** The options-page override, else the signed-in server, else the build's (lib/server-url.ts). */
 export async function serverUrl(): Promise<string> {
   const override = await readStore('serverUrl');
-  if (override) return override;
-  const auth = await readStore('auth');
-  if (auth?.serverUrl) return auth.serverUrl;
-  return (import.meta.env.WXT_SERVER_URL as string | undefined) || DEFAULT_SERVER_URL;
+  return override ? resolveServerUrl(override) : accountServerUrl((await readStore('auth')) ?? null);
 }
 
 // ---------------------------------------------------------------- API calls with the device token

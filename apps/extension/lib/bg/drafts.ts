@@ -4,7 +4,7 @@
 import { ensureContent } from '../registration';
 import { browser } from 'wxt/browser';
 import { TEST_HOOKS } from '../flags';
-import { DEFAULT_SERVER_URL } from '@toolbar/shared/constants';
+import { accountServerUrl } from '../server-url';
 import { IDB, STORAGE, type AuthState, type BgRequestMap, type BgRequestType, type BgResult, type BlobRow, type ContentCommand, type Draft, type DraftSummary } from '@toolbar/shared/ext';
 import type { ExtBootstrap, FinalizeCaptureBody, LinkedIssue } from '@toolbar/shared/api';
 import { DEFAULT_EDITOR_PREFS, EDITOR_PREFS_KEY, type AiDraftText, type AiUnavailableReason, type EditorPrefs, type TrackerOptions, type TrackerRecent } from '@toolbar/shared/areas/editor';
@@ -142,12 +142,9 @@ export async function authState(): Promise<AuthState | null> {
   return readLocal<AuthState>(STORAGE.auth.key);
 }
 
+/** The signed-in server (captures live there), else the configured one (lib/server-url.ts). */
 export async function serverUrl(): Promise<string> {
-  const a = await authState();
-  if (a?.serverUrl) return a.serverUrl.replace(/\/$/, '');
-  const o = await readLocal<string>(STORAGE.serverUrl.key);
-  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.WXT_SERVER_URL;
-  return (o || env || DEFAULT_SERVER_URL).replace(/\/$/, '');
+  return accountServerUrl(await authState());
 }
 
 async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {

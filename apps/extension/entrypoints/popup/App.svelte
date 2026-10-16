@@ -4,7 +4,7 @@
   // a 40 px header with the wordmark, the unfinished-draft pill, home and the three-dot menu.
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
-  import { Icon } from '@toolbar/ui';
+  import { Button, Icon } from '@toolbar/ui';
   import { store } from './lib/store.svelte';
   import Menu from './lib/Menu.svelte';
   import Main from './screens/Main.svelte';
@@ -65,6 +65,11 @@
 
   {#if store.loading}
     <div class="loading" data-popup-loading><Icon name="spinner" size={18} /></div>
+  {:else if store.loadError}
+    <div class="load-error" role="alert" data-popup-error>
+      <p>{store.loadError}</p>
+      <Button variant="secondary" onclick={() => void store.retry()} data-retry>Try again</Button>
+    </div>
   {:else if !store.signedIn && (store.screen === 'main' || store.screen === 'link' || store.screen === 'drafts')}
     <!-- signed out, sign-in comes first on any page (X-05); a restricted page says so once signed in -->
     <SignedOut />
@@ -169,6 +174,19 @@
   }
   :global(.icon-btn:focus-visible) {
     outline: 2px solid var(--nb-focus);
+  }
+  .load-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 8px 4px;
+    text-align: center;
+    color: var(--nb-danger);
+    font-size: var(--nb-text-md);
+  }
+  .load-error p {
+    margin: 0;
   }
   .loading {
     height: 120px;

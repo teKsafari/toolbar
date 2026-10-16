@@ -1,9 +1,9 @@
 // The auth client wired to chrome APIs, for the service worker and extension pages.
 import { browser } from 'wxt/browser';
-import { DEFAULT_SERVER_URL } from '@toolbar/shared/constants';
 import { STORAGE, type StorageValues } from '@toolbar/shared/ext';
 import { createAuthClient } from './client.ts';
 import { migrateStorage } from '../migrate.ts';
+import { serverUrl } from '../server-url.ts';
 
 type Key = keyof typeof STORAGE;
 
@@ -20,12 +20,8 @@ export async function writeStore<K extends Key>(k: K, v: StorageValues[K] | null
   else await browser.storage[area].set({ [key]: v });
 }
 
-/** Options-page override, else the build's WXT_SERVER_URL, else the default. */
-export async function serverUrl(): Promise<string> {
-  const override = await readStore('serverUrl');
-  const built = (import.meta.env as Record<string, string | undefined>).WXT_SERVER_URL;
-  return (override || built || DEFAULT_SERVER_URL).replace(/\/+$/, '');
-}
+/** Options-page override, else the build's WXT_SERVER_URL, else the default (lib/server-url.ts). */
+export { serverUrl };
 
 function deviceName(): string {
   const uad = (navigator as Navigator & { userAgentData?: { brands?: { brand: string }[]; platform?: string } }).userAgentData;

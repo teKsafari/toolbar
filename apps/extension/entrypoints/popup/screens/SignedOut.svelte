@@ -25,6 +25,10 @@
   <p class="muted">{brand.name} saves your captures to <span class="mono" data-server-url>{store.serverUrl}</span>.</p>
   <Button variant="primary" loading={busy} onclick={signIn} data-sign-in>Sign in</Button>
   {#if error}<p class="err" role="alert">{error}</p>{/if}
+  {#if store.serverError && !error}
+    <p class="err" role="alert" data-server-error>{store.serverError}</p>
+    <button class="change" type="button" onclick={() => void store.retry()} data-retry>Try again</button>
+  {/if}
   <button class="change" type="button" onclick={() => browser.runtime.openOptionsPage()}>Use another server</button>
 </div>
 
