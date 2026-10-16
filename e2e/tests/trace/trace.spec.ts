@@ -194,3 +194,27 @@ test('the popup starts and stops a trace', async ({ context, sw }) => {
   // stop opens the trace on the server
   await expect.poll(() => context.pages().some((p) => p.url().startsWith(SERVER_URL)), { timeout: 15_000 }).toBe(true);
 });
+
+// docs/real-world/second-app.md: Chrome clears a tab's own action badge when the tab loads a new
+// document, so the "TR" badge went away when a trace followed the reviewer to another page.
+test('the trace badge stays on the tab across a full page load', async ({ context, sw }) => {
+  await sw.evaluate(() => (globalThis as unknown as { __tb: { ready(): Promise<unknown> } }).__tb.ready());
+  const setup = await context.newPage();
+  await signInExtension(setup, sw);
+  await setup.close();
+  const page = await context.newPage();
+  await page.goto(LAB_URL);
+  await page.bringToFront();
+  const tabId = await tabIdOf(sw, page);
+  const badge = () => sw.evaluate((tabId) => chrome.action.getBadgeText({ tabId }) as Promise<string>, tabId);
+  await sw.evaluate((tabId) => (globalThis as unknown as { __tb: { trace: { start(t: number): Promise<unknown> } } }).__tb.trace.start(tabId), tabId);
+  await expect.poll(badge).toBe('TR');
+  await page.goto(`${LAB_URL}/form`); // a new document, not a client-side route change
+  await page.waitForLoadState('load');
+  await expect.poll(badge, { timeout: 10_000 }).toBe('TR');
+  await page.reload();
+  await expect.poll(badge, { timeout: 10_000 }).toBe('TR');
+  await sw.evaluate(() => (globalThis as unknown as { __tb: { trace: { stop(o: unknown): Promise<unknown> } } }).__tb.trace.stop({ open: false }));
+  await expect.poll(badge).toBe('');
+  await page.close();
+});

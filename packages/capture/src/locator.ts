@@ -56,7 +56,28 @@ export function findKitEntries(doc: Document): string[] {
     if (text.length > 100_000) return;
     for (const m of text.matchAll(/import\(\s*["'`]([^"'`]+)["'`]\s*\)/g)) add(m[1]);
   });
+  // Svelte 3 and 4 hydration removes the nodes it did not render, and SvelteKit 1 puts its start
+  // script inside the body it hydrates: on those dev servers the script is gone by the time a
+  // reviewer clicks. The browser's resource timeline still lists the module it imported.
+  for (const name of resourceNames(doc)) add(name);
   return [...out].slice(0, 4);
+}
+
+/** URLs of the page's loaded resources (scripts, modules), newest last; empty where timing is unavailable. */
+function resourceNames(doc: Document): string[] {
+  try {
+    const perf = doc.defaultView?.performance;
+    const list = perf?.getEntriesByType?.('resource') ?? [];
+    return list.slice(0, 3000).map((e) => e.name);
+  } catch {
+    return [];
+  }
+}
+
+/** A Vite dev server serves this page: its client module is in the page or was loaded. */
+export function viteDevPage(doc: Document): boolean {
+  if (doc.querySelector('script[src*="/@vite/client"]')) return true;
+  return resourceNames(doc).some((n) => /\/@vite\/client(?:\?|$)/.test(n));
 }
 
 /** Whole CSS pixels that cover the rect, inside the visible viewport; null when nothing shows. */
@@ -160,7 +181,7 @@ export async function locateInPage(req: LocateRequest, opts: LocateOptions = {})
   // Svelte dev location and SvelteKit presence, from the MAIN world
   const main = el && opts.locateMain ? await opts.locateMain(el).catch(() => null) : null;
   const kitEntries = findKitEntries(doc);
-  const dev = !!doc.querySelector('script[src*="/@vite/client"]') || kitEntries.some((u) => /\/generated\/(?:dev\/)?client\//.test(u));
+  const dev = viteDevPage(doc) || kitEntries.some((u) => /\/generated\/(?:dev\/)?client\//.test(u)) || !!main?.kit?.dev;
   const svelte = main?.svelte ?? null;
   if (main?.kit || kitEntries.length) packet.framework = { name: 'sveltekit', dev, ...(main?.kit?.base ? { base: main.kit.base } : {}) };
   else if (svelte) packet.framework = { name: 'svelte', dev: true };

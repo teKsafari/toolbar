@@ -58,6 +58,10 @@ describe('svelte meta', () => {
     (window as unknown as Record<string, unknown>).__sveltekit_1x2y = { base: '/docs' };
     expect(readKitGlobal(window)).toEqual({ base: '/docs' });
     delete (window as unknown as Record<string, unknown>).__sveltekit_1x2y;
+    // `vite dev` names the global __sveltekit_dev
+    (window as unknown as Record<string, unknown>).__sveltekit_dev = { base: '' };
+    expect(readKitGlobal(window)).toEqual({ base: '', dev: true });
+    delete (window as unknown as Record<string, unknown>).__sveltekit_dev;
   });
 });
 
@@ -127,5 +131,22 @@ describe('locateInPage', () => {
     document.body.innerHTML = '<script>import("/@fs/home/x/lab/.svelte-kit/generated/dev/client/app.js").then(() => {})</script>';
     expect(findKitEntries(document).map((u) => new URL(u).pathname)).toEqual(['/docs/_app/immutable/entry/app.70RGvCJo.js', '/@fs/home/x/lab/.svelte-kit/generated/dev/client/app.js']);
     document.head.innerHTML = '';
+  });
+
+  it('finds the entry and the dev server in the resource timeline once hydration removed the start script', async () => {
+    // SvelteKit 1 with Svelte 3 on `vite dev` (docs/real-world/second-app.md): the inline
+    // import("/@fs/.../generated/client/app.js") sits in the body that hydration replaces
+    setup();
+    const names = ['http://localhost:5290/@vite/client', 'http://localhost:5290/node_modules/@sveltejs/kit/src/runtime/client/start.js', 'http://localhost:5290/@fs/home/dev/store/.svelte-kit/generated/client/app.js', 'http://localhost:5290/.svelte-kit/generated/client/nodes/0.js'];
+    const orig = performance.getEntriesByType.bind(performance);
+    (performance as unknown as { getEntriesByType: (t: string) => { name: string }[] }).getEntriesByType = (t: string) => (t === 'resource' ? names.map((name) => ({ name })) : orig(t));
+    try {
+      expect(findKitEntries(document)).toEqual(['http://localhost:5290/@fs/home/dev/store/.svelte-kit/generated/client/app.js']);
+      const { packet, kitEntries } = await locateInPage({ selector: '[data-testid="throws"]' }, { locateMain });
+      expect(kitEntries).toHaveLength(1);
+      expect(packet.framework).toMatchObject({ name: 'sveltekit', dev: true });
+    } finally {
+      (performance as unknown as { getEntriesByType: typeof orig }).getEntriesByType = orig;
+    }
   });
 });

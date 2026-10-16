@@ -745,18 +745,46 @@ function decideOutcome(o: Open): { outcome: Outcome; silent?: SilentClass; cavea
   return { outcome: 'dead' };
 }
 
+/** Longest summary the hand-off README shows on one timeline line before it cuts (handoff.ts entryLine). */
+export const SUMMARY_BUDGET = 230;
+
 function summarize(s: Span): string {
-  const parts: string[] = [s.action.label];
-  const reqs = s.requests.slice(0, 3).map((r) => {
+  const reqText = (r: Span['requests'][number], max = Infinity) => {
     const name = r.name?.label ?? requestLabel(r);
     const st = r.state === 'pending' ? 'pending' : r.state === 'failed' ? (r.error ?? 'failed') : String(r.status);
-    return `${name} ${st}`;
-  });
-  if (reqs.length) parts.push(reqs.join(', ') + (s.requests.length > 3 ? ` and ${s.requests.length - 3} more` : ''));
-  if (s.errors[0]) parts.push(`${s.errors[0].type === 'unhandledrejection' ? 'unhandled rejection' : 'uncaught'}: ${s.errors[0].message.slice(0, 80)}`);
-  else if (s.console.find((c) => c.level === 'error')) parts.push(`console error: ${s.console.find((c) => c.level === 'error')!.text.slice(0, 80)}`);
-  if (s.effects.nav.length) parts.push(`went to ${pathOf(s.effects.nav[s.effects.nav.length - 1]!)}`);
-  if (s.effects.canvas === 'changed' && !(s.effects.dom.added + s.effects.dom.removed + s.effects.dom.attrs + s.effects.dom.text)) parts.push('canvas redrawn');
+    return `${name.length > max ? `${name.slice(0, Math.max(8, max - 1))}…` : name} ${st}`;
+  };
+  const tail: string[] = [];
+  if (s.errors[0]) tail.push(`${s.errors[0].type === 'unhandledrejection' ? 'unhandled rejection' : 'uncaught'}: ${s.errors[0].message.slice(0, 80)}`);
+  else if (s.console.find((c) => c.level === 'error')) tail.push(`console error: ${s.console.find((c) => c.level === 'error')!.text.slice(0, 80)}`);
+  if (s.effects.nav.length) tail.push(`went to ${pathOf(s.effects.nav[s.effects.nav.length - 1]!)}`);
+  if (s.effects.canvas === 'changed' && !(s.effects.dom.added + s.effects.dom.removed + s.effects.dom.attrs + s.effects.dom.text)) tail.push('canvas redrawn');
+  // the requests give way first: long third-party URLs must not push the navigation, the error
+  // and the outcome past the end of the README line (docs/real-world/second-app.md)
+  const outcomeLen = 70;
+  const room = SUMMARY_BUDGET - s.action.label.length - tail.reduce((n, t) => n + t.length + 4, 0) - outcomeLen;
+  let reqs = '';
+  const count = s.requests.length === 1 ? '1 request' : `${s.requests.length} requests`;
+  for (let n = Math.min(3, s.requests.length); n > 0; n--) {
+    const more = s.requests.length - n;
+    const line = (max?: number) => s.requests.slice(0, n).map((r) => reqText(r, max)).join(', ') + (more ? ` and ${more} more` : '');
+    const full = line();
+    if (full.length <= room) {
+      reqs = full;
+      break;
+    }
+    if (n === 1) {
+      const cut = line(Math.max(24, room - 12 - (more ? 12 : 0)));
+      reqs = cut.length <= room ? cut : count;
+      break;
+    }
+    const cut = line(48);
+    if (cut.length <= room) {
+      reqs = cut;
+      break;
+    }
+  }
+  const parts: string[] = [s.action.label, ...(reqs ? [reqs] : []), ...tail];
   const what =
     s.outcome === 'silent'
       ? s.silent === '2xx'

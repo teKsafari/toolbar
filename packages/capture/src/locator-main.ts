@@ -25,8 +25,8 @@ export interface LocateReply {
   reply: 'locate';
   id: number;
   svelte?: SvelteMetaInfo | null;
-  /** SvelteKit's runtime global (`__sveltekit_<hash>`) was found */
-  kit?: { base?: string } | null;
+  /** SvelteKit's runtime global (`__sveltekit_<hash>`, or `__sveltekit_dev` on a dev server) was found */
+  kit?: { base?: string; dev?: boolean } | null;
 }
 
 type Meta = {
@@ -72,14 +72,14 @@ export function readSvelteMeta(el: Element | null, maxDepth = 25): SvelteMetaInf
   return null;
 }
 
-/** SvelteKit's runtime global, with the app's base path, or null on other apps. */
-export function readKitGlobal(win: Window): { base?: string } | null {
+/** SvelteKit's runtime global, with the app's base path, or null on other apps. Kit names it `__sveltekit_dev` under `vite dev`. */
+export function readKitGlobal(win: Window): { base?: string; dev?: boolean } | null {
   try {
     for (const k of Object.keys(win)) {
       if (!k.startsWith('__sveltekit_')) continue;
       const v = (win as unknown as Record<string, unknown>)[k] as { base?: unknown } | undefined;
       const base = typeof v?.base === 'string' ? v.base : undefined;
-      return base !== undefined ? { base } : {};
+      return { ...(base !== undefined ? { base } : {}), ...(k === '__sveltekit_dev' ? { dev: true } : {}) };
     }
   } catch {
     /* proxies */

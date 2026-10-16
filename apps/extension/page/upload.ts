@@ -25,6 +25,8 @@ export class PageHttpError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
+    /** the server's JSON error body, when it sent one */
+    readonly body: Record<string, unknown> | null = null,
   ) {
     super(code);
   }
@@ -58,12 +60,14 @@ export function createPageClient(nativeFetch: typeof fetch, base = RELAY) {
     }
     if (!res.ok) {
       let code = `http_${res.status}`;
+      let json: Record<string, unknown> | null = null;
       try {
-        code = ((await res.json()) as { error?: string }).error ?? code;
+        json = (await res.json()) as Record<string, unknown>;
+        if (typeof json.error === 'string') code = json.error;
       } catch {
         /* not JSON */
       }
-      throw new PageHttpError(res.status, code);
+      throw new PageHttpError(res.status, code, json);
     }
     const ct = res.headers.get('content-type') ?? '';
     return (ct.includes('json') ? await res.json() : undefined) as T;

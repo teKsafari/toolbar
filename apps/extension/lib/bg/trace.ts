@@ -230,6 +230,18 @@ export class TraceController {
   async onTabRemoved(tabId: number) {
     if (this.cur?.tabId === tabId) await this.stop({ open: false }).catch(() => undefined);
   }
+
+  /**
+   * Chrome clears a tab's own badge, title and icon when the tab loads a new document, so a trace
+   * that follows the reviewer to another page lost its "TR" badge (docs/real-world/second-app.md).
+   * Set it again on each load of the traced tab.
+   */
+  async onTabUpdated(tabId: number, status: string | undefined) {
+    if (!status) return;
+    await this.loaded;
+    if (this.cur?.tabId !== tabId) return;
+    await this.badge(tabId, true);
+  }
 }
 
 /** dHash of an image blob, drawn to 33x32 pixels (KEYFRAME_HASH_SIZE). */
@@ -273,6 +285,7 @@ export function registerTrace(svc: CaptureService): TraceController {
     return true;
   });
   browser.tabs.onRemoved.addListener((tabId) => void ctl.onTabRemoved(tabId));
+  browser.tabs.onUpdated.addListener((tabId, info) => void ctl.onTabUpdated(tabId, info.status));
   if (TEST_HOOKS) {
     queueMicrotask(() => {
       const g = globalThis as unknown as { __tb?: Record<string, unknown> };

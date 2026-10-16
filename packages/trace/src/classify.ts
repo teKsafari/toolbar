@@ -2,8 +2,8 @@
 // loads, form actions and remote functions, and Next.js RSC requests and server actions, from
 // what the request itself shows (URL, method, headers).
 //
-// SvelteKit: a client-side navigation or invalidation fetches `<route>/__data.json` (with
-// `x-sveltekit-invalidated` when only some loads rerun); `use:enhance` posts a form action to
+// SvelteKit: a client-side navigation, preload or invalidation fetches `<route>/__data.json` (with
+// `x-sveltekit-invalidated`, one 0/1 flag per layout and page node); `use:enhance` posts a form action to
 // `<route>?/<name>` (`?/` alone is never sent: the default action posts to the bare route) with
 // header `x-sveltekit-action: true`; remote functions live under `/_app/remote/<id>`.
 // Next.js App Router: RSC payload requests carry header `RSC: 1` and a `_rsc` query; prefetches
@@ -41,8 +41,14 @@ export function classifyRequest(r: RequestLike): RequestName | null {
   // SvelteKit data load: /__data.json at the root, /x/__data.json below it
   if (path === '/__data.json' || path.endsWith('/__data.json')) {
     const route = path.slice(0, -'/__data.json'.length) || '/';
-    const partial = u.searchParams.has('x-sveltekit-invalidated');
-    return { framework: 'sveltekit', type: 'load', route, label: `SvelteKit load ${route}${partial ? ' (invalidated)' : ''}` };
+    // One flag per layout and page node, '1' when that node's server load reruns. Client
+    // navigations, link preloads and invalidate() all send it, so it names which loads ran, not
+    // why: a navigation that keeps the layout's data sends `01`.
+    const flags = u.searchParams.get('x-sveltekit-invalidated');
+    const ran = flags && /^[01_]+$/.test(flags) ? [...flags].filter((c) => c === '1').length : null;
+    const nodes = flags ? [...flags].filter((c) => c === '0' || c === '1').length : 0;
+    const which = ran !== null && nodes > 1 && ran < nodes ? ` (${ran} of ${nodes} server loads)` : '';
+    return { framework: 'sveltekit', type: 'load', route, label: `SvelteKit load ${route}${which}` };
   }
   // SvelteKit remote functions (query, command, form, prerender)
   const remote = /\/_app\/remote\/([^/?#]+)/.exec(path);

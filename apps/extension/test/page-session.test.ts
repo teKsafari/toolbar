@@ -5,7 +5,7 @@ import { gunzipSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';
 import { ROUTES } from '@toolbar/shared/api';
 import type { CaptureEvent } from '@toolbar/shared';
-import { PAGE_ROUTES, type PageClient } from '../page/upload';
+import { PAGE_ROUTES, PageHttpError, type PageClient } from '../page/upload';
 import { PageSession, Ring, titleOf, uuid } from '../page/session';
 
 const ev = (t: number, kind: CaptureEvent['kind'] = 'console'): CaptureEvent => ({ v: 1, id: `x:${t}`, ctx: 'top', seq: t, t, kind, data: {} }) as unknown as CaptureEvent;
@@ -60,6 +60,7 @@ function fakeClient() {
         .toString('utf8')
         .trim()
         .split('\n')
+        .filter(Boolean)
         .map((l) => JSON.parse(l) as unknown);
       chunks.push({ stream, seq, rows });
       calls.push({ op: 'put', args: [id, stream, seq] });
@@ -128,13 +129,17 @@ describe('page session', () => {
     expect(s.trace).toBeNull();
   });
 
-  it('picks the trace up again on the next page of the tab', async () => {
+  it('picks the trace up again on the next page of the tab, with the rows the last page could not send', async () => {
     sessionStorage.clear();
-    const { client } = fakeClient();
+    const { client, chunks } = fakeClient();
     const a = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
     await a.startTrace();
-    a.send([ev(Date.now())]);
+    a.send([ev(1_000)]);
+    await a.flushTrace(false);
+    // the page goes away with a row it has not sent: no chunk number is spent on it
+    a.send([ev(2_000)]);
     await a.flushTrace(true);
+    expect(chunks.map((c) => `${c.stream}:${c.seq}`)).toEqual(['events:0']);
     const b = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
     expect(b.trace?.id).toBe('rec-1');
     expect(b.trace?.seq.events).toBe(1);
@@ -142,6 +147,48 @@ describe('page session', () => {
     b.onCommand((c) => cmds.push(c.type));
     b.boot();
     expect(cmds).toEqual(['ring', 'attach', 'checkout']);
+    b.send([ev(3_000)]);
+    await b.flushTrace(false);
+    expect(chunks.map((c) => `${c.stream}:${c.seq}`)).toEqual(['events:0', 'events:1']);
+    expect(chunks[1]!.rows.map((r) => (r as { t: number }).t)).toEqual([2_000, 3_000]);
+    expect(sessionStorage.getItem('tb:page-trace-pending')).toBeNull();
+  });
+
+  it('fills a chunk the server never got with an empty one, so the trace still completes', async () => {
+    sessionStorage.clear();
+    const { client, calls, chunks } = fakeClient();
+    // the server holds events 0 and 2 (1 went missing with a closed tab) and counts bytes itself
+    let completes = 0;
+    (client as unknown as { completeStream: unknown }).completeStream = vi.fn(async (_id: string, stream: string, lastSeq: number, totalBytes: number) => {
+      calls.push({ op: 'complete', args: [_id, stream, lastSeq, totalBytes] });
+      if (stream !== 'events') return;
+      completes++;
+      if (completes === 1) throw new PageHttpError(409, 'stream_incomplete', { error: 'stream_incomplete', stream, completed: false, missing: [1], issues: { missing: [1] } });
+      if (completes === 2) throw new PageHttpError(409, 'stream_incomplete', { error: 'stream_incomplete', stream, completed: false, missing: [], issues: { total: 123 } });
+    });
+    const s = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
+    await s.startTrace();
+    s.trace!.seq.events = 3;
+    s.trace!.bytes.events = 90;
+    const r = await s.stopTrace('gap');
+    expect(r.shareUrl).toBe('https://tb.example/s/abc');
+    expect(chunks.filter((c) => c.stream === 'events').map((c) => [c.seq, c.rows.length])).toEqual([[1, 0]]);
+    const ev = calls.filter((c) => c.op === 'complete' && c.args[1] === 'events').map((c) => c.args.slice(2));
+    expect(ev[0]).toEqual([2, 90]);
+    expect(ev[2]).toEqual([2, 123]);
+    expect(calls.some((c) => c.op === 'finalize')).toBe(true);
+  });
+
+  it('gives up on other completion errors', async () => {
+    sessionStorage.clear();
+    const { client } = fakeClient();
+    (client as unknown as { completeStream: unknown }).completeStream = vi.fn(async () => {
+      throw new PageHttpError(403, 'forbidden', { error: 'forbidden' });
+    });
+    const s = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
+    await s.startTrace();
+    s.trace!.seq.events = 1;
+    await expect(s.stopTrace('x')).rejects.toThrow('forbidden');
   });
 
   it('titles and ids', () => {

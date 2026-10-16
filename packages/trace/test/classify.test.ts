@@ -6,7 +6,12 @@ describe('classifyRequest', () => {
   it('SvelteKit data loads', () => {
     expect(classifyRequest({ method: 'GET', url: 'https://nuru.test/lessons/1/__data.json?x-sveltekit-trailing-slash=1' })).toMatchObject({ framework: 'sveltekit', type: 'load', route: '/lessons/1', label: 'SvelteKit load /lessons/1' });
     expect(classifyRequest({ method: 'GET', url: 'https://nuru.test/__data.json' })).toMatchObject({ route: '/' });
-    expect(classifyRequest({ method: 'GET', url: '/x/__data.json?x-sveltekit-invalidated=001' })!.label).toBe('SvelteKit load /x (invalidated)');
+    // the flags name which server loads rerun; a client navigation that keeps the layout sends 01
+    expect(classifyRequest({ method: 'GET', url: '/x/__data.json?x-sveltekit-invalidated=001' })!.label).toBe('SvelteKit load /x (1 of 3 server loads)');
+    expect(classifyRequest({ method: 'GET', url: '/search/__data.json?q=laptop&x-sveltekit-invalidated=01' })!.label).toBe('SvelteKit load /search (1 of 2 server loads)');
+    expect(classifyRequest({ method: 'GET', url: '/x/__data.json?x-sveltekit-invalidated=11' })!.label).toBe('SvelteKit load /x');
+    expect(classifyRequest({ method: 'GET', url: '/x/__data.json?x-sveltekit-invalidated=1' })!.label).toBe('SvelteKit load /x');
+    expect(classifyRequest({ method: 'GET', url: '/x/__data.json?x-sveltekit-invalidated=zz' })!.label).toBe('SvelteKit load /x');
   });
 
   it('SvelteKit form actions and remote functions', () => {

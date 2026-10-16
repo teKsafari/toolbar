@@ -24,6 +24,38 @@ describe('iframes (D-161)', () => {
   });
 });
 
+describe('summary length (docs/real-world/second-app.md)', () => {
+  it('long request URLs give way, so the route change, the console error and the outcome stay on the line', () => {
+    const fs = 'https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fidri-4f92%2Fdatabases%2F(default)&gsessionid=bodoTApbP65nmGD-3cXDgECC2T5R';
+    const s = new Stream()
+      .click(1000, button({ tag: 'p', role: undefined, name: 'Acer Swift 3 14" FHD Touch Laptop, Intel i5-1240P, 16GB RAM, 512GB SSD', selector: 'a > p' }))
+      .request(1004, 'GET', 'http://shop/favicon.png', 1020)
+      .request(1010, 'POST', fs, 1200)
+      .request(1020, 'GET', fs + '&RID=rpc&SID=abc&AID=0&CI=0&TYPE=xmlhttp', 1300)
+      .request(1030, 'GET', fs + '&RID=rpc&SID=def', 1300)
+      .add(1060, 'nav', { type: 'pushState', url: 'http://shop/buy/EU5h49cUwchkpvcWDoO6S8/', from: 'http://shop/search' })
+      .add(1100, 'console', { level: 'error', args: ['@firebase/firestore: Could not reach Cloud Firestore backend. Connection failed 1 times.'] })
+      .dom(1150, { added: 194, removed: 56 });
+    const span = only(s);
+    expect(span.outcome).toBe('error');
+    expect(span.summary.length).toBeLessThanOrEqual(240);
+    expect(span.summary).toContain('went to /buy/EU5h49cUwchkpvcWDoO6S8/');
+    expect(span.summary).toContain('console error: @firebase/firestore');
+    expect(span.summary).toMatch(/ -> error$/);
+    expect(span.summary).toMatch(/4 requests|and \d+ more/);
+  });
+
+  it('short summaries keep all three requests in full', () => {
+    const s = new Stream()
+      .click(1000, SAVE)
+      .request(1004, 'GET', 'http://lab/api/ok?q=works', 1030)
+      .request(1005, 'GET', 'http://lab/api/a', 1030)
+      .request(1006, 'GET', 'http://lab/api/b', 1030)
+      .dom(1100, { text: 1, texts: ['saved'] });
+    expect(only(s).summary).toBe('Click "Save (works)" -> GET /api/ok?q=works 200, GET /api/a 200, GET /api/b 200 -> changed');
+  });
+});
+
 describe('text selection (D-161)', () => {
   it('a drag that selects text reports the selection just before its click: changed, not dead', () => {
     const h1 = button({ selector: 'h1', tag: 'h1', name: 'Buttons', role: 'heading' });
@@ -247,7 +279,7 @@ describe('actions', () => {
     expect(spans[0]!.url).toBe('http://lab/');
     expect(spans[0]!.effects.nav).toEqual(['http://lab/form']);
     expect(spans[0]!.requests[0]!.name).toMatchObject({ framework: 'sveltekit', type: 'load', route: '/form' });
-    expect(spans[0]!.summary).toContain('SvelteKit load /form (invalidated) 200');
+    expect(spans[0]!.summary).toContain('SvelteKit load /form (1 of 2 server loads) 200');
     expect(spans[1]!.action.label).toBe('Back or forward to /');
     expect(spans[1]!.url).toBe('http://lab/');
   });

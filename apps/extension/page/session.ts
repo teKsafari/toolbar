@@ -7,11 +7,15 @@
 import type { Command, Transport } from '@toolbar/capture/transport';
 import type { CaptureEvent, TargetRef } from '@toolbar/shared';
 import type { LocatorPacket } from '@toolbar/shared/locator';
-import { gzipText, ndjson, type PageClient, type PageStream } from './upload.ts';
+import { gzipText, ndjson, PageHttpError, type PageClient, type PageStream } from './upload.ts';
 
 export const RING_MS = 60_000;
 export const TRACE_FLUSH_MS = 2_000;
 const TRACE_KEY = 'tb:page-trace';
+/** Rows a page had not sent when it went away; the next page of the tab sends them first. */
+const PENDING_KEY = 'tb:page-trace-pending';
+/** Largest stash, in characters of JSON (sessionStorage holds about 5 MB per origin). */
+export const STASH_MAX = 2_000_000;
 const RRWEB_META = 4;
 const RRWEB_FULL = 2;
 
@@ -108,6 +112,32 @@ function writeTrace(s: TraceState | null) {
   }
 }
 
+function readStash(id: string): Record<PageStream, unknown[]> | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as { id: string; events: unknown[]; rrweb: unknown[] };
+    return s.id === id ? { events: s.events ?? [], rrweb: s.rrweb ?? [] } : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStash(id: string | null, rows?: Record<PageStream, unknown[]>): boolean {
+  try {
+    if (!id || !rows) {
+      sessionStorage.removeItem(PENDING_KEY);
+      return true;
+    }
+    const json = JSON.stringify({ id, events: rows.events, rrweb: rows.rrweb });
+    if (json.length > STASH_MAX) return false;
+    sessionStorage.setItem(PENDING_KEY, json);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface PageSessionOptions {
   client: PageClient;
   workspaceId: () => Promise<string>;
@@ -156,8 +186,25 @@ export class PageSession implements Transport {
   /** Start the ring, and re-attach a trace that an earlier page of this tab started. */
   boot() {
     this.command({ type: 'ring', enabled: true, minutes: 1 });
-    if (this.trace) this.attach();
+    if (this.trace) {
+      this.unstash();
+      this.attach();
+    }
     addEventListener('pagehide', () => this.flushTrace(true));
+    // back from the back-forward cache: the rows this page stashed as it went are still its own
+    addEventListener('pageshow', (e) => {
+      if ((e as PageTransitionEvent).persisted && this.trace) this.unstash();
+    });
+  }
+
+  /** Puts the rows an earlier page of the tab could not send in front of this page's. */
+  private unstash() {
+    if (!this.trace) return;
+    const s = readStash(this.trace.id);
+    writeStash(null);
+    if (!s) return;
+    this.pending.events.unshift(...s.events);
+    this.pending.rrweb.unshift(...s.rrweb);
   }
 
   subscribe(fn: () => void) {
@@ -244,6 +291,17 @@ export class PageSession implements Transport {
     const t = this.trace;
     if (!t) return this.chain;
     if (!unloading) this.command({ type: 'flush' });
+    // A page that goes away rarely lives long enough to gzip and send: the chunk's number was
+    // taken and the chunk never arrived, so the trace could not be completed (stream_incomplete,
+    // docs/real-world/second-app.md). Keep the rows for the next page of the tab instead.
+    if (unloading && (this.pending.events.length || this.pending.rrweb.length)) {
+      const before = readStash(t.id) ?? { events: [], rrweb: [] };
+      const rows = { events: [...before.events, ...this.pending.events], rrweb: [...before.rrweb, ...this.pending.rrweb] };
+      if (writeStash(t.id, rows)) {
+        this.pending = { events: [], rrweb: [] };
+        return this.chain;
+      }
+    }
     for (const stream of ['events', 'rrweb'] as const) {
       const rows = this.pending[stream];
       if (!rows.length) continue;
@@ -266,6 +324,10 @@ export class PageSession implements Transport {
     return this.chain;
   }
 
+  private complete(t: TraceState, stream: PageStream) {
+    return completeWithGaps(this.opts.client, t, stream, this.now());
+  }
+
   async stopTrace(note: string): Promise<{ shareUrl: string }> {
     const t = this.trace;
     if (!t) throw new Error('no trace');
@@ -275,7 +337,7 @@ export class PageSession implements Transport {
     await this.flushTrace(false);
     const { client } = this.opts;
     for (const stream of ['events', 'rrweb'] as const) {
-      if (t.seq[stream] > 0) await client.completeStream(t.id, stream, t.seq[stream] - 1, t.bytes[stream]);
+      if (t.seq[stream] > 0) await this.complete(t, stream);
     }
     const lines = t.comments.map((c) => c.comment);
     const description = [note, ...lines].filter(Boolean).join('\n\n');
@@ -287,9 +349,36 @@ export class PageSession implements Transport {
     });
     this.trace = null;
     writeTrace(null);
+    writeStash(null);
     this.command({ type: 'ring', enabled: true, minutes: 1 });
     this.changed();
     return { shareUrl: fin.shareUrl || t.shareUrl };
+  }
+}
+
+/**
+ * A chunk can still go missing (a tab closed mid-upload, a relay error): the server then refuses
+ * to complete the stream and the whole trace would be lost. Fill each missing number with an
+ * empty chunk and take the server's byte count, so the trace arrives with a short gap instead.
+ */
+async function completeWithGaps(client: PageClient, t: TraceState, stream: PageStream, now: number): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await client.completeStream(t.id, stream, t.seq[stream] - 1, t.bytes[stream]);
+      return;
+    } catch (e) {
+      if (attempt >= 3 || !(e instanceof PageHttpError) || e.code !== 'stream_incomplete' || !e.body) throw e;
+      const issues = (e.body.issues ?? {}) as { missing?: unknown; total?: unknown };
+      const missing = (Array.isArray(e.body.missing) && e.body.missing.length ? e.body.missing : Array.isArray(issues.missing) ? issues.missing : []).filter((n): n is number => Number.isInteger(n) && n >= 0);
+      if (missing.length) {
+        const empty = await gzipText('');
+        for (const seq of missing.slice(0, 1000)) {
+          await client.putChunk(t.id, stream, seq, empty, t.startedAt, now);
+          t.bytes[stream] += empty.size;
+        }
+      } else if (typeof issues.total === 'number') t.bytes[stream] = issues.total;
+      else throw e;
+    }
   }
 }
 
