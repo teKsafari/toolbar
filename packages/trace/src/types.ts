@@ -160,6 +160,14 @@ export interface TraceConfig {
   doubleFireMs: number;
   /** A committed input this soon after a click on the same field is the click's effect (ms). */
   clickInputMs: number;
+  /**
+   * A request still pending that no span owns joins the next action when it started this soon
+   * before it and asks for the clicked link's URL: a link prefetched on hover and then clicked
+   * (Next.js) (ms, D-188).
+   */
+  adoptLinkMs: number;
+  /** Or when it started this soon before the action, whatever it asks for: work begun on pointerdown (ms, D-188). */
+  adoptMs: number;
   /** Request initiators that never hold a span open (long-lived or fire and forget). */
   ignoreInitiators: readonly string[];
   /** Keyframes: at most one per this many ms (1 to 2 s). */
@@ -179,6 +187,8 @@ export const DEFAULT_CONFIG: TraceConfig = {
   responseAttributionMs: 150,
   doubleFireMs: 80,
   clickInputMs: 500,
+  adoptLinkMs: 2000,
+  adoptMs: 300,
   ignoreInitiators: ['websocket', 'eventsource', 'beacon', 'ping', 'media'],
   keyframeGapMs: 1500,
   keyframeNavDelayMs: 600,

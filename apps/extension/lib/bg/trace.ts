@@ -37,6 +37,19 @@ interface Stored {
   title: string;
   /** span window for open requests, from the page's project (D-166) */
   openMs?: number;
+  /**
+   * Set once Stop has detached the tab and queued the events and the replay. A stop that fails
+   * after this (the server is down) is retried from the queued chunks: the ring is not read
+   * again, since it keeps only its normal window once the trace is detached (D-190).
+   */
+  prepared?: Prepared;
+}
+
+interface Prepared {
+  stoppedAt: number;
+  streams: [string, { lastSeq: number; totalBytes: number }][];
+  spans: number;
+  outcomes: Record<string, number>;
 }
 
 export class TraceController {
@@ -48,6 +61,8 @@ export class TraceController {
   private keyframeCount = 0;
   private shots = new CaptureQueue(600);
   private stopping: Promise<TraceResult> | null = null;
+  /** the card image taken at Stop, kept for a retried upload */
+  private still: Awaited<ReturnType<CaptureService['cardStillOf']>> = null;
   /** The live engine's spans of the last trace that stopped (e2e compares them with the server's). */
   lastSpans: readonly Span[] = [];
   readonly loaded: Promise<void>;
@@ -63,6 +78,8 @@ export class TraceController {
     if (!s) return;
     const tab = await browser.tabs.get(s.tabId).catch(() => null);
     this.cur = s;
+    // a stop that already queued its chunks only needs its upload retried
+    if (s.prepared) return;
     this.svc.attachTrace(s.tabId, s.recordingId, s.startedAt);
     this.begin();
     if (!tab) void this.stop({ open: false }).catch(() => undefined);
@@ -181,10 +198,11 @@ export class TraceController {
     return this.stopping;
   }
 
-  private async finish(c: Stored, opts: { open?: boolean }): Promise<TraceResult> {
+  /** Detach the tab, read the trace from the ring and queue it as chunks: once per trace. */
+  private async prepare(c: Stored): Promise<Prepared> {
     const stoppedAt = Date.now();
     const tab = await browser.tabs.get(c.tabId).catch(() => null);
-    const still = tab?.active ? await this.svc.cardStillOf(tab) : null;
+    this.still = tab?.active ? await this.svc.cardStillOf(tab) : null;
     await this.svc.flushTabs([c.tabId]).catch(() => undefined);
     this.svc.detachTrace(c.tabId);
     await new Promise((r) => setTimeout(r, 150)); // the pages' last batches after detach
@@ -196,7 +214,6 @@ export class TraceController {
     for (const s of spans) outcomes[s.outcome] = (outcomes[s.outcome] ?? 0) + 1;
     const slice = await this.svc.ring.read(c.tabId, c.startedAt - 250, Date.now());
     const events = slice.events.filter((e) => e.t >= c.startedAt - 250).sort((a, b) => a.t - b.t || (a.ctx < b.ctx ? -1 : a.ctx > b.ctx ? 1 : a.seq - b.seq));
-    const auth = await this.auth();
     const id = c.recordingId;
     const streams: [string, { lastSeq: number; totalBytes: number }][] = [];
     const ev = await enqueueNdjson(id, 'events', toNdjson(events as CaptureEvent[]));
@@ -205,6 +222,18 @@ export class TraceController {
       const rr = await enqueueNdjson(id, 'rrweb', slice.rrweb.map((r) => JSON.stringify(r)).join('\n'));
       if (rr) streams.push(['rrweb', rr]);
     }
+    const p: Prepared = { stoppedAt, streams, spans: spans.length, outcomes };
+    this.cur = { ...c, prepared: p };
+    await setPrivate(KEY, this.cur);
+    return p;
+  }
+
+  private async finish(c: Stored, opts: { open?: boolean }): Promise<TraceResult> {
+    const p = c.prepared ?? (await this.prepare(c));
+    const { stoppedAt, streams, outcomes } = p;
+    const auth = await this.auth();
+    const id = c.recordingId;
+    const still = this.still;
     for (let attempt = 1; ; attempt++) {
       const r = await drain(auth, id, id, { parallel: 4 });
       if (!r.failed) break;
@@ -223,7 +252,8 @@ export class TraceController {
     await this.badge(c.tabId, false);
     const tabGone = !(await browser.tabs.get(c.tabId).catch(() => null));
     if (tabGone) await this.svc.ring.purgeTab(c.tabId);
-    const result: TraceResult = { recordingId: fin.id, shareUrl: fin.shareUrl, spans: spans.length, outcomes, durationMs };
+    this.still = null;
+    const result: TraceResult = { recordingId: fin.id, shareUrl: fin.shareUrl, spans: p.spans, outcomes, durationMs };
     if (opts.open !== false) await browser.tabs.create({ url: fin.shareUrl, ...(tabGone ? {} : { openerTabId: c.tabId }) }).catch(() => undefined);
     return result;
   }

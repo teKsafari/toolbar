@@ -425,3 +425,84 @@ describe('output', () => {
     expect(spansJsonl([])).toBe('');
   });
 });
+
+describe('Nuru span labels (D-188, docs/experiments/span-labels.md)', () => {
+  const NEXT = button({ selector: 'a[data-testid="next-nav"] > span', tag: 'span', role: undefined, name: 'Somo linalofuata', link: 'https://nuru/sw/anza/maoni' });
+
+  it('a link prefetched on hover and clicked while the prefetch is still open waits for it: stuck at 10 s', () => {
+    const s = new Stream()
+      .request(1000, 'GET', 'https://nuru/sw/anza/maoni?_rsc=1tsji', 13_100, 200, { headers: { rsc: '1', 'next-router-prefetch': '1' } })
+      .click(1330, NEXT);
+    const span = only(s);
+    expect(span.outcome).toBe('stuck');
+    expect(span.closeReason).toBe('max_open');
+    expect(span.requests).toHaveLength(1);
+  });
+
+  it('the same prefetch already answered before the click is not adopted', () => {
+    const s = new Stream().request(1000, 'GET', 'https://nuru/sw/anza/maoni?_rsc=1tsji', 1200).click(1330, NEXT).add(1340, 'nav', { type: 'pushState', url: 'https://nuru/sw/anza/maoni' });
+    const span = only(s);
+    expect(span.requests).toHaveLength(0);
+    expect(span.outcome).toBe('changed');
+  });
+
+  it('a pending request for another URL joins only when it began within 300 ms (pointerdown)', () => {
+    const late = new Stream().request(1000, 'GET', 'https://nuru/api/poll', 1900).click(1500, EXPORT);
+    expect(only(late).outcome).toBe('dead');
+    const down = new Stream().request(1250, 'POST', 'https://nuru/api/save', 1900).click(1500, EXPORT);
+    const span = only(down);
+    expect(span.requests.map((r) => r.url)).toEqual(['https://nuru/api/save']);
+    expect(span.outcome).toBe('silent');
+  });
+
+  it('a request another span owns is never taken', () => {
+    const s = new Stream().click(1000, SAVE).request(1100, 'GET', 'https://nuru/sw/anza/maoni', 4000).click(1300, NEXT);
+    const { spans } = deriveTrace(s.events);
+    expect(spans.map((x) => x.requests.length)).toEqual([1, 0]);
+  });
+
+  it('Enter in a form field and the click it fires on the submit button are one action', () => {
+    const field = button({ selector: 'form > input', tag: 'input', role: 'textbox', name: 'Jina lako?' });
+    const s = new Stream()
+      .add(1000, 'user', { type: 'key', key: 'Enter', target: field })
+      .add(1013, 'user', { type: 'click', target: button({ selector: 'form > button', name: 'Tuma' }) })
+      .add(1015, 'user', { type: 'input', target: field, value: '' })
+      .dom(1040, { added: 3, texts: ['Karibu, Amani'] });
+    const span = only(s);
+    expect(span.action.label).toBe('Press Enter in "Jina lako?"');
+    expect(span.outcome).toBe('changed');
+  });
+});
+
+describe('code runs in a worker (D-189)', () => {
+  const RUN = button({ selector: 'button[data-testid="run"]', name: 'Endesha', testId: 'run' });
+
+  it('a run posted to a worker stays open until the worker answers, so the output is in the span', () => {
+    const s = new Stream()
+      .click(1000, RUN)
+      .add(1005, 'worker', { wid: 'w-1', op: 'send' }, 'top')
+      .dom(1140, { attrs: 3, texts: ['Simamisha'] })
+      .add(4150, 'worker', { wid: 'w-1', op: 'recv' }, 'top')
+      .dom(4180, { added: 2, texts: ['990000'] });
+    const span = only(s);
+    expect(span.outcome).toBe('changed');
+    expect(span.closeReason).toBe('quiet');
+    expect(span.texts).toContain('990000');
+    expect(span.t1).toBe(4680);
+  });
+
+  it('without the worker messages the span closes 500 ms after the button change and misses the output', () => {
+    const s = new Stream().click(1000, RUN).dom(1140, { attrs: 3, texts: ['Simamisha'] }).dom(4180, { added: 2, texts: ['990000'] });
+    const { spans, summary } = deriveTrace(s.events);
+    expect(spans[0]!.t1).toBe(1640);
+    expect(spans[0]!.texts).not.toContain('990000');
+    expect(summary.unattributed).toBe(1);
+  });
+
+  it('a worker that never answers holds the span to the open-request limit, but it is not stuck', () => {
+    const s = new Stream().click(1000, RUN).add(1005, 'worker', { wid: 'w-1', op: 'send' }, 'top').dom(1140, { attrs: 3 });
+    const span = only(s);
+    expect(span.closeReason).toBe('max_open');
+    expect(span.outcome).toBe('changed');
+  });
+});

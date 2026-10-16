@@ -9,6 +9,7 @@ import { installWebSocketHook, frameData } from '../src/hooks/websocket.ts';
 import { installEventSourceHook } from '../src/hooks/eventsource.ts';
 import { installHistoryHook } from '../src/hooks/history.ts';
 import { installErrorsHook } from '../src/hooks/errors.ts';
+import { installWorkerHook } from '../src/hooks/worker.ts';
 import { evaluateMetadata } from '../src/metadata.ts';
 
 const W = window as unknown as Window & typeof globalThis;
@@ -231,5 +232,36 @@ describe('metadata', () => {
     expect(evaluateMetadata(() => ({ big: 'x'.repeat(11_000) }))).toEqual({ error: 'too_large' });
     expect(evaluateMetadata(() => [1])).toEqual({ error: 'not_object' });
     expect(evaluateMetadata(null)).toEqual({ value: null });
+  });
+});
+
+describe('worker hook (D-189)', () => {
+  it('marks a post and the first answer after it, without payloads, and still posts', () => {
+    const posted: unknown[] = [];
+    class FakeWorker extends EventTarget {
+      postMessage(m: unknown) {
+        posted.push(m);
+      }
+      reply() {
+        this.dispatchEvent(new MessageEvent('message', { data: { type: 'stdout', text: 'secret output' } }));
+      }
+    }
+    const orig = W.Worker;
+    W.Worker = FakeWorker as unknown as typeof Worker;
+    undo.push(() => (W.Worker = orig));
+    const { out, emit } = collector();
+    undo.push(installWorkerHook(emit, W));
+    const w = new (W.Worker as unknown as typeof FakeWorker)();
+    w.postMessage({ type: 'run', code: 'andika(1)' });
+    w.postMessage({ type: 'input', text: 'x' }); // still owed an answer: no second send
+    w.reply();
+    w.reply();
+    w.postMessage({ type: 'run', code: 'andika(2)' });
+    expect(posted).toHaveLength(3);
+    const ev = of(out, 'worker');
+    expect(ev.map((e) => e.data.op)).toEqual(['send', 'recv', 'send']);
+    expect(new Set(ev.map((e) => e.data.wid)).size).toBe(1);
+    expect(JSON.stringify(ev)).not.toContain('andika');
+    expect(JSON.stringify(ev)).not.toContain('secret');
   });
 });

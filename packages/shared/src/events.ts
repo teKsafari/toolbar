@@ -47,6 +47,8 @@ export interface TargetRef {
   heading?: string;
   /** A few attributes for the pseudo tag in action rows (J-067): type, name, href, aria-label, value (masked). */
   attrs?: Record<string, string>;
+  /** Origin and path (no query) of the link the element sits in, when it is not the link itself: a click on a span inside an <a> (D-188). */
+  link?: string;
   /** Frame context of the element ("top" or a frame ctx). */
   frame?: string;
 }
@@ -248,6 +250,16 @@ export interface NetFailure {
   source?: NetSource;
 }
 
+/**
+ * The page and one of its dedicated Web Workers: `send` when the page posts to a worker that
+ * owes it no answer yet, `recv` for the worker's first message back. A code run in a worker
+ * holds its span open until the answer (D-189). Payloads are not kept.
+ */
+export interface WorkerMessage {
+  wid: string;
+  op: 'send' | 'recv';
+}
+
 export interface WsEvent {
   sid: string;
   op: 'open' | 'send' | 'recv' | 'close' | 'error';
@@ -397,6 +409,7 @@ export interface EventDataMap {
   'net.fail': NetFailure;
   ws: WsEvent;
   sse: SseEvent;
+  worker: WorkerMessage;
   user: UserEvent;
   dom: DomSummary;
   rrweb: RrwebRef;
@@ -420,6 +433,7 @@ export const EVENT_KINDS = [
   'net.fail',
   'ws',
   'sse',
+  'worker',
   'user',
   'dom',
   'rrweb',

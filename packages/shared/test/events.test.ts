@@ -34,6 +34,7 @@ describe('schema round trip', () => {
     make('net.fail', { rid: 'top-1', error: 'abort' }),
     make('ws', { sid: 'w1', op: 'recv', data: 'tick' }),
     make('sse', { sid: 's1', op: 'message', data: '1' }),
+    make('worker', { wid: 'w-1', op: 'send' }),
     make('user', { type: 'click', target: { selector: '#save', tag: 'button', rect: { x: 1, y: 2, w: 3, h: 4 } } }),
     make('dom', { added: 1, removed: 0, attrs: 2, text: 0, rects: [] }),
     make('rrweb', { chunk: 0, first: 1, last: 2 }),

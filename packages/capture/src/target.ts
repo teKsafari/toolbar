@@ -142,6 +142,20 @@ function headingOf(el: Element): string | undefined {
   return h ? clean(h.textContent, 80) : undefined;
 }
 
+/** Origin and path of the link around an element that is not a link itself (D-188). */
+function linkOf(el: Element): string | undefined {
+  if (el.tagName.toLowerCase() === 'a') return undefined;
+  const a = el.closest?.('a[href]') as HTMLAnchorElement | null;
+  if (!a) return undefined;
+  try {
+    // origin and path only: a query string can carry a token
+    const u = new URL(a.href || a.getAttribute('href') || '', el.ownerDocument.baseURI);
+    return (u.origin === 'null' ? u.protocol + u.pathname : u.origin + u.pathname).slice(0, 2000);
+  } catch {
+    return undefined;
+  }
+}
+
 function rectOf(el: Element): Rect {
   const r = el.getBoundingClientRect();
   const win = el.ownerDocument.defaultView;
@@ -213,6 +227,8 @@ export function describeNode(node: Node | null | undefined, opts: DescribeOption
     if (el.id) ref.elId = el.id;
     if (cls.length) ref.classes = cls;
     if (Object.keys(attrs).length) ref.attrs = attrs;
+    const link = linkOf(el);
+    if (link) ref.link = link;
     const lm = landmarksOf(el);
     if (lm) ref.landmarks = lm;
     const heading = headingOf(el);

@@ -96,6 +96,7 @@ export const targetRefSchema = z.object({
   landmarks: z.array(z.string()).optional(),
   heading: z.string().optional(),
   attrs: z.record(z.string(), z.string()).optional(),
+  link: z.string().max(2000).optional(),
   frame: z.string().optional(),
 });
 
@@ -238,6 +239,7 @@ export const eventDataSchemas = {
     rects: z.array(rectSchema).max(5),
     texts: z.array(z.string().max(200)).max(5).optional(),
   }),
+  worker: z.object({ wid: z.string().max(100), op: z.enum(['send', 'recv']) }),
   rrweb: z.object({ chunk: z.number().int(), first: z.number(), last: z.number() }),
   media: z.object({
     stream: z.enum(['video', 'mic', 'cam', 'screen']),

@@ -62,6 +62,8 @@ interface Open {
   canvasBefore: Map<string, CanvasSample>;
   canvasSeen: { changed: boolean; unreadable: boolean; compared: boolean };
   sockets: number;
+  /** workers the span posted to that have not answered yet: they hold it open (D-189) */
+  workers: Set<string>;
   targetSel: string | null;
 }
 
@@ -243,6 +245,21 @@ export class SpanEngine {
         this.touch(o, e.t);
         return;
       }
+      case 'worker': {
+        // a post to a worker holds the span until the worker answers (a code run, D-189)
+        if (e.data.op === 'send') {
+          const o = this.targetFor(e.t);
+          if (!o) return void this.unattributed++;
+          o.workers.add(e.data.wid);
+          this.touch(o, e.t);
+          return;
+        }
+        for (const o of this.open) {
+          if (!o.workers.delete(e.data.wid)) continue;
+          this.touch(o, e.t);
+        }
+        return;
+      }
       case 'shot': {
         // a screenshot shows the page after everything up to it: the newest action's span
         const span = this.newestSpanBefore(e.t);
@@ -307,7 +324,10 @@ export class SpanEngine {
         const prev = this.newestPage();
         // Enter or Space on a button fires a click too: one action
         if (prev && e.t - prev.span.t0 <= this.config.doubleFireMs && prev.targetSel && prev.targetSel === d.target?.selector) return;
+        // Enter in a form field submits it with a click on its submit button: one action (D-188)
+        if (d.type === 'click' && prev && prev.span.action.key === 'Enter' && e.t - prev.span.t0 <= this.config.doubleFireMs && (d.target?.tag === 'button' || d.target?.tag === 'input')) return;
         const o = this.start(e, { type: d.type, label: `${d.type === 'click' ? 'Click' : d.type === 'dblclick' ? 'Double-click' : 'Right-click'} ${quoted(target)}`, eventId: e.id, ...(target ? { target } : {}), interactive: isInteractive(d.target) });
+        this.adopt(o, d.target?.link ?? d.target?.attrs?.['href']);
         if (d.type === 'click' && isField(target)) {
           o.span.effects.focus = true;
           this.touch(o, e.t);
@@ -322,8 +342,9 @@ export class SpanEngine {
       case 'input': {
         const target = targetOf(d.target);
         const prev = this.newestPage();
-        // a checkbox, radio or select changed by the click that is still open
-        if (prev && prev.span.action.type === 'click' && prev.targetSel && prev.targetSel === d.target?.selector && e.t - prev.span.t0 <= this.config.clickInputMs) {
+        // a checkbox, radio or select changed by the click that is still open; a field that
+        // Enter just submitted and the page cleared (D-188)
+        if (prev && (prev.span.action.type === 'click' || prev.span.action.key === 'Enter') && prev.targetSel && prev.targetSel === d.target?.selector && e.t - prev.span.t0 <= this.config.clickInputMs) {
           prev.span.effects.value = true;
           this.touch(prev, e.t);
           return;
@@ -345,7 +366,8 @@ export class SpanEngine {
         if (!isActionKey(d.key, d.mods)) return;
         const target = targetOf(d.target);
         const key = keyLabel(d.key!, d.mods);
-        this.start(e, { type: 'key', label: `Press ${key}${target ? ` in ${quoted(target)}` : ''}`, eventId: e.id, key, ...(target ? { target } : {}) });
+        const k = this.start(e, { type: 'key', label: `Press ${key}${target ? ` in ${quoted(target)}` : ''}`, eventId: e.id, key, ...(target ? { target } : {}) });
+        this.adopt(k);
         return;
       }
       case 'scroll':
@@ -457,6 +479,7 @@ export class SpanEngine {
       canvasBefore: new Map(),
       canvasSeen: { changed: false, unreadable: false, compared: false },
       sockets: 0,
+      workers: new Set(),
       targetSel: action.target?.selector ?? null,
     };
     if (!note) {
@@ -470,6 +493,40 @@ export class SpanEngine {
     }
     this.open.push(o);
     return o;
+  }
+
+  /**
+   * Pending requests no span owns that belong to this action (D-188): one for the clicked link's
+   * URL started up to `adoptLinkMs` before (a prefetch on hover that the click then waits for),
+   * or any started up to `adoptMs` before (work begun on pointerdown or keydown).
+   */
+  private adopt(o: Open, href?: string) {
+    const t0 = o.span.t0;
+    let path: string | null = null;
+    if (href) {
+      try {
+        path = new URL(href, this.url || 'http://x/').pathname;
+      } catch {
+        path = null;
+      }
+    }
+    for (const r of this.reqs.values()) {
+      if (r.owner || r.ignored || r.twin || r.state !== 'pending' || r.t > t0) continue;
+      const ago = t0 - r.t;
+      let same = false;
+      if (path !== null && ago <= this.config.adoptLinkMs) {
+        try {
+          same = new URL(r.url).pathname === path;
+        } catch {
+          same = false;
+        }
+      }
+      if (!same && ago > this.config.adoptMs) continue;
+      r.owner = o;
+      o.reqs.push(r);
+      this.unattributed = Math.max(0, this.unattributed - 1);
+      this.touch(o, t0);
+    }
   }
 
   // ---------- effects ----------
@@ -631,7 +688,7 @@ export class SpanEngine {
   private deadline(o: Open): number {
     if (o.note) return o.span.action.type === 'voice' ? o.span.t0 + 30 * 60_000 : o.span.t0;
     const cap = o.span.t0 + this.config.maxOpenMs;
-    if (this.pending(o).length) return cap;
+    if (this.pending(o).length || o.workers.size) return cap;
     if (o.effectCount === 0) return o.span.t0 + this.config.noEffectMs;
     return Math.min(o.lastActivity + this.config.quietMs, cap);
   }

@@ -121,6 +121,7 @@ export type CaptureEvent =
   | Envelope<'net.fail', NetFailure>           // rid, error ('net::ERR_*', 'abort', 'timeout')
   | Envelope<'ws', WsEvent>                    // sid, op: open|send|recv|close|error, data? (capped)
   | Envelope<'sse', SseEvent>                  // sid, op: open|message|error|close, event?, data?
+  | Envelope<'worker', WorkerMessage>          // wid, op: send|recv; timing only, holds a span (D-189)
   | Envelope<'user', UserEvent>                // click|dblclick|contextmenu|input (committed)|key|scroll|focus|blur|select|resize|visibility
   | Envelope<'dom', DomSummary>                // every 100 ms with changes: added, removed, attrs, text, rects[] (<=5)
   | Envelope<'rrweb', RrwebRef>                // pointer only: { chunk, first, last } into the rrweb stream
@@ -153,7 +154,8 @@ How Part 2 derives its outputs from this schema with no capture change (`package
 |---|---|
 | span start (action) | `user` click/input/key(Enter, Ctrl+Enter), `nav`, `annotation`, `marker` (voice) |
 | span effects | `net.*` by `rid`, `console`, `error`, `dom`, `user` scroll/focus/select, `shot` |
-| close rules (500 ms quiet, 2.5 s, 10 s) | `t` plus the set of open `rid`s |
+| close rules (500 ms quiet, 2.5 s, 10 s) | `t` plus the set of open `rid`s; a pending request no span owns joins a click on its link (`TargetRef.link`, 2 s) or any action within 300 ms (D-188); a `worker` `send` holds the span open until its `recv` (D-189) |
+| one action, several events | Enter or Space and the click it fires; a checkbox click and its value; Enter in a form field and the click on its submit button (D-188) |
 | outcome `dead` vs `silent` on canvas | Part 2 adds one kind, `canvas.sample` (rect, hash before and after, changed-pixel share), which is additive (D-120) |
 | `caused_by` | overlapping open windows; confidence from timing and `ctx` |
 | `console.jsonl`, `network.jsonl`, `raw/network.har` | filter and map (`packages/shared/src/har.ts`) |

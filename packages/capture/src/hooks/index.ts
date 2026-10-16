@@ -5,6 +5,7 @@ import { installWebSocketHook } from './websocket.ts';
 import { installEventSourceHook } from './eventsource.ts';
 import { installErrorsHook } from './errors.ts';
 import { installHistoryHook } from './history.ts';
+import { installWorkerHook } from './worker.ts';
 
 export {
   installConsoleHook,
@@ -13,6 +14,7 @@ export {
   installEventSourceHook,
   installErrorsHook,
   installHistoryHook,
+  installWorkerHook,
 };
 
 /** Install order matters: errors first so a failing installer is still reported. */
@@ -23,4 +25,5 @@ export const DEFAULT_HOOKS: Record<string, HookInstaller> = {
   websocket: installWebSocketHook,
   eventsource: installEventSourceHook,
   history: installHistoryHook,
+  worker: installWorkerHook,
 };
