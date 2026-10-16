@@ -29,6 +29,14 @@ curl -fsSL -H "Authorization: Bearer $TOOLBAR_TOKEN" "$TOOLBAR_SERVER/api/v1/rec
 
 You get `.feedback/<id>/`. The agent reads `README.md` first: who reported what, the reviewer's words, the actions that had no effect, and a timeline that names the screenshot for each moment. A share link answers the same command as its first line when an agent fetches it as markdown. Install the Agent Skill from `skills/open-toolbar-feedback/SKILL.md` (or `$TOOLBAR_SERVER/api/v1/skill`) so Claude Code, Codex or opencode follow that path and mark the feedback resolved when the fix is in. The MCP server at `/mcp` serves the same folder.
 
+To let the agent learn from all feedback at once, pull the bulk export:
+
+```sh
+curl -fsSL -H "Authorization: Bearer $TOOLBAR_TOKEN" "$TOOLBAR_SERVER/api/v1/feedback/export" | tar xz
+```
+
+You get `.feedback/INDEX.md` beside one folder per capture. INDEX.md lists every capture with its route, outcome counts and the reviewer's summary, then the routes with the most problems, the errors and failing requests that repeat, and the words reviewers use. The skill's "learn from all feedback" mode reads it first, opens the folders it points at, and writes a product brief into your repo. Over MCP the same data comes from `list_feedback` and `get_feedback_index`.
+
 ## Docs
 
 - `docs/configuration.md`: every environment variable, the basic deployment and Coolify

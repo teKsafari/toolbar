@@ -130,7 +130,7 @@ export function loadEnv() {
       /** tesseract languages, `+` separated (the image ships eng and swa). */
       ocrLangs: read('OCR_LANGS', 'eng'),
       /**
-       * Size cap of one page of the bulk export (D-182), in MB of stored media the folders carry
+       * Size cap of one page of the bulk export (D-183), in MB of stored media the folders carry
        * (images, rrweb, events, voice); a page ends before the capture that would pass it.
        */
       exportMaxMb: Math.max(1, Number(read('EXPORT_MAX_MB', '200')) || 200),

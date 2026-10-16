@@ -369,7 +369,7 @@ export function sharePageMarkdown(p: SharePageInput): string {
 /**
  * SKILL.md for coding agents (Claude Code, Codex, opencode), in two modes. One piece of feedback:
  * pull the folder with curl, read README.md first, open images only when the timeline points at
- * them, fix, mark the feedback resolved. All feedback (D-182): pull the bulk export, read
+ * them, fix, mark the feedback resolved. All feedback (D-183): pull the bulk export, read
  * INDEX.md first, dive into the folders its digests point at, and write a product brief into the
  * repo. `server` bakes in a default server URL (the copy the server hands out); the repo copy has
  * none.

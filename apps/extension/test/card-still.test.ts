@@ -1,4 +1,4 @@
-// Card stills of DOM replays and traces (D-183): size and production mask geometry.
+// Card stills of DOM replays and traces (D-184): size and production mask geometry.
 import { describe, expect, it } from 'vitest';
 import { CARD_W, cardSize, maskFills, type MaskRects } from '../lib/capture/card-still';
 

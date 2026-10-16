@@ -55,10 +55,11 @@ services:
       TRANSCRIBE_MAX_MINUTES: ${TRANSCRIBE_MAX_MINUTES:-}
       TRANSCRIBE_MONTHLY_MINUTES: ${TRANSCRIBE_MONTHLY_MINUTES:-}
       TRANSCRIBE_CONCURRENCY: ${TRANSCRIBE_CONCURRENCY:-}
-      # agent hand-off: share link lifetime, OCR of canvas regions
+      # agent hand-off: share link lifetime, OCR of canvas regions, export page size
       SHARE_LINK_DAYS: ${SHARE_LINK_DAYS:-14}
       OCR_BIN: ${OCR_BIN:-tesseract}
       OCR_LANGS: ${OCR_LANGS:-eng}
+      EXPORT_MAX_MB: ${EXPORT_MAX_MB:-200}
       # the injector (apps/injector/README.md, deploy/injector/): off while INJECTOR_SECRET is empty
       INJECTOR_SECRET: ${INJECTOR_SECRET:-}
       INJECTOR_ORIGINS: ${INJECTOR_ORIGINS:-}

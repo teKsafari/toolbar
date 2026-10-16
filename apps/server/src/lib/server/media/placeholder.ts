@@ -1,4 +1,4 @@
-// The card image of a capture that has no picture to take one from (D-183): a DOM-only replay or
+// The card image of a capture that has no picture to take one from (D-184): a DOM-only replay or
 // a trace without a keyframe from before the extension sent stills, and injector captures, whose
 // page bundle cannot take a screenshot. Drawn as SVG and rasterised with sharp (librsvg): a
 // browser window with the page's host in the address bar, the capture kind, the page title and

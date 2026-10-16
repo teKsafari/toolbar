@@ -1,4 +1,4 @@
-// The card image a DOM replay or a trace sends with it (D-183): a captureVisibleTab still of the
+// The card image a DOM replay or a trace sends with it (D-184): a captureVisibleTab still of the
 // page, scaled to the dashboard's thumbnail width, and masked like the recording under the
 // production preset. rrweb masks every text node, input and media element there (D-125), so the
 // still paints a bar over each text line and a plain box over each input and media element, with

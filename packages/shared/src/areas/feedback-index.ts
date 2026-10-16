@@ -1,4 +1,4 @@
-// The bulk feedback export (D-182): `.feedback/INDEX.md` at the root of the archive that
+// The bulk feedback export (D-183): `.feedback/INDEX.md` at the root of the archive that
 // GET /api/v1/feedback/export answers, beside one `.feedback/<id>/` folder per capture in the
 // per-capture layout. INDEX.md is written for an agent that must learn from many pieces of
 // feedback: the fencing rule, a table of captures, then digests across captures (routes with the
@@ -137,7 +137,7 @@ const STOP = new Set(
     'it its this that these those there here i me my mine we us our you your he him his she her they them their what which who whom whose why how where all any both each few more most ' +
     'other some such no nor not only own same so than too very can will just should could would may might must shall now also get got go goes going went see seen saw make made ' +
     'one two like want wanted need needs really thing things something nothing still even back way yes okay ok please thanks thank let lets dont doesnt didnt isnt wasnt cant wont ' +
-    'im ive its thats theres page click clicked button trace capture recording replay screenshot video untitled ' +
+    'im ive its thats theres happen happens happened before after again always never every once still then when page click clicked button trace capture recording replay screenshot video untitled ' +
     'na ya wa kwa la za ni kuna hii hiyo hapa sasa pia lakini au kama'
   ).split(/\s+/),
 );

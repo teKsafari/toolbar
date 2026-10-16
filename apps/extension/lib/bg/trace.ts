@@ -202,7 +202,7 @@ export class TraceController {
       await new Promise((res) => setTimeout(res, Math.min(30_000, 1000 * 2 ** (attempt - 1))));
     }
     for (const [stream, s] of streams) await withRetry(() => api.completeStream(auth, id, stream as 'events' | 'rrweb', s));
-    // the card image: the page as the trace stopped, masked per preset (D-183)
+    // the card image: the page as the trace stopped, masked per preset (D-184)
     if (still) await withRetry(() => api.uploadAsset(auth, { kind: 'thumb', recordingId: id, width: still.width, height: still.height }, still.blob, 'thumb.webp')).catch(() => undefined);
     const durationMs = Math.max(0, stoppedAt - c.startedAt);
     const fin = await withRetry(() => api.finalize(auth, id, { title: `Trace: ${c.title || c.url}`.slice(0, 200), durationMs }));

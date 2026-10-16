@@ -234,7 +234,7 @@ async function runFinalize(rec: typeof recording.$inferSelect, attempts: number)
         height = main.height;
       }
     }
-    // nothing to take a picture from (an injector capture, an older DOM-only replay): the placeholder card (D-183)
+    // nothing to take a picture from (an injector capture, an older DOM-only replay): the placeholder card (D-184)
     if (!thumbKey) thumbKey = await putPlaceholder(rec);
   });
 
@@ -334,7 +334,7 @@ async function remuxVideo(payload: unknown) {
 
 /**
  * The still a capture without video and without a screenshot takes its card image from: the
- * still the extension sent (`thumb`: instant replay and traces, masked per preset, D-183; J-158),
+ * still the extension sent (`thumb`: instant replay and traces, masked per preset, D-184; J-158),
  * else a trace's first keyframe, else a reviewer toolbar submit's first element crop.
  */
 function stillOf<A extends { kind: string }>(all: A[], kind: string): A | undefined {
@@ -386,7 +386,7 @@ async function thumbnail(payload: unknown) {
 }
 
 /**
- * Card images for captures made before every kind got one (D-183): ready captures without
+ * Card images for captures made before every kind got one (D-184): ready captures without
  * `thumb_key`, oldest id first, a batch per run; the next run starts after the last id, so a
  * capture whose media cannot be read is skipped instead of retried forever.
  */
@@ -603,7 +603,7 @@ export async function ensureRecurringJobs(d: Db = db) {
       .limit(1);
     if (!row) await enqueue(d, type, {}, { maxAttempts: 1000 });
   }
-  // D-183: captures from before every kind got a card image get one, once, in the background
+  // D-184: captures from before every kind got a card image get one, once, in the background
   const [missing] = await d
     .select({ id: recording.id })
     .from(recording)

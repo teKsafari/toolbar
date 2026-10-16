@@ -1,4 +1,4 @@
-// The bulk feedback export (D-182): every matching capture at once, for an agent that learns from
+// The bulk feedback export (D-183): every matching capture at once, for an agent that learns from
 // many pieces of feedback. One page of captures is picked from the filters (newest first, at most
 // `limit`, and no more stored media than EXPORT_MAX_MB), a cheap digest is built per capture (no
 // images, no OCR), INDEX.md is rendered from the digests, and the archive streams: INDEX.md first,

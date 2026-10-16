@@ -1,4 +1,4 @@
-// Card images for every capture kind (D-183) against a throwaway Postgres database and the S3
+// Card images for every capture kind (D-184) against a throwaway Postgres database and the S3
 // bucket (skips when either is not reachable): the backfill job gives ready captures without a
 // thumbnail one, from a still the extension sent when there is one and the placeholder card
 // otherwise; the startup check enqueues it once.

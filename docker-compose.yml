@@ -89,10 +89,11 @@ services:
       APP_LOGO_DARK_URL: ${APP_LOGO_DARK_URL:-}
       APP_ACCENT: ${APP_ACCENT:-}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
-      # agent hand-off (docs/configuration.md): share link lifetime, OCR of canvas regions
+      # agent hand-off (docs/configuration.md): share link lifetime, OCR of canvas regions, export page size
       SHARE_LINK_DAYS: ${SHARE_LINK_DAYS:-14}
       OCR_BIN: ${OCR_BIN:-tesseract}
       OCR_LANGS: ${OCR_LANGS:-eng}
+      EXPORT_MAX_MB: ${EXPORT_MAX_MB:-200}
       # the injector (apps/injector/README.md): off while INJECTOR_SECRET is empty
       INJECTOR_SECRET: ${INJECTOR_SECRET:-}
       INJECTOR_ORIGINS: ${INJECTOR_ORIGINS:-}

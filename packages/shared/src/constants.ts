@@ -52,7 +52,7 @@ export const JOB_TYPES = [
   'auto-delete',
   // reviewer toolbar: one voice note of a feedback item
   'transcribe-note',
-  // card images for captures made before every kind had one (D-183)
+  // card images for captures made before every kind had one (D-184)
   'backfill-thumbs',
 ] as const;
 export type JobType = (typeof JOB_TYPES)[number];

@@ -28,7 +28,7 @@ export function folderIndex(f: BuiltFolder): FolderIndex {
   };
 }
 
-/** Workspace and seat of a bulk export (D-182): the one asked for, or the caller's active workspace. */
+/** Workspace and seat of a bulk export (D-183): the one asked for, or the caller's active workspace. */
 export async function exportScope(event: RequestEvent, workspace: string | undefined): Promise<ExportScope> {
   const ws = await workspaceFor(db, event, workspace ?? null, 'viewer');
   return { userId: ws.userId, workspaceId: ws.workspaceId, seat: ws.seat };

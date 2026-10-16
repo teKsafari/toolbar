@@ -1175,7 +1175,7 @@ export class CaptureService {
     const durationMs = now - start;
     const draftKey = uuidv7();
     // A still of the page as it is now: the drafts list and the dashboard card show it, since a
-    // DOM replay has no video frame to take one from (J-158). Card-sized and masked per preset (D-183).
+    // DOM replay has no video frame to take one from (J-158). Card-sized and masked per preset (D-184).
     const thumb = (await this.cardStillOf(tab))?.blob ?? null;
     let replaySegmentBlobIds: string[] = [];
     if (this.replay.tabs[id]?.video) {
@@ -1270,7 +1270,7 @@ export class CaptureService {
   }
 
   /**
-   * The card image of a DOM replay or a trace (D-183): a still of the tab scaled to the card width,
+   * The card image of a DOM replay or a trace (D-184): a still of the tab scaled to the card width,
    * masked like its recording when the page's project uses the production preset (text lines,
    * fields and media painted over; pixelated when the page cannot be read). Null when the tab is
    * not the active one of its window or refuses captures.
