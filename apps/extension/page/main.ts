@@ -12,10 +12,12 @@ import { bodyPolicyOf, projectForUrl } from '@toolbar/shared/projects';
 import { completeLocator, createRouteTables } from '@toolbar/shared/locator-complete';
 import { createStackMapper, type FetchedText } from '@toolbar/shared/sourcemap';
 import type { LocatorPacket } from '@toolbar/shared/locator';
+import tokens from '@toolbar/ui/tokens.css?inline';
+import { registerFonts } from '@toolbar/ui/fonts';
 import css from './style.css?inline';
 import Toolbar from './Toolbar.svelte';
 import { PageSession } from './session.ts';
-import { createPageClient, type Bootstrap } from './upload.ts';
+import { RELAY, createPageClient, type Bootstrap } from './upload.ts';
 
 const BOOTED = Symbol.for('open-toolbar.page');
 
@@ -111,7 +113,7 @@ function boot() {
     const shadow = host.attachShadow({ mode: 'open' });
     try {
       const sheet = new CSSStyleSheet();
-      sheet.replaceSync(css);
+      sheet.replaceSync(tokens + '\n' + css);
       shadow.adoptedStyleSheets = [sheet];
     } catch {
       /* very old browser: unstyled but usable */
@@ -121,6 +123,9 @@ function boot() {
     // Keys typed into the toolbar stay out of the page's shortcuts.
     for (const t of ['keydown', 'keyup', 'keypress'] as const) target.addEventListener(t, (e) => e.stopPropagation());
     document.documentElement.appendChild(host);
+    // the bundled faces (D-175), served by the injector next to the bundle; @font-face does not
+    // apply inside a shadow root, so they go on the page's document under their tb-* names
+    registerFonts(document, (f) => `${RELAY}/${f}`);
     mount(Toolbar, { target, props: { session, bootstrap, host, locate } });
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountUi, { once: true });

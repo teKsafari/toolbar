@@ -142,8 +142,15 @@
 
 <style>
   .nb-ui {
+    /* status colours on the chrome (always near-black): the dark theme's AA steps, whatever the
+       OS theme, so a red stop or an amber timer reads on the bar in light mode too (D-176) */
+    --nb-chrome-danger: #f87171;
+    --nb-chrome-warning: #fbbf24;
+    --nb-chrome-faint: #8a8a8f;
     pointer-events: none;
     font: var(--nb-text-base) / var(--nb-leading-normal) var(--nb-font-sans);
     color: var(--nb-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 </style>

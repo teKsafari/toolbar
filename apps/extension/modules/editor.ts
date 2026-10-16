@@ -10,6 +10,8 @@ export default defineWxtModule({
     wxt.hook('build:manifestGenerated', (_wxt, manifest) => {
       const war = (manifest.web_accessible_resources ?? []) as { resources: string[]; matches: string[] }[];
       war.push({ resources: ['editor.html'], matches: ['<all_urls>'] });
+      // the bundled faces the in-page UI registers on the host document (D-175, D-176)
+      war.push({ resources: ['fonts/*.woff2'], matches: ['<all_urls>'] });
       manifest.web_accessible_resources = war as typeof manifest.web_accessible_resources;
       const perms = new Set(manifest.permissions ?? []);
       perms.add('clipboardWrite');

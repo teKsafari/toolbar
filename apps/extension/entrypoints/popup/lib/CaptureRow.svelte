@@ -71,6 +71,11 @@
     border: 1px solid var(--nb-border-strong);
     border-radius: var(--nb-radius-md);
     background: var(--nb-surface);
+    box-shadow: var(--nb-shadow-sm);
+    transition: border-color var(--nb-dur-fast) var(--nb-ease-out);
+  }
+  .row-wrap:hover:not([aria-disabled='true']):not([data-tone='danger']) {
+    border-color: color-mix(in srgb, var(--nb-text-faint) 55%, var(--nb-border-strong));
   }
   .row-wrap[data-tone='danger'] {
     border-color: var(--nb-danger);
@@ -96,6 +101,13 @@
     border-radius: var(--nb-radius-md);
     font: var(--nb-weight-medium) var(--nb-text-base) / 1 var(--nb-font-sans);
     color: var(--nb-text);
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out);
+  }
+  .main :global(svg) {
+    color: var(--nb-text-muted);
+  }
+  .danger .main :global(svg) {
+    color: inherit;
   }
   .danger .main {
     color: var(--nb-danger);
@@ -138,9 +150,16 @@
     cursor: pointer;
     color: var(--nb-text-muted);
     border-radius: 0 var(--nb-radius-md) var(--nb-radius-md) 0;
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out);
+  }
+  .chev :global(svg) {
+    transition: rotate var(--nb-dur-med) var(--nb-ease-out);
   }
   .open .chev :global(svg) {
     rotate: 180deg;
+  }
+  .open .row {
+    border-bottom: 1px solid var(--nb-border);
   }
   .opts {
     padding: 4px 8px 8px;
@@ -155,7 +174,9 @@
     border-radius: var(--nb-radius-sm);
     background: var(--nb-chrome);
     color: var(--nb-on-chrome);
+    box-shadow: var(--nb-shadow-md);
     font: var(--nb-weight-medium) var(--nb-text-sm) / 1.2 var(--nb-font-mono);
+    letter-spacing: 0;
     white-space: nowrap;
     pointer-events: none;
   }

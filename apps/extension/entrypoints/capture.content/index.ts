@@ -7,6 +7,7 @@ import { UI_HOST_TAG } from '@toolbar/shared/constants';
 import { CAPTURE_PORT, type PortMessage, type PortCommand, type ContentCommand } from '../../lib/messages';
 import type { PageGeometry } from '@toolbar/shared/ext';
 import { SHADOW_MODE } from '../../lib/flags';
+import { registerFonts } from '@toolbar/ui/fonts';
 import Toolbar from './Toolbar.svelte';
 import { installEditorHost } from './editor/host';
 import './style.css';
@@ -173,6 +174,11 @@ export default defineContentScript({
       onRemove: (app) => app && unmount(app),
     });
     ui.mount();
+    // @font-face does not apply inside a shadow root: the bundled faces (D-175) go on the page's
+    // document instead, from the extension's own files (fonts/, web-accessible). Under the tb-*
+    // names they never replace a face of the page; if the page blocks them the fallback stack shows.
+    const fontUrl = browser.runtime.getURL as (path: string) => string;
+    registerFonts(document, (f) => fontUrl(`/fonts/${f}`));
     teardown = () => {
       try {
         ui.remove();

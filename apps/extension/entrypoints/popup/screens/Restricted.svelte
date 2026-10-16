@@ -11,11 +11,18 @@
     <circle cx="60" cy="47" r="14" class="ring" />
     <path d="M50 57 70 37" class="ring" />
   </svg>
-  <p><strong>This page can't be captured.</strong></p>
+  <p><strong class="title">This page can't be captured.</strong></p>
   <p class="muted">Browser pages and extension stores are off limits. Open a regular website and try again.</p>
 </div>
 
 <style>
+  /* empty-state heading in the display face (D-176) */
+  strong.title {
+    display: block;
+    font: var(--nb-weight-medium) var(--nb-text-xl) / 1.3 var(--nb-font-display);
+    letter-spacing: var(--nb-tracking-tight);
+    text-wrap: balance;
+  }
   .restricted {
     padding: 8px 8px 4px;
     text-align: center;

@@ -260,19 +260,21 @@
 <style>
   .layer { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; overflow: visible; }
   .mark { fill: rgb(255 214 10 / 0.38); }
-  .hover { position: fixed; pointer-events: none; outline: 2px solid var(--nb-accent); outline-offset: 1px; background: color-mix(in srgb, var(--nb-accent) 8%, transparent); border-radius: 3px; transition: all 60ms linear; }
-  .hover-label { position: fixed; pointer-events: none; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 2px 8px; border-radius: 6px; background: #18181b; color: #fafafa; font: 500 12px/18px var(--nb-font-sans); box-shadow: var(--nb-shadow-md); }
+  /* the picked element: the accent between two hairlines of its opposite, so it reads on any page
+     whatever the theme and the accent (black on a dark page, white on a light one) (D-176) */
+  .hover { position: fixed; pointer-events: none; box-shadow: 0 0 0 1px var(--nb-on-accent), 0 0 0 3px var(--nb-accent), 0 0 0 4px var(--nb-on-accent); background: color-mix(in srgb, var(--nb-accent) 6%, transparent); border-radius: 3px; transition: all 60ms linear; }
+  .hover-label { position: fixed; pointer-events: none; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 2px 8px; border-radius: var(--nb-radius-sm); background: var(--nb-chrome); color: var(--nb-on-chrome); box-shadow: inset 0 0 0 1px var(--nb-chrome-border), var(--nb-shadow-md); font: var(--nb-weight-medium) 12px/18px var(--nb-font-sans); letter-spacing: var(--nb-tracking-ui); }
   .cross { position: fixed; pointer-events: none; width: 16px; height: 16px; margin: -8px 0 0 -8px; }
   .cross::before, .cross::after { content: ''; position: absolute; background: var(--c); }
   .cross::before { left: 7px; top: 0; width: 2px; height: 16px; }
   .cross::after { top: 7px; left: 0; height: 2px; width: 16px; }
-  .pin { all: unset; box-sizing: border-box; position: fixed; pointer-events: auto; cursor: pointer; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50% 50% 50% 2px; display: grid; place-items: center; background: var(--nb-accent); color: var(--nb-on-accent); font: 600 11px/1 var(--nb-font-sans); box-shadow: 0 0 0 2px #fff, var(--nb-shadow-md); transition: transform var(--nb-dur-fast) var(--nb-ease-out); }
-  .pin.area { background: #30a46c; }
+  .pin { all: unset; box-sizing: border-box; position: fixed; pointer-events: auto; cursor: pointer; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50% 50% 50% 2px; display: grid; place-items: center; background: var(--nb-accent); color: var(--nb-on-accent); font: var(--nb-weight-semibold) 11px/1 var(--nb-font-sans); font-variant-numeric: tabular-nums; box-shadow: 0 0 0 2px var(--nb-on-accent), var(--nb-shadow-md); transition: transform var(--nb-dur-fast) var(--nb-ease-out); }
+  .pin.area { background: var(--nb-success); color: var(--nb-surface); box-shadow: 0 0 0 2px var(--nb-surface), var(--nb-shadow-md); }
   .pin:hover, .pin.editing { transform: scale(1.15); }
   .pin:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; }
-  .preview { position: fixed; pointer-events: none; max-width: 240px; display: flex; flex-direction: column; gap: 2px; padding: 6px 9px; border-radius: 8px; background: #18181b; color: #fafafa; font: 12px/1.4 var(--nb-font-sans); box-shadow: var(--nb-shadow-lg); }
-  .preview q { color: #c4c4c8; font-style: italic; }
-  .chip { all: unset; position: fixed; pointer-events: auto; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 999px; background: #18181b; color: #fafafa; font: 500 12px/1 var(--nb-font-sans); box-shadow: var(--nb-shadow-md); }
-  .chip:hover { background: #27272a; }
-  kbd { font: 10px/1 var(--nb-font-mono); color: #a1a1aa; border: 1px solid #3f3f46; border-radius: 4px; padding: 2px 4px; }
+  .preview { position: fixed; pointer-events: none; max-width: 240px; display: flex; flex-direction: column; gap: 2px; padding: 6px 9px; border-radius: var(--nb-radius-md); background: var(--nb-surface); color: var(--nb-text); border: 1px solid var(--nb-border); font: 12px/1.4 var(--nb-font-sans); box-shadow: var(--nb-shadow-lg); }
+  .preview q { color: var(--nb-text-muted); font-style: italic; }
+  .chip { all: unset; position: fixed; pointer-events: auto; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--nb-chrome); color: var(--nb-on-chrome); font: var(--nb-weight-medium) 12px/1 var(--nb-font-sans); box-shadow: inset 0 0 0 1px var(--nb-chrome-border), var(--nb-shadow-md); transition: background-color var(--nb-dur-fast) var(--nb-ease-out); }
+  .chip:hover { background: var(--nb-chrome-2); }
+  kbd { font: 10px/1 var(--nb-font-mono); color: var(--nb-on-chrome-muted); border: 1px solid var(--nb-chrome-border); border-radius: 4px; padding: 2px 4px; }
 </style>

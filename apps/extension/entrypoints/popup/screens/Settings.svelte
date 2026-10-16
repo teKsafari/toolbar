@@ -94,6 +94,7 @@
 <style>
   .settings {
     max-height: 560px;
+    overflow-x: hidden;
     overflow-y: auto;
     margin: 0 -15px;
     padding: 0 15px 4px;
@@ -152,12 +153,17 @@
     font: var(--nb-weight-medium) var(--nb-text-md) / 1 var(--nb-font-sans);
     cursor: pointer;
   }
+  .link:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
   .link:focus-visible,
   .reset:focus-visible {
     outline: 2px solid var(--nb-focus);
   }
   select {
     height: 28px;
+    padding: 0 6px;
     border: 1px solid var(--nb-border-strong);
     border-radius: var(--nb-radius-sm);
     background: var(--nb-surface);
@@ -170,8 +176,14 @@
     padding: 0 12px;
     border-radius: var(--nb-radius-md);
     border: 1px solid var(--nb-border-strong);
+    background: var(--nb-surface);
+    box-shadow: var(--nb-shadow-sm);
     font: var(--nb-weight-medium) var(--nb-text-md) / 26px var(--nb-font-sans);
     cursor: pointer;
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out);
+  }
+  .reset:hover:not(.confirm) {
+    background: var(--nb-surface-sunken);
   }
   .reset.confirm {
     background: var(--nb-danger);

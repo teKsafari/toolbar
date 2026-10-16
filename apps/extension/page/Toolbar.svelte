@@ -11,6 +11,7 @@
   import { UI_HOST_TAG } from '@toolbar/shared/constants';
   import type { PageSession } from './session.ts';
   import type { Bootstrap } from './upload.ts';
+  import { BASE_ACCENT, accentVars } from '@toolbar/ui/accent';
 
   let {
     session,
@@ -224,6 +225,21 @@
     location.href = `/__toolbar/logout?next=${encodeURIComponent(location.pathname + location.search)}`;
   }
 
+  /**
+   * The server's accent (D-175 derivation) for the OS theme, following theme changes: the black
+   * default would vanish on dark surfaces if one value served both. The default needs nothing.
+   */
+  function followAccent(el: HTMLElement, accent: string) {
+    const hex = accent.toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(hex) || hex === BASE_ACCENT) return;
+    const q = matchMedia('(prefers-color-scheme: dark)');
+    const paint = () => {
+      for (const [k, v] of Object.entries(accentVars(hex, q.matches ? 'dark' : 'light'))) el.style.setProperty(k, v);
+    };
+    paint();
+    q.addEventListener('change', paint);
+  }
+
   const clock = (ms: number) => {
     const s = Math.floor(ms / 1000);
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -248,7 +264,7 @@
       (b) => {
         who = b.user.email;
         const root = host.shadowRoot?.querySelector<HTMLElement>('.tb');
-        if (b.branding?.accent) root?.style.setProperty('--tb-accent', b.branding.accent);
+        if (root && b.branding?.accent) followAccent(root, b.branding.accent);
       },
       () => {
         who = '';

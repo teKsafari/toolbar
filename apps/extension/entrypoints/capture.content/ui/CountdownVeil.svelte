@@ -26,7 +26,7 @@
   .nb-veil {
     position: fixed;
     inset: 0;
-    background: rgb(18 18 17 / 0.45);
+    background: rgb(11 11 11 / 0.45);
     /* the page blurs under the veil, so the card reads as the one thing to look at (J-027) */
     backdrop-filter: blur(4px);
     display: grid;
@@ -46,16 +46,26 @@
     border-radius: var(--nb-radius-xl);
     background: var(--nb-chrome);
     color: var(--nb-on-chrome);
-    box-shadow: var(--nb-shadow-lg);
+    box-shadow:
+      inset 0 0 0 1px var(--nb-chrome-border),
+      inset 0 1px 0 rgb(255 255 255 / 0.06),
+      var(--nb-shadow-lg);
     font: var(--nb-text-base) / 1.3 var(--nb-font-sans);
+    letter-spacing: var(--nb-tracking-ui);
   }
+  /* the one display line of the in-page UI: Nunito at 18 px (D-176) */
   .nb-card strong {
-    font-size: var(--nb-text-lg);
-    font-weight: var(--nb-weight-semibold);
+    font: var(--nb-weight-medium) var(--nb-text-xl) / 1.25 var(--nb-font-display);
+    letter-spacing: var(--nb-tracking-tight);
   }
   .nb-faint {
     color: var(--nb-on-chrome-muted);
     font-size: var(--nb-text-md);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nb-veil {
+      animation: none;
+    }
   }
   @keyframes nb-fade {
     from {

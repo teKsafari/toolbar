@@ -29,6 +29,7 @@
     border-radius: var(--nb-radius-sm);
     cursor: pointer;
     color: var(--nb-text-muted);
+    transition: background-color var(--nb-dur-fast) var(--nb-ease-out);
   }
   .back:hover {
     background: var(--nb-surface-sunken);
@@ -40,5 +41,6 @@
   h2 {
     margin: 0;
     font: var(--nb-weight-semibold) var(--nb-text-lg) / 1.2 var(--nb-font-sans);
+    letter-spacing: var(--nb-tracking-tight);
   }
 </style>

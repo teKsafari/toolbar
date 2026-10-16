@@ -121,9 +121,9 @@
     height: 46px;
     padding: 0 6px;
     border-radius: var(--nb-radius-pill);
-    background: var(--nb-surface);
+    background: var(--nb-surface-raised);
     border: 1px solid var(--nb-border);
-    box-shadow: var(--nb-shadow-md);
+    box-shadow: var(--nb-shadow-lg);
   }
   .nb-tool {
     all: unset;
@@ -136,6 +136,9 @@
     border-radius: var(--nb-radius-pill);
     color: var(--nb-text-muted);
     cursor: pointer;
+    transition:
+      background-color var(--nb-dur-fast) var(--nb-ease-out),
+      color var(--nb-dur-fast) var(--nb-ease-out);
   }
   .nb-tool:hover:not(:disabled) {
     background: var(--nb-surface-sunken);
@@ -146,8 +149,8 @@
     outline-offset: 1px;
   }
   .nb-tool.nb-active {
-    background: var(--nb-accent-tint);
-    color: var(--nb-accent-text);
+    background: var(--nb-accent);
+    color: var(--nb-on-accent);
   }
   .nb-tool:disabled {
     opacity: 0.35;
