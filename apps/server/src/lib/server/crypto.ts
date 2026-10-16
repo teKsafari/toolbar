@@ -24,3 +24,17 @@ export function unseal(sealed: Uint8Array, purpose: SealPurpose, secret: string 
   d.setAuthTag(b.subarray(12, 28));
   return Buffer.concat([d.update(b.subarray(28)), d.final()]).toString('utf8');
 }
+
+/**
+ * unseal, or null when the value cannot be read (sealed with another BETTER_AUTH_SECRET or an
+ * older key label). Callers treat null as "this stored secret is gone": regenerate or show it as
+ * unavailable, never fail the request.
+ */
+export function tryUnseal(sealed: Uint8Array | null | undefined, purpose: SealPurpose, secret: string = env.authSecret): string | null {
+  if (!sealed || sealed.length < 29) return null;
+  try {
+    return unseal(sealed, purpose, secret);
+  } catch {
+    return null;
+  }
+}

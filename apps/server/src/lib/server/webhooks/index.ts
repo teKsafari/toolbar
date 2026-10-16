@@ -13,7 +13,7 @@ import {
 } from '@toolbar/shared/api';
 import type { Db } from '../db/index.ts';
 import { webhook, webhookDelivery } from '../db/schema/index.ts';
-import { seal, unseal } from '../crypto.ts';
+import { seal, tryUnseal } from '../crypto.ts';
 import { enqueue } from '../jobs/queue.ts';
 import { fail } from '../share/http.ts';
 
@@ -142,7 +142,15 @@ export async function attempt(db: Db, deliveryId: string): Promise<DeliveryRow |
   const [h] = await db.select().from(webhook).where(eq(webhook.id, d.webhookId));
   if (!h) return null;
   const body = JSON.stringify(d.payload);
-  const secret = unseal(h.secretEnc, 'webhook-secret');
+  const secret = tryUnseal(h.secretEnc, 'webhook-secret');
+  if (secret === null) {
+    const [failed] = await db
+      .update(webhookDelivery)
+      .set({ status: 'failed', error: 'the signing secret cannot be decrypted (BETTER_AUTH_SECRET changed); rotate the secret', nextAttemptAt: null })
+      .where(eq(webhookDelivery.id, d.id))
+      .returning();
+    return failed ?? null;
+  }
   let status: number | null = null;
   let error: string | null = null;
   try {

@@ -5,7 +5,7 @@ import type { RecordingLink, SeatRole } from '@toolbar/shared/api';
 import { refOfUrl } from '@toolbar/shared/areas/dashboard';
 import type { Db } from '../db/index.ts';
 import { folder, member as memberTable, organization, recording, recordingLink, user } from '../db/schema/index.ts';
-import { seal, unseal } from '../crypto.ts';
+import { seal, unseal, tryUnseal } from '../crypto.ts';
 import { hashToken } from '../tokens.ts';
 import { fail } from '../share/http.ts';
 import { env } from '../env.ts';
@@ -56,7 +56,7 @@ export async function toLinks(db: Db, rows: LinkRow[], viewer?: { userId: string
       id: r.id,
       workspaceId: r.organizationId,
       name: r.name,
-      url: linkUrl(unseal(r.tokenEnc, 'recording-link-token')),
+      url: ((t) => (t ? linkUrl(t) : ''))(tryUnseal(r.tokenEnc, 'recording-link-token')),
       folder: r.folderId && fById.get(r.folderId) ? { id: r.folderId, name: fById.get(r.folderId)!.name } : null,
       recorderDomain: r.recorderDomain,
       ref: r.refUrl ? refOfUrl(r.refUrl) : null,
@@ -255,7 +255,9 @@ export async function supportLinkUrl(db: Db, envValue: string | null = setting('
     .where(and(eq(recordingLink.organizationId, ws.id), eq(recordingLink.createdBy, admin.id), eq(recordingLink.name, SUPPORT_LINK_NAME)))
     .orderBy(asc(recordingLink.createdAt))
     .limit(1);
-  if (found) return found.revokedAt ? null : linkUrl(unseal(found.tokenEnc, 'recording-link-token'));
+  const foundToken = found && !found.revokedAt ? tryUnseal(found.tokenEnc, 'recording-link-token') : null;
+  if (found && found.revokedAt) return null;
+  if (foundToken) return linkUrl(foundToken);
   const row = await createLink(db, ws.id, admin.id, { name: SUPPORT_LINK_NAME });
   return linkUrl(unseal(row.tokenEnc, 'recording-link-token'));
 }

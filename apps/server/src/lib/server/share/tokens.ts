@@ -6,7 +6,7 @@ import { LIMITS, randomToken, type ShareAccess } from '@toolbar/shared';
 import type { ShareLink } from '@toolbar/shared/api';
 import type { Db } from '../db/index.ts';
 import { recording, shareLink, user } from '../db/schema/index.ts';
-import { seal, unseal } from '../crypto.ts';
+import { seal, tryUnseal } from '../crypto.ts';
 import { env } from '../env.ts';
 import { setting } from '../settings/index.ts';
 import { hashToken } from '../tokens.ts';
@@ -51,7 +51,8 @@ export function expiryOf(days: number | undefined, now = Date.now()): Date | nul
 /** A link that can serve as the capture's default: any live one when links expire by policy, else one without expiry. */
 const defaultCandidate = (r: Pick<ShareLinkRow, 'expiresAt'>) => (setting('shareLinkDays') ? true : !r.expiresAt);
 
-export const tokenOf = (row: Pick<ShareLinkRow, 'tokenEnc'>) => unseal(row.tokenEnc, 'share-token');
+/** The link's token, or null when it no longer decrypts (another auth secret); such a link counts as revoked. */
+export const tokenOf = (row: Pick<ShareLinkRow, 'tokenEnc'>) => tryUnseal(row.tokenEnc, 'share-token');
 
 export function isLive(row: Pick<ShareLinkRow, 'revokedAt' | 'expiresAt'>, now = new Date()) {
   return !row.revokedAt && (!row.expiresAt || row.expiresAt > now);
@@ -106,15 +107,16 @@ export async function shareLinkDtos(db: Db, rows: ShareLinkRow[]): Promise<Map<s
 }
 
 export function toShareLinkDto(r: ShareLinkRow, by: { id: string; name: string; email: string; image: string | null } | null): ShareLink {
+  const token = tokenOf(r);
   return {
     id: r.id,
-    url: shareUrlOf(tokenOf(r)),
+    url: token ? shareUrlOf(token) : '',
     access: r.access,
     devtools: r.devtools,
     createdAt: r.createdAt.toISOString(),
     createdBy: by ? { id: by.id, name: by.name, email: by.email, image: by.image } : null,
     expiresAt: r.expiresAt?.toISOString() ?? null,
-    revokedAt: r.revokedAt?.toISOString() ?? null,
+    revokedAt: r.revokedAt?.toISOString() ?? (token ? null : r.createdAt.toISOString()),
     lastUsedAt: r.lastUsedAt?.toISOString() ?? null,
   };
 }
@@ -126,8 +128,8 @@ export async function primaryShareUrl(db: Db, rec: { id: string; access: ShareAc
     .from(shareLink)
     .where(and(eq(shareLink.recordingId, rec.id), eq(shareLink.devtools, true), isNull(shareLink.revokedAt)))
     .orderBy(asc(shareLink.createdAt));
-  const live = rows.find((r) => isLive(r) && defaultCandidate(r));
-  if (live) return shareUrlOf(tokenOf(live));
+  const live = rows.find((r) => isLive(r) && defaultCandidate(r) && tokenOf(r) !== null);
+  if (live) return shareUrlOf(tokenOf(live)!);
   const { token } = await mintShareLink(db, rec.id, { access: rec.access, devtools: true, createdBy });
   return shareUrlOf(token);
 }

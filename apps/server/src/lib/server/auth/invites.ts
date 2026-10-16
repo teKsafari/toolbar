@@ -7,7 +7,7 @@ import type { SeatRole } from '@toolbar/shared/api';
 import { INVITE_EMAIL_DAYS, INVITE_LINK_DAYS } from '@toolbar/shared/areas/auth';
 import type { Db } from '../db/index.ts';
 import { invitation, member, organization, user, workspaceInviteLink } from '../db/schema/index.ts';
-import { seal, unseal } from '../crypto.ts';
+import { seal, tryUnseal } from '../crypto.ts';
 import { env } from '../env.ts';
 import { sendMail } from '../mail.ts';
 import { hashToken } from '../tokens.ts';
@@ -120,9 +120,10 @@ export async function invitationWorkspace(db: Db, id: string): Promise<string | 
 // ---------- invite link ----------
 
 function linkDto(enabled: boolean, row: { tokenEnc: Buffer; expiresAt: Date } | null) {
+  const token = enabled && row ? tryUnseal(row.tokenEnc, 'invite-link') : null;
   return {
     enabled,
-    url: enabled && row ? inviteUrl(unseal(row.tokenEnc, 'invite-link')) : null,
+    url: token ? inviteUrl(token) : null,
     role: 'creator' as const,
     expiresAt: enabled && row ? row.expiresAt.toISOString() : null,
   };
@@ -151,7 +152,8 @@ export async function getInviteLink(db: Db, workspaceId: string, userId: string)
   const s = await getSettings(db, workspaceId);
   if (!s?.inviteLinkEnabled) return linkDto(false, null);
   let [row] = await db.select().from(workspaceInviteLink).where(eq(workspaceInviteLink.organizationId, workspaceId));
-  if (!row || row.expiresAt.getTime() < Date.now()) row = await writeLink(db, workspaceId, userId);
+  // a stored token that no longer decrypts (new auth secret or key label) is replaced like an expired one
+  if (!row || row.expiresAt.getTime() < Date.now() || tryUnseal(row.tokenEnc, 'invite-link') === null) row = await writeLink(db, workspaceId, userId);
   return linkDto(true, row);
 }
 
