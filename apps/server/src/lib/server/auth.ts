@@ -25,6 +25,8 @@ import { claimFolderInvites } from './share/access.ts';
 import { eq } from 'drizzle-orm';
 import { APIError } from 'better-auth/api';
 import { DOMAIN_REFUSED, claimsRefusal, domainAllowed } from './auth/allowlist.ts';
+import { bootstrapRefusal } from './auth/instance.ts';
+import { allowedDomains, setting } from './settings/index.ts';
 
 export { domainAllowed };
 
@@ -61,12 +63,19 @@ const plugins = [
             discoveryUrl: env.auth.oidc.discoveryUrl,
             clientId: env.auth.oidc.clientId,
             clientSecret: env.auth.oidc.clientSecret,
-            scopes: env.auth.oidc.scopes,
+            // read at each sign-in, so a change in Settings > Server applies without a restart (D-187)
+            get scopes() {
+              return setting('oidcScopes') ?? ['openid', 'email', 'profile'];
+            },
             pkce: true,
             // With an allowlist: a verified address of an allowed domain, and Google Workspace's
-            // `hd` (hosted domain) on the list too when sent (docs/scope.md, D-114).
-            mapProfileToUser: (profile: Record<string, unknown>) => {
+            // `hd` (hosted domain) on the list too when sent (docs/scope.md, D-114). Without one on
+            // a public URL: only ADMIN_EMAILS until an admin exists (D-187).
+            mapProfileToUser: async (profile: Record<string, unknown>) => {
               if (claimsRefusal(profile)) throw new APIError('FORBIDDEN', { message: DOMAIN_REFUSED });
+              const verified = profile.email_verified !== false && profile.email_verified !== 'false';
+              const gate = await bootstrapRefusal(db, { email: typeof profile.email === 'string' ? profile.email : '', verified });
+              if (gate) throw new APIError('FORBIDDEN', { message: gate });
               return {};
             },
           },
@@ -100,7 +109,7 @@ export const auth = betterAuth({
         // only addresses of the allowed domains get an account (AUTH_ALLOWED_DOMAINS, docs/scope.md)
         // returning false stops the sign-up; a provider callback then sends the person back to
         // the sign-in page with error=unable_to_create_user, which explains the allowlist
-        before: async (u) => (domainAllowed(u.email) ? { data: u } : false),
+        before: async (u) => (domainAllowed(u.email) && !(await bootstrapRefusal(db, { email: u.email, verified: u.emailVerified })) ? { data: u } : false),
         after: async (u) => {
           await bootstrapNewUser(db, u);
           await claimFolderInvites(db, u.id, u.email); // J-122: folder invites sent before the account existed
@@ -117,9 +126,11 @@ export const auth = betterAuth({
       create: {
         // an account made before the allowlist changed cannot sign in from a refused domain
         before: async (s) => {
-          if (!env.auth.allowedDomains.length) return { data: s };
-          const [u] = await db.select({ email: schema.user.email }).from(schema.user).where(eq(schema.user.id, s.userId)).limit(1);
-          if (u && !domainAllowed(u.email)) return false;
+          const [u] = await db.select({ email: schema.user.email, emailVerified: schema.user.emailVerified }).from(schema.user).where(eq(schema.user.id, s.userId)).limit(1);
+          if (!u) return { data: s };
+          if (allowedDomains().length && !domainAllowed(u.email)) return false;
+          // D-187: an account made while the server was local or had domains, on a now open public server
+          if (await bootstrapRefusal(db, { email: u.email, verified: u.emailVerified })) return false;
           return { data: s };
         },
         after: async (s) => {
@@ -141,6 +152,7 @@ export function signInOptions() {
   return {
     emailPassword: env.auth.emailPassword,
     magicLink: env.auth.magicLink,
-    providers: env.auth.oidc ? [{ id: env.auth.oidc.providerId, name: env.auth.oidc.name, kind: 'oidc' as const }] : [],
+    // the button name is an instance setting (OIDC_PROVIDER_NAME when set, D-187)
+    providers: env.auth.oidc ? [{ id: env.auth.oidc.providerId, name: setting('oidcProviderName') ?? env.auth.oidc.name, kind: 'oidc' as const }] : [],
   };
 }

@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { db } from '#lib/server/db/index.ts';
-import { listProjects, projectDto } from '#lib/server/projects.ts';
+import { listProjects, projectDefaults, projectDto } from '#lib/server/projects.ts';
 
 // D-123: every member sees the workspace's projects; admins change them.
 export const load = async ({ parent }) => {
@@ -9,6 +9,8 @@ export const load = async ({ parent }) => {
   return {
     projects: (await listProjects(db, activeWorkspaceId)).map(projectDto),
     workspaceId: activeWorkspaceId,
+    /** what a new project starts with (D-187) */
+    defaults: await projectDefaults(db, activeWorkspaceId),
     admin: activeWorkspace?.role === 'admin',
   };
 };

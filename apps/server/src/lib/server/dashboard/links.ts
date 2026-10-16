@@ -13,6 +13,7 @@ import { createCaptureRecord } from '../upload/service.ts';
 import { seatOf, visibleCapturesWhere } from '../share/access.ts';
 import { iso, mediaUrl, peopleById, UUID } from './core.ts';
 import { firstAccountId } from '../auth/instance.ts';
+import { setting } from '../settings/index.ts';
 
 export type LinkRow = typeof recordingLink.$inferSelect;
 
@@ -176,9 +177,9 @@ export async function recorderInfo(db: Db, token: string, q: { title?: string; m
   };
 }
 
-/** Simple in-memory limiter for the public create call: 10 captures per IP per 10 minutes. */
+/** Simple in-memory limiter for the public create call: by default 10 captures per IP per 10 minutes (Settings > Server, Limits). */
 const hits = new Map<string, number[]>();
-export function rateLimited(key: string, max = 10, windowMs = 10 * 60_000) {
+export function rateLimited(key: string, max = setting('recordingLinkRateLimit') ?? 10, windowMs = 10 * 60_000) {
   const now = Date.now();
   const list = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
   list.push(now);
@@ -231,10 +232,10 @@ export const SUPPORT_LINK_NAME = 'Problem reports';
 
 /**
  * J-177: the recording link for bug reports about open-toolbar itself, owned by the server admin (the
- * first account on this server) in their first own workspace. SUPPORT_RECORDING_LINK overrides
- * it with any URL, or turns it off with `off`. A link the admin turned off is left off.
+ * first account on this server) in their first own workspace. The "report a problem" link of
+ * Settings > Server (or SUPPORT_RECORDING_LINK) overrides it with any URL, or turns it off with `off`. A link the admin turned off is left off.
  */
-export async function supportLinkUrl(db: Db, envValue = process.env.SUPPORT_RECORDING_LINK): Promise<string | null> {
+export async function supportLinkUrl(db: Db, envValue: string | null = setting('supportRecordingLink')): Promise<string | null> {
   if (envValue === 'off') return null;
   if (envValue) return envValue;
   const adminId = await firstAccountId(db);

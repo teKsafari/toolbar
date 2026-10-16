@@ -88,10 +88,10 @@ describe('transcription settings', () => {
     for (const k of Object.keys(process.env)) if (/^(TRANSCRIBE_|STT_|OPENAI_API_KEY|WHISPER_)/.test(k)) delete process.env[k];
   };
 
-  it('defaults to local whisper.cpp, 30 s chunks, 60 min per recording, no monthly cap', () => {
+  it('defaults to off (D-187), 30 s chunks, 60 min per recording, no monthly cap', () => {
     clear();
     const c = transcribeConfig();
-    expect(c).toMatchObject({ provider: 'local', baseUrl: 'https://api.openai.com/v1', model: 'gpt-transcribe', chunkSeconds: 30, maxMinutes: 60, monthlyMinutes: null, concurrency: 4, timestamps: 'auto', languages: [] });
+    expect(c).toMatchObject({ provider: 'none', baseUrl: 'https://api.openai.com/v1', model: 'gpt-transcribe', chunkSeconds: 30, maxMinutes: 60, monthlyMinutes: null, concurrency: 4, timestamps: 'auto', languages: [] });
   });
 
   it('accepts the old provider names and the STT_* variables', () => {
@@ -106,7 +106,7 @@ describe('transcription settings', () => {
   it('TRANSCRIBE_API_KEY wins over OPENAI_API_KEY; a key alone does not switch provider', () => {
     clear();
     process.env.OPENAI_API_KEY = 'from-openai';
-    expect(transcribeConfig()).toMatchObject({ provider: 'local', apiKey: 'from-openai' });
+    expect(transcribeConfig()).toMatchObject({ provider: 'none', apiKey: 'from-openai' });
     process.env.TRANSCRIBE_API_KEY = 'own';
     expect(transcribeConfig().apiKey).toBe('own');
   });

@@ -1,16 +1,18 @@
 # open-toolbar, self-hosted: docker compose up -d --build
 #
-# A real deployment needs five values in .env (copy .env.example, or run
-# scripts/gen-secrets.sh https://feedback.example.com): PUBLIC_URL, BETTER_AUTH_SECRET (or
-# AUTH_SECRET), the OIDC provider (OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET) and
-# ALLOWED_EMAIL_DOMAINS. Everything else has a working default; docs/configuration.md documents
-# every variable. Put a TLS proxy (Caddy, Traefik, nginx) in front of the server's port.
+# Six values in .env (copy .env.example, or run scripts/gen-secrets.sh https://feedback.example.com):
+# PUBLIC_URL, BETTER_AUTH_SECRET, the OIDC provider (OIDC_ISSUER, OIDC_CLIENT_ID,
+# OIDC_CLIENT_SECRET) and ADMIN_EMAILS. The admin sets the rest in Settings > Server (allowed
+# email domains, transcription, capture defaults, sharing, limits). A variable of
+# docs/configuration.md that you add to .env still reaches the server and locks its field there.
+# Put a TLS proxy (Caddy, Traefik, nginx) in front of the server's port.
 #
-# Profiles: `whisper` runs the local transcriber (COMPOSE_PROFILES=whisper in .env.example);
-# `dev` adds a mock OIDC provider for development and tests. This file sends no mail; the paused
-# mail lives in the override docker-compose.mail.yml (D-171). Postgres, Garage and whisper
-# publish their ports on 127.0.0.1 only, for `pnpm dev` and backups from the host; nothing but
-# the server is reachable from other machines.
+# Extra files, each opt-in with -f:
+#   docker-compose.whisper.yml  local transcription (whisper.cpp); then pick "Local" in Settings > Server
+#   docker-compose.mail.yml     the paused mail (D-171)
+#   docker-compose.dev.yml      development and e2e only: mock OIDC provider, test switches
+# Postgres and Garage publish their ports on 127.0.0.1 only, for `pnpm dev` and backups from the
+# host; nothing but the server is reachable from other machines.
 # Coolify: use docker-compose.coolify.yml instead.
 name: toolbar
 
@@ -18,86 +20,26 @@ services:
   server:
     build: { context: ., dockerfile: apps/server/Dockerfile }
     ports: ["${PORT:-3000}:3000"]
-    # webhooks and integrations may point at a service on the host (and the e2e suite's listeners do)
-    # oidc.localhost: the dev mock OIDC server (profile dev). Browsers resolve *.localhost to this
-    # machine, the server reaches it through the host, so both see the same issuer URL (D-094).
-    extra_hosts: ["host.docker.internal:host-gateway", "oidc.localhost:host-gateway"]
+    # webhooks may point at a service on the host (and the e2e suite's listeners do)
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    # optional overrides (docs/configuration.md): every variable in .env, if the file exists
+    env_file: [{ path: .env, required: false }]
     environment:
       # required for a real deployment (the server refuses the dev secret on a public URL)
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-${AUTH_SECRET:-dev-only-change-me-0000000000000000}}
-      # chunks are capped at 8 MiB per route; assets (attachments) at 200 MiB
-      BODY_SIZE_LIMIT: ${BODY_SIZE_LIMIT:-210M}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      # wiring of this stack; the server listens on 3000 whatever PORT publishes
+      PORT: "3000"
       DATABASE_URL: postgres://toolbar:${POSTGRES_PASSWORD:-toolbar}@postgres:5432/toolbar
       S3_ENDPOINT: http://garage:3900
       S3_REGION: garage
       S3_BUCKET: ${S3_BUCKET:-toolbar}
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-GK000000000000000000000000}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
-      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
-      # transcription (docs/configuration.md "Transcription"): local whisper.cpp by default;
-      # openai sends the voice track to TRANSCRIBE_BASE_URL (OpenAI unless changed)
-      TRANSCRIBE_PROVIDER: ${TRANSCRIBE_PROVIDER:-local}
-      TRANSCRIBE_MODEL: ${TRANSCRIBE_MODEL:-}
-      TRANSCRIBE_API_KEY: ${TRANSCRIBE_API_KEY:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      TRANSCRIBE_BASE_URL: ${TRANSCRIBE_BASE_URL:-}
-      TRANSCRIBE_LANGUAGE: ${TRANSCRIBE_LANGUAGE:-}
-      TRANSCRIBE_TIMESTAMPS: ${TRANSCRIBE_TIMESTAMPS:-}
-      TRANSCRIBE_CHUNK_SECONDS: ${TRANSCRIBE_CHUNK_SECONDS:-}
-      TRANSCRIBE_MAX_MINUTES: ${TRANSCRIBE_MAX_MINUTES:-}
-      TRANSCRIBE_MONTHLY_MINUTES: ${TRANSCRIBE_MONTHLY_MINUTES:-}
-      TRANSCRIBE_CONCURRENCY: ${TRANSCRIBE_CONCURRENCY:-}
-      WHISPER_URL: http://whisper:8080
-      WHISPER_MODEL: ${WHISPER_MODEL:-base}
-      # older names, still read: STT_URL (base without /v1), STT_API_KEY, STT_MODEL
-      STT_URL: ${STT_URL:-}
-      STT_API_KEY: ${STT_API_KEY:-}
-      STT_MODEL: ${STT_MODEL:-}
-      EXTENSION_IDS: ${EXTENSION_IDS:-fmongfmimgdafigcahdpofnmmhljpnei}
-      # sign-in (docs/configuration.md): the one OIDC provider and the domain allowlist
-      OIDC_ISSUER: ${OIDC_ISSUER:-}
-      OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
-      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
-      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
-      OIDC_SCOPES: ${OIDC_SCOPES:-}
-      OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-}
-      OIDC_PROVIDER_ID: ${OIDC_PROVIDER_ID:-}
-      ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS:-}
-      # development and tests only
-      AUTH_DEV_PASSWORD: ${AUTH_DEV_PASSWORD:-}
-      AUTH_RATE_LIMIT: ${AUTH_RATE_LIMIT:-}
-      AUTH_MAGIC_LINK: ${AUTH_MAGIC_LINK:-}
-      FEATURE_EMAIL: ${FEATURE_EMAIL:-}
-      FEATURE_TRACKERS: ${FEATURE_TRACKERS:-}
-      FEATURE_SLACK: ${FEATURE_SLACK:-}
-      FEATURE_CLI: ${FEATURE_CLI:-}
-      FEATURE_AI: ${FEATURE_AI:-}
-      FEATURE_ADMIN_EXTRAS: ${FEATURE_ADMIN_EXTRAS:-}
-      WORKER: ${WORKER:-1}
-      MIGRATE_ON_START: ${MIGRATE_ON_START:-1}
-      AI_PROVIDER: ${AI_PROVIDER:-none}
-      AI_BASE_URL: ${AI_BASE_URL:-}
-      AI_MODEL: ${AI_MODEL:-}
-      AI_API_KEY: ${AI_API_KEY:-}
-      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-20000}
-      MAX_RECORDING_MIN: ${MAX_RECORDING_MIN:-}
-      SUPPORT_RECORDING_LINK: ${SUPPORT_RECORDING_LINK:-}
-      # instance branding (docs/branding.md): set values win over Settings > Server
-      APP_NAME: ${APP_NAME:-}
-      APP_LOGO_URL: ${APP_LOGO_URL:-}
-      APP_LOGO_DARK_URL: ${APP_LOGO_DARK_URL:-}
-      APP_ACCENT: ${APP_ACCENT:-}
-      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
-      # agent hand-off (docs/configuration.md): share link lifetime, OCR of canvas regions, export page size
-      SHARE_LINK_DAYS: ${SHARE_LINK_DAYS:-14}
-      OCR_BIN: ${OCR_BIN:-tesseract}
-      OCR_LANGS: ${OCR_LANGS:-eng}
-      EXPORT_MAX_MB: ${EXPORT_MAX_MB:-200}
-      # the injector (apps/injector/README.md): off while INJECTOR_SECRET is empty
-      INJECTOR_SECRET: ${INJECTOR_SECRET:-}
-      INJECTOR_ORIGINS: ${INJECTOR_ORIGINS:-}
-      INJECTOR_COOKIE_DAYS: ${INJECTOR_COOKIE_DAYS:-7}
     depends_on:
       postgres: { condition: service_healthy }
       garage: { condition: service_healthy }
@@ -132,42 +74,7 @@ services:
     healthcheck: { test: ["CMD", "/garage", "bucket", "info", "${S3_BUCKET:-toolbar}"], interval: 3s, timeout: 5s, retries: 40 }
     restart: unless-stopped
 
-  whisper:
-    image: ghcr.io/ggml-org/whisper.cpp:main@sha256:9f6bf30782c0c4f431571a7e3da572a84769aec6381580df0249e252dfc0aa18
-    entrypoint: ["bash", "-c"]
-    command:
-      - >-
-        [ -f /models/ggml-$${WHISPER_MODEL}.bin ] || /app/models/download-ggml-model.sh $${WHISPER_MODEL} /models;
-        exec whisper-server --host 0.0.0.0 --port 8080 --convert -m /models/ggml-$${WHISPER_MODEL}.bin
-    environment:
-      WHISPER_MODEL: ${WHISPER_MODEL:-base}
-    # optional: COMPOSE_PROFILES=whisper (or --profile whisper). Without it, set
-    # TRANSCRIBE_PROVIDER to a hosted model or to none (docs/configuration.md, "Transcription").
-    profiles: [whisper]
-    ports: ["127.0.0.1:${WHISPER_PORT:-8080}:8080"]
-    volumes: [whisper-models:/models]
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 300s
-
-  # Development and e2e sign-in (docs/scope.md, "Sign-in"): a mock OpenID Connect provider. It
-  # signs in anyone with any claims, so it never belongs in a real deployment.
-  #   OIDC_ISSUER=http://oidc.localhost:3311/toolbar OIDC_CLIENT_ID=toolbar OIDC_CLIENT_SECRET=dev \
-  #   OIDC_PROVIDER_NAME="Dev SSO" docker compose --profile dev up -d
-  oidc-mock:
-    image: ghcr.io/navikt/mock-oauth2-server:2.1.10
-    profiles: [dev]
-    environment:
-      JSON_CONFIG: '{"interactiveLogin":true}'
-    ports: ["${OIDC_MOCK_PORT:-3311}:8080"]
-    restart: unless-stopped
-
 volumes:
   pg: {}
   garage-meta: {}
   garage-data: {}
-  whisper-models: {}

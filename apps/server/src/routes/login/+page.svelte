@@ -23,6 +23,7 @@
     unable_to_create_user: 'This server only lets in addresses of its allowed email domains.',
     FORBIDDEN: 'This server only lets in addresses of its allowed email domains.',
     unable_to_create_session: 'This server only lets in addresses of its allowed email domains.',
+    no_admin: 'This server has no admin yet. Until one signs in, only the addresses in ADMIN_EMAILS can sign in.',
   };
 </script>
 

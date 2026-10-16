@@ -11,6 +11,7 @@ import { supportLinkUrl } from '../dashboard/links.ts';
 import { env } from '../env.ts';
 import { projectsOfUser } from '../projects.ts';
 import { brandingDto, getBrand } from '../branding/index.ts';
+import { setting } from '../settings/index.ts';
 
 type Person = { id: string; name: string; email: string; image: string | null };
 
@@ -73,7 +74,7 @@ export async function extBootstrap(db: Db, me: Person, opts: { workspaceId?: str
   const workspaces = await listWorkspaces(db, me.id);
   const stored = await activeWorkspaceId(db, me.id, workspaces);
   const active = opts.workspaceId && workspaces.some((w) => w.id === opts.workspaceId) ? opts.workspaceId : stored;
-  const maxMin = Number(process.env.MAX_RECORDING_MIN || 0);
+  const maxMin = setting('maxRecordingMin') ?? 0;
   // AI is paused unless FEATURE_AI is on (D-084): the editor then hides its AI switch
   const aiFeature = env.features.ai;
   const ai = aiFeature ? (process.env.AI_PROVIDER ?? 'none') : 'none';

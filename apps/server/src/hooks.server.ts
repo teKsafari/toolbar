@@ -15,6 +15,8 @@ import { MCP_TOKEN_PREFIX } from '@toolbar/shared/areas/agent';
 import { getBrand } from '#lib/server/branding/index.ts';
 import { brandHead } from '#lib/server/branding/head.ts';
 import { domainAllowed } from '#lib/server/auth/allowlist.ts';
+import { bootstrapGateClosed } from '#lib/server/auth/instance.ts';
+import { refreshSettings } from '#lib/server/settings/index.ts';
 
 export const init: ServerInit = async () => {
   const unsafe = assertSafeSecrets();
@@ -23,6 +25,7 @@ export const init: ServerInit = async () => {
     await runMigrations(db);
     console.log('[server] migrations applied');
   }
+  await refreshSettings(db, true);
   if (env.worker) {
     const w = startWorker(db);
     const stop = () => void w.stop();
@@ -31,8 +34,14 @@ export const init: ServerInit = async () => {
     console.log('[server] job worker started');
   }
   registerDashboard();
-  if (!env.adminEmails.length && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(env.publicUrl))
-    console.warn('[server] ADMIN_EMAILS is empty: the first account on this server becomes the instance admin (branding). Set ADMIN_EMAILS.');
+  if (await bootstrapGateClosed(db))
+    console.warn(
+      env.adminEmails.length
+        ? '[server] No allowed email domains and no admin yet: only ADMIN_EMAILS can sign in until an admin does (docs/configuration.md, "Who gets in").'
+        : '[server] No allowed email domains and ADMIN_EMAILS is empty on a public URL: sign-in is refused until you set ADMIN_EMAILS (docs/configuration.md, "Who gets in").',
+    );
+  else if (!env.adminEmails.length && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(env.publicUrl))
+    console.warn('[server] ADMIN_EMAILS is empty: the first account on this server is the instance admin (Settings > Server). Set ADMIN_EMAILS.');
   if (!env.auth.oidc && !env.auth.emailPassword)
     console.warn('[server] No sign-in method: set OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET (docs/configuration.md, "Sign-in").');
 };
@@ -107,8 +116,11 @@ const authenticate: Handle = async ({ event, resolve }) => {
   const res = await svelteKitHandler({ event, resolve, auth, building });
   // A provider callback refused by the allowlist (D-114: unverified address, foreign `hd`) ends in
   // a bare 403 from Better Auth; send the person back to the sign-in page, which names the reason.
-  if (res.status === 403 && event.url.pathname.startsWith('/api/auth/callback/'))
-    return new Response(null, { status: 303, headers: { location: `${env.publicUrl}/login?error=FORBIDDEN` } });
+  // While the bootstrap gate is closed (D-187) the refusal is that one: no admin yet.
+  if (res.status === 403 && event.url.pathname.startsWith('/api/auth/callback/')) {
+    const code = (await bootstrapGateClosed(db).catch(() => false)) ? 'no_admin' : 'FORBIDDEN';
+    return new Response(null, { status: 303, headers: { location: `${env.publicUrl}/login?error=${code}` } });
+  }
   return res;
 };
 
@@ -118,6 +130,8 @@ const authenticate: Handle = async ({ event, resolve }) => {
  */
 const brand: Handle = async ({ event, resolve }) => {
   if (event.url.pathname === '/api/health') return resolve(event);
+  // instance settings (D-187): re-read at most every 15 s, so a change on another replica arrives
+  await refreshSettings(db);
   const b = await getBrand(db);
   event.locals.brand = b;
   const head = brandHead(b);

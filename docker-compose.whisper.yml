@@ -1,0 +1,33 @@
+# Local transcription (whisper.cpp on the CPU, no key, no audio leaves the server): an override
+# file, off by default (D-187).
+#   docker compose -f docker-compose.yml -f docker-compose.whisper.yml up -d
+# Then choose "Local whisper.cpp" under Settings > Server, Transcription, and click Test
+# connection. The first start downloads the model, which takes a few minutes. WHISPER_MODEL picks
+# it (base by default; small is more accurate and about three times slower).
+services:
+  server:
+    environment:
+      WHISPER_URL: http://whisper:8080
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}
+
+  whisper:
+    image: ghcr.io/ggml-org/whisper.cpp:main@sha256:9f6bf30782c0c4f431571a7e3da572a84769aec6381580df0249e252dfc0aa18
+    entrypoint: ["bash", "-c"]
+    command:
+      - >-
+        [ -f /models/ggml-$${WHISPER_MODEL}.bin ] || /app/models/download-ggml-model.sh $${WHISPER_MODEL} /models;
+        exec whisper-server --host 0.0.0.0 --port 8080 --convert -m /models/ggml-$${WHISPER_MODEL}.bin
+    environment:
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}
+    ports: ["127.0.0.1:${WHISPER_PORT:-8080}:8080"]
+    volumes: [whisper-models:/models]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 300s
+
+volumes:
+  whisper-models: {}

@@ -4,6 +4,7 @@ import { RECORDING_KINDS, SHARE_ACCESS } from '../constants.ts';
 import { api, boolQuery, csvOf, defineRoute, emailSchema, idSchema, isoSchema, okSchema, pageOf, pageQuerySchema, personSchema, SEAT_ROLES, type SeatRole } from './common.ts';
 import { CAPTURE_SOURCES, captureSummarySchema } from './captures.ts';
 import { folderSchema } from './folders.ts';
+import { PROJECT_PRESETS, TRACE_OPEN_MS } from '../projects.ts';
 
 /**
  * Better Auth stores organization roles as text. The workspace owner is stored as "owner" and
@@ -35,6 +36,10 @@ export const workspaceSettingsSchema = z.object({
   restrictInvites: z.boolean(),
   /** a viewer who creates a capture becomes creator (J-222) */
   autoApproveCreators: z.boolean(),
+  /** masking preset of new projects; null: the instance default (Settings > Server, D-187) */
+  defaultMaskingPreset: z.enum(PROJECT_PRESETS).nullable(),
+  /** trace step window of new projects in ms; null: the instance default (D-166, D-187) */
+  defaultTraceOpenMs: z.number().int().min(TRACE_OPEN_MS.min).max(TRACE_OPEN_MS.max).nullable(),
 });
 export type WorkspaceSettings = z.infer<typeof workspaceSettingsSchema>;
 
