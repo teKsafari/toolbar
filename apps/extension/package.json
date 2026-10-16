@@ -1,38 +1,38 @@
 {
-  "name": "@toolbar/extension",
-  "version": "0.0.1",
-  "private": true,
-  "type": "module",
-  "license": "MIT",
-  "scripts": {
-    "dev": "wxt",
-    "build": "wxt build && vite build -c page/vite.config.ts",
-    "build:test": "WXT_TEST_HOOKS=1 wxt build",
-    "zip": "wxt zip",
-    "postinstall": "wxt prepare",
-    "check": "wxt prepare && svelte-check --tsconfig ./tsconfig.json",
-    "test": "vitest run",
-    "build:page": "vite build -c page/vite.config.ts"
-  },
-  "dependencies": {
-    "@toolbar/capture": "workspace:*",
-    "@toolbar/shared": "workspace:*",
-    "@toolbar/trace": "workspace:*",
-    "@toolbar/ui": "workspace:*",
-    "perfect-freehand": "1.2.3"
-  },
-  "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "7.3.1",
-    "@types/node": "24.19.2",
-    "@wxt-dev/module-svelte": "2.0.5",
-    "fake-indexeddb": "6.2.5",
-    "happy-dom": "21.0.1",
-    "sharp": "0.35.5",
-    "svelte": "5.57.2",
-    "svelte-check": "4.7.6",
-    "typescript": "6.0.3",
-    "vite": "8.3.4",
-    "vitest": "5.0.4",
-    "wxt": "0.21.4"
-  }
+	"name": "@toolbar/extension",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"license": "MIT",
+	"scripts": {
+		"dev": "wxt",
+		"build": "wxt build && vite build -c page/vite.config.ts",
+		"build:test": "WXT_TEST_HOOKS=1 wxt build",
+		"zip": "wxt zip",
+		"postinstall": "wxt prepare",
+		"check": "wxt prepare && svelte-check --tsconfig ./tsconfig.json",
+		"test": "vitest run",
+		"build:page": "vite build -c page/vite.config.ts"
+	},
+	"dependencies": {
+		"@toolbar/capture": "workspace:*",
+		"@toolbar/shared": "workspace:*",
+		"@toolbar/trace": "workspace:*",
+		"@toolbar/ui": "workspace:*",
+		"perfect-freehand": "1.2.3"
+	},
+	"devDependencies": {
+		"@sveltejs/vite-plugin-svelte": "7.3.1",
+		"@types/node": "24.19.2",
+		"@wxt-dev/module-svelte": "2.0.5",
+		"fake-indexeddb": "6.2.5",
+		"happy-dom": "21.0.1",
+		"sharp": "0.35.5",
+		"svelte": "5.57.2",
+		"svelte-check": "4.7.6",
+		"typescript": "6.0.3",
+		"vite": "8.3.4",
+		"vitest": "5.0.4",
+		"wxt": "0.21.4"
+	}
 }
