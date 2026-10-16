@@ -2,7 +2,7 @@
 // PLAN "Zero integration", delivery 2). Run by apps/injector/test/run.sh.
 //
 // 1. Without the reviewer cookie the lab comes back byte for byte, toolbar-free.
-// 2. A reviewer signs in on the server (mock OIDC), confirms the site and lands back on the lab
+// 2. A reviewer signs in on the server (mock OIDC), confirms the site (a project origin, D-200) and lands back on the lab
 //    with the toolbar, loaded from /__toolbar/ on the lab's own origin.
 // 3. A comment on an element uploads the last minute: the lab's failed request, its uncaught
 //    error and its console lines reach the server, with a DOM replay and the element's locator
@@ -12,13 +12,12 @@
 // 6. Behind a strict nonce-only CSP the toolbar loads with the reused nonce and renders styled.
 import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
 import { mockProviderLogin } from '../fixtures/oidc.ts';
+import { ensureProject, latestCapture as latestCaptureOf, toolbar } from './helpers.ts';
 
 const INJECTOR = process.env.INJECTOR_URL ?? 'http://localhost:3506';
 const SERVER = process.env.SERVER_URL ?? 'http://localhost:3306';
 const LAB = process.env.LAB_URL ?? 'http://localhost:5173';
 const EMAIL = process.env.INJECTOR_E2E_EMAIL ?? `reviewer-${Date.now()}@injector.test`;
-
-const toolbar = (page: Page) => page.locator('toolbar-root [role=toolbar]');
 
 async function signInAsReviewer(page: Page) {
   await page.goto(`${INJECTOR}/__toolbar/login?next=/`);
@@ -28,29 +27,15 @@ async function signInAsReviewer(page: Page) {
   await mockProviderLogin(page, EMAIL, 'Rita Reviewer');
   // a first sign-in may pass through onboarding; the confirm page is what matters
   await page.waitForURL((u) => u.origin === new URL(SERVER).origin && !u.pathname.startsWith('/api/auth'), { timeout: 30_000 });
-  if (!page.url().includes('/review/start')) await page.goto(`${SERVER}/review/start?origin=${encodeURIComponent(INJECTOR)}&next=/`);
+  // the site must be in a project of the reviewer's workspace (D-200)
+  await ensureProject(page.context().request, SERVER, INJECTOR);
+  // the review page rendered before the project existed: load it again
+  await page.goto(`${SERVER}/go?site=${encodeURIComponent(INJECTOR)}&next=/`);
   await page.getByRole('button', { name: /with the toolbar/ }).click();
   await page.waitForURL((u) => u.origin === new URL(INJECTOR).origin && u.pathname === '/', { timeout: 30_000 });
 }
 
-/** Newest capture of the injector source in the reviewer's workspace, once it is processed. */
-async function latestCapture(request: APIRequestContext, after: string[] = []) {
-  let found: { id: string; title: string } | null = null;
-  await expect
-    .poll(
-      async () => {
-        const r = await request.get(`${SERVER}/api/v1/recordings?sources=injector`);
-        if (!r.ok()) return `http ${r.status()}`;
-        const items = ((await r.json()) as { items: { id: string; title: string; status: string }[] }).items.filter((c) => !after.includes(c.id));
-        const ready = items.find((c) => c.status === 'ready');
-        found = ready ?? null;
-        return ready ? 'ready' : (items[0]?.status ?? 'none');
-      },
-      { timeout: 60_000 },
-    )
-    .toBe('ready');
-  return found! as { id: string; title: string };
-}
+const latestCapture = (request: APIRequestContext, after: string[] = []) => latestCaptureOf(request, SERVER, after);
 
 test.describe.configure({ mode: 'serial' });
 
@@ -209,7 +194,7 @@ test('x-review-skip, streamed HTML and WebSockets', async ({ page, browser }) =>
 
   // turning review off removes the toolbar on the next load
   await toolbar(page).getByRole('button', { name: 'More' }).click();
-  await page.getByRole('menuitem', { name: 'Turn off review on this site' }).click();
+  await page.getByRole('menuitem', { name: 'Stop reviewing on this site' }).click();
   await page.waitForURL(`${INJECTOR}/`);
   await expect(page.getByTestId('works')).toBeVisible();
   await expect(page.locator('toolbar-root')).toHaveCount(0);

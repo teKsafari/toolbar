@@ -318,7 +318,7 @@
     <div class="menu" role="menu">
       {#if who}<div class="who">Signed in as {who}</div>{/if}
       <button type="button" role="menuitem" onclick={() => ((minimized = true), (menuOpen = false))}>Hide toolbar</button>
-      <button type="button" role="menuitem" onclick={signOut}>Turn off review on this site</button>
+      <button type="button" role="menuitem" onclick={signOut}>Stop reviewing on this site</button>
     </div>
   {/if}
 

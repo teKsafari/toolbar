@@ -62,7 +62,7 @@ On a page, Ctrl+Shift+. wakes the reviewer toolbar. Its keys: `c` comment, `t` c
 
 ## The injector, for reviewers without the extension
 
-`apps/injector` is a small Go proxy that adds the toolbar to an app's HTML for signed-in reviewers only, with no change to the app and no extension. Traefik sends it only the requests of chosen hosts that carry the reviewer cookie, plus `/__toolbar/`; every other visitor goes straight to the app. It streams the HTML and changes only the `<head>`, reuses the page's CSP nonce, honours `X-Review-Skip` for automated tests, and passes the response through unchanged on any error. Reviewers start at `https://<app host>/__toolbar/login`. It takes no screenshots, since a page cannot capture its own pixels; the DOM replay covers what the page showed. Setup and Coolify files: `apps/injector/README.md` and `deploy/injector/`.
+`apps/injector` is a small Go proxy that adds the toolbar to an app's HTML for signed-in reviewers only, with no change to the app and no extension. One Traefik router sends it only the requests that carry the reviewer cookie, plus `/__toolbar/`, for any host; it passes them back into Traefik, and every other visitor goes straight to the app. It streams the HTML and changes only the `<head>`, reuses the page's CSP nonce, honours `X-Review-Skip` for automated tests, and passes the response through unchanged on any error. Reviewers start from a review link that Settings, Projects shows for each origin of a project. It takes no screenshots, since a page cannot capture its own pixels; the DOM replay covers what the page showed. Setup: `docs/injector-on-coolify.md`; details in `apps/injector/README.md`.
 
 ## Hand a recording to an agent
 

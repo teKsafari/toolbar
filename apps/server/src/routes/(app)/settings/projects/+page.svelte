@@ -66,6 +66,19 @@
     }
   }
 
+  const pathOf = (href: string) => {
+    const u = new URL(href);
+    return u.pathname + u.search;
+  };
+  async function copyLink(href: string) {
+    try {
+      await navigator.clipboard.writeText(href);
+      toasts.success('Review link copied. Anyone in this workspace who opens it gets the toolbar on the site.');
+    } catch {
+      toasts.error(`Copy failed. The link: ${href}`);
+    }
+  }
+
   async function del(p: Project) {
     await api('projects.delete', { params: { id: p.id } });
     toasts.success('Project removed');
@@ -82,6 +95,11 @@
 <p class="muted lead">
   A project is a web app your team reviews. The extension asks each reviewer for access to the project’s origins after sign-in, and records nothing on any other site. Captures from other origins are refused.
 </p>
+{#if data.reviewLinks}
+  <p class="muted lead" data-testid="review-links-hint">
+    Each origin also has a review link. Whoever opens it signs in and lands on the site with the toolbar, no extension needed. The site must be behind the injector.
+  </p>
+{/if}
 
 <Section title="Projects in this workspace" testid="projects-section">
   {#if !data.projects.length}
@@ -96,6 +114,20 @@
       <ul class="chips" data-testid="project-origins">
         {#each p.origins as o (o)}<li><code>{o}</code></li>{/each}
       </ul>
+      {#if data.reviewLinks?.[p.id]?.length}
+        <!-- review links (D-200): a reviewer opens the link, signs in, and lands on the site with the toolbar -->
+        <ul class="review" data-testid="project-review">
+          {#each data.reviewLinks[p.id] as l (l.origin)}
+            <li data-origin={l.origin}>
+              <span class="rhost">{l.host}</span>
+              <Button size="sm" icon="copy" onclick={() => copyLink(l.href)} data-testid="review-copy" data-href={l.href}>Copy review link</Button>
+              <form method="POST" action={pathOf(l.href)} target="_blank">
+                <Button size="sm" variant="ghost" icon="external" type="submit" data-testid="review-open">Open with toolbar</Button>
+              </form>
+            </li>
+          {/each}
+        </ul>
+      {/if}
       {#if p.maskingPreset === 'production'}
         <p class="small muted">
           {p.bodyAllowlist.length ? `Bodies kept for ${p.bodyAllowlist.length} allowlisted ${p.bodyAllowlist.length === 1 ? 'URL' : 'URLs'}` : 'No request or response bodies are kept'}
@@ -187,6 +219,10 @@
   .chips li { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: var(--nb-radius-sm); border: 1px solid var(--nb-border); background: var(--nb-surface-2); }
   .chips code { font-size: var(--nb-text-sm); overflow-wrap: anywhere; }
   .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .review { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .review li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .review form { display: contents; }
+  .rhost { font: var(--nb-text-sm) var(--nb-font-mono, monospace); color: var(--nb-text-muted); margin-right: 4px; overflow-wrap: anywhere; }
   .presets { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: var(--nb-text-md); }
   .presets dt { font-weight: var(--nb-weight-semibold); }
   .presets dd { margin: 0; color: var(--nb-text-muted); }

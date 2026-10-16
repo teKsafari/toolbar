@@ -22,8 +22,10 @@ COPY apps/injector/*.go ./
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/injector .
 
-# 3. Runtime: nothing but the binary and the bundle.
+# 3. Runtime: nothing but the binary, the CA roots and the bundle.
+# The CA roots verify the proxy's certificate on the loopback hop (INJECTOR_LOOPBACK).
 FROM scratch
+COPY --from=proxy /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=proxy /out/injector /injector
 COPY --from=page /repo/apps/extension/.output/page/ /srv/toolbar/
 USER 65532:65532

@@ -37,6 +37,7 @@ Node 24, pnpm 11.27 (`corepack enable` picks it up from `packageManager`; where 
 | 1025 | Mailpit SMTP (`docker-compose.mail.yml`) |
 | 5173, 5174 | Lab app (user service `toolbar-lab`), second origin |
 | 3506 | Injector compose test (`apps/injector/test/run.sh`): the injector in front of the lab, and `csp.localhost:3506` for its strict-CSP page |
+| 3650, 3651, 3652 | Injector behind a Coolify-like Traefik (`apps/injector/test/coolify-like/run.sh`): the dev server it uses, the proxy's https and http ports (`lab.localhost`, `csp.localhost`, `whoami.localhost`) |
 | `:101`, `:120` | Xvfb displays for the area suites and the flows (`E2E_DISPLAY`); `:99` is the shared browser, never use it |
 | 9341, 9351 | CDP ports of the flows' browsers (the popup is reached over CDP) |
 
@@ -162,9 +163,12 @@ The manifest `key` is the Chrome Web Store item's public key, so every build has
 cd apps/injector && go test -race ./...      # unit tests: streaming injection, chunk boundaries, nonce, gzip, errors, cookie, relay
 pnpm --filter @toolbar/extension build:page  # the page bundle, apps/extension/.output/page/toolbar.js
 apps/injector/test/run.sh                    # compose test: builds the image, runs e2e/injector in a browser without the extension
+apps/injector/test/coolify-like/run.sh       # the same behind traefik:v3.7 set up like Coolify's (D-200)
 ```
 
-`run.sh` reads the repo root `.env`. The server it talks to (default http://localhost:3306, `SERVER_URL`) needs `INJECTOR_SECRET`, `INJECTOR_ORIGINS=http://localhost:3506` and the mock OIDC provider; the injector container reaches it as `host.docker.internal`, which the dev server's Vite config allows. See `apps/injector/README.md`.
+`run.sh` reads the repo root `.env`. The server it talks to (default http://localhost:3306, `SERVER_URL`) needs `INJECTOR_SECRET` and the mock OIDC provider (the spec adds `http://localhost:3506` to a project of the reviewer); the injector container reaches it as `host.docker.internal`, which the dev server's Vite config allows. See `apps/injector/README.md`.
+
+`coolify-like/run.sh` needs a dev server on `SERVER_URL` (default http://localhost:3650) with `INJECTOR_SECRET` and the mock OIDC provider, and Xvfb: it renders the Traefik file with the pass value into `apps/injector/test/coolify-like/dynamic/` (git-ignored, with a self-signed certificate), builds the lab and injector images, starts the stack and runs `e2e/injector/coolify.spec.ts` headed on `E2E_DISPLAY` (default `:350`, started when free). The spec covers a visitor who never reaches the injector (its request log stays empty), onboarding from Settings, Projects, a comment and a trace, WebSockets and server-sent events through the loop, `x-review-skip`, the strict-CSP page from a copied review link, the review link's error pages, a killed injector (reviewers keep the app) and Stop reviewing. `KEEP=1` leaves the stack up; `docker compose -f apps/injector/test/coolify-like/docker-compose.yml down` stops it.
 
 ## E2E
 

@@ -245,6 +245,33 @@ describe('docs/configuration.md', () => {
     for (const n of REQUIRED) expect(where.get(n), n).toBe('Required');
   });
 
+  it('keeps the injector Coolify files in step with each other and the Go code (D-200)', () => {
+    const inj = read('deploy/injector/docker-compose.injector.yml');
+    // Coolify asks for exactly the two values it cannot know
+    expect([...inj.matchAll(/\$\{([A-Z_]+):\?\}/g)].map((m) => m[1]).sort()).toEqual(['INJECTOR_SECRET', 'TOOLBAR_SERVER_URL']);
+    expect(inj).toMatch(/^ {6}INJECTOR_LOOPBACK: https:\/\/coolify-proxy:443$/m);
+    expect(inj).not.toMatch(/INJECTOR_UPSTREAMS?:|INJECTOR_LOOPBACK_INSECURE|^\s+ports:/m);
+    expect(inj).toMatch(/aliases:\n\s+- open-toolbar-injector\n/);
+    const traefik = read('deploy/injector/traefik-open-toolbar-injector.yml');
+    // the router reaches the alias on the injector's default port, and checks its health route
+    expect(traefik).toContain('url: http://open-toolbar-injector:8080');
+    expect(read('apps/injector/main.go')).toContain('env("INJECTOR_LISTEN", ":8080")');
+    expect(traefik).toContain('path: /__toolbar/health');
+    // one pass value, named in the rule and set by the middleware, filled in by the owner
+    const yamlLines = traefik.split('\n').filter((l) => !l.trimStart().startsWith('#'));
+    expect(yamlLines.filter((l) => l.includes('REPLACE_WITH_PASS_VALUE'))).toHaveLength(2);
+    expect(traefik).toContain('!Header(`X-Open-Toolbar-Pass`, `REPLACE_WITH_PASS_VALUE`)');
+    expect(traefik).toContain('X-Open-Toolbar-Pass: REPLACE_WITH_PASS_VALUE');
+    expect(read('apps/injector/loop.go')).toContain('const passHeader = "X-Open-Toolbar-Pass"');
+    // the cookie names the rule matches are the ones the injector sets
+    const cookie = read('apps/injector/cookie.go');
+    expect(cookie).toContain('cookieNameSecure = "__Host-tb_review"');
+    expect(cookie).toContain('cookieNamePlain  = "tb_review"');
+    expect(traefik).toContain('HeaderRegexp(`Cookie`, `(^|;\\s*)(__Host-)?tb_review=`)');
+    // the lab for a Coolify test needs no values
+    expect(read('deploy/lab/docker-compose.lab.yml')).not.toMatch(/\$\{(?!SERVICE_)/);
+  });
+
   it('keeps mail out of the default and Coolify compose files (docs/scope.md, D-171)', () => {
     for (const f of ['docker-compose.yml', 'docker-compose.coolify.yml']) {
       const s = read(f);

@@ -56,8 +56,15 @@ func loadConfig() (Config, error) {
 		}
 		c.Upstreams[strings.ToLower(strings.TrimSpace(host))] = u
 	}
-	if c.Upstream == nil && len(c.Upstreams) == 0 {
-		return c, errors.New("set INJECTOR_UPSTREAM or INJECTOR_UPSTREAMS")
+	if c.Loopback, err = parseURL("INJECTOR_LOOPBACK", env("INJECTOR_LOOPBACK", "")); err != nil {
+		return c, err
+	}
+	if c.Loopback != nil && (c.Loopback.Path != "" && c.Loopback.Path != "/" || c.Loopback.RawQuery != "") {
+		return c, fmt.Errorf("INJECTOR_LOOPBACK: scheme, host and port only: %q", c.Loopback.String())
+	}
+	c.LoopbackInsecure = env("INJECTOR_LOOPBACK_INSECURE", "0") == "1"
+	if c.Upstream == nil && len(c.Upstreams) == 0 && c.Loopback == nil {
+		return c, errors.New("set INJECTOR_LOOPBACK (the proxy in front, e.g. https://coolify-proxy:443), or INJECTOR_UPSTREAM or INJECTOR_UPSTREAMS")
 	}
 	if c.ServerURL, err = parseURL("TOOLBAR_SERVER_URL", env("TOOLBAR_SERVER_URL", "")); err != nil {
 		return c, err
@@ -82,6 +89,17 @@ func loadConfig() (Config, error) {
 
 func main() {
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	if len(os.Args) > 1 && os.Args[1] == "pass-value" {
+		// The value of the X-Open-Toolbar-Pass header for the Traefik file, derived from
+		// INJECTOR_SECRET (README, "Coolify"). Prints nothing else, so it can be piped.
+		s := os.Getenv("INJECTOR_SECRET")
+		if len(s) < 32 {
+			fmt.Fprintln(os.Stderr, "INJECTOR_SECRET must be set, at least 32 characters")
+			os.Exit(2)
+		}
+		fmt.Println(passValue([]byte(s)))
+		os.Exit(0)
+	}
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
 		// for the container HEALTHCHECK: distroless images have no curl
 		addr := env("INJECTOR_LISTEN", ":8080")
@@ -111,7 +129,14 @@ func main() {
 		Handler:           in,
 		ReadHeaderTimeout: 30 * time.Second,
 	}
-	log.Info("injector listening", "addr", cfg.Listen, "hosts", len(cfg.Upstreams))
+	mode := "upstreams"
+	if cfg.Loopback != nil {
+		mode = "loopback " + cfg.Loopback.Host
+		if cfg.LoopbackInsecure {
+			mode += " (certificate not verified)"
+		}
+	}
+	log.Info("injector listening", "addr", cfg.Listen, "mode", mode, "hosts", len(cfg.Upstreams))
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Error("listen", "err", err.Error())
 		os.Exit(1)

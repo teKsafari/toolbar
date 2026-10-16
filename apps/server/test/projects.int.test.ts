@@ -148,12 +148,17 @@ describe.skipIf(!reachable)('projects (integration)', () => {
     const { resolveApiToken } = await import('../src/lib/server/tokens.ts');
     const { env } = await import('../src/lib/server/env.ts');
     const e = (origins: string[]) => ({ ...env, injector: { secret: 's'.repeat(40), origins, cookieDays: 7 } }) as typeof env;
-    expect(await review.reviewOriginAllowedFor(m.db, maker.id, 'http://localhost:5173', e([]))).toBe(true);
-    expect(await review.reviewOriginAllowedFor(m.db, maker.id, 'https://staging.lab.test', e([]))).toBe(true);
-    expect(await review.reviewOriginAllowedFor(m.db, maker.id, 'http://localhost:5174', e([]))).toBe(false);
-    expect(await review.reviewOriginAllowedFor(m.db, outsider.id, 'http://localhost:5173', e([]))).toBe(false);
-    // the operator's list, when set, is the only list
-    expect(await review.reviewOriginAllowedFor(m.db, maker.id, 'http://localhost:5173', e(['https://nuru.example.org']))).toBe(false);
+    const allowed = async (userId: string, origin: string, origins: string[]) => (await review.reviewAccess(m.db, userId, origin, e(origins))).allowed;
+    expect(await allowed(maker.id, 'http://localhost:5173', [])).toBe(true);
+    expect(await allowed(maker.id, 'https://staging.lab.test', [])).toBe(true);
+    expect(await allowed(maker.id, 'http://localhost:5174', [])).toBe(false);
+    expect(await allowed(outsider.id, 'http://localhost:5173', [])).toBe(false);
+    // the operator's list, when set, is a hard allowlist on top of the projects (D-200)
+    expect(await review.reviewAccess(m.db, maker.id, 'http://localhost:5173', e(['https://nuru.example.org']))).toEqual({ allowed: false, reason: 'not_listed' });
+    expect(await allowed(maker.id, 'http://localhost:5173', ['http://localhost:5173'])).toBe(true);
+    expect(await allowed(maker.id, 'http://localhost:5174', ['http://localhost:5174'])).toBe(false);
+    const ok = await review.reviewAccess(m.db, maker.id, 'http://localhost:5173', e([]));
+    expect(ok.allowed && ok.projectId).toBeTruthy();
     await expect(review.issueReviewCookie(m.db, { userId: outsider.id, origin: 'http://localhost:5173' }, e([]))).rejects.toThrow('origin_not_allowed');
 
     const { value, expiresAt } = await review.issueReviewCookie(m.db, { userId: maker.id, origin: 'http://localhost:5173' }, e([]));
