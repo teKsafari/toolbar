@@ -1,17 +1,19 @@
 # Configuration
 
-open-toolbar reads its settings from environment variables. With Docker Compose you put them in `.env` next to `docker-compose.yml`; on Coolify you set them under Environment Variables. This page lists every variable the server, the injector container, the compose files, the extension build and the agent's shell read, grouped by area. A test (`apps/server/test/config-docs.test.ts`) compares this page with the server and extension code, the injector's Go code and Coolify file, the Agent Skill, both compose files and `.env.example`, and fails when a variable is missing here or listed here without a reader.
+open-toolbar takes six values from the environment to boot. An instance admin sets everything else in the web app, under Settings > Server, while the server runs. With Docker Compose you put the six values in `.env` next to `docker-compose.yml`; on Coolify you fill them in under Environment Variables.
+
+Every other variable on this page is optional. A variable that backs a Settings > Server field still works: when set, it wins over the stored value and locks the field in the admin page, as branding does ([docs/branding.md](branding.md)). A test (`apps/server/test/config-docs.test.ts`) compares this page with the server and extension code, the instance settings (`packages/shared/src/api/instance-settings.ts`), the injector's Go code and Coolify file, the Agent Skill, the compose files and `.env.example`. It fails when a variable has no row here, when a row names a variable nothing reads, when a variable is missing from the table in [Where each setting lives](#where-each-setting-lives), and when the quickstart files ask for more than the required values.
 
 ## The basic deployment
 
-Five values make a working server. Everything else has a default that works.
+Six values make a working server.
 
 | What | Variables |
 |---|---|
 | Where people reach the server | `PUBLIC_URL` |
-| The secret that signs sessions | `BETTER_AUTH_SECRET` (or `AUTH_SECRET`) |
+| The secret that signs sessions and encrypts stored secrets | `BETTER_AUTH_SECRET` (or `AUTH_SECRET`) |
 | Your sign-in provider | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` |
-| Who may sign in | `ALLOWED_EMAIL_DOMAINS` |
+| Who administers the server | `ADMIN_EMAILS` |
 
 ```sh
 cp .env.example .env                                 # or: scripts/gen-secrets.sh https://feedback.example.com
@@ -20,34 +22,112 @@ docker compose up -d --build
 curl -s https://feedback.example.com/api/health      # {"ok":true,...}
 ```
 
+Then sign in with an address from `ADMIN_EMAILS`, open Settings > Server, add your email domains under Sign-in and pick a transcription provider. Until you add domains, only `ADMIN_EMAILS` addresses can sign in ([Who gets in](#who-gets-in)).
+
 Put a TLS proxy (Caddy, Traefik, nginx) in front of the server's port and point `PUBLIC_URL` at the https address. The server refuses to start on a non-localhost `PUBLIC_URL` while the auth secret is the dev default. On Coolify, use `docker-compose.coolify.yml` instead ([Coolify](#coolify)).
 
-Postgres, Garage and whisper keep working with their built-in credentials, because the compose file publishes their ports on `127.0.0.1` only and other machines cannot reach them. `scripts/gen-secrets.sh` still replaces those credentials with random ones, so use it on a fresh install.
+Postgres and Garage keep working with their built-in credentials, because the compose file publishes their ports on `127.0.0.1` only and other machines cannot reach them. `scripts/gen-secrets.sh` still replaces those credentials with random ones, so use it on a fresh install.
+
+### Compose files
+
+| File | When you use it |
+|---|---|
+| `docker-compose.yml` | Always: the server, Postgres and Garage. It passes every line of `.env` to the server (`env_file`), so an optional variable needs no edit of the compose file. |
+| `docker-compose.whisper.yml` | Local transcription with whisper.cpp: `docker compose -f docker-compose.yml -f docker-compose.whisper.yml up -d`, then pick "Local whisper.cpp" in Settings > Server. |
+| `docker-compose.mail.yml` | The paused mail (`FEATURE_EMAIL`, D-171), with Mailpit. |
+| `docker-compose.dev.yml` | Development and e2e only: the mock OIDC provider, password sign-in, rate limits off, paused feature flags. Never in a deployment. |
+| `docker-compose.coolify.yml` | Coolify, in place of all of the above ([Coolify](#coolify)). |
+
+## Where each setting lives
+
+Each setting is in one of five places (D-187). **Required** values boot the server and stay in the environment. **Wiring** is what the compose files and Coolify fill in for the containers they run; you set it only outside them. **Settings > Server** fields belong to the instance admin, who changes them at runtime; the variable, when set, locks the field. **Workspace** settings belong to a workspace admin and have no variable. **Optional environment** covers deployment details that take effect at start, belong to another container, or depend on the image. **Dev and tests**, **Paused**, **Build** and **Older names** stay out of every compose file you deploy.
+
+| Setting | Where | Why there |
+|---|---|---|
+| `PUBLIC_URL` | Required | Cookies, the OAuth redirect URI and CSRF checks are built from it before anyone can sign in. |
+| `BETTER_AUTH_SECRET`, `AUTH_SECRET` | Required | Signs sessions and derives the keys of sealed values, the stored API key included, so it cannot live in the database it protects. |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Required | Nobody, the admin included, can sign in without the provider, and the client secret should not sit in a table an admin page edits. |
+| `ADMIN_EMAILS` | Required | Someone must be able to reach Settings > Server on a fresh server, and on a public URL it is the only safe way to name that person ([Who gets in](#who-gets-in)). |
+| `DATABASE_URL`, `POSTGRES_PASSWORD` | Wiring | The database holds the settings, so its address cannot be one of them. Compose builds the URL; Coolify generates the user and password. |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Wiring | Storage credentials of the stack's own Garage, generated by `gen-secrets.sh` or Coolify. |
+| `GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN` | Wiring | Garage's own secrets; the server never reads them. |
+| `WHISPER_URL` | Wiring, and Settings > Server | `docker-compose.whisper.yml` and the Coolify file point it at their whisper service; the admin page can point it elsewhere when the variable is unset. |
+| `PORT` | Wiring | Compose publishes this host port and pins the server to 3000 inside the container. |
+| `ALLOWED_EMAIL_DOMAINS` | Settings > Server, Sign-in | Changes as the organisation does, and takes effect at the next request of each session. |
+| `OIDC_PROVIDER_NAME`, `OIDC_SCOPES` | Settings > Server, Sign-in | Read at each sign-in, so they need no restart; the provider itself stays in the environment. |
+| `TRANSCRIBE_PROVIDER`, `TRANSCRIBE_API_KEY`, `OPENAI_API_KEY`, `TRANSCRIBE_MODEL`, `TRANSCRIBE_BASE_URL`, `TRANSCRIBE_LANGUAGE`, `TRANSCRIBE_TIMESTAMPS`, `TRANSCRIBE_CHUNK_SECONDS`, `TRANSCRIBE_CONCURRENCY` | Settings > Server, Transcription | Read per job, so an admin can switch provider, try it with Test connection and roll back without a deploy. The key is sealed at rest. |
+| `TRANSCRIBE_MAX_MINUTES`, `TRANSCRIBE_MONTHLY_MINUTES` | Settings > Server, Limits | Cost caps an admin tunes as usage grows. |
+| `MAX_RECORDING_MIN` | Settings > Server, Capture defaults | Read when the extension loads its bootstrap. |
+| (no variable) masking preset and trace step window for new projects | Settings > Server, Capture defaults, and Workspace | Instance defaults that each workspace admin can replace for their workspace. |
+| `SHARE_LINK_DAYS`, `EXPORT_MAX_MB`, `SUPPORT_RECORDING_LINK` | Settings > Server, Sharing and export | Policies read per request. |
+| (no variable) recording link uploads per address | Settings > Server, Limits | Abuse limit of the public recording links, read per request. |
+| `APP_NAME`, `APP_LOGO_URL`, `APP_LOGO_DARK_URL`, `APP_ACCENT` | Settings > Server, Branding | Already admin settings (D-112). |
+| `EXTENSION_IDS` | Optional environment | Read once into the trusted origins at start; only a self-built extension needs it. |
+| `OIDC_DISCOVERY_URL`, `OIDC_PROVIDER_ID` | Optional environment | Part of the provider set at start; changing the id unlinks every account. |
+| `BODY_SIZE_LIMIT`, `WORKER`, `MIGRATE_ON_START`, `MIGRATIONS_DIR`, `NODE_ENV` | Optional environment | Process and image settings that apply when the server starts. |
+| `S3_PUBLIC_URL`, `S3_KEY_PREFIX`, `POSTGRES_PORT`, `S3_PORT` | Optional environment | Storage layout and host ports, fixed per deployment. |
+| `WHISPER_MODEL`, `WHISPER_PORT` | Optional environment | Settings of the whisper container, which downloads the model at its first start. |
+| `OCR_BIN`, `OCR_LANGS`, `FFMPEG_PATH`, `FFPROBE_PATH` | Optional environment | Depend on what the image installs. |
+| `INJECTOR_SECRET`, `INJECTOR_ORIGINS`, `INJECTOR_COOKIE_DAYS` | Optional environment | Deployed together with the injector container, whose secret must match. |
+| `COMPOSE_PROFILES` | Optional environment | Docker Compose's own switch; on Coolify it starts the whisper service. |
+| `AUTH_DEV_PASSWORD`, `AUTH_RATE_LIMIT`, `OIDC_MOCK_PORT`, `DEV_PORT`, `SERVER_URL`, `PROTOCOL_HEADER`, `HOST_HEADER` | Dev and tests | Password sign-in and rate limits off would weaken a real server; `docker-compose.dev.yml` and `pnpm dev` pass them. |
+| `FEATURE_EMAIL`, `FEATURE_TRACKERS`, `FEATURE_SLACK`, `FEATURE_CLI`, `FEATURE_AI`, `FEATURE_ADMIN_EXTRAS`, `CLI_BUNDLE_PATH`, `AUTH_MAGIC_LINK` | Paused | Features paused by docs/scope.md; the flags stay in the code. |
+| `SMTP_URL`, `MAIL_FROM`, `SMTP_PORT`, `MAILPIT_UI_PORT` | Paused | Mail, only through `docker-compose.mail.yml`. |
+| `AI_PROVIDER`, `AI_BASE_URL`, `AI_MODEL`, `AI_API_KEY`, `AI_TIMEOUT_MS` | Paused | AI text, only with `FEATURE_AI`. |
+| `INJECTOR_UPSTREAMS`, `INJECTOR_UPSTREAM`, `TOOLBAR_SERVER_URL`, `TOOLBAR_PUBLIC_URL`, `INJECTOR_TRUST_FORWARDED`, `INJECTOR_SCAN_LIMIT`, `INJECTOR_LISTEN`, `INJECTOR_ASSETS` | Injector container | Read by the injector, never by this server. |
+| `TOOLBAR_SERVER`, `TOOLBAR_TOKEN` | Agent side | Read by the coding agent's shell. |
+| `WXT_SERVER_URL`, `WXT_APP_NAME`, `WXT_APP_ICON`, `WXT_MANIFEST_KEY`, `WXT_GECKO_ID`, `RELEASE_TAG`, `FIREFOX`, `WXT_DEV_PORT`, `WXT_TEST_HOOKS`, `WXT_OUT_SUFFIX` | Build | Read when you build the extension. |
+| `OIDC_1_CLIENT_ID`, `OIDC_1_CLIENT_SECRET`, `OIDC_1_DISCOVERY_URL`, `OIDC_1_SCOPES`, `OIDC_1_NAME`, `OIDC_1_ID`, `AUTH_ALLOWED_DOMAINS`, `AUTH_EMAIL_PASSWORD`, `AI_URL`, `STT_URL`, `STT_API_KEY`, `STT_MODEL` | Older names | Kept so existing `.env` files run; each follows its new name's place. |
+
+## Settings > Server
+
+Instance admins (`ADMIN_EMAILS`, or the first account when it is empty) see Settings > Server; everyone else gets 404. Below Branding it has five sections. Each section has its own Save button and saves only the fields you changed; an emptied field goes back to its default.
+
+| Section | Fields |
+|---|---|
+| Sign-in | The provider and its redirect URI, read-only from the environment, with Test discovery URL; allowed email domains, the button name, scopes |
+| Transcription | Provider (off, local whisper.cpp, an OpenAI-compatible endpoint), API key, model, endpoint, whisper.cpp URL, languages, timestamps, chunk length, parallel requests, with Test connection |
+| Capture defaults | Masking preset and trace step window for new projects, longest recording |
+| Sharing and export | Share link lifetime, export page size, the extension's "report a problem" link |
+| Limits | Longest audio transcribed, hosted transcription minutes per month, recording link uploads per address in 10 minutes |
+
+- **Precedence.** A variable that is set wins, and the field shows "Set by environment" with the variable's name and cannot be edited there. Otherwise the stored value applies, else the default. The admin API refuses a change to a locked field (`locked_by_env`).
+- **Validation.** The page checks each value with the same rules as the server before it saves, and names the field when one is wrong.
+- **No restart.** A save applies at once on the server that took it. Other replicas re-read the settings within 15 seconds.
+- **The API key** is sealed with AES-256-GCM under a key derived from `BETTER_AUTH_SECRET` (as share tokens are) and never comes back in full: the page shows its last four characters. Changing `BETTER_AUTH_SECRET` makes it unreadable; the server log says so and you enter it again.
+- **Test buttons.** Test connection calls `<endpoint>/models` with the key (or `<whisper.cpp URL>/` for local) and reports whether the key works and the model is offered. Test discovery URL reads the provider's discovery document and checks the scopes against its `scopes_supported`. Both use the values on the form, saved or not.
+- **API.** `GET` and `PATCH /api/v1/admin/settings` and `POST /api/v1/admin/settings/test`, for a signed-in instance admin; personal API tokens are refused.
+
+Settings are stored in the `instance_setting` table, row `instance`.
+
+### Workspace settings
+
+Settings, General has a New projects section for workspace admins: the masking preset and trace step window a new project starts with. Empty follows the instance's Capture defaults. Existing projects keep their own values; an API client that leaves them out of `POST /api/v1/workspaces/<id>/projects` gets these defaults.
 
 ## How to read the tables
 
-Each row gives the variable, its default, an example, and what it does with when you would change it. "Empty" means unset or set to an empty string; both mean the default. Flags take `1`, `true`, `yes` or `on` for on, anything else for off.
+Each row gives the variable, its default, an example, and what it does with when you would change it. "Empty" means unset or set to an empty string; both mean the default. Flags take `1`, `true`, `yes` or `on` for on, anything else for off. "Settings > Server" in a row means an admin can set the value in the web app instead; the variable, when set, locks that field.
 
 ## Server
 
 | Variable | Default | Example | Purpose and when to change |
 |---|---|---|---|
 | `PUBLIC_URL` | `http://localhost:3000` | `https://feedback.example.com` | **Required.** The origin people and the extension use. Links, the OAuth redirect URI (`<PUBLIC_URL>/api/auth/callback/<OIDC_PROVIDER_ID>`), cookies and the CSRF origin come from it. Set it to the https address of your proxy; a path is not supported. |
-| `BETTER_AUTH_SECRET` | a dev secret | output of `openssl rand -hex 32` | **Required.** Signs sessions and derives the key that encrypts share and recording-link tokens in the database. Use 32 or more random characters. Changing it signs everyone out and makes stored share links unreadable, so set it once. |
+| `BETTER_AUTH_SECRET` | a dev secret | output of `openssl rand -hex 32` | **Required.** Signs sessions and derives the key that encrypts share and recording-link tokens and the transcription API key in the database. Use 32 or more random characters. Changing it signs everyone out and makes stored share links and the stored API key unreadable, so set it once. |
 | `AUTH_SECRET` | empty | as above | A shorter name for `BETTER_AUTH_SECRET`, read when that one is empty. |
-| `PORT` | `3000` | `8080` | Compose only: the host port the server container publishes. The server inside the container always listens on 3000. Change it when 3000 is taken on the host. |
+| `PORT` | `3000` | `8080` | Compose: the host port the server container publishes. Compose pins the server to 3000 inside the container. Change it when 3000 is taken on the host. |
 | `EXTENSION_IDS` | `fmongfmimgdafigcahdpofnmmhljpnei` | `fmongfmimgdafigcahdpofnmmhljpnei,abcdefghijklmnopabcdefghijklmnop` | Comma separated ids of the browser extensions allowed to sign in through `/ext/connect` and to call the API from their pages. The default is the id the repository's manifest key pins. Add the Chrome Web Store item's id when you publish your own ([docs/extension-release.md](extension-release.md)). |
-| `BODY_SIZE_LIMIT` | `210M` | `500M` | Largest request body the Node server accepts. Routes cap upload chunks at 8 MiB and attachments at 200 MiB on their own; raise this only together with those limits. |
+| `BODY_SIZE_LIMIT` | `210M` (set in the image) | `500M` | Largest request body the Node server accepts. Routes cap upload chunks at 8 MiB and attachments at 200 MiB on their own; raise this only together with those limits. |
 | `WORKER` | `1` | `0` | Runs the background job worker (transcripts, thumbnails, webhooks) inside the server process. Set `0` on extra server replicas so one process runs jobs. |
 | `MIGRATE_ON_START` | `1` | `0` | Applies database migrations at start. Set `0` when you run `pnpm --filter @toolbar/server db:migrate` yourself before a deploy. |
 | `MIGRATIONS_DIR` | `./drizzle` next to the server | `/app/drizzle` | Where the migration files live. Only for a custom image layout. |
-| `MAX_RECORDING_MIN` | empty (no cap) | `15` | Longest recording in minutes; the extension's timer stops there. Set it to keep recordings short on a small server. |
-| `SUPPORT_RECORDING_LINK` | empty | `https://feedback.example.com/r/abc`, or `off` | Where the extension menu's "report a problem" goes. Empty: a "Problem reports" recording link owned by the server's first account, made on first use. `off` hides it. |
+| `MAX_RECORDING_MIN` | empty (no cap) | `15` | Settings > Server, Capture defaults. Longest recording in minutes; the extension's timer stops there. Set it to keep recordings short on a small server. |
+| `SUPPORT_RECORDING_LINK` | empty | `https://feedback.example.com/r/abc`, or `off` | Settings > Server, Sharing and export. Where the extension menu's "report a problem" goes. Empty: a "Problem reports" recording link owned by the server's first account, made on first use. `off` hides it. |
 | `NODE_ENV` | `production` in the image, `development` in `pnpm dev` | `production` | Turns on production behaviour: sign-in rate limits, no response-shape checks in the share routes. Leave it to the image. |
 
 ## Sign-in
 
-open-toolbar signs people in through one OpenID Connect provider that you register it with (docs/scope.md, D-080, D-114). The server is the OIDC client: browsers and the extension never hold the client secret. The extension signs in through the server (`chrome.identity.launchWebAuthFlow` on `/ext/connect`), so it needs no settings of its own.
+open-toolbar signs people in through one OpenID Connect provider that you register it with (docs/scope.md, D-080, D-114). The server is the OIDC client: browsers and the extension never hold the client secret. The extension signs in through the server (`chrome.identity.launchWebAuthFlow` on `/ext/connect`), so it needs no settings of its own. The provider stays in the environment; the allowed domains, the button name and the scopes are in Settings > Server, Sign-in.
 
 | Variable | Default | Example | Purpose and when to change |
 |---|---|---|---|
@@ -55,19 +135,22 @@ open-toolbar signs people in through one OpenID Connect provider that you regist
 | `OIDC_DISCOVERY_URL` | `<OIDC_ISSUER>/.well-known/openid-configuration` | `https://id.example.com/custom/openid-configuration` | The discovery document, when it lives somewhere else. Wins over `OIDC_ISSUER` for discovery; the issuer is derived from it when `OIDC_ISSUER` is empty. |
 | `OIDC_CLIENT_ID` | empty | `1234567890-abc.apps.googleusercontent.com` | **Required.** The client id from the provider. Without it the provider is off and nobody can sign in. |
 | `OIDC_CLIENT_SECRET` | empty | `GOCSPX-...` | **Required.** The client secret. The server also sends PKCE. |
-| `OIDC_SCOPES` | `openid email profile` | `openid email profile groups` | Space or comma separated. Keep `email`: the allowlist reads the address. |
-| `OIDC_PROVIDER_NAME` | `Google` for `accounts.google.com`, else `SSO` | `Acme SSO` | The login button reads "Sign in with <name>". Set it to the name your people know. |
+| `ADMIN_EMAILS` | empty (the first account, see [Who gets in](#who-gets-in)) | `ops@acme.example,lee@acme.example` | **Required.** Instance admins, by verified email, comma separated: they open Settings > Server (branding and every instance setting). On a public URL with no allowed email domains, only these addresses can sign in until one of them has. |
+| `OIDC_SCOPES` | `openid email profile` | `openid email profile groups` | Settings > Server, Sign-in. Space or comma separated. Keep `openid` and `email`: the allowlist reads the address. |
+| `OIDC_PROVIDER_NAME` | `Google` for `accounts.google.com`, else `SSO` | `Acme SSO` | Settings > Server, Sign-in. The login button reads "Sign in with <name>". Set it to the name your people know. |
 | `OIDC_PROVIDER_ID` | `oidc` | `keycloak` | The id in the callback path. Changing it after people signed in leaves their accounts unlinked, so pick it once. |
-| `ALLOWED_EMAIL_DOMAINS` | empty (any address) | `acme.com,acme.co.uk` | **Required for a private server.** Comma separated domains that may sign in and submit feedback; subdomains count (`acme.com` admits `eu.acme.com`). Google's `hd` claim must match too when the token carries it. |
-| `AUTH_RATE_LIMIT` | on in production | `off` | Better Auth's per-address limits (3 sign-ins per 10 s). Set `off` only for an e2e run, whose test accounts all sign in from one address. |
-| `AUTH_DEV_PASSWORD` | off | `1` | Adds email and password sign-in. For development and tests only (docs/scope.md). |
-| `AUTH_MAGIC_LINK` | on with `FEATURE_EMAIL` | `0` | The emailed sign-in link exists only while mail is on; `0` keeps it off then. |
+| `ALLOWED_EMAIL_DOMAINS` | empty (any address, after the bootstrap rule) | `acme.com,acme.co.uk` | Settings > Server, Sign-in. Comma separated domains that may sign in and submit feedback; subdomains count (`acme.com` admits `eu.acme.com`). Google's `hd` claim must match too when the token carries it. |
+| `AUTH_RATE_LIMIT` | on in production | `off` | Dev and tests. Better Auth's per-address limits (3 sign-ins per 10 s). `off` only for an e2e run, whose test accounts all sign in from one address; `docker-compose.dev.yml` passes it. |
+| `AUTH_DEV_PASSWORD` | off | `1` | Dev and tests. Adds email and password sign-in (docs/scope.md); `docker-compose.dev.yml` passes it. |
+| `AUTH_MAGIC_LINK` | on with `FEATURE_EMAIL` | `0` | Paused with mail. The emailed sign-in link exists only while mail is on; `0` keeps it off then. |
 
-The redirect URI to register with the provider is `<PUBLIC_URL>/api/auth/callback/<OIDC_PROVIDER_ID>`, so `https://feedback.example.com/api/auth/callback/oidc` by default.
+The redirect URI to register with the provider is `<PUBLIC_URL>/api/auth/callback/<OIDC_PROVIDER_ID>`, so `https://feedback.example.com/api/auth/callback/oidc` by default. Settings > Server shows it with a copy button.
 
 ### Who gets in
 
-With `ALLOWED_EMAIL_DOMAINS` set, the server checks the provider's claims at every sign-in:
+**Bootstrap rule (D-187).** On a public `PUBLIC_URL` (anything but localhost) with no allowed email domains, the first account would otherwise belong to whoever your provider signs in first, and a Google provider signs in any Gmail address. So until an instance admin exists, the server lets in only a verified address listed in `ADMIN_EMAILS`. Everyone else returns to the login page with "This server has no admin yet. Until one signs in, only the addresses in ADMIN_EMAILS can sign in." With `ADMIN_EMAILS` empty there, nobody can sign in, and the server log says so at start. Once an admin has signed in, the allowed domains the admin sets in Settings > Server decide; leaving them empty admits anyone the provider signs in, and the admin page warns about that. On localhost, and on a server with allowed domains, the rule does not apply, and without `ADMIN_EMAILS` the first account is the instance admin.
+
+With allowed email domains set, the server checks the provider's claims at every sign-in:
 
 - the address must be verified (`email_verified` must not be false);
 - its domain must be on the list;
@@ -90,35 +173,36 @@ Every capture and comment made by a signed-in person stores their issuer, subjec
 OIDC_ISSUER=https://accounts.google.com
 OIDC_CLIENT_ID=1234567890-abc.apps.googleusercontent.com
 OIDC_CLIENT_SECRET=GOCSPX-...
-ALLOWED_EMAIL_DOMAINS=yourcompany.com
+ADMIN_EMAILS=you@yourcompany.com
 ```
+
+5. Sign in as that address and add `yourcompany.com` under Settings > Server, Sign-in, Allowed email domains.
 
 The button reads "Sign in with Google". Google is a standard OpenID Connect provider, so no Google-specific code is involved.
 
 ### Other providers
 
-Any provider with a discovery document works: Keycloak (`OIDC_ISSUER=https://kc.example.com/realms/<realm>`), Authentik, Okta, Microsoft Entra ID (`https://login.microsoftonline.com/<tenant>/v2.0`), GitLab and others. Set `OIDC_PROVIDER_NAME` to the name people know.
+Any provider with a discovery document works: Keycloak (`OIDC_ISSUER=https://kc.example.com/realms/<realm>`), Authentik, Okta, Microsoft Entra ID (`https://login.microsoftonline.com/<tenant>/v2.0`), GitLab and others. Set the button name under Settings > Server to the name people know, and use Test discovery URL there to check the provider answers.
 
 ### Development
 
-The `dev` compose profile runs a mock provider on `http://oidc.localhost:3311` that signs in anyone with any claims. See `docs/dev.md`.
+`docker-compose.dev.yml` runs a mock provider on `http://oidc.localhost:3311` that signs in anyone with any claims. See `docs/dev.md`.
 
 ```sh
 OIDC_ISSUER=http://oidc.localhost:3311/toolbar OIDC_CLIENT_ID=toolbar OIDC_CLIENT_SECRET=dev \
-OIDC_PROVIDER_NAME="Dev SSO" docker compose --profile dev up -d
+OIDC_PROVIDER_NAME="Dev SSO" docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ```
 
 ## Branding
 
-Each set value wins over Settings > Server and locks that field there; empty means the value an instance admin stored, else the default (open-toolbar, a filled rectangle, `#3446cf`). Details in [docs/branding.md](branding.md).
+Settings > Server, Branding. Each set value wins over the stored one and locks that field there; empty means the value an instance admin stored, else the default (open-toolbar, a filled rectangle, black). Details in [docs/branding.md](branding.md).
 
 | Variable | Default | Example | Purpose and when to change |
 |---|---|---|---|
 | `APP_NAME` | `open-toolbar` | `Acme Review` | Product name in titles, headers, the MCP server title and the signed-in extension. 1 to 40 letters, digits, spaces or `. , ' & ( ) + _ -`. |
 | `APP_LOGO_URL` | the rectangle | `https://acme.example/logo.svg` or `file:///brand/logo.svg` | Logo, SVG or PNG, at most 512 KB, fetched once at start. A `file:` path is inside the server container, so mount it as a volume. |
 | `APP_LOGO_DARK_URL` | `APP_LOGO_URL` | `https://acme.example/logo-dark.svg` | Logo for dark pages, when the main one does not read on dark. |
-| `APP_ACCENT` | `#3446cf` | `#0b7a5c` | Accent colour `#rrggbb` for buttons, links and the default logo. The server refuses a colour where neither white nor near-black text reads on it. |
-| `ADMIN_EMAILS` | empty (the first account) | `ops@acme.example,lee@acme.example` | Instance admins, by verified email: they may change branding in Settings > Server. Set it on any server reachable from the internet, or the first person to sign in becomes admin. |
+| `APP_ACCENT` | `#000000` | `#0b7a5c` | Accent colour `#rrggbb` for buttons, links and the default logo. The server refuses a colour where neither white nor near-black text reads on it. |
 
 ## Database
 
@@ -149,37 +233,37 @@ Media (recordings, screenshots, voice notes, attachments) goes to an S3-compatib
 
 Voice audio becomes a WebVTT transcript on the server: the microphone track of a recording or a trace, and each voice note attached to a comment (D-087). Viewers see it as captions and under the comment, and agents read it over MCP and the HTTP API.
 
-You choose one of three providers with `TRANSCRIBE_PROVIDER`:
+Transcription is off until an instance admin picks a provider under Settings > Server, Transcription (D-187):
 
-- `local` (default): whisper.cpp in the `whisper` compose service. No key, no cost, and no audio leaves your server. Good for English; Swahili comes out unusable.
-- `openai`: an OpenAI-compatible endpoint, by default OpenAI's `gpt-transcribe`. Needs a key. Much better on Swahili and mixed Swahili and English, and faster than whisper.cpp on a CPU. It costs money and sends the voice audio to the provider.
-- `none`: no transcripts.
+- **Local whisper.cpp**: the `whisper` service of `docker-compose.whisper.yml` (on Coolify, `COMPOSE_PROFILES=whisper`). No key, no cost, and no audio leaves your server. Good for English; Swahili comes out unusable.
+- **OpenAI-compatible endpoint**: by default OpenAI's `gpt-transcribe`. Needs a key. Much better on Swahili and mixed Swahili and English, and faster than whisper.cpp on a CPU. It costs money and sends the voice audio to the provider.
+- **Off**: no transcripts.
 
-To use OpenAI, set two variables and restart the server:
+To use OpenAI: pick the endpoint provider, paste the key, click Test connection, then Save. The next transcript uses it; no restart. Every field below can instead be pinned by its variable, which locks it in the admin page:
 
 ```sh
 TRANSCRIBE_PROVIDER=openai
 OPENAI_API_KEY=sk-...            # or TRANSCRIBE_API_KEY, which wins when both are set
 ```
 
-Setting a key alone changes nothing: the provider switches only when you set `TRANSCRIBE_PROVIDER=openai`. With `openai` and no key for `api.openai.com`, transcription is off and the server log says why. The `whisper` service keeps running with the hosted provider; nothing calls it.
+Setting a key alone changes nothing: the provider switches only when an admin picks it or `TRANSCRIBE_PROVIDER` is set. With the endpoint provider and no key for `api.openai.com`, transcription is off and the server log says why.
 
 | Variable | Default | Example | Purpose and when to change |
 |---|---|---|---|
-| `TRANSCRIBE_PROVIDER` | `local` | `openai`, `none` | `local`, `openai` or `none`. The older `whispercpp` and `openai-compatible` mean `local` and `openai`. `local` uses the whisper.cpp container (the `whisper` compose profile, on in `.env.example`). |
-| `TRANSCRIBE_MODEL` | `gpt-transcribe` | `whisper-1` | Model id for `openai`. `whisper-1` also works on OpenAI; Groq takes `whisper-large-v3-turbo`. |
-| `TRANSCRIBE_API_KEY` | `OPENAI_API_KEY` | `sk-...` | Bearer token for `openai`. A self-hosted endpoint such as speaches may need none. |
-| `OPENAI_API_KEY` | empty | `sk-...` | Read when `TRANSCRIBE_API_KEY` is empty. Setting it alone does not switch the provider. |
-| `TRANSCRIBE_BASE_URL` | `https://api.openai.com/v1` | `https://api.groq.com/openai/v1` | The endpoint, `/v1` included; the server posts to `<base>/audio/transcriptions`. |
-| `TRANSCRIBE_LANGUAGE` | empty (detect) | `sw,en` | ISO 639-1 codes, comma separated. Leave empty for mixed-language narration: the Swahili hint gave no measurable gain. |
-| `TRANSCRIBE_TIMESTAMPS` | `auto` | `chunked` | `chunked` cuts the audio at pauses and times the text on the server; `native` asks the endpoint for WebVTT; `auto` uses `chunked` for `gpt-*` models, else tries `native` and switches to `chunked` when the endpoint refuses WebVTT. |
-| `TRANSCRIBE_CHUNK_SECONDS` | `30` | `12` | Longest chunk sent in one request. `12` gives cues about half a second closer to the speech for about 4% more billed audio and slightly worse text. |
-| `TRANSCRIBE_MAX_MINUTES` | `60` | `120` | Longer audio is not transcribed; its transcript says "skipped" with the reason. Applies to every provider. |
-| `TRANSCRIBE_MONTHLY_MINUTES` | empty (no cap) | `6000` | Hosted audio per calendar month (UTC). Past it, transcripts are skipped with "monthly limit" until the month turns. `local` does not count. |
-| `TRANSCRIBE_CONCURRENCY` | `4` | `2` | Chunk requests in flight per recording. Lower it when the provider rate-limits you. |
-| `WHISPER_URL` | `http://localhost:8080`; compose sets `http://whisper:8080` | `http://gpu-box:8080` | Where the server reaches whisper.cpp. Change it to use one that runs elsewhere, for example on a GPU. |
-| `WHISPER_MODEL` | `base` | `small` | The ggml model the whisper container downloads at first start and the label stored with each transcript. `small` is more accurate and about three times slower. |
-| `WHISPER_PORT` | `8080` | `18080` | Compose only: the host port, on `127.0.0.1`, of the whisper container. |
+| `TRANSCRIBE_PROVIDER` | `none` | `openai`, `local` | Settings > Server, Transcription. `none`, `local` or `openai`. The older `whispercpp` and `openai-compatible` mean `local` and `openai`. `local` needs the whisper.cpp container (`docker-compose.whisper.yml`). |
+| `TRANSCRIBE_MODEL` | `gpt-transcribe` | `whisper-1` | Settings > Server, Transcription. Model id for `openai`. `whisper-1` also works on OpenAI; Groq takes `whisper-large-v3-turbo`. |
+| `TRANSCRIBE_API_KEY` | `OPENAI_API_KEY` | `sk-...` | Settings > Server, Transcription, where it is stored sealed and shown as its last four characters. Bearer token for `openai`. A self-hosted endpoint such as speaches may need none. |
+| `OPENAI_API_KEY` | empty | `sk-...` | Read when `TRANSCRIBE_API_KEY` is empty; locks the API key field like it. Setting it alone does not switch the provider. |
+| `TRANSCRIBE_BASE_URL` | `https://api.openai.com/v1` | `https://api.groq.com/openai/v1` | Settings > Server, Transcription. The endpoint, `/v1` included; the server posts to `<base>/audio/transcriptions`. |
+| `TRANSCRIBE_LANGUAGE` | empty (detect) | `sw,en` | Settings > Server, Transcription. ISO 639-1 codes, comma separated. Leave empty for mixed-language narration: the Swahili hint gave no measurable gain. |
+| `TRANSCRIBE_TIMESTAMPS` | `auto` | `chunked` | Settings > Server, Transcription. `chunked` cuts the audio at pauses and times the text on the server; `native` asks the endpoint for WebVTT; `auto` uses `chunked` for `gpt-*` models, else tries `native` and switches to `chunked` when the endpoint refuses WebVTT. |
+| `TRANSCRIBE_CHUNK_SECONDS` | `30` | `12` | Settings > Server, Transcription. Longest chunk sent in one request. `12` gives cues about half a second closer to the speech for about 4% more billed audio and slightly worse text. |
+| `TRANSCRIBE_MAX_MINUTES` | `60` | `120` | Settings > Server, Limits. Longer audio is not transcribed; its transcript says "skipped" with the reason. Applies to every provider. |
+| `TRANSCRIBE_MONTHLY_MINUTES` | empty (no cap) | `6000` | Settings > Server, Limits. Hosted audio per calendar month (UTC). Past it, transcripts are skipped with "monthly limit" until the month turns. `local` does not count. |
+| `TRANSCRIBE_CONCURRENCY` | `4` | `2` | Settings > Server, Transcription. Chunk requests in flight per recording. Lower it when the provider rate-limits you. |
+| `WHISPER_URL` | `http://localhost:8080`; `docker-compose.whisper.yml` and the Coolify file set `http://whisper:8080` | `http://gpu-box:8080` | Settings > Server, Transcription, when the variable is unset. Where the server reaches whisper.cpp. Change it to use one that runs elsewhere, for example on a GPU. |
+| `WHISPER_MODEL` | `base` | `small` | `docker-compose.whisper.yml`: the ggml model the whisper container downloads at first start, and the label the server stores with each transcript. `small` is more accurate and about three times slower. The Coolify file uses `base`. |
+| `WHISPER_PORT` | `8080` | `18080` | `docker-compose.whisper.yml` only: the host port, on `127.0.0.1`, of the whisper container. |
 
 The older `STT_URL` (a base without `/v1`), `STT_API_KEY` and `STT_MODEL` still work when the new names are unset.
 
@@ -217,16 +301,16 @@ An agent that should learn from many pieces of feedback at once pulls the bulk e
 
 | Variable | Default | Example | Purpose and when to change |
 |---|---|---|---|
-| `SHARE_LINK_DAYS` | `14` | `30` | Days a new share link stays live. A link can be revoked at any time from the share dialog. `0` makes new links never expire (Part 1 behaviour). Links made before a change keep their expiry. Change it when reviewers need links that outlive two weeks. |
+| `SHARE_LINK_DAYS` | `14` | `30` | Settings > Server, Sharing and export. Days a new share link stays live. A link can be revoked at any time from the share dialog. `0` makes new links never expire (Part 1 behaviour). Links made before a change keep their expiry. Change it when reviewers need links that outlive two weeks. |
 | `OCR_BIN` | `tesseract` | `off` | The OCR program that reads canvas regions (terminals, editors and charts drawn on a `<canvas>`) into the folder's `text/`, labeled as OCR. The server image installs tesseract. `off` skips OCR, for example on a small machine where the CPU cost matters. |
 | `OCR_LANGS` | `eng` | `eng+swa` | tesseract languages, `+` separated. The image ships English and Swahili: `OCR_LANGS=eng+swa` reads both, at about twice the CPU time. |
-| `EXPORT_MAX_MB` | `200` | `50` | Size cap of one page of the bulk export (`/api/v1/feedback/export`), in MB of stored media its folders carry (screenshots, keyframes, element crops, the DOM recording, events, voice). A page ends before the capture that would pass it and hands out a cursor for the next page. Lower it when agents pull over slow links or the server is small; the archive is gzipped, so the download is usually smaller. |
+| `EXPORT_MAX_MB` | `200` | `50` | Settings > Server, Sharing and export. Size cap of one page of the bulk export (`/api/v1/feedback/export`), in MB of stored media its folders carry (screenshots, keyframes, element crops, the DOM recording, events, voice). A page ends before the capture that would pass it and hands out a cursor for the next page. Lower it when agents pull over slow links or the server is small; the archive is gzipped, so the download is usually smaller. |
 
 Webhooks (Settings, Webhooks) gain two events: `feedback.created` fires with `capture.created` and carries `data.feedback` (`folderUrl`, `pullCommand`, `skillUrl`); `feedback.resolved` fires when someone, or an agent through the API or MCP, marks the feedback resolved, with the note, the commit and who did it in `data.feedback.resolution`.
 
 ## Paused features
 
-Paused features stay in the code behind flags that default to off (docs/scope.md, D-098). Off hides their UI, their pages and API routes answer 404 (or 503 for the AI and audit endpoints), and the API docs mark them paused. `/api/health` lists the flags that are on in `features`.
+Paused features stay in the code behind flags that default to off (docs/scope.md, D-098). Off hides their UI, their pages and API routes answer 404 (or 503 for the AI and audit endpoints), and the API docs mark them paused. `/api/health` lists the flags that are on in `features`. None of the deployed compose files passes them: put one in `.env` or use `docker-compose.dev.yml`.
 
 | Variable | Default | Example | Purpose and when to change |
 |---|---|---|---|
@@ -310,21 +394,29 @@ Read by the coding agent's shell, not by any service: the Agent Skill (`skills/o
 
 | Variable | Default | Example | Purpose and when to change |
 |---|---|---|---|
-| `COMPOSE_PROFILES` | empty; `.env.example` sets `whisper` | `whisper`, `whisper,dev` | Docker Compose's own variable: which optional services start. `whisper` is the local transcriber, `dev` the mock OIDC provider. Mailpit is in the override file `docker-compose.mail.yml`, not a profile. Drop `whisper` when `TRANSCRIBE_PROVIDER` is `openai-compatible` or `none`. |
-| `OIDC_MOCK_PORT` | `3311` | `13311` | `dev` profile only: host port of the mock OIDC provider. The issuer the server and browser share is `http://oidc.localhost:<port>/<any name>`. |
+| `COMPOSE_PROFILES` | empty | `whisper` | Docker Compose's own variable: which optional services start. Only the Coolify file has a profile, `whisper`, the local transcriber; with plain compose you add `docker-compose.whisper.yml` instead. |
+| `OIDC_MOCK_PORT` | `3311` | `13311` | `docker-compose.dev.yml` only: host port of the mock OIDC provider. The issuer the server and browser share is `http://oidc.localhost:<port>/<any name>`. |
 
 ## Coolify
 
-`docker-compose.coolify.yml` is the same stack shaped for Coolify (docs/scope.md, "Deliverables"):
+`docker-compose.coolify.yml` is the quickstart for Coolify (docs/scope.md, "Deliverables"). A person types four values; Coolify generates the rest.
 
-- Coolify generates the secrets: `SERVICE_PASSWORD_64_AUTH` (the auth secret), `SERVICE_PASSWORD_64_POSTGRES`, `SERVICE_HEX_64_S3SECRET`, `SERVICE_HEX_64_GARAGERPC` and `SERVICE_PASSWORD_64_GARAGEADMIN`. You never type them.
-- `SERVICE_URL_SERVER_3000` gives the server its domain and routes it to port 3000; `PUBLIC_URL` follows it. Set your own domain in the server's Domains field as `https://feedback.example.com:3000`.
-- `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` and `ALLOWED_EMAIL_DOMAINS` are marked required (`${VAR:?}`), so Coolify asks for them before the first deploy.
+| Value | Who sets it |
+|---|---|
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `ADMIN_EMAILS` | You. Marked required (`${VAR:?}`), so Coolify asks for them before the first deploy. |
+| `SERVICE_URL_SERVER_3000` | Coolify: the server's domain, routed by its proxy to port 3000; `PUBLIC_URL` follows it. Set your own domain in the server's Domains field as `https://feedback.example.com:3000`. |
+| `SERVICE_PASSWORD_64_AUTH` | Coolify: the auth secret (`BETTER_AUTH_SECRET`). |
+| `SERVICE_USER_POSTGRES`, `SERVICE_PASSWORD_64_POSTGRES` | Coolify: the Postgres user and password, used by Postgres and in `DATABASE_URL`. |
+| `SERVICE_HEX_64_S3SECRET`, `SERVICE_HEX_64_GARAGERPC`, `SERVICE_PASSWORD_64_GARAGEADMIN` | Coolify: Garage's S3 secret key, cluster secret and admin token. |
+
 - No service publishes a host port, and no Traefik labels are set: Coolify's proxy routes the domain.
 - Garage is built from `deploy/garage.Dockerfile`, which bakes in `deploy/garage.toml`, so no file has to be bind-mounted from the repository.
-- Every other variable on this page can be added under Environment Variables once the compose file passes it to the server; the file passes the common ones.
+- The file passes no optional variable. Set allowed domains, transcription and the rest in Settings > Server. To pin one by environment, add its line to the server's environment in the file (for example `TRANSCRIBE_MONTHLY_MINUTES: ${TRANSCRIBE_MONTHLY_MINUTES}`) and the variable under Environment Variables.
+- Local transcription: add `COMPOSE_PROFILES=whisper` under Environment Variables and redeploy, then pick "Local whisper.cpp" in Settings > Server. The server already points `WHISPER_URL` at the service. The whisper service downloads its model on first start and takes a few minutes before Test connection succeeds.
 
-Steps: in Coolify, + New, pick this Git repository, Build strategy "Compose", Docker Compose Location `/docker-compose.coolify.yml`; fill in the four required values; Deploy. Register `https://<the server's domain>/api/auth/callback/oidc` with your provider. The whisper service downloads its model on first start and takes a few minutes before transcripts work.
+Steps: in Coolify, + New, pick this Git repository, Build strategy "Compose", Docker Compose Location `/docker-compose.coolify.yml`; fill in the four values; Deploy. Register `https://<the server's domain>/api/auth/callback/oidc` with your provider. Sign in with an `ADMIN_EMAILS` address and add your email domains under Settings > Server, Sign-in: until then only `ADMIN_EMAILS` can sign in.
+
+To check the file before a deploy, with only the four values set: `OIDC_ISSUER=https://accounts.google.com OIDC_CLIENT_ID=x OIDC_CLIENT_SECRET=y ADMIN_EMAILS=you@example.com docker compose -f docker-compose.coolify.yml config -q` (it warns about the `SERVICE_*` values, which only Coolify fills in).
 
 ## Extension build
 

@@ -7,6 +7,8 @@ import type { Db } from './db/index.ts';
 import { member, project } from './db/schema/index.ts';
 import { fail } from './share/http.ts';
 import { env } from './env.ts';
+import { setting } from './settings/index.ts';
+import { getSettings } from './auth/workspaces.ts';
 
 type Row = typeof project.$inferSelect;
 
@@ -67,6 +69,18 @@ export async function traceConfigOf(db: Db, rec: { projectId: string | null }): 
   if (!rec.projectId) return { maxOpenMs: TRACE_OPEN_MS.default };
   const [r] = await db.select({ v: project.traceOpenMs }).from(project).where(eq(project.id, rec.projectId)).limit(1);
   return { maxOpenMs: traceOpenMsOf(r ? { traceOpenMs: r.v } : null) };
+}
+
+/**
+ * Masking preset and trace step window of a new project (D-187): the workspace's defaults
+ * (Settings, General), else the instance's (Settings > Server, Capture defaults).
+ */
+export async function projectDefaults(db: Db, workspaceId: string | null): Promise<{ maskingPreset: Row['maskingPreset']; traceOpenMs: number }> {
+  const ws = workspaceId ? await getSettings(db, workspaceId) : null;
+  return {
+    maskingPreset: ws?.defaultMaskingPreset ?? setting('defaultMaskingPreset') ?? 'staging',
+    traceOpenMs: traceOpenMsOf({ traceOpenMs: ws?.defaultTraceOpenMs ?? setting('defaultTraceOpenMs') ?? TRACE_OPEN_MS.default }),
+  };
 }
 
 export async function createProject(db: Db, workspaceId: string, userId: string, input: ProjectInput): Promise<Row> {

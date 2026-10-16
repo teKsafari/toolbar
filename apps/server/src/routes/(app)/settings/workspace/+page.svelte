@@ -13,6 +13,7 @@
   import DIcon from '#lib/components/dashboard/DIcon.svelte';
   import { api, errMsg, urlOf } from '#lib/components/dashboard/api.ts';
   import { HELP_LINKS } from '#lib/components/dashboard/links.ts';
+  import { PRESET_LABELS, PROJECT_PRESETS, TRACE_OPEN_MS } from '@toolbar/shared/projects';
 
   let { data } = $props();
   const ws = $derived(data.ws);
@@ -58,6 +59,23 @@
     } finally {
       logoBusy = false;
     }
+  }
+
+  // D-187: project defaults of this workspace; empty means the server's (Settings > Server)
+  const inst = $derived(data.instanceDefaults);
+  // svelte-ignore state_referenced_locally
+  let windowSec = $state(data.ws.settings.defaultTraceOpenMs ? String(data.ws.settings.defaultTraceOpenMs / 1000) : '');
+  const windowErr = $derived.by(() => {
+    const t = windowSec.trim();
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isInteger(n) && n * 1000 >= TRACE_OPEN_MS.min && n * 1000 <= TRACE_OPEN_MS.max ? null : `Whole seconds from ${TRACE_OPEN_MS.min / 1000} to ${TRACE_OPEN_MS.max / 1000}`;
+  });
+  function saveWindow() {
+    const t = windowSec.trim();
+    const next = t ? Number(t) * 1000 : null;
+    if (windowErr || next === s.defaultTraceOpenMs) return;
+    void patch({ defaultTraceOpenMs: next });
   }
 
   const autoDeleteOptions = [
@@ -109,6 +127,18 @@
   {/if}
 </Section>
 
+<Section title="New projects" description="What a project starts with when an admin adds it under Settings, Projects. Existing projects keep theirs." testid="ws-project-defaults">
+  <Field label="Masking preset" hint={`Empty follows the server default, ${PRESET_LABELS[inst.maskingPreset]}.`}>
+    <select disabled={!admin} value={s.defaultMaskingPreset ?? ''} onchange={(e) => { const v = (e.currentTarget as HTMLSelectElement).value; void patch({ defaultMaskingPreset: v || null }); }} data-testid="ws-default-preset">
+      <option value="">Server default ({PRESET_LABELS[inst.maskingPreset]})</option>
+      {#each PROJECT_PRESETS as p (p)}<option value={p}>{PRESET_LABELS[p]}</option>{/each}
+    </select>
+  </Field>
+  <Field label="Trace step window" hint={windowErr ?? `Seconds a step stays open while its requests are in flight. Empty follows the server default, ${inst.traceOpenMs / 1000} s.`}>
+    <input class="dom num" type="text" inputmode="numeric" disabled={!admin} bind:value={windowSec} placeholder={String(inst.traceOpenMs / 1000)} aria-invalid={windowErr ? 'true' : undefined} onblur={saveWindow} onkeydown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()} data-testid="ws-default-window" />
+  </Field>
+</Section>
+
 {#if f.ai || f.adminExtras}
 <Section title="Data" description={f.ai && f.adminExtras ? 'AI features, how long captures are kept, and the record of changes.' : f.ai ? 'AI features.' : 'How long captures are kept, and the record of changes.'} docs={HELP_LINKS.docs}>
   {#if f.ai}
@@ -148,6 +178,7 @@
     height: var(--nb-control-lg); border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md); background: var(--nb-surface);
     color: var(--nb-text); padding: 0 8px; font: inherit; font-size: var(--nb-text-md); max-width: 240px;
   }
+  .num { width: 96px; }
   .pill { font-size: var(--nb-text-xs); font-weight: var(--nb-weight-medium); padding: 2px 8px; border-radius: var(--nb-radius-pill); background: var(--nb-surface-sunken); color: var(--nb-text-muted); }
   .pill.on { background: var(--nb-success-tint); color: var(--nb-success-text); }
   /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */

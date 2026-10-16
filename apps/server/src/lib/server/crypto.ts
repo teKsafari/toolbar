@@ -1,10 +1,10 @@
 // Secrets at rest: share and recording-link tokens (so the dashboard can show a link again,
-// architecture s8), integration tokens, webhook signing secrets. AES-256-GCM with a key derived
+// architecture s8), integration tokens, webhook signing secrets, the transcription API key (D-187). AES-256-GCM with a key derived
 // by HKDF-SHA256 from BETTER_AUTH_SECRET; one key per purpose. Layout: iv(12) | tag(16) | ciphertext.
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
 import { env } from './env.ts';
 
-export type SealPurpose = 'share-token' | 'recording-link-token' | 'integration-secret' | 'webhook-secret' | 'invite-link';
+export type SealPurpose = 'share-token' | 'recording-link-token' | 'integration-secret' | 'webhook-secret' | 'invite-link' | 'instance-secret';
 
 function keyFor(purpose: SealPurpose, secret: string): Buffer {
   // Frozen HKDF info string from the working name (D-018): changing it makes every sealed value unreadable.

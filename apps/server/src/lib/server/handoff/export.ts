@@ -27,6 +27,7 @@ import {
 import type { Db } from '../db/index.ts';
 import { annotation, comment, feedbackResolution, recording, recordingStream, transcript, user } from '../db/schema/index.ts';
 import { env } from '../env.ts';
+import { setting } from '../settings/index.ts';
 import { fail } from '../share/http.ts';
 import { visibleCapturesWhere, type RecordingRow } from '../share/access.ts';
 import { loadEvents, memberUrlOf } from '../mcp/data.ts';
@@ -118,7 +119,7 @@ const createdText = sql<string>`to_char(${recording.createdAt} at time zone 'UTC
 
 /** One page: newest first, at most `limit` captures and about EXPORT_MAX_MB of stored media (always one capture at least). */
 export async function selectPage(db: Db, scope: ExportScope, f: FeedbackFilters, opts: { maxBytes?: number } = {}): Promise<ExportPage> {
-  const maxBytes = opts.maxBytes ?? env.handoff.exportMaxMb * 1024 * 1024;
+  const maxBytes = opts.maxBytes ?? (setting('exportMaxMb') ?? 200) * 1024 * 1024;
   const where = await filterWhere(db, scope, f);
   const cur = decodeExportCursor(f.cursor);
   const pageWhere = cur ? and(where, sql`(${recording.createdAt}, ${recording.id}) < (${cur.t}::timestamptz, ${cur.id}::uuid)`)! : where;
@@ -315,7 +316,7 @@ export async function feedbackIndex(db: Db, scope: ExportScope, f: FeedbackFilte
     page: page.page,
     nextCursor: page.nextCursor,
     stoppedBy: page.stoppedBy,
-    maxMb: Math.round((opts.maxBytes ?? env.handoff.exportMaxMb * 1024 * 1024) / 1024 / 1024),
+    maxMb: Math.round((opts.maxBytes ?? (setting('exportMaxMb') ?? 200) * 1024 * 1024) / 1024 / 1024),
     query: filtersQuery(f),
   });
   return { page, digests, markdown, file: indexFileOf(page.page) };

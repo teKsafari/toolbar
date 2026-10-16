@@ -1,7 +1,9 @@
-// docs/configuration.md must list every environment variable the code, the compose files and
-// .env.example use, and nothing else (D-151). A new variable without a row fails here, as does a
-// row whose variable nobody reads any more.
+// docs/configuration.md must list every environment variable the code, the instance settings, the
+// compose files and .env.example use, and nothing else (D-151). A new variable without a row fails
+// here, as does a row whose variable nobody reads any more. Since D-187 it also checks the
+// classification table, and that the quickstart files ask for the required values only.
 import { describe, expect, it } from 'vitest';
+import { INSTANCE_FIELDS } from '@toolbar/shared/api';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -52,6 +54,8 @@ function codeVars(): Map<string, string> {
       add(m[2]);
     }
   }
+  // the variables that override a Settings > Server field: settings/index.ts reads them by spec
+  for (const f of INSTANCE_FIELDS) for (const n of f.env) if (!found.has(n)) found.set(n, `packages/shared/src/api/instance-settings.ts (${f.key})`);
   return found;
 }
 
@@ -78,20 +82,34 @@ function agentVars(): Map<string, string> {
   return found;
 }
 
-const COMPOSE_FILES = ['docker-compose.yml', 'docker-compose.coolify.yml', 'docker-compose.mail.yml'];
+const COMPOSE_FILES = ['docker-compose.yml', 'docker-compose.coolify.yml', 'docker-compose.mail.yml', 'docker-compose.whisper.yml', 'docker-compose.dev.yml'];
+/** The files a deployment uses (D-187): required values and wiring only, no dev or paused switches. */
+const DEPLOYED = ['docker-compose.yml', 'docker-compose.coolify.yml'];
+/** Read by Docker Compose itself, not by a service (the Coolify file's whisper profile). */
+const COMPOSE_OWN = ['COMPOSE_PROFILES'];
 /** Coolify generates SERVICE_* values itself (docs/configuration.md, "Coolify"). */
 const isCoolifyMagic = (n: string) => n.startsWith('SERVICE_');
 
-/** ${X} references and the server's environment keys in both compose files. */
+/** Keys of the server service's environment block in one compose file. */
+function serverEnvKeys(s: string): string[] {
+  const start = s.indexOf('\n  server:');
+  if (start < 0) return [];
+  const rest = s.slice(start + 1);
+  const next = rest.slice(1).search(/\n {2}[a-z][a-z0-9-]*:/);
+  const server = next < 0 ? rest : rest.slice(0, next + 1);
+  const at = server.indexOf('environment:');
+  if (at < 0) return [];
+  const block = server.slice(at).split(/\n {4}[a-z_]+:/)[0]!;
+  return [...block.matchAll(/^ {6}([A-Z][A-Z0-9_]*):/gm)].map((m) => m[1]!);
+}
+
+/** ${X} references and the server's environment keys in every compose file. */
 function composeVars(): Map<string, string> {
   const found = new Map<string, string>();
   for (const f of COMPOSE_FILES) {
     const s = read(f);
     for (const m of s.matchAll(/(?<!\$)\$\{([A-Z][A-Z0-9_]*)/g)) if (!isCoolifyMagic(m[1]!)) found.set(m[1]!, f);
-    // keys of the server's environment block
-    const server = s.slice(s.indexOf('\n  server:'), s.indexOf('\n  postgres:'));
-    const envBlock = server.slice(server.indexOf('environment:'), server.search(/\n {4}(depends_on|volumes|healthcheck|restart):/));
-    for (const m of envBlock.matchAll(/^ {6}([A-Z][A-Z0-9_]*):/gm)) if (!isCoolifyMagic(m[1]!)) found.set(m[1]!, f);
+    for (const k of serverEnvKeys(s)) if (!isCoolifyMagic(k)) found.set(k, f);
   }
   return found;
 }
@@ -134,6 +152,11 @@ function documented(): Row[] {
   return rows;
 }
 
+/** The values a person sets to boot a server (D-187). AUTH_SECRET is BETTER_AUTH_SECRET's short name. */
+const REQUIRED = ['ADMIN_EMAILS', 'AUTH_SECRET', 'BETTER_AUTH_SECRET', 'OIDC_CLIENT_ID', 'OIDC_CLIENT_SECRET', 'OIDC_ISSUER', 'PUBLIC_URL'].sort();
+/** What the compose files fill in for the containers they run. */
+const WIRING = ['PORT', 'DATABASE_URL', 'S3_ENDPOINT', 'S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY', 'WHISPER_URL'];
+
 describe('docs/configuration.md', () => {
   const rows = documented();
   const names = new Set(rows.map((r) => r.name));
@@ -165,20 +188,62 @@ describe('docs/configuration.md', () => {
   });
 
   it('lists no variable that nothing reads', () => {
-    const known = new Set([...codeVars().keys(), ...composeVars().keys(), ...envExampleVars(), ...injectorVars().keys(), ...agentVars().keys()]);
+    const known = new Set([...codeVars().keys(), ...composeVars().keys(), ...envExampleVars(), ...injectorVars().keys(), ...agentVars().keys(), ...COMPOSE_OWN]);
     const scripts = scriptText();
     const stale = [...names].filter((n) => !known.has(n) && !new RegExp(`\\b${n}\\b`).test(scripts));
     expect(stale).toEqual([]);
   });
 
-  it('keeps the basic deployment to the required values', () => {
+  it('keeps the basic deployment to the required values (D-187)', () => {
     const required = rows.filter((r) => r.cells[3]!.startsWith('**Required')).map((r) => r.name);
-    expect(required.sort()).toEqual(['ALLOWED_EMAIL_DOMAINS', 'BETTER_AUTH_SECRET', 'OIDC_CLIENT_ID', 'OIDC_CLIENT_SECRET', 'OIDC_ISSUER', 'PUBLIC_URL']);
-    // the Coolify file asks for exactly the values Coolify cannot generate
+    expect(required.sort()).toEqual(REQUIRED.filter((n) => n !== 'AUTH_SECRET'));
+    // the Coolify file asks for exactly the values Coolify cannot generate, and passes no optional one
     const coolify = read('docker-compose.coolify.yml');
     const asked = [...coolify.matchAll(/\$\{([A-Z_]+):\?\}/g)].map((m) => m[1]).sort();
-    expect(asked).toEqual(['ALLOWED_EMAIL_DOMAINS', 'OIDC_CLIENT_ID', 'OIDC_CLIENT_SECRET', 'OIDC_ISSUER']);
+    expect(asked).toEqual(['ADMIN_EMAILS', 'OIDC_CLIENT_ID', 'OIDC_CLIENT_SECRET', 'OIDC_ISSUER']);
+    expect(coolify).not.toMatch(/\$\{[A-Z_]+:-/);
     expect(coolify).not.toMatch(/^\s+ports:/m);
+    // the deployed files' server environment: required values and the stack's wiring only
+    for (const f of DEPLOYED) {
+      const extra = serverEnvKeys(read(f)).filter((k) => !isCoolifyMagic(k) && !REQUIRED.includes(k) && !WIRING.includes(k));
+      expect(extra, f).toEqual([]);
+    }
+    // .env.example: the required block uncommented at the top, every other line commented
+    const example = read('.env.example');
+    const live = [...example.matchAll(/^([A-Z][A-Z0-9_]*)=/gm)].map((m) => m[1]);
+    expect(live.sort()).toEqual(REQUIRED.filter((n) => n !== 'AUTH_SECRET'));
+    expect(example.indexOf('# --- required')).toBeLessThan(example.indexOf('# --- optional overrides'));
+    expect(example).toContain('docs/configuration.md');
+  });
+
+  it('keeps development, test and paused switches out of the deployed compose files (D-187)', () => {
+    for (const f of DEPLOYED) {
+      expect(read(f), f).not.toMatch(/AUTH_DEV_PASSWORD|AUTH_RATE_LIMIT|AUTH_MAGIC_LINK|FEATURE_[A-Z]|AI_PROVIDER|oidc-mock|OIDC_MOCK_PORT/);
+    }
+    expect(read('docker-compose.dev.yml')).toMatch(/^ {2}oidc-mock:$/m);
+    // whisper is opt-in: an override file for compose, a profile on Coolify
+    expect(read('docker-compose.yml')).not.toMatch(/^ {2}whisper:$/m);
+    expect(read('docker-compose.whisper.yml')).toMatch(/^ {2}whisper:$/m);
+    expect(read('docker-compose.coolify.yml')).toMatch(/^ {2}whisper:\n {4}image: .*\n {4}profiles: \[whisper\]$/m);
+  });
+
+  it('classifies every variable in "Where each setting lives" (D-187)', () => {
+    const doc = read('docs/configuration.md');
+    const at = doc.indexOf('## Where each setting lives');
+    expect(at).toBeGreaterThan(0);
+    const table = doc.slice(at, doc.indexOf('\n## ', at + 5));
+    const where = new Map<string, string>();
+    for (const line of table.split('\n').filter((l) => l.startsWith('| ') && !l.startsWith('| Setting'))) {
+      const [cell, place] = line.split(/(?<!\\)\|/).slice(1, 3).map((c) => c.trim());
+      for (const m of cell!.matchAll(/`([A-Z][A-Z0-9_]*)`/g)) where.set(m[1]!, place!);
+    }
+    expect([...names].filter((n) => !where.has(n))).toEqual([]);
+    expect([...where.keys()].filter((n) => !names.has(n))).toEqual([]);
+    // a variable that overrides a Settings > Server field is classified there
+    const legacy = (n: string) => /^(OIDC_1_|STT_|AUTH_ALLOWED_DOMAINS$)/.test(n);
+    const wrong = INSTANCE_FIELDS.flatMap((f) => f.env).filter((n) => !legacy(n) && !/Settings > Server/.test(where.get(n) ?? ''));
+    expect(wrong).toEqual([]);
+    for (const n of REQUIRED) expect(where.get(n), n).toBe('Required');
   });
 
   it('keeps mail out of the default and Coolify compose files (docs/scope.md, D-171)', () => {

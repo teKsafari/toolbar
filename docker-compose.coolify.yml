@@ -1,71 +1,39 @@
-# open-toolbar on Coolify (docs/configuration.md, "Coolify").
+# open-toolbar on Coolify, quickstart (docs/configuration.md, "Coolify").
 #
 # In Coolify: + New, pick this Git repository, Build strategy "Compose", Docker Compose Location
-# /docker-compose.coolify.yml. Coolify builds the server and Garage images from the repository,
-# generates the secrets below (SERVICE_PASSWORD_*, SERVICE_HEX_*), gives the server a domain
-# (SERVICE_URL_SERVER_3000, routed by Coolify's proxy to port 3000) and asks for the values
-# marked required (:?) before the first deploy: the OIDC provider and ALLOWED_EMAIL_DOMAINS.
-# Register <your domain>/api/auth/callback/oidc as the redirect URI at the provider.
+# /docker-compose.coolify.yml. Coolify builds the server and Garage images, gives the server a
+# domain (SERVICE_URL_SERVER_3000, routed by its proxy to port 3000) and generates every secret
+# (SERVICE_PASSWORD_*, SERVICE_HEX_*, SERVICE_USER_*). It asks for four values before the first
+# deploy: OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET and ADMIN_EMAILS. Register
+# <your domain>/api/auth/callback/oidc as the redirect URI at the provider, deploy, sign in with
+# an ADMIN_EMAILS address and set the rest under Settings > Server.
 #
-# No service publishes a host port and no Traefik labels are set: Coolify adds the proxy labels
-# for the server's domain. Every other variable of docs/configuration.md can be added under
-# Environment Variables with the same name once it is listed below; the defaults here match
-# docker-compose.yml.
+# Local transcription: add COMPOSE_PROFILES=whisper under Environment Variables to start the
+# whisper service, then pick "Local whisper.cpp" in Settings > Server. To pin a setting by
+# environment instead of the admin page, add its line under the server's environment below, for
+# example `TRANSCRIBE_MONTHLY_MINUTES: ${TRANSCRIBE_MONTHLY_MINUTES}`, and the variable under
+# Environment Variables (docs/configuration.md lists them).
+# No service publishes a host port and no Traefik labels are set: Coolify's proxy routes the domain.
 
 services:
   server:
     build: { context: ., dockerfile: apps/server/Dockerfile }
     environment:
-      # Coolify: the server's public URL, routed to port 3000 inside the container
       SERVICE_URL_SERVER_3000: /
       PUBLIC_URL: ${SERVICE_URL_SERVER_3000}
       BETTER_AUTH_SECRET: ${SERVICE_PASSWORD_64_AUTH}
-      # required: the OIDC provider and who may sign in (docs/configuration.md, "Sign-in")
       OIDC_ISSUER: ${OIDC_ISSUER:?}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?}
-      ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS:?}
-      OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-}
-      OIDC_SCOPES: ${OIDC_SCOPES:-}
-      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
-      EXTENSION_IDS: ${EXTENSION_IDS:-fmongfmimgdafigcahdpofnmmhljpnei}
-      # internal services of this stack
-      DATABASE_URL: postgres://toolbar:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/toolbar
+      ADMIN_EMAILS: ${ADMIN_EMAILS:?}
+      # wiring of this stack
+      DATABASE_URL: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/toolbar
       S3_ENDPOINT: http://garage:3900
       S3_REGION: garage
       S3_BUCKET: toolbar
       S3_ACCESS_KEY_ID: GK000000000000000000000000
       S3_SECRET_ACCESS_KEY: ${SERVICE_HEX_64_S3SECRET}
-      TRANSCRIBE_PROVIDER: ${TRANSCRIBE_PROVIDER:-local}
       WHISPER_URL: http://whisper:8080
-      WHISPER_MODEL: ${WHISPER_MODEL:-base}
-      # optional (docs/configuration.md): branding, transcription, hand-off, uploads
-      APP_NAME: ${APP_NAME:-}
-      APP_LOGO_URL: ${APP_LOGO_URL:-}
-      APP_LOGO_DARK_URL: ${APP_LOGO_DARK_URL:-}
-      APP_ACCENT: ${APP_ACCENT:-}
-      # transcription: openai sends the voice track to TRANSCRIBE_BASE_URL (OpenAI unless changed)
-      TRANSCRIBE_MODEL: ${TRANSCRIBE_MODEL:-}
-      TRANSCRIBE_API_KEY: ${TRANSCRIBE_API_KEY:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      TRANSCRIBE_BASE_URL: ${TRANSCRIBE_BASE_URL:-}
-      TRANSCRIBE_LANGUAGE: ${TRANSCRIBE_LANGUAGE:-}
-      TRANSCRIBE_TIMESTAMPS: ${TRANSCRIBE_TIMESTAMPS:-}
-      TRANSCRIBE_CHUNK_SECONDS: ${TRANSCRIBE_CHUNK_SECONDS:-}
-      TRANSCRIBE_MAX_MINUTES: ${TRANSCRIBE_MAX_MINUTES:-}
-      TRANSCRIBE_MONTHLY_MINUTES: ${TRANSCRIBE_MONTHLY_MINUTES:-}
-      TRANSCRIBE_CONCURRENCY: ${TRANSCRIBE_CONCURRENCY:-}
-      # agent hand-off: share link lifetime, OCR of canvas regions, export page size
-      SHARE_LINK_DAYS: ${SHARE_LINK_DAYS:-14}
-      OCR_BIN: ${OCR_BIN:-tesseract}
-      OCR_LANGS: ${OCR_LANGS:-eng}
-      EXPORT_MAX_MB: ${EXPORT_MAX_MB:-200}
-      # the injector (apps/injector/README.md, deploy/injector/): off while INJECTOR_SECRET is empty
-      INJECTOR_SECRET: ${INJECTOR_SECRET:-}
-      INJECTOR_ORIGINS: ${INJECTOR_ORIGINS:-}
-      INJECTOR_COOKIE_DAYS: ${INJECTOR_COOKIE_DAYS:-7}
-      BODY_SIZE_LIMIT: ${BODY_SIZE_LIMIT:-210M}
-      MAX_RECORDING_MIN: ${MAX_RECORDING_MIN:-}
     depends_on:
       postgres: { condition: service_healthy }
       garage: { condition: service_healthy }
@@ -80,12 +48,12 @@ services:
   postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_USER: toolbar
+      POSTGRES_USER: ${SERVICE_USER_POSTGRES}
       POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES}
       POSTGRES_DB: toolbar
     volumes: [pg:/var/lib/postgresql]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U toolbar -d toolbar"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d toolbar"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -112,17 +80,16 @@ services:
       retries: 40
     restart: unless-stopped
 
-  # Local transcription (whisper.cpp, CPU, no key). The first start downloads the model, which
-  # takes minutes. To use a hosted model instead, set TRANSCRIBE_PROVIDER and remove this service.
+  # Local transcription, off unless COMPOSE_PROFILES=whisper (whisper.cpp, CPU, no key). The first
+  # start downloads the base model, which takes minutes.
   whisper:
     image: ghcr.io/ggml-org/whisper.cpp:main@sha256:9f6bf30782c0c4f431571a7e3da572a84769aec6381580df0249e252dfc0aa18
+    profiles: [whisper]
     entrypoint: ["bash", "-c"]
     command:
       - >-
-        [ -f /models/ggml-$${WHISPER_MODEL}.bin ] || /app/models/download-ggml-model.sh $${WHISPER_MODEL} /models;
-        exec whisper-server --host 0.0.0.0 --port 8080 --convert -m /models/ggml-$${WHISPER_MODEL}.bin
-    environment:
-      WHISPER_MODEL: ${WHISPER_MODEL:-base}
+        [ -f /models/ggml-base.bin ] || /app/models/download-ggml-model.sh base /models;
+        exec whisper-server --host 0.0.0.0 --port 8080 --convert -m /models/ggml-base.bin
     volumes: [whisper-models:/models]
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]

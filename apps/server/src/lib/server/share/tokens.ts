@@ -8,6 +8,7 @@ import type { Db } from '../db/index.ts';
 import { recording, shareLink, user } from '../db/schema/index.ts';
 import { seal, unseal } from '../crypto.ts';
 import { env } from '../env.ts';
+import { setting } from '../settings/index.ts';
 import { hashToken } from '../tokens.ts';
 
 export type ShareLinkRow = typeof shareLink.$inferSelect;
@@ -39,16 +40,16 @@ export async function mintShareLink(
 }
 
 /**
- * Expiry of a new link: the days asked for, else SHARE_LINK_DAYS (Part 2 default 14, PLAN "Privacy
+ * Expiry of a new link: the days asked for, else the share link lifetime of Settings > Server or SHARE_LINK_DAYS (Part 2 default 14, PLAN "Privacy
  * and prompt injection"); 0 there keeps Part 1's links that never expire.
  */
 export function expiryOf(days: number | undefined, now = Date.now()): Date | null {
-  const d = days ?? env.handoff.shareLinkDays;
+  const d = days ?? setting('shareLinkDays') ?? 14;
   return d ? new Date(now + d * 86_400_000) : null;
 }
 
 /** A link that can serve as the capture's default: any live one when links expire by policy, else one without expiry. */
-const defaultCandidate = (r: Pick<ShareLinkRow, 'expiresAt'>) => (env.handoff.shareLinkDays ? true : !r.expiresAt);
+const defaultCandidate = (r: Pick<ShareLinkRow, 'expiresAt'>) => (setting('shareLinkDays') ? true : !r.expiresAt);
 
 export const tokenOf = (row: Pick<ShareLinkRow, 'tokenEnc'>) => unseal(row.tokenEnc, 'share-token');
 

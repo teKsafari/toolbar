@@ -2,7 +2,7 @@
 # Writes .env from .env.example with PUBLIC_URL set and random secrets: BETTER_AUTH_SECRET, and
 # the internal Postgres and Garage credentials (uncommented, so they replace the dev defaults).
 # Usage: scripts/gen-secrets.sh [PUBLIC_URL]   (refuses to overwrite an existing .env)
-# Then fill in OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET and ALLOWED_EMAIL_DOMAINS.
+# Then fill in OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET and ADMIN_EMAILS.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 [ -e .env ] && { echo ".env exists; remove it first" >&2; exit 1; }
@@ -18,5 +18,5 @@ sed -e "s#^PUBLIC_URL=.*#PUBLIC_URL=${1:-http://localhost:3000}#" \
     -e "s#^\# GARAGE_ADMIN_TOKEN=.*#GARAGE_ADMIN_TOKEN=$(hex 24)#" \
     .env.example > .env
 chmod 600 .env
-echo "wrote .env; now set OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET and ALLOWED_EMAIL_DOMAINS"
+echo "wrote .env; now set OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET and ADMIN_EMAILS"
 echo "(new secrets apply to fresh volumes; existing Postgres and Garage volumes keep their old credentials)"

@@ -13,6 +13,8 @@ export const DEFAULT_WORKSPACE_SETTINGS: Omit<WorkspaceSettings, 'name' | 'logoU
   inviteLinkEnabled: true,
   restrictInvites: false,
   autoApproveCreators: true,
+  defaultMaskingPreset: null,
+  defaultTraceOpenMs: null,
 };
 
 /** Webmail domains never used for join-by-domain (J-125): anyone can get an address there. */

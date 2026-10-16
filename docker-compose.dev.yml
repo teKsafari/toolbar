@@ -1,0 +1,35 @@
+# Development and e2e only (docs/dev.md): never part of a deployment. Adds the mock OpenID Connect
+# provider, which signs in anyone with any claims, and passes the switches tests set from the
+# shell: password sign-in, rate limits off, paused feature flags, and the instance settings the
+# suites pin (each one set here locks its field in Settings > Server, D-187).
+#   OIDC_ISSUER=http://oidc.localhost:3311/toolbar OIDC_CLIENT_ID=toolbar OIDC_CLIENT_SECRET=dev \
+#   OIDC_PROVIDER_NAME="Dev SSO" docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+services:
+  server:
+    # oidc.localhost: browsers resolve *.localhost to this machine, the server reaches the mock
+    # through the host, so both see the same issuer URL (D-094)
+    extra_hosts: ["oidc.localhost:host-gateway"]
+    environment:
+      OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-}
+      ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS:-}
+      TRANSCRIBE_PROVIDER: ${TRANSCRIBE_PROVIDER:-}
+      AUTH_DEV_PASSWORD: ${AUTH_DEV_PASSWORD:-}
+      AUTH_RATE_LIMIT: ${AUTH_RATE_LIMIT:-}
+      AUTH_MAGIC_LINK: ${AUTH_MAGIC_LINK:-}
+      FEATURE_EMAIL: ${FEATURE_EMAIL:-}
+      FEATURE_TRACKERS: ${FEATURE_TRACKERS:-}
+      FEATURE_SLACK: ${FEATURE_SLACK:-}
+      FEATURE_CLI: ${FEATURE_CLI:-}
+      FEATURE_AI: ${FEATURE_AI:-}
+      FEATURE_ADMIN_EXTRAS: ${FEATURE_ADMIN_EXTRAS:-}
+      AI_PROVIDER: ${AI_PROVIDER:-none}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+
+  oidc-mock:
+    image: ghcr.io/navikt/mock-oauth2-server:2.1.10
+    environment:
+      JSON_CONFIG: '{"interactiveLogin":true}'
+    ports: ["${OIDC_MOCK_PORT:-3311}:8080"]
+    restart: unless-stopped

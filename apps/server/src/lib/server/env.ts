@@ -1,8 +1,6 @@
 // Runtime configuration from process.env, with dev defaults that match docker-compose.yml.
 // Every variable is listed in the root .env.example.
 
-import { transcribeConfig } from './transcribe/config.ts';
-
 const DEV_SECRET = 'dev-only-change-me-0000000000000000';
 const DEV_S3_KEY = 'GK000000000000000000000000';
 const DEV_S3_SECRET = '0000000000000000000000000000000000000000000000000000000000000000';
@@ -117,25 +115,15 @@ export function loadEnv() {
     },
     /** empty: `<instance name> <noreply@<PUBLIC_URL host>>` (D-112) */
     mailFrom: read('MAIL_FROM'),
-    /** TRANSCRIBE_* (D-087); read on use, see transcribe/config.ts */
-    get transcribe() {
-      return transcribeConfig();
-    },
-    /** Agent hand-off (PLAN "Hand-off to the agent"). */
+    /** Agent hand-off (PLAN "Hand-off to the agent"); share link days and the export cap are instance settings (settings/index.ts). */
     handoff: {
-      /** Days a new share link stays live (Part 2: 14); 0 means links never expire (Part 1 behaviour). */
-      shareLinkDays: Math.max(0, Number(read('SHARE_LINK_DAYS', '14')) || 0),
       /** OCR of canvas regions for text/ in the folder: the tesseract binary, or `off`. */
       ocrBin: read('OCR_BIN', 'tesseract'),
       /** tesseract languages, `+` separated (the image ships eng and swa). */
       ocrLangs: read('OCR_LANGS', 'eng'),
-      /**
-       * Size cap of one page of the bulk export (D-183), in MB of stored media the folders carry
-       * (images, rrweb, events, voice); a page ends before the capture that would pass it.
-       */
-      exportMaxMb: Math.max(1, Number(read('EXPORT_MAX_MB', '200')) || 200),
     },
-    extensionIds: read('EXTENSION_IDS').split(/[\s,]+/).filter(Boolean),
+    /** the repository's pinned id (auth/ext.ts PINNED_EXTENSION_ID) unless EXTENSION_IDS lists others */
+    extensionIds: read('EXTENSION_IDS', 'fmongfmimgdafigcahdpofnmmhljpnei').split(/[\s,]+/).filter(Boolean),
     auth: {
       /**
        * Email and password sign-in: development and tests only, off by default (docs/scope.md,
@@ -212,7 +200,9 @@ export function featureFlags(e: Pick<Env, 'features'> = env) {
 export type FeatureFlags = ReturnType<typeof featureFlags>;
 export const env: Env = loadEnv();
 
-const isLocal = (u: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(u);
+/** A localhost origin: development, where the public-server checks do not apply. */
+export const isLocalUrl = (u: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(u);
+const isLocal = isLocalUrl;
 
 /**
  * Refuse to run on a public URL with a dev default secret (architecture section 13, D-151). The

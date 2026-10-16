@@ -11,10 +11,11 @@
 # (default :120); never :99. The stack runs with AUTH_RATE_LIMIT=off, because the suites sign in
 # many test accounts from one address. Logs land in e2e/runs/.
 #
-# Sign-in goes through the mock OIDC provider of the `dev` compose profile (D-114), with an
+# Sign-in goes through the mock OIDC provider of docker-compose.dev.yml (D-114, D-187), with an
 # allowlist that admits the *.test addresses the suites use. AUTH_DEV_PASSWORD=1 stays on for the
 # seeded accounts (dana@ and sam@toolbar.test), which have only a password. Paused features stay
-# off, so their tests skip with "paused (docs/scope.md)"; MAIL=1 turns FEATURE_EMAIL on with
+# off, so their tests skip with "paused (docs/scope.md)". Transcription runs on the local whisper.cpp
+# (docker-compose.whisper.yml, TRANSCRIBE_PROVIDER=local). MAIL=1 turns FEATURE_EMAIL on with
 # Mailpit (the override docker-compose.mail.yml, D-171), and FEATURES="FEATURE_AI=1 FEATURE_TRACKERS=1 ..." sets others.
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -37,13 +38,13 @@ pnpm --filter @toolbar/cli build >/dev/null || exit 1
 # behind, and some area tests count what a workspace holds.
 fresh() {
   step "stack"
-  if [ "${KEEP:-0}" != 1 ]; then docker compose -f docker-compose.yml -f docker-compose.mail.yml --profile dev --profile whisper down -v || exit 1; fi
-  local profiles=(-f docker-compose.yml --profile dev --profile whisper)
+  if [ "${KEEP:-0}" != 1 ]; then docker compose -f docker-compose.yml -f docker-compose.whisper.yml -f docker-compose.dev.yml -f docker-compose.mail.yml down -v || exit 1; fi
+  local profiles=(-f docker-compose.yml -f docker-compose.whisper.yml -f docker-compose.dev.yml)
   if [ "${MAIL:-0}" = 1 ]; then profiles+=(-f docker-compose.mail.yml); fi
   # shellcheck disable=SC2086
   env ${FEATURES:-} \
     OIDC_ISSUER=http://oidc.localhost:3311/toolbar OIDC_CLIENT_ID=toolbar OIDC_CLIENT_SECRET=dev OIDC_PROVIDER_NAME="Dev SSO" \
-    ALLOWED_EMAIL_DOMAINS=test AUTH_DEV_PASSWORD=1 AUTH_RATE_LIMIT=off \
+    ALLOWED_EMAIL_DOMAINS=test AUTH_DEV_PASSWORD=1 AUTH_RATE_LIMIT=off TRANSCRIBE_PROVIDER=local \
     docker compose "${profiles[@]}" up --build -d || exit 1
   for _ in $(seq 1 120); do curl -sf localhost:3000/api/health >/dev/null && break; sleep 2; done
   curl -sf localhost:3000/api/health >/dev/null || { echo "server not healthy" >&2; exit 1; }

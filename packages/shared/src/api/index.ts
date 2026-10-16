@@ -8,6 +8,7 @@ export * from './workspaces.ts';
 export * from './integrations.ts';
 export * from './account.ts';
 export * from './branding.ts';
+export * from './instance-settings.ts';
 export * from './projects.ts';
 export * from './routes.ts';
 export * from './areas/server-core.ts';

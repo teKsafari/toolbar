@@ -33,9 +33,9 @@
     editing = null;
     name = '';
     originsText = '';
-    preset = 'staging';
+    preset = data.defaults.maskingPreset;
     allowText = '';
-    openSec = TRACE_OPEN_MS.default / 1000;
+    openSec = Math.round(data.defaults.traceOpenMs / 1000);
     open = true;
   }
   function startEdit(p: Project) {

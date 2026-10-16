@@ -1,13 +1,15 @@
 <script lang="ts">
-  // Settings > Server (D-112): the instance name, logo (light and dark) and accent colour that
-  // the sign-in page, share pages, mail and the extension show. A value the server environment
-  // sets is shown read-only. Changes save at once; the preview follows before saving.
+  // Settings > Server (D-112, D-187): the instance name, logo (light and dark) and accent colour that
+  // the sign-in page, share pages, mail and the extension show, then the instance settings
+  // (sign-in, transcription, capture defaults, sharing and export, limits). A value the server
+  // environment sets is shown read-only. Branding saves at once; the preview follows before saving.
   import { invalidateAll } from '$app/navigation';
   import { toasts } from '@toolbar/ui';
   import { deriveAccent } from '@toolbar/ui/accent';
   import type { AdminBranding } from '@toolbar/shared/api';
   import Section from '#lib/components/dashboard/Section.svelte';
   import Field from '#lib/components/dashboard/Field.svelte';
+  import InstanceSettings from '#lib/components/dashboard/InstanceSettings.svelte';
   import { api, errMsg, urlOf } from '#lib/components/dashboard/api.ts';
 
   let { data } = $props();
@@ -84,7 +86,7 @@
 <svelte:head><title>Server · Settings</title></svelte:head>
 
 <h1>Server</h1>
-<p class="muted note">These settings apply to everyone on this server: the sign-in page, share pages, recording links, mail and the browser extension after sign-in.</p>
+<p class="muted note">These settings apply to everyone on this server: the sign-in page, share pages, recording links, mail and the browser extension after sign-in. Changes take effect without a restart.</p>
 
 <Section title="Branding" description="The product name, logo and accent colour people see on this server." testid="server-branding">
   <Field label="Name" hint={a.locked.name ? lock('APP_NAME') : `Up to 40 characters. Empty resets to ${a.defaults.name}.`}>
@@ -124,6 +126,8 @@
     {/each}
   </div>
 </Section>
+
+<InstanceSettings initial={data.settings} />
 
 <style>
   h1 { margin-bottom: 8px; }
