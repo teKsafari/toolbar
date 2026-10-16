@@ -209,6 +209,24 @@ export async function withPrivateDisplay<T>(fn: (display: string) => Promise<T>)
   }
 }
 
+/**
+ * Take a private X display (Xvfb plus openbox) for a flow that runs a browser of its own across
+ * several tests: the X helpers act on it until `release`. The display number is DISPLAY plus
+ * `offset` or the next free one (:179 for the Part 2 scenario under the default :120).
+ */
+export async function holdPrivateDisplay(offset: number): Promise<{ display: string; release(): void }> {
+  const x = await privateDisplay(Number(DISPLAY.slice(1)) + offset);
+  const before = xDisplay;
+  xDisplay = x.display;
+  return {
+    display: x.display,
+    release: () => {
+      xDisplay = before;
+      x.stop();
+    },
+  };
+}
+
 /** Chromium went away under a flow (the picker crash), as opposed to a failed check. */
 export class BrowserCrash extends Error {}
 
@@ -523,6 +541,12 @@ let accounts = 0;
 /** A fresh address for a new account in this run. */
 export const newEmail = (who = 'flows') => `${who}-${run}-${++accounts}@flows${run}.test`;
 
+/**
+ * The worker's shared browser once a flow asked for it. The hook below reads it from here, so a
+ * flow that runs a browser of its own (the Part 2 scenario) does not start the shared one too.
+ */
+let shared: Tb | undefined;
+
 export const test = base.extend<{ context: BrowserContext }, { tb: Tb }>({
   tb: [
     async ({}, use) => {
@@ -532,7 +556,9 @@ export const test = base.extend<{ context: BrowserContext }, { tb: Tb }>({
       const { lab, popup } = await connectExtension(context, email);
       await popup.close();
       await lab.close();
+      shared = tb;
       await use(tb);
+      shared = undefined;
       await close();
     },
     { scope: 'worker', timeout: 120_000 },
@@ -549,7 +575,7 @@ export { expect };
  * and use up the browser's six connections to the server. On failure, keep a picture of the
  * whole X screen first: popups and the closed shadow root show there.
  */
-test.afterEach(async ({ tb }, info) => {
+test.afterEach(async ({}, info) => {
   if (info.status !== info.expectedStatus) {
     try {
       execFileSync('import', ['-window', 'root', info.outputPath('screen.png')], { env: { ...process.env, DISPLAY } });
@@ -557,5 +583,5 @@ test.afterEach(async ({ tb }, info) => {
       /* imagemagick missing */
     }
   }
-  for (const p of tb.context.pages()) if (p.url().startsWith(SERVER)) await p.close().catch(() => undefined);
+  for (const p of shared?.context.pages() ?? []) if (p.url().startsWith(SERVER)) await p.close().catch(() => undefined);
 });

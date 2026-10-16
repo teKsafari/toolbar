@@ -1,8 +1,8 @@
 HTTP/1.1 200 OK
 cache-control: private, no-store
-content-length: 20449
+content-length: 21494
 content-type: text/html
-etag: "821mfa"
+etag: "1hrhfqo"
 link: <http://localhost:3000/s/<share-token>.md>; rel="alternate"; type="text/markdown"
 referrer-policy: no-referrer
 set-cookie: <omitted>

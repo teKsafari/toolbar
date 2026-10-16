@@ -20,12 +20,15 @@ export const load = async ({ locals, url, setHeaders }) => {
   const t = target(url);
   if (!locals.user || locals.apiToken) redirect(303, `/login?next=${encodeURIComponent(url.pathname + url.search)}`);
   if (!(await reviewOriginAllowedFor(db, locals.user.id, t.origin))) error(400, NOT_SET_UP);
-  setHeaders({ 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
+  // same-origin, not no-referrer: under no-referrer Chrome sends `Origin: null` with the confirm
+  // form's POST, and SvelteKit's CSRF check refuses it (D-162). Cross-origin requests from this
+  // page, the hand-off to <origin>/__toolbar/session included, still carry no Referer.
+  setHeaders({ 'cache-control': 'no-store', 'referrer-policy': 'same-origin' });
   return { ...t, host: new URL(t.origin).host, email: locals.user.email, days: env.injector.cookieDays };
 };
 
 export const actions = {
-  // load runs after the action and sets no-store and no-referrer on this page too
+  // load runs after the action and sets no-store and the referrer policy on this page too
   default: async ({ locals, url }) => {
     const t = target(url);
     if (!locals.user || locals.apiToken) return fail(401, { message: 'Sign in again.' });

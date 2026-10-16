@@ -413,7 +413,7 @@ Timeline lines end with \`-> open <file>\` when an image shows that moment. Open
 - \`network.jsonl\`: requests with headers and bodies (redacted, cut at about 256 KB). Match a span's request by \`rid\`.
 - \`console.jsonl\`: console output and uncaught errors with stacks.
 - \`outline/\`: text of the regions that changed in each span. \`text/\`: OCR of canvas regions (machine-read, may be wrong).
-- \`voice/transcript.vtt\`: the reviewer's voice notes with times.
+- \`voice/transcript.vtt\`: the reviewer's voice with times; \`voice/aNN.vtt\` and \`voice/aNN.webm\` are the voice note of annotation aNN.
 - \`raw/\`: the DOM recording (rrweb) and a HAR file, for tools that read them. You rarely need them.
 
 ## 5. Fix, then mark the feedback resolved

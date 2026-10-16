@@ -37,7 +37,11 @@
   const fmt = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.round((ms % 60000) / 1000)).padStart(2, '0')}`;
 
   onMount(() => {
-    void tick().then(() => box?.focus());
+    void tick().then(() => {
+      box?.focus();
+      // text typed before the composer opened stays, with the caret after it (D-160)
+      if (box) box.selectionStart = box.selectionEnd = box.value.length;
+    });
   });
   $effect(() => {
     if (!card) return;
@@ -69,7 +73,7 @@
   <textarea bind:this={box} bind:value={r.draft!.comment} rows="3" {placeholder} onkeydown={key} data-testid="review-comment"></textarea>
   {#if d.cropPreview}
     <img class="crop" src={d.cropPreview} alt="Screenshot of the {d.kind === 'draw' ? 'drawing' : 'element'}" data-testid="review-crop" />
-  {:else if d.cropBlobId}
+  {:else if d.cropBlobId && !d.cropAuto}
     <span class="att" data-testid="review-crop-kept"><Icon name="camera" size={13} />Screenshot attached</span>
   {/if}
   {#if r.voice?.for === 'draft'}

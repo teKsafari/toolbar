@@ -257,6 +257,58 @@ describe('assembleFolder', () => {
   });
 });
 
+describe('reviewer toolbar voice notes (D-160)', () => {
+  it('writes voice/aNN.webm and .vtt per note, and joins them into voice/transcript.vtt when the capture has no voice track', async () => {
+    const base = await data();
+    const blobs = { 'k/note': Buffer.from('note-webm') };
+    const io0 = (globalThis as { __io?: FolderIo }).__io!;
+    const io: FolderIo = { ...io0, bytes: async (k) => (k in blobs ? blobs[k as keyof typeof blobs] : io0.bytes(k)) };
+    const d: FolderData = {
+      ...base,
+      transcripts: [],
+      voiceKey: null,
+      assets: [...base.assets, { id: 'vn1', kind: 'voice-note', s3Key: 'k/note', contentType: 'audio/webm', width: null, height: null, createdAt: new Date(T0 + 4000) }],
+      annotations: [
+        ...base.annotations,
+        {
+          id: 'item1',
+          assetId: null,
+          t: T0 + 4000,
+          shapes: [],
+          target: null,
+          locator: null,
+          comment: null,
+          author: 'Dana',
+          createdAt: new Date(T0 + 4000),
+          item: {
+            n: 2,
+            kind: 'voice',
+            quote: null,
+            intent: 'fix',
+            severity: 'important',
+            status: 'pending',
+            voiceText: 'The run button does nothing',
+            voice: { assetId: 'vn1', durationMs: 1500, vtt: 'WEBVTT\n\n00:00:00.200 --> 00:00:01.400\nThe run button does nothing\n', language: 'en', status: 'done' },
+            context: null,
+            page: null,
+            cropRect: null,
+          },
+        },
+      ],
+    };
+    const f = await assembleFolder(d, io);
+    const file = (p: string) => f.files.find((x) => x.path === p);
+    expect(new TextDecoder().decode(file('voice/a02.webm')!.data as Uint8Array)).toBe('note-webm');
+    expect(String(file('voice/a02.vtt')!.data)).toContain('The run button does nothing');
+    // the note ended at 4.0 s and lasted 1.5 s: its first cue starts at 2.5 + 0.2 s
+    expect(String(file('voice/transcript.vtt')!.data)).toMatch(/^WEBVTT[\s\S]*00:00:02\.700 --> 00:00:03\.900\n\[a02\] The run button does nothing/);
+    expect(file('voice/audio.webm')).toBeUndefined();
+    const fb = JSON.parse(String(file('feedback.json')!.data)) as { annotations: { n: string; voice?: { audio: string; transcript: string } }[] };
+    expect(fb.annotations.find((a) => a.n === 'a02')!.voice).toMatchObject({ audio: 'voice/a02.webm', transcript: 'voice/a02.vtt' });
+    expect(f.readme).toContain('-> open voice/a02.vtt');
+  });
+});
+
 describe('images', () => {
   it('draws the editor shapes and the seed arrow form', () => {
     const svg = shapesSvg([

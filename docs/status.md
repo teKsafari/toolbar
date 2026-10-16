@@ -1,6 +1,95 @@
-# Build status (Part 1, step 2, after the merge)
+# Build status
 
-One line per row of `docs/tasks.md`: the eight foundations (X-01 to X-08) and the 251 catalogue rows, with the status each area reported after its completer pass. Rows marked "merge" changed status in the merge commits on main; their area e2e specs were not re-run after the merge. The per-area reports, with how each row was verified and what a partial row lacks, follow the table.
+Part 1 (step 2, after the merge), further down: one line per row of `docs/tasks.md`: the eight foundations (X-01 to X-08) and the 251 catalogue rows, with the status each area reported after its completer pass. Rows marked "merge" changed status in the merge commits on main; their area e2e specs were not re-run after the merge. The per-area reports, with how each row was verified and what a partial row lacks, follow the table.
+
+## Part 2, step 4: the owner's specifics (2026-10-15)
+
+All step 4 packages are merged on main (zero-integration, trace, locator, transcribe, reviewer-ui, handoff, deliver, injector; area reports in `docs/status/p4-*.md`). The owner's scenario ran end to end on main from empty volumes: `docker compose --profile dev --profile whisper up --build` (mock OIDC), the lab on :5173, the release extension unpacked from `dist/open-toolbar-extension-0.0.1-chrome.zip` on Xvfb `:179`. Spec: `e2e/flows/p2-scenario.spec.ts` (D-163).
+
+What the run did and what it checked:
+
+1. Sign in from the popup through the mock OIDC provider, add the lab as a project, click Allow: Chrome's prompt grants `http://localhost:5173/*` and nothing else besides the server, and the capture scripts are registered for that origin only.
+2. A webhook endpoint on this machine subscribes to `feedback.created` and `feedback.resolved`.
+3. With keys and the mouse only (closed shadow root): wake the toolbar, `x` starts the trace, clicks on Save, Export, Submit order, Sync and Show profile, the Canvas page and its redraw, back to Buttons; `c` on Submit order with a comment, a drag over the heading and `t`, `a` drawn at Export, `s` on Sync with a comment, `v` for 11.5 s with the fake microphone playing the FLEURS English clip, `x` stops the trace and sends the five notes onto it.
+4. The server holds a `trace` capture with spans of every outcome (changed, dead, silent 5xx, stuck, error; canvas redraw `changed`), five feedback items (element, text, draw, shot, voice) each with the reviewer's issuer, subject and email, the comment's last 60 s (the 500 and the uncaught error), an element crop at 1x, and a transcript from local whisper.cpp: "However, due to the slow communication channels, styles in the West could lag behind by 25 to 30 years."
+5. The share link expires in 14 days and answers markdown with `no-referrer` and `noindex`; its first line, run with a personal token, writes `.feedback/<id>/` (37 files: README.md, feedback.json, spans.jsonl, a01 to a05 with png, shapes and locator, four to five keyframes, outline/, text/ OCR of the canvas, voice/a05.webm, voice/a05.vtt, voice/transcript.vtt, console.jsonl, network.jsonl, raw/network.har, raw/rrweb-000.json.gz). README.md (10.5k characters, about 3k tokens) keeps the PLAN order: header with reviewer, app, browser and masking preset; the fence rule; the reviewer's words; what did not happen (Export dead, the hidden 500 silent, Sync stuck); the timeline with `-> open` pointers; search hints and the file index.
+6. A real Claude Code 2.1.283 run (`claude -p`, scratch MCP config naming only this server with the token by variable name, `--strict-mcp-config`) called `get_feedback_folder`, then `get_feedback_file` on `annotations/a04.png` (the Sync screenshot), then `resolve_feedback`; it answered `/api/hang` for the request that never returned and `/api/fail` for the 500. The resolution reads "via MCP".
+7. The webhook got `feedback.created` (with the pull command) and `feedback.resolved` (with the note), both with a valid `x-toolbar-signature`.
+8. The injector path: `apps/injector/test/run.sh` against the same compose server (`INJECTOR_SECRET`, `INJECTOR_ORIGINS=http://localhost:3506`) in a browser without the extension: 5 of 5 pass (sign-in on the app's origin, a comment with the last minute, a trace over two pages, `x-review-skip` with streamed HTML and WebSockets, a strict nonce CSP).
+
+Fixed on the way: the folder had no `voice/` for toolbar voice notes and no image for element and text notes (D-160); the span engine took the lab's iframe load for a route change and called a text-selecting drag `dead` (D-161); the injector's sign-in failed behind the compose server because `/review/start` sent `no-referrer`, which makes Chrome post `Origin: null` (D-162).
+
+### Specifics (PLAN "Part 2 specifics")
+
+| Specific | State | Where, and how it was proven |
+|---|---|---|
+| No package, script tag or config in each app | built | Extension (delivery 1) and injector (delivery 2); the lab is unchanged in the scenario |
+| Delivery 1: extension asks for host access only to project origins (`optional_host_permissions`, `permissions.request` from a click, `registerContentScripts`) | built | D-126; scenario step 1, flow Q |
+| Delivery 2: injector proxy (streams, `<head>` only, uncompressed, CSP nonce, `/__toolbar/` same origin, `x-review-skip`, passes through on error, Traefik file router, no entry-point plugin, no review domain) | built | D-157, D-158; `apps/injector` Go tests, compose test 5/5 against the compose server. Uses `golang.org/x/net/html`'s tokenizer in place of lol-html. Not yet run behind a real Coolify Traefik (needs the owner's server) |
+| Delivery 3: review browser from the CLI | deferred | PLAN marks it "later, for developers only"; the CLI is paused (docs/scope.md, `FEATURE_CLI`) |
+| Distribution: unlisted Chrome Web Store item | built | D-155: `-chrome-webstore.zip`; uploading needs the owner's store account |
+| Distribution: signed unlisted Firefox add-on (AMO), Safari | deferred | PLAN puts both in a later phase; `-firefox.zip` passes `web-ext lint`, signing needs the owner's AMO account |
+| Sign-in with Google and any OIDC provider; email and password off by default | built | D-114: one generic OIDC provider (Google Workspace through it); `AUTH_DEV_PASSWORD` dev only |
+| Extension signs in with `launchWebAuthFlow`, server is the OIDC client, ID pinned by `key` | built | D-011, D-022; scenario step 1 |
+| Every record stores issuer, subject, email and name | built | Scenario step 4 checks all five items |
+| Only allowlisted reviewers submit (email domains) | built | `ALLOWED_EMAIL_DOMAINS` and Google `hd`; group allowlists are out of scope (docs/scope.md: groups are not in Google's ID token) |
+| No seat limits, no paid tiers | built | None exist |
+| Deploys on Coolify as a compose service | built | D-153 `docker-compose.coolify.yml`; checked against Coolify's docs, not deployed on a real Coolify (needs the owner's server) |
+| Comment on an element | built | Scenario `c`; area suite `tests/reviewer` |
+| Highlight text | built | Scenario `t` |
+| Rectangle, arrow, freehand | built | Arrow in the scenario; all three in `tests/reviewer` |
+| Screenshot of one element with a comment | built | Scenario `s`: crop width equals the element's at 1x |
+| Voice note on a comment or on the whole trace; WebVTT on the server | built | Scenario `v` (whole trace) with a real clip transcribed by whisper.cpp; comment voice notes in `tests/reviewer` |
+| Comment without a trace, with the last 60 s of errors and failed requests | built | `tests/reviewer`, injector compose test |
+| Start trace and Stop trace | built | Scenario `x` twice |
+| Interaction spans: start at an action, close at 500 ms quiet, 2.5 s no effect, 10 s with open requests (a setting) | built | `packages/trace` unit tests (43); scenario spans |
+| Outcomes changed, error, dead, stuck, silent (2xx and 4xx/5xx) | built | Scenario: all five on the lab buttons |
+| Canvas redraw compared by pixels | built | Scenario: the canvas redraw is `changed` |
+| `caused_by` links with confidence | built | `packages/trace` unit tests |
+| Keyframes on route changes, annotations, changed spans and DOM bursts, near-duplicates dropped | built | Scenario folder: four to five keyframes |
+| Share URL: HTML to browsers, markdown with the pull command first | built | Scenario step 5 |
+| CLI `npx <cli> pull`, with a `curl ... \| tar xz` alternative | built (curl); CLI paused | The curl command is the default and is proven; the CLI stays behind `FEATURE_CLI` (docs/scope.md) |
+| Folder layout | built | Scenario step 5 checks every path against the layout; toolbar voice notes as `voice/aNN.*` (D-160) |
+| README.md order and size (< 8k tokens) | built | Scenario step 5 |
+| Images at 1x CSS pixels, cropped, about ten keyframes | built | Scenario: element crop at 1x, at most ten keyframes |
+| Agent Skill | built | D-148: `skills/open-toolbar-feedback/SKILL.md`, `GET /api/v1/skill`; it ships with the repo and the server because the CLI is paused |
+| Remote MCP server (OAuth) after the folder | built | Flow J (OAuth consent in one click); scenario step 6 with a token from a real Claude Code run |
+| Locator packet with each annotation | built | D-128; `aNN.locator.json` in the scenario folder |
+| `__svelte_meta` on dev servers | built | `packages/capture/test/locator.test.ts` (Svelte 5 and 4); `tests/locator` with the lab's dev build (`LAB_DEV_URL`) |
+| Console stacks through source maps | built | D-129 |
+| SvelteKit `__data.json`, form actions, Next.js RSC named | built | `packages/trace` classify tests |
+| Redaction before upload | built | D-125, D-149 |
+| Two masking presets per project, written into the folder header | built | Scenario README header: `staging` |
+| Share URLs: 128-bit token, 14 days, revocable, no-referrer, noindex, summary only; folder needs a personal token | built | Scenario step 5; `tests/handoff` (a share token gets 401 on the folder) |
+| Fence every captured string with source and author | built | Scenario README |
+| Experiments (rrweb size and CPU, 30 labeled actions, three agents) | deferred | PLAN step 5, on Nuru; needs the owner's Nuru access |
+
+### Scope items (docs/scope.md)
+
+| Item | State | Where |
+|---|---|---|
+| Not a product: commercial features paused behind flags that default off | built | `FEATURE_*` flags; their tests skip with "paused" |
+| Name open-toolbar, filled rectangle logo, admin name and logo | built | D-074, D-083; flow P |
+| README pitch in our own words | built | `README.md` |
+| Exactly three channels: MCP, HTTP API with the folder download, signed webhooks | built | Scenario steps 5 to 7 |
+| Paused: trackers, Slack, CLI, notification email, AI, retention and audit logs, social and password sign-in | paused (as asked) | Flags off; UI hidden; parity rows "paused" |
+| Kept: in-app @mentions, invites by link, joining by email domain, webhooks | built | Flows L and N; scenario step 7 |
+| Transcription: local whisper.cpp by default, hosted OpenAI-compatible model with a key, chunks, limits documented | built | D-130 to D-133; scenario transcript from whisper.cpp; live test with `gpt-transcribe` |
+| Sign-in: one generic OIDC provider, email-domain allowlist and `hd`, mock OIDC in the `dev` profile, password only with `AUTH_DEV_PASSWORD=1`, no SMTP | built | D-114; every e2e suite signs in through the mock |
+| Deliverable 1: extension release (store zip and unpacked build) | built | D-155; the scenario ran on the unpacked release zip |
+| Deliverable 2: `docker-compose.yml` with defaults plus the required values | built | D-151, D-152; the scenario stack |
+| Deliverable 3: `docker-compose.coolify.yml` | built | D-153; not yet deployed on a real Coolify |
+| Configuration: required values only; `docs/configuration.md` for every variable | built | D-151, D-154 (drift test) |
+
+### Part 1 suites and Part 2 area suites, rerun on main (2026-10-15)
+
+| Suite | Result | Notes |
+|---|---|---|
+| `pnpm -r build`, `check`, `test`; `go test` in `apps/injector` | pass | Unit tests: shared 140, cli 9, trace 43, capture 49, ui 81, extension 38, server 250 (7 skipped without Mailpit or a key) |
+| Flows (`e2e/flows`, release build, fresh volumes, seeded) | 25 of 26 in one run, then the one rerun twice: pass | Flow Q timed out once in the full run and passed in the first full run and in two reruns; flaky, cause not found. Fixed in this pass: flow R (keys typed straight after the click were lost behind the new quiet crop; type-ahead, D-160) and the visual pass, which waited out its timeout on the editor's destination menu, a part of the tracker picker paused by owner scope (now taken only when the menu exists). P2's first attempt on one fresh stack failed at the popup sign-in and passed on the rerun |
+| Parity (`e2e/parity`, release build) | 33 passed, 2 skipped (S7.3 integrations and S8.2 CLI, paused by owner scope) | The scenarios sign in as `@example.com`, so the server needs `example.com` in `ALLOWED_EMAIL_DOMAINS` beside `test` (the allowlist arrived with D-114 after Gate 3); noted in `playwright.parity.config.ts` |
+| Area: reviewer, hand-off, trace, zero integration (test build) | 16 of 16 after one rerun | "The popup starts and stops a trace" saw 0 actions once and passed on the rerun |
+| Injector compose test | 5 of 5 | After D-162 |
 
 ## Counts (catalogue rows)
 

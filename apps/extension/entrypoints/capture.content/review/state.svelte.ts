@@ -25,6 +25,8 @@ export interface Draft {
   cropBlobId?: string;
   cropPreview?: string;
   cropRect?: Rect;
+  /** the crop was taken by itself for the agent's folder (element and text notes), not by the reviewer */
+  cropAuto?: boolean;
   voiceBlobId?: string;
   voiceDurationMs?: number;
   comment: string;
@@ -82,6 +84,10 @@ export class Review {
   listOpen = $state(false);
   /** our UI is hidden for a screenshot; only the draft's drawing stays */
   hiding = $state(false);
+  /** Keys typed while a note's quiet crop is in flight, before its composer opens (D-160). */
+  typeahead: string | null = null;
+  /** Enter (add) or Escape (cancel) pressed during the type-ahead, applied once the composer opens. */
+  typeaheadEnd: 'add' | 'cancel' | null = null;
   busy = $state(false);
   voice: { for: 'draft' | 'standalone'; startedAt: number } | null = $state(null);
   trace: TraceView | null = $state(null);
@@ -208,13 +214,13 @@ export class Review {
     const kind: FeedbackKind = this.tool === 'shot' ? 'shot' : 'element';
     this.hover = null;
     const draft: Draft = { id: null, kind, label: labelOf(target), target, anchor, shapes: [], comment: '', intent: 'fix', severity: 'important', at: { x, y } };
-    if (kind === 'shot') {
-      const r = el.getBoundingClientRect();
-      const rect = visibleRect(r);
-      if (rect) await this.shoot(draft, rect, { x: rect.x + scrollX, y: rect.y + scrollY, w: rect.w, h: rect.h });
-      draft.at = { x: r.right, y: r.top };
-    }
+    const r = el.getBoundingClientRect();
+    const rect = visibleRect(r);
+    // a comment gets a quiet crop of its element too: the folder's annotations/aNN.png (D-160)
+    const end = rect ? await this.quietly(kind !== 'shot', () => this.shoot(draft, rect, { x: rect.x + scrollX, y: rect.y + scrollY, w: rect.w, h: rect.h }, { quiet: kind !== 'shot' }), draft) : null;
+    if (kind === 'shot') draft.at = { x: r.right, y: r.top };
     this.openDraft(draft);
+    this.finishTypeahead(end);
   }
 
   startShape(x: number, y: number) {
@@ -286,7 +292,7 @@ export class Review {
     };
   }
 
-  commentOnSelection(): void {
+  async commentOnSelection(): Promise<void> {
     const c = this.chip;
     if (!c) {
       this.checkSelection();
@@ -295,7 +301,7 @@ export class Review {
     }
     this.chip = null;
     getSelection()?.removeAllRanges();
-    this.openDraft({
+    const draft: Draft = {
       id: null,
       kind: 'text',
       label: `Text "${c.text.length > 40 ? c.text.slice(0, 39) + '…' : c.text}"`,
@@ -308,22 +314,56 @@ export class Review {
       intent: 'fix',
       severity: 'important',
       at: { x: c.box.x + c.box.w, y: c.box.y + c.box.h },
-    });
+    };
+    // a quiet crop of the selected text, 8 px around it, for the folder (D-160)
+    const rect = visibleRect({ left: c.box.x, top: c.box.y, width: c.box.w, height: c.box.h }, 8);
+    const end = rect ? await this.quietly(true, () => this.shoot(draft, rect, { x: rect.x + scrollX, y: rect.y + scrollY, w: rect.w, h: rect.h }, { quiet: true }), draft) : null;
+    this.openDraft(draft);
+    this.finishTypeahead(end);
   }
 
   // ---------- screenshots ----------
 
+  /**
+   * Run a quiet crop before the composer opens. A person starts typing right after the click, so
+   * the keys typed meanwhile are kept (Review.svelte's key handler) and become the comment's start.
+   */
+  async quietly(on: boolean, run: () => Promise<void>, draft: Draft): Promise<'add' | 'cancel' | null> {
+    if (!on) {
+      await run();
+      return null;
+    }
+    this.typeahead = '';
+    this.typeaheadEnd = null;
+    try {
+      await run();
+    } finally {
+      draft.comment = (this.typeahead ?? '') + draft.comment;
+      this.typeahead = null;
+    }
+    const end = this.typeaheadEnd;
+    this.typeaheadEnd = null;
+    return end;
+  }
+
+  /** Apply an Enter or Escape typed before the composer opened. */
+  finishTypeahead(end: 'add' | 'cancel' | null) {
+    if (end === 'add') void this.saveDraft();
+    else if (end === 'cancel') this.cancelDraft();
+  }
+
   /** Hides our UI (the draft's drawing stays), takes the viewport rect, keeps it on the draft. */
-  async shoot(draft: Draft, rect: Rect, docRect: Rect) {
+  async shoot(draft: Draft, rect: Rect, docRect: Rect, opts: { quiet?: boolean } = {}) {
     this.hiding = true;
     try {
       await painted();
       const r = await send('review.shot', { rect, vw: innerWidth });
       if (r.ok) {
         draft.cropBlobId = r.blobId;
-        draft.cropPreview = r.preview;
+        draft.cropPreview = opts.quiet ? undefined : r.preview;
         draft.cropRect = docRect;
-      } else toasts.error(errorText(r));
+        draft.cropAuto = !!opts.quiet;
+      } else if (!opts.quiet) toasts.error(errorText(r));
     } finally {
       this.hiding = false;
     }

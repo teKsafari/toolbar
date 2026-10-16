@@ -112,6 +112,9 @@ export async function collectFolder(db: Db, rec: RecordingRow): Promise<FolderDa
           severity: it.severity,
           status: it.status,
           voiceText: it.transcriptStatus === 'done' ? it.transcriptText : null,
+          voice: it.voiceAssetId
+            ? { assetId: it.voiceAssetId, durationMs: it.voiceDurationMs, vtt: it.transcriptStatus === 'done' ? it.transcriptVtt : null, language: it.transcriptLanguage, status: it.transcriptStatus }
+            : null,
           context: it.context,
           page: it.page,
           cropRect: it.cropRect,

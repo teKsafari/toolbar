@@ -94,6 +94,16 @@
       else r.wake();
       return stop(e);
     }
+    // a quiet crop is in flight and the composer is about to open: keep what the person types
+    if (r.typeahead !== null && !mod && !e.altKey) {
+      if (r.typeaheadEnd) return stop(e);
+      if (e.key.length === 1) r.typeahead += e.key;
+      else if (e.key === 'Backspace') r.typeahead = r.typeahead.slice(0, -1);
+      else if (e.key === 'Enter' && e.shiftKey) r.typeahead += '\n';
+      else if (e.key === 'Enter') r.typeaheadEnd = 'add';
+      else if (e.key === 'Escape') r.typeaheadEnd = 'cancel';
+      return stop(e);
+    }
     if (!r.awake || typingIn(e) || mod || e.altKey) return;
     if (e.key === 'Escape') {
       r.back();
@@ -102,7 +112,7 @@
     if (e.shiftKey || e.repeat) return;
     const k = e.key.toLowerCase();
     if (TOOL_KEYS[k]) r.setTool(TOOL_KEYS[k]!);
-    else if (k === REVIEW_KEYS.text) r.commentOnSelection();
+    else if (k === REVIEW_KEYS.text) void r.commentOnSelection();
     else if (k === REVIEW_KEYS.voice) r.toggleVoice();
     else if (k === REVIEW_KEYS.list) r.listOpen = !r.listOpen;
     else if (k === REVIEW_KEYS.hidePins) r.pinsHidden = !r.pinsHidden;
@@ -227,7 +237,7 @@
     {/if}
 
     {#if r.chip && !r.draft}
-      <button type="button" class="chip" style:left="{r.chip.x}px" style:top="{r.chip.y}px" data-nb-interactive data-testid="review-text-chip" onmousedown={(e) => e.preventDefault()} onclick={() => r.commentOnSelection()}>
+      <button type="button" class="chip" style:left="{r.chip.x}px" style:top="{r.chip.y}px" data-nb-interactive data-testid="review-text-chip" onmousedown={(e) => e.preventDefault()} onclick={() => void r.commentOnSelection()}>
         Comment <kbd>T</kbd>
       </button>
     {/if}

@@ -18,6 +18,9 @@ export interface ItemRow {
   voiceAssetId: string | null;
   transcriptStatus: string | null;
   transcriptText: string | null;
+  transcriptVtt: string | null;
+  transcriptLanguage: string | null;
+  voiceDurationMs: number | null;
   context: Record<string, unknown> | null;
   page: { url?: string; title?: string; viewport?: { w: number; h: number }; scroll?: { x: number; y: number }; dpr?: number } | null;
   intent: string;
@@ -57,6 +60,9 @@ export async function feedbackItemsOf(db: Db, recordingId: string): Promise<Item
     voiceAssetId: (r.voice_asset_id as string | null) ?? null,
     transcriptStatus: (r.transcript_status as string | null) ?? null,
     transcriptText: (r.transcript_text as string | null) ?? null,
+    transcriptVtt: (r.transcript_vtt as string | null) ?? null,
+    transcriptLanguage: (r.transcript_language as string | null) ?? null,
+    voiceDurationMs: r.voice_duration_ms == null ? null : Number(r.voice_duration_ms),
     context: json(r.context),
     page: json(r.page),
     intent: String(r.intent ?? 'fix'),

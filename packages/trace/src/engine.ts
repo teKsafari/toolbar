@@ -159,6 +159,8 @@ export class SpanEngine {
   readonly keyframes: KeyframeRequest[] = [];
   /** Effects that came while no span was open. */
   unattributed = 0;
+  /** Time of the last text selection the page reported: a drag ends with mouseup, then click. */
+  private lastSelect = -Infinity;
   startedAt: number | null;
   endedAt: number | null = null;
 
@@ -310,6 +312,11 @@ export class SpanEngine {
           o.span.effects.focus = true;
           this.touch(o, e.t);
         }
+        // a drag that selected text reports the selection on mouseup, just before its click (D-161)
+        if (d.type === 'click' && e.t - this.lastSelect <= 50) {
+          o.span.effects.selection = true;
+          this.touch(o, e.t);
+        }
         return;
       }
       case 'input': {
@@ -343,6 +350,7 @@ export class SpanEngine {
       }
       case 'scroll':
       case 'select': {
+        if (d.type === 'select') this.lastSelect = e.t;
         const o = this.targetFor(e.t);
         if (!o) return void this.unattributed++;
         if (d.type === 'scroll') o.span.effects.scroll = true;
@@ -358,6 +366,12 @@ export class SpanEngine {
   private onNav(e: EventOf<'nav'>) {
     const to = e.data.url;
     const o = this.targetFor(e.t);
+    // an iframe loading or changing its route is activity of the open action, never the page's
+    // own route change and never an action of its own (D-161)
+    if (e.ctx && !e.ctx.startsWith('top')) {
+      if (o) this.touch(o, e.t);
+      return;
+    }
     this.wantKeyframe({ t: e.t + this.config.keyframeNavDelayMs, reason: 'nav', ...(o ? { span: o.span.id } : {}) });
     if (o) {
       // a route change the open action caused

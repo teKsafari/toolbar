@@ -24,6 +24,7 @@ import {
 import { toHar, type HarRow } from './har.ts';
 import type { FolderSpan, SpansResult } from './spans.ts';
 import type { Rect } from './images.ts';
+import { buildVtt } from '../transcribe/vtt.ts';
 
 // ---------- input ----------
 
@@ -57,6 +58,8 @@ export interface AnnotationIn {
     severity: string;
     status: string;
     voiceText: string | null;
+    /** the item's voice note: its audio asset and, once transcribed, its WebVTT */
+    voice?: { assetId: string; durationMs: number | null; vtt: string | null; language: string | null; status: string | null } | null;
     context: unknown;
     page: unknown;
     cropRect: Rect | null;
@@ -288,8 +291,11 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
   const anns = [...d.annotations].sort((a, b) => (a.t ?? a.createdAt.getTime()) - (b.t ?? b.createdAt.getTime()));
   const annFile = new Map<string, string>();
   const annJson: Record<string, unknown>[] = [];
+  /** reviewer toolbar voice notes, written to voice/ below (D-160) */
+  const noteVoices: { n: string; atMs: number | null; voice: NonNullable<NonNullable<AnnotationIn['item']>['voice']> }[] = [];
   for (const [i, a] of anns.entries()) {
     const n = `a${pad2(i + 1)}`;
+    if (a.item?.voice) noteVoices.push({ n, atMs: a.t != null ? off(a.t) : null, voice: a.item.voice });
     const asset = a.assetId ? d.assets.find((x) => x.id === a.assetId) : undefined;
     const locator = a.locator ? { ...a.locator } : locatorFromTarget(a, d);
     const crop = (a.locator?.crop as { w?: number; h?: number } | undefined) ?? null;
@@ -341,8 +347,9 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
       'application/json',
     );
     add(`annotations/${n}.locator.json`, JSON.stringify(locator, null, 2), `annotation ${n}: selector, text, role, classes, route and candidate route files`, 'application/json');
-    if (a.assetId) annFile.set(a.id, image ?? `annotations/${n}.locator.json`);
-    else annFile.set(a.id, `annotations/${n}.locator.json`);
+    // what the README points at for this annotation: its image, else its voice note, else its locator
+    const voiceRef = a.item?.voice ? `voice/${n}.${a.item.voice.vtt ? 'vtt' : 'webm'}` : null;
+    annFile.set(a.id, image ?? voiceRef ?? `annotations/${n}.locator.json`);
     annJson.push({
       n,
       id: a.id,
@@ -354,7 +361,18 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
       locator: `annotations/${n}.locator.json`,
       imageSize,
       ...(a.item
-        ? { pin: a.item.n, kind: a.item.kind, quote: a.item.quote, intent: a.item.intent, severity: a.item.severity, status: a.item.status, voiceTranscript: a.item.voiceText, context: a.item.context, page: a.item.page }
+        ? {
+            pin: a.item.n,
+            kind: a.item.kind,
+            quote: a.item.quote,
+            intent: a.item.intent,
+            severity: a.item.severity,
+            status: a.item.status,
+            voiceTranscript: a.item.voiceText,
+            ...(a.item.voice ? { voice: { audio: `voice/${n}.webm`, transcript: a.item.voice.vtt ? `voice/${n}.vtt` : null, durationMs: a.item.voice.durationMs } } : {}),
+            context: a.item.context,
+            page: a.item.page,
+          }
         : {}),
     });
   }
@@ -449,11 +467,16 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
     timeline.sort((a, b) => a.atMs - b.atMs);
     notHappened.sort((a, b) => a.atMs - b.atMs);
   }
+  /** The file the README points at for an annotation: its image, else its voice note, else its locator. */
+  const refOf = (a: Record<string, unknown>) => {
+    const v = a.voice as { transcript?: string | null; audio?: string } | undefined;
+    return String(a.image ?? v?.transcript ?? v?.audio ?? a.locator);
+  };
   // reviewer notes in time: annotations and voice cues
   // reviewer notes no span names (a toolbar item, or a capture without spans) get a line of their own
   const onSpan = new Set(timeline.flatMap((e) => e.files ?? []));
   for (const a of annJson) {
-    const file = String(a.image ?? a.locator);
+    const file = refOf(a);
     if (a.atMs == null || onSpan.has(file)) continue;
     timeline.push({ atMs: a.atMs as number, outcome: a.pin != null ? String(a.kind) : 'annotation', text: `${a.n}${a.pin != null ? ` (pin ${a.pin}, ${a.intent}, ${a.severity})` : ''}${a.comment ? `: ${String(a.comment).split('\n')[0]}` : ''}`, files: [file] });
   }
@@ -492,7 +515,7 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
   if (d.rec.title) words.push({ source: 'title', author: reviewer, text: d.rec.title });
   if (d.rec.description) words.push({ source: 'description', author: reviewer, text: d.rec.description });
   for (const a of annJson) {
-    const ref = String(a.image ?? a.locator);
+    const ref = refOf(a);
     const atMs = a.atMs as number | null;
     if (a.pin != null) {
       const ctx = a.context as { errors?: unknown[]; failedRequests?: unknown[] } | null;
@@ -616,6 +639,33 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
       notes.push('voice/audio.webm could not be read.');
     }
   }
+  // voice notes of the reviewer toolbar, one pair per annotation; with no voice track of its own,
+  // the capture's voice/transcript.vtt joins their cues on the capture's clock (D-160)
+  const merged: { startMs: number; endMs: number; text: string }[] = [];
+  for (const v of noteVoices) {
+    const audio = d.assets.find((x) => x.id === v.voice.assetId);
+    try {
+      if (!audio) throw new Error('no asset');
+      add(`voice/${v.n}.webm`, await io.bytes(audio.s3Key), `voice note of annotation ${v.n}, WebM/Opus`, 'audio/webm');
+    } catch {
+      notes.push(`voice/${v.n}.webm could not be read.`);
+    }
+    if (!v.voice.vtt) {
+      notes.push(`voice/${v.n}.vtt is absent: the transcript is ${v.voice.status ?? 'not made'}.`);
+      continue;
+    }
+    add(`voice/${v.n}.vtt`, v.voice.vtt, `transcript of the voice note of annotation ${v.n} (WebVTT${v.voice.language ? `, ${v.voice.language}` : ''}; times from the start of the note)`, 'text/vtt');
+    // the note ended when the reviewer added it
+    const base = Math.max(0, (v.atMs ?? 0) - (v.voice.durationMs ?? 0));
+    for (const c of cuesOf(v.voice.vtt)) merged.push({ startMs: base + c.startMs, endMs: base + c.endMs, text: `[${v.n}] ${c.text}` });
+  }
+  if (!mainTr?.vtt && merged.length)
+    add(
+      'voice/transcript.vtt',
+      buildVtt(merged.sort((x, y) => x.startMs - y.startMs), ['The reviewer\'s voice notes on the capture\'s clock; [aNN] names the annotation, voice/aNN.webm the audio.']),
+      "transcript of the reviewer's voice notes on the capture's clock (WebVTT)",
+      'text/vtt',
+    );
 
   // ---- console.jsonl ----
   const masking: MaskingPresetName = d.rec.maskingPreset ?? d.rec.env?.maskingPreset ?? 'none';

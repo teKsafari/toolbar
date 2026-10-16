@@ -8,6 +8,32 @@ const only = (s: Stream, opts = {}) => {
   return spans[0]!;
 };
 
+describe('iframes (D-161)', () => {
+  it('an iframe loading after a link click is not the route change, and alone starts no action', () => {
+    const s = new Stream()
+      .click(1000, button({ selector: 'nav a[href="/"]', tag: 'a', name: 'Buttons' }))
+      .add(1010, 'nav', { type: 'pushState', url: 'http://lab/' }, 'top')
+      .dom(1050, { text: 4, texts: ['Buttons'] })
+      .add(1200, 'nav', { type: 'load', url: 'http://lab/embed' }, 'fab12')
+      .add(9000, 'nav', { type: 'load', url: 'http://lab/embed' }, 'fcd34');
+    const { spans } = deriveTrace(s.events);
+    expect(spans).toHaveLength(1);
+    expect(spans[0]!.effects.nav).toEqual(['http://lab/']);
+    expect(spans[0]!.summary).toContain('went to /');
+    expect(spans[0]!.summary).not.toContain('/embed');
+  });
+});
+
+describe('text selection (D-161)', () => {
+  it('a drag that selects text reports the selection just before its click: changed, not dead', () => {
+    const h1 = button({ selector: 'h1', tag: 'h1', name: 'Buttons', role: 'heading' });
+    const s = new Stream().add(1000, 'user', { type: 'select', value: 'Buttons', target: { ...h1 } }).click(1002, h1);
+    const span = only(s);
+    expect(span.effects.selection).toBe(true);
+    expect(span.outcome).toBe('changed');
+  });
+});
+
 describe('outcomes of the lab buttons', () => {
   it('Save: request, then the status text changes -> changed, closed after 500 ms of quiet', () => {
     const s = new Stream()

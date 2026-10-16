@@ -163,7 +163,7 @@ Two Playwright suites in `e2e/`, both headed Chromium on a private Xvfb display 
 | Suite | Specs | Extension build | Config | Default display |
 |---|---|---|---|---|
 | Area suites | `e2e/tests/**` (one folder per area, about 230 tests) | test build `chrome-mv3-test` (open shadow root, `globalThis.__tb`) | `playwright.config.ts` | `:101` |
-| User journeys | `e2e/flows/*.spec.ts`, flows A to O of `docs/jam/flows.md`, P (branding) and Q (zero integration, D-126) | release build `chrome-mv3` | `playwright.flows.config.ts` | `:120` |
+| User journeys | `e2e/flows/*.spec.ts`, flows A to O of `docs/jam/flows.md`, P (branding), Q (zero integration, D-126), R (reviewer keys in the release build) and P2 (the owner's Part 2 scenario, D-163) | release build `chrome-mv3` | `playwright.flows.config.ts` | `:120` |
 
 ### Everything, from a clean database
 
@@ -192,6 +192,8 @@ FLOWS_PICKER=fake npx playwright test -c playwright.flows.config.ts d-desktop e-
 ```
 
 `e2e/global-setup.ts` starts Xvfb (and openbox) on `E2E_DISPLAY` when no X server owns it, and stops them at the end. Overrides: `E2E_DISPLAY`, `LAB_URL`, `SERVER_URL`, `OIDC_MOCK_URL`, `MAILPIT_URL`, `E2E_EXT_BUILD` (area suites), `FLOWS_EXT_BUILD` (flows), `DATABASE_URL` (defaults to the compose one), `E2E_CALLBACK_HOST`. The flows write to `test-results-flows/`, so both suites can run side by side on different displays.
+
+The Part 2 scenario (`e2e/flows/p2-scenario.spec.ts`, D-163) runs in a browser of its own on a private display (E2E_DISPLAY plus 59, :179 by default) with a fake microphone that plays a FLEURS clip; it needs ffmpeg and the whisper profile. `P2_CLAUDE=1` adds a real Claude Code run that reads the folder over MCP and resolves it (it calls a model); `FLOWS_EXT_BUILD=release-zip` runs it on the unpacked release zip (unzip `dist/open-toolbar-extension-<v>-chrome.zip` into `apps/extension/.output/release-zip`).
 
 The locator suite (`e2e/tests/locator`, D-128) also uses two more builds of the lab, each skipped with a reason when absent: `LAB_DEV_URL` (default `http://localhost:5184`, `cd lab && npx vite dev --port 5184`) for `__svelte_meta`, and `LAB_MAPS_URL` (default `http://localhost:5186`, `cd lab && npx vite build --sourcemap && PORT=5186 node server.js`) for source-mapped stacks. Run that build in a worktree's `lab/`: it writes `lab/build`, and in the main checkout it would replace the build the `toolbar-lab` unit serves on :5173, where the first locator test expects no maps.
 

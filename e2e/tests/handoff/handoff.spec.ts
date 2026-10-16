@@ -105,7 +105,7 @@ test('the share URL answers markdown whose first line pulls the folder; link hol
   const files = walk(dir).sort();
   for (const f of ['README.md', 'feedback.json', 'spans.jsonl', 'console.jsonl', 'network.jsonl', 'raw/network.har', 'raw/rrweb-000.json.gz']) expect(files).toContain(f);
   expect(files.some((f) => /^keyframes\/k\d\d\.png$/.test(f))).toBe(true);
-  expect(files.every((f) => /^(README\.md|feedback\.json|spans\.jsonl|console\.jsonl|network\.jsonl|annotations\/a\d\d\.(png|shapes\.json|locator\.json)|keyframes\/k\d\d\.png|outline\/[\w-]+\.md|text\/[\w-]+\.md|voice\/(transcript\.vtt|audio\.webm)|raw\/(rrweb-\d{3}\.json\.gz|network\.har))$/.test(f))).toBe(true);
+  expect(files.every((f) => /^(README\.md|feedback\.json|spans\.jsonl|console\.jsonl|network\.jsonl|annotations\/a\d\d\.(png|shapes\.json|locator\.json)|keyframes\/k\d\d\.png|outline\/[\w-]+\.md|text\/[\w-]+\.md|voice\/(transcript\.vtt|audio\.webm|a\d\d\.(webm|vtt))|raw\/(rrweb-\d{3}\.json\.gz|network\.har))$/.test(f))).toBe(true);
 
   const readme = readFileSync(join(dir, 'README.md'), 'utf8');
   expect(readme.length / 3.5).toBeLessThan(8000);

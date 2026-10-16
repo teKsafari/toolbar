@@ -127,9 +127,13 @@ test('visual: popup, options and the editor, light and dark', async ({ tb, conte
     const f = await editorFrame(lab);
     await lab.waitForTimeout(500);
     await lab.screenshot({ path: saveShot(`visual-editor-${theme}`) });
-    await f.getByRole('button', { name: /Share link/ }).first().click().catch(() => undefined);
-    await lab.waitForTimeout(200);
-    await lab.screenshot({ path: saveShot(`visual-editor-menu-${theme}`) });
+    // the destination menu belongs to the tracker picker, paused by owner scope (FEATURE_TRACKERS)
+    const menu = f.getByRole('button', { name: /Share link/ }).first();
+    if (await menu.count()) {
+      await menu.click();
+      await lab.waitForTimeout(200);
+      await lab.screenshot({ path: saveShot(`visual-editor-menu-${theme}`) });
+    }
     await lab.keyboard.press('Escape');
     await lab.close();
   }
