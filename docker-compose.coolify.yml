@@ -10,14 +10,16 @@
 #
 # Local transcription: add COMPOSE_PROFILES=whisper under Environment Variables to start the
 # whisper service, then pick "Local whisper.cpp" in Settings > Server. To pin a setting by
-# environment instead of the admin page, add its line under the server's environment below, for
-# example `TRANSCRIBE_MONTHLY_MINUTES: ${TRANSCRIBE_MONTHLY_MINUTES}`, and the variable under
-# Environment Variables (docs/configuration.md lists them).
+# environment instead of the admin page, add the variable under Environment Variables
+# (docs/configuration.md lists them): Coolify writes them to .env, which the server reads. Example:
+# EXTENSION_IDS when you publish the extension in the Chrome Web Store under your own id.
 # No service publishes a host port and no Traefik labels are set: Coolify's proxy routes the domain.
 
 services:
   server:
     build: { context: ., dockerfile: apps/server/Dockerfile }
+    # optional overrides: every variable set under Coolify's Environment Variables
+    env_file: [{ path: .env, required: false }]
     environment:
       SERVICE_URL_SERVER_3000: /
       PUBLIC_URL: ${SERVICE_URL_SERVER_3000}
