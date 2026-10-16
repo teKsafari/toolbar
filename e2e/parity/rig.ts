@@ -14,6 +14,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { browserEnv } from '../fixtures/browser-env.ts';
 
 export const EXT_ID = 'fmongfmimgdafigcahdpofnmmhljpnei';
 export const DISPLAY = process.env.PARITY_DISPLAY ?? ':130';
@@ -243,7 +244,7 @@ export async function launchExtension(opts: { cdpPort?: number; args?: string[];
   if (fresh) fs.writeFileSync(path.join(userDataDir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID], ui: { developer_mode: true } } }));
   const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
-    env: { ...process.env, DISPLAY: xDisplay },
+    env: browserEnv(xDisplay),
     viewport: null,
     args: [
       `--disable-extensions-except=${EXT_DIR}`,

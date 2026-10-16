@@ -7,13 +7,14 @@ import { DISPLAY } from '../../fixtures/extension.ts';
 import { callbackHost } from '../../fixtures/net.ts';
 import { SERVER, hydrated, showPassword, uniqueEmail } from '../auth/helpers.ts';
 import { signInOidc } from '../../fixtures/oidc.ts';
+import { browserEnv } from '../../fixtures/browser-env.ts';
 
 export { SERVER, uniqueEmail };
 
 export async function launch(): Promise<Browser> {
   return chromium.launch({
     headless: false,
-    env: { ...process.env, DISPLAY },
+    env: browserEnv(DISPLAY),
     args: [
       '--use-fake-ui-for-media-stream',
       '--use-fake-device-for-media-stream',

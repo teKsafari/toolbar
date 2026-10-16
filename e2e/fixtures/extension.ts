@@ -5,6 +5,7 @@ import { test as base, chromium, type BrowserContext, type Worker } from '@playw
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { browserEnv } from './browser-env.ts';
 
 export const EXT_ID = 'fmongfmimgdafigcahdpofnmmhljpnei';
 export const DISPLAY = process.env.E2E_DISPLAY ?? ':101';
@@ -46,7 +47,7 @@ export const test = base.extend<{ context: BrowserContext }, { extContext: Brows
       );
       const context = await chromium.launchPersistentContext(userDataDir, {
         headless: false,
-        env: { ...process.env, DISPLAY },
+        env: browserEnv(DISPLAY),
         viewport: null,
         args: [
           `--disable-extensions-except=${EXT_DIR}`,

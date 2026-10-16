@@ -15,6 +15,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { privateDisplay } from '../fixtures/xvfb.ts';
 import { mockProviderLogin } from '../fixtures/oidc.ts';
+import { browserEnv } from '../fixtures/browser-env.ts';
 export { signInOidc } from '../fixtures/oidc.ts';
 export { featureOn, pausedReason } from '../fixtures/features.ts';
 
@@ -520,7 +521,7 @@ export async function launchExtension(opts: { cdpPort?: number; args?: string[];
   fs.writeFileSync(path.join(userDataDir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID] } }));
   const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
-    env: { ...process.env, DISPLAY: opts.display ?? DISPLAY },
+    env: browserEnv(opts.display ?? DISPLAY),
     viewport: null,
     args: [
       `--disable-extensions-except=${EXT_DIR}`,

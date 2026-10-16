@@ -16,6 +16,7 @@ import { launch, json } from '../dashboard/helpers.ts';
 import { hydrated, mailTo } from '../auth/helpers.ts';
 import { SERVER, account, clipboard, connectGithub, connectSlack, expect, githubMock, setExtSettings, signInExtension, slackMock, type Account, type GitHubMock } from './helpers.ts';
 import { featureOn, skipUnlessFeature } from '../../fixtures/features.ts';
+import { browserEnv } from '../../fixtures/browser-env.ts';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const chrome: any;
@@ -430,7 +431,7 @@ test('J-200: on the link recorder a refused microphone shows how to allow it and
   // below would not reach getUserMedia; the screen picker still answers itself
   const own = await chromium.launch({
     headless: false,
-    env: { ...process.env, DISPLAY },
+    env: browserEnv(DISPLAY),
     args: ['--use-fake-device-for-media-stream', '--auto-select-desktop-capture-source=Entire screen', '--no-first-run'],
   });
   const ctx = await own.newContext({ viewport: { width: 1280, height: 860 } });

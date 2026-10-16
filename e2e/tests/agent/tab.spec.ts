@@ -6,6 +6,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { expect, test, chromium, type Page } from '@playwright/test';
 import { SERVER, hydrated, signInWithPassword } from '../auth/helpers.ts';
+import { browserEnv } from '../../fixtures/browser-env.ts';
 
 const C1 = '019a0000-0000-7000-8000-0000000000c1';
 const SHARE_C1 = process.env.AGENT_SHARE_TOKEN_C1 ?? 'BvD6xlMIN86tb1zMiJWuDw';
@@ -50,7 +51,7 @@ async function callTool(page: Page, token: string, name: string, args: Record<st
 }
 
 test('J-152 agent tab: setup prompt until an agent connects, then presets with the capture URL; J-151 comment time chip and reaction', async () => {
-  const browser = await chromium.launch({ headless: false, env: { ...process.env, DISPLAY: process.env.E2E_DISPLAY ?? ':117' } });
+  const browser = await chromium.launch({ headless: false, env: browserEnv(process.env.E2E_DISPLAY ?? ':117') });
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await ctx.newPage();
   await signInWithPassword(page, 'sam@toolbar.test', 'toolbar-dev-password');

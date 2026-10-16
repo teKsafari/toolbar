@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { browserEnv } from '../../../e2e/fixtures/browser-env.ts';
 
 export const EXT_ID = 'kbadilafkmgcdhpkbkhkihmihjpemhpp'; // fixed by "key" in manifest.json
 export const DISPLAY = ':100'; // never :99, the shared browser
@@ -30,7 +31,7 @@ export async function launch({ dpr = 1, args = [], openShadow = false } = {}) {
   );
   const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
-    env: { ...process.env, DISPLAY },
+    env: browserEnv(DISPLAY),
     viewport: null, // use the real window size so screen coordinates match
     args: [
       `--disable-extensions-except=${ext}`,
@@ -45,10 +46,10 @@ export async function launch({ dpr = 1, args = [], openShadow = false } = {}) {
   return { context, sw, userDataDir };
 }
 
-export const x = (...a) => execFileSync('xdotool', a, { env: { ...process.env, DISPLAY } }).toString().trim();
+export const x = (...a) => execFileSync('xdotool', a, { env: browserEnv(DISPLAY) }).toString().trim();
 export function shot(name) {
   const file = path.join(OUT, name);
-  execFileSync('import', ['-window', 'root', file], { env: { ...process.env, DISPLAY } });
+  execFileSync('import', ['-window', 'root', file], { env: browserEnv(DISPLAY) });
   return file;
 }
 export async function saveFile(sw, name, as = name) {

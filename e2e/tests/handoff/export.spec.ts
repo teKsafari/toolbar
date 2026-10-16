@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, expect, test, type Browser, type Page } from '@playwright/test';
 import { SERVER, injectorCapture, newAccount, screenshotCapture, waitReady } from './seed.ts';
+import { browserEnv } from '../../fixtures/browser-env.ts';
 
 test.describe.configure({ mode: 'serial', timeout: 240_000 });
 
@@ -25,7 +26,7 @@ const sh = (cmd: string, cwd: string) => execFileSync('sh', ['-c', cmd], { cwd, 
 const folders = (dir: string) => readdirSync(join(dir, '.feedback'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
 
 test.beforeAll(async () => {
-  browser = await chromium.launch({ headless: false, env: { ...process.env, DISPLAY: process.env.E2E_DISPLAY ?? ':101' }, args: ['--no-first-run'] });
+  browser = await chromium.launch({ headless: false, env: browserEnv(process.env.E2E_DISPLAY ?? ':101'), args: ['--no-first-run'] });
   page = await browser.newPage();
   ({ token, workspaceId: ws } = await newAccount(page, 'export'));
 });

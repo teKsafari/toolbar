@@ -1,6 +1,7 @@
 import { chromium } from '/home/dev/toolbar/node_modules/.pnpm/playwright-core@1.63.0/node_modules/playwright-core/index.mjs';
+import { browserEnv } from '../../../../e2e/fixtures/browser-env.ts';
 const S='http://localhost:3000';
-const b = await chromium.launch({ headless:false, env:{...process.env, DISPLAY:':161'} });
+const b = await chromium.launch({ headless:false, env: browserEnv(':161') });
 const ctx = await b.newContext({ viewport:{width:1440,height:900} });
 const p = await ctx.newPage(); await p.goto(S+'/login'); await p.waitForLoadState('networkidle');
 if (!(await p.getByLabel('Password').isVisible().catch(()=>false))) await p.getByRole('button',{name:'Use a password instead'}).click();

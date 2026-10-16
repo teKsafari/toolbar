@@ -1,9 +1,10 @@
 import { chromium } from '/home/dev/toolbar/node_modules/.pnpm/playwright-core@1.63.0/node_modules/playwright-core/index.mjs';
 import fs from 'node:fs';
+import { browserEnv } from '../../../../e2e/fixtures/browser-env.ts';
 const S = 'http://localhost:3000';
 const ID = process.env.CAP ?? '01a14061-b560-7dfd-854c-0eb3780c451c';
 const out = {};
-const browser = await chromium.launch({ headless: false, env: { ...process.env, DISPLAY: ':161' } });
+const browser = await chromium.launch({ headless: false, env: browserEnv(':161') });
 async function login(ctx) {
   const p = await ctx.newPage();
   await p.goto(S + '/login');

@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { DISPLAY, EXT_DIR, EXT_ID } from '../../fixtures/extension.ts';
 import { expect, signIn, sleep, svc, test } from './helpers.ts';
+import { browserEnv } from '../../fixtures/browser-env.ts';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const chrome: any;
@@ -25,7 +26,7 @@ test.beforeAll(async () => {
   fs.writeFileSync(file, '<!doctype html><title>Local lab page</title><h1>Local file</h1><button id="b" onclick="console.warn(\'local click\')">Click</button>');
   ctx = await chromium.launchPersistentContext(path.join(dir, 'profile'), {
     headless: false,
-    env: { ...process.env, DISPLAY },
+    env: browserEnv(DISPLAY),
     viewport: null,
     args: [`--disable-extensions-except=${EXT_DIR}`, `--load-extension=${EXT_DIR}`, `--allowlisted-extension-id=${EXT_ID}`, '--window-size=1280,800', '--force-device-scale-factor=1'],
   });

@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test as extTest, LAB_URL, DISPLAY, EXT_DIR, EXT_ID } from '../../fixtures/extension.ts';
 import { MOCK_TOKEN, startMockServer, type MockServer } from '../../fixtures/mock-upload-server.ts';
+import { browserEnv } from '../../fixtures/browser-env.ts';
 
 /** The extension API inside sw.evaluate() callbacks (they run in the service worker). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,7 +42,7 @@ export async function launchTabBrowser(display = DISPLAY): Promise<TabBrowser & 
   fs.writeFileSync(path.join(dir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID] } }));
   const context = await chromium.launchPersistentContext(dir, {
     headless: false,
-    env: { ...process.env, DISPLAY: display },
+    env: browserEnv(display),
     viewport: null,
     args: [`--disable-extensions-except=${EXT_DIR}`, `--load-extension=${EXT_DIR}`, `--allowlisted-extension-id=${EXT_ID}`, '--window-position=0,0', '--window-size=1280,800', '--force-device-scale-factor=1'],
   });

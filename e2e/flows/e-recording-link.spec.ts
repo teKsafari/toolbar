@@ -9,6 +9,7 @@
 // in a fresh browser, then falls back to fake media and annotates the test.
 import { chromium } from '@playwright/test';
 import { BrowserCrash, FAKE_MEDIA, SERVER, api, clipboard, expect, featureOn, labPage, linkIn, mailTo, openPopup, pickEntireScreenInPage, saveShot, test, throughPicker, waitReady, withPrivateDisplay, xshot } from './fixture.ts';
+import { browserEnv } from '../fixtures/browser-env.ts';
 
 test('E: recording link from the popup; a recipient with no extension records and sends; the sender gets the capture', async ({ tb, context }) => {
   // Sender: popup, recording-link row, a name, create (3 clicks and typing)
@@ -32,7 +33,7 @@ test('E: recording link from the popup; a recipient with no extension records an
   await throughPicker('E', (mode) => withPrivateDisplay(async (display) => {
     const browser = await chromium.launch({
       headless: false,
-      env: { ...process.env, DISPLAY: display },
+      env: browserEnv(display),
       args: ['--window-position=0,0', '--window-size=1440,900', '--force-device-scale-factor=1', ...(mode === 'fake' ? FAKE_MEDIA : [])],
     });
     let crashed = false;

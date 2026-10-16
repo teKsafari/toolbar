@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { expect, test, chromium, type Browser, type Page } from '@playwright/test';
 import { SERVER, hydrated, signInWithPassword } from '../auth/helpers.ts';
 import { skipUnlessFeature } from '../../fixtures/features.ts';
+import { browserEnv } from '../../fixtures/browser-env.ts';
 
 const DANA = { email: 'dana@toolbar.test', password: 'toolbar-dev-password' };
 const SHARE_C3 = process.env.AGENT_SHARE_TOKEN ?? 'SFq1xBEGwjZnpQ2jmqx2-g';
@@ -22,7 +23,7 @@ let page: Page;
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
-  browser = await chromium.launch({ headless: false, env: { ...process.env, DISPLAY: process.env.E2E_DISPLAY ?? ':117' } });
+  browser = await chromium.launch({ headless: false, env: browserEnv(process.env.E2E_DISPLAY ?? ':117') });
   page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
   await signInWithPassword(page, DANA.email, DANA.password);
 });

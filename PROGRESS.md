@@ -2,45 +2,41 @@
 
 A new session reads this file first.
 
-## Current step: Part 1, step 2 (replicate Jam): built, merged, journeys pass end to end
+## Current step: Part 2, step 5 (test with real software and show the owner)
+
+All five items of PLAN "Part 2, step 5" are done on main. Gate 5 waits on the owner: they have to see the running instance and the extension (DEMO.md says how). Last updated 2026-10-16.
 
 ### Plan for this step
-1. Repo scaffolding: `LICENSE`, `.gitignore` (with `research/jam-private/`), `docs/decisions.md`, this file.
-2. Build the lab app in `lab/` (SvelteKit) with every behavior listed in PLAN.md step 1.
-3. Owner logs in to Jam in the shared Chromium browser and installs the extension.
-4. Drive Jam on the lab app and public sites; write `docs/jam/*.md`.
-5. Second agent reviews the catalogue against Jam (gate 1).
+1. The owner's scenario on Nuru with the release extension, no change to Nuru.
+2. A second app of the owner's with a different structure.
+3. The three experiments of PLAN "Experiments", on Nuru.
+4. Real feedback folders handed to Claude Code, Codex and opencode; `docs/agent-handoff-results.md`.
+5. Show the owner: a running stack, the extension ready to install, a user README, DEMO.md with screenshots and one screen recording.
 
 ### Done
-- Scaffolding, lab app (`lab/`, user service `toolbar-lab` on :5173 and :5174).
-- Seven browser sessions with Jam plus public-doc research; raw notes in `research/jam-private/notes/` (gitignored).
-- `docs/jam/`: catalogue (251 rows: P0 73, P1 106, P2 72) after seven review rounds; gate 1 passed (D-017). Clean-room audit done.
-- `docs/research/owner-taste.md` (Agentation and Vercel Toolbar ergonomics, for Part 2).
-- `docs/architecture.md` (step 2 design) and `docs/spikes.md` (capture spikes S1, S2 and extras: all work, with caveats).
+- **Nuru** (`docs/real-world/nuru.md`, D-185): the scenario on https://116.nuru.sh (PR #116 preview of `teKsafari/nuru`), read-only clone at `/home/dev/nuru`. Seven Nuru bugs found; five open-toolbar fixes, the main one being screenshots that need activeTab (the pill now tells the reviewer to press Ctrl+Shift+Y once).
+- **Second app** (`docs/real-world/second-app.md`, D-186): the owner's IdrisElectro store (`Heracraft/csds221-pr03`, SvelteKit 1 with Sanity) on `vite dev`, through the extension and through the injector. Five fixes (SvelteKit 1 locator, injector rows kept across page loads, the trace badge, span summaries, load labels). No Next.js app of the owner's ran without paid or private services; Nuru covers Next.js.
+- **Experiment 1** (`docs/experiments/rrweb-cost.md`, D-190): ten-minute Nuru lesson, 0.64 MB a minute of rrweb gzipped, a quarter of a core while tracing. Stop trace now retries from its queued chunks.
+- **Experiment 2** (`docs/experiments/span-labels.md`, D-188, D-189): 30 hand-labelled actions, 83 % agreement before and 87 % after (90 % on new captures). Prefetched links and implicit submits join their click; Web Worker runs hold their span. The 500 ms, 2.5 s and 10 s windows stay.
+- **Experiment 3 and hand-off** (`docs/agent-handoff-results.md`, diffs in `docs/agent-handoff/`, D-187): twelve runs on three real bugs with "Fix the problem reported in <share link>". Each agent pulled the folder and read README.md first; all three found the `+Inf` and Address bugs. Codex guessed on the stale-lesson bug and opencode broke a correct sentence there, which led to text provenance in README.md. Reopening a capture now reopens its pins.
+- **Demo** (D-191): README.md rewritten for users; DEMO.md with a 2:44 video (`docs/demo/nuru-demo.mp4`), a GIF and 15 screenshots, covering the Nuru scenario through Claude Code fixing the stale-lesson bug. Stack on :3000 rebuilt; release zips in `dist/` rebuilt.
+- **Secrets in e2e traces** (D-192): browser launches in e2e passed the whole environment to Chromium, so Playwright's retained traces of failed tests held `OPENAI_API_KEY` and other tokens. Launches now take `browserEnv()` from `e2e/fixtures/browser-env.ts`, and the leaky trace files on this machine are deleted.
+- OpenAI spend in step 5: about 2.75 USD of the 3 USD cap (hand-off 2.74, Nuru 0.01, experiments 1 and 2 none). About 0.25 USD is left.
 
-### In flight (2026-10-14)
-- Step 2 done, gate 2 passed (2026-10-14): 241 rows built, 10 skipped; clean-clone verification passed. Area branches area/* kept for history.
-- Step 3 done, gate 3 passed (2026-10-15): docs/parity.md 115 match, 48 better, 0 gap, 16 paused.
-- Step 4, branding done (2026-10-15): Nib renamed to open-toolbar (D-111), instance branding by env or Settings > Server (D-112), extension follows the signed-in server's brand (D-113); user docs `docs/branding.md`; flows A, B and the new P pass on a rebuilt stack.
-- Step 4, scope task B done (2026-10-15): paused-feature flags close their routes (404) and the editor's destination picker, their e2e tests skip with "paused (docs/scope.md)" (D-115); one OIDC provider from `OIDC_ISSUER`/`OIDC_CLIENT_ID`/`OIDC_CLIENT_SECRET` with `ALLOWED_EMAIL_DOMAINS` and the `hd` check, Google and GitHub buttons gone, author issuer and subject on captures and comments (D-114); no SMTP or Mailpit by default, e2e signs in through the mock provider (D-116). Sign-in settings in `docs/configuration.md`.
-- Next: rest of step 4 (Part 2 specifics: chunked hosted transcription, compose and Coolify files, the rest of `docs/configuration.md`), then the teksafari.org design pass, then step 5.
-- Open after the merge (each a call or mount in another area's file, from the area reports):
-  - J-137, J-140: the editor's destination menu does not list integrations or mount dashboard's `TrackerFields`; finalize never sends `destination: {type:'integration'}`.
-  - J-138: the capture page header has the viewer's own send menu; dashboard's `SendToApp` (field form, J-140) is not mounted.
-  - J-136: no first-view email is sent at all yet (the mention and domain-join mails are gated).
-  - J-011: heavy-page detection and `replay.set {allowHeavy}` in the capture service.
-  - J-200: the recording-link recorder page has no denied-microphone instructions or record-without-voice choice.
-  - The viewer's share page checks revoked and expired links itself; folder privacy (`memberCanSee`) is applied only by server-core's routes.
-  - Capture e2e drives the product flows through `__tb.flow` (ext-ui's handlers over the capture driver); the bar and countdown UI checks live in the ext-ui suite.
+### Not done
+- Gate 5: the owner has not seen the product yet. Notify them with `repose-notify` once they can attach (ports 3000 and 3311 forward), or point them at DEMO.md.
+- `docker-compose.coolify.yml` is built but not yet deployed on a real Coolify.
+- Not pushed to `origin`; push when the owner asks.
 
-### End-to-end pass on main (2026-10-14)
-- `e2e/flows/` scripts the journeys of `docs/jam/flows.md` against the compose stack from empty volumes, the lab, and the release build of the extension: sign in through the popup (O), screenshot with a box (A), tab video of the lab errors (B), instant replay (C), the logged-out link and the failing request (F), a timed comment (G), folders (H), Ctrl+K (I), MCP consent and reads, plus an opt-in real Claude Code run (J), `nib pull` (CLI), draft recovery after the tab closes (M), and a visual pass at 1440 and 390 px, light and dark. Run: `pnpm --filter @toolbar/extension build && pnpm --filter @toolbar/e2e flows` (display `:120` by default). All 13 pass; results and gaps in `docs/status.md`, section "User journeys on main".
-- Fixed on the way: tab recording never started outside the fake driver (stream id expired during the countdown), the popup's tab came from the wrong window, tabs open before install had no in-page UI, a closed editor tab left the session busy, the countdown flashed 4, the MCP URL wrapped at 390 px.
+## Earlier steps (all gates passed)
 
-### Next
-- Step 2 gate: notify the owner; then step 3 (parity matrix against Jam).
-- Flows not scripted yet: D (desktop recording through Chrome's picker), E (recording link recipient), K (delete), L (invite), N (create workspace).
+- **Part 1, step 1** (gate 1, D-017): Jam catalogue in `docs/jam/` (251 rows), lab app in `lab/` (user service `toolbar-lab` on :5173 and :5174), raw notes in `research/jam-private/` (gitignored).
+- **Part 1, step 2** (gate 2, 2026-10-14): 241 rows built, 10 skipped; journeys in `e2e/flows/`; status in `docs/status.md`.
+- **Part 1, step 3** (gate 3, 2026-10-15): `docs/parity.md`, 115 match, 48 better, 0 gap, 16 paused.
+- **Part 2, step 4** (gate 4, 2026-10-15, `d48418c`): every Part 2 specific built (`docs/status.md`, "Part 2, step 4"; area reports in `docs/status/p4-*.md`). After the gate: the teksafari.org design pass (D-174 to D-182), bulk feedback export (D-183) and card images for every capture kind (D-184).
 
-### Machine notes
+## Machine notes
 - Installed on this machine only via nix profile: xdotool, imagemagick, xvfb, openbox, ffmpeg-headless.
 - Owner decisions: D-005 (no steering; Nuru as test target; Agentation and Vercel Toolbar taste), D-016 (no mobile or desktop apps).
+- Never use X display :99 (the shared browser). Run e2e on a private Xvfb display with openbox.
+- Off git, on this machine: `/home/dev/nuru` (Nuru clone), `/home/dev/nuru-run/`, `/home/dev/second-app-review/`, `/home/dev/handoff-run/` (agent transcripts and clones), `/home/dev/demo-raw/` (raw screen recordings).

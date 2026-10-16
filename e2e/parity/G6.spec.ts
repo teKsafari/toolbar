@@ -27,6 +27,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { privateDisplay } from '../fixtures/xvfb.ts';
 import { DISPLAY, Evidence, LAB_URL, ROOT, SERVER, api, availableMb, calm, clipboard, launchExtension, load, secs, signIn, sleep, waitReady, type Launched } from './rig.ts';
+import { browserEnv } from '../fixtures/browser-env.ts';
 
 const GROUP = 'G6';
 const EMAIL = process.env.PARITY_EMAIL ?? 'parity@example.com';
@@ -63,7 +64,7 @@ async function getPlain(): Promise<Browser> {
   if (plain) return plain;
   const free = availableMb();
   if (free < 1600) throw new Error(`only ${free} MB available; a second browser needs about 800 MB and 800 MB must stay free`);
-  plain = await chromium.launch({ headless: false, env: { ...process.env, DISPLAY }, args: ['--force-device-scale-factor=1', '--window-position=0,0', '--window-size=1448,991'] });
+  plain = await chromium.launch({ headless: false, env: browserEnv(DISPLAY), args: ['--force-device-scale-factor=1', '--window-position=0,0', '--window-size=1448,991'] });
   return plain;
 }
 
@@ -914,7 +915,7 @@ test('S6.3 recording links page, a recipient recording (N6), the workspace menu'
     const free = availableMb();
     if (free < 1600) throw new Error(`only ${free} MB available`);
     const x = await privateDisplay(170);
-    const browser = await chromium.launch({ headless: false, env: { ...process.env, DISPLAY: x.display }, args: ['--window-position=0,0', '--window-size=1440,900', '--force-device-scale-factor=1'] });
+    const browser = await chromium.launch({ headless: false, env: browserEnv(x.display), args: ['--window-position=0,0', '--window-size=1440,900', '--force-device-scale-factor=1'] });
     let crashed = false;
     let closing = false;
     browser.on('disconnected', () => {

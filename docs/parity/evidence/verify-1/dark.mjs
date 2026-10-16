@@ -1,8 +1,9 @@
 import { chromium } from '/home/dev/toolbar/node_modules/.pnpm/playwright-core@1.63.0/node_modules/playwright-core/index.mjs';
 import fs from 'node:fs';
+import { browserEnv } from '../../../../e2e/fixtures/browser-env.ts';
 const S='http://localhost:3000';
 const VIDEO='01a14061-b560-7dfd-854c-0eb3780c451c', SHOT='01a1401b-188c-72cc-ad78-3fb54c9ca37e';
-const b = await chromium.launch({ headless:false, env:{...process.env, DISPLAY:':161'} });
+const b = await chromium.launch({ headless:false, env: browserEnv(':161') });
 const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
 async function login(ctx){const p=await ctx.newPage();await p.goto(S+'/login');await p.waitForLoadState('networkidle');
 if(!(await p.getByLabel('Password').isVisible().catch(()=>false)))await p.getByRole('button',{name:'Use a password instead'}).click();

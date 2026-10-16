@@ -58,6 +58,7 @@ import {
   xmove,
   type Launched,
 } from './rig.ts';
+import { browserEnv } from '../fixtures/browser-env.ts';
 
 const GROUP = 'G7';
 const EMAIL = process.env.PARITY_EMAIL ?? 'parity@example.com';
@@ -125,7 +126,7 @@ async function getPlain(): Promise<Browser> {
   if (plain) return plain;
   const free = availableMb();
   if (free < 1600) throw new Error(`only ${free} MB available; a second browser needs about 800 MB and 800 MB must stay free`);
-  plain = await chromium.launch({ headless: false, env: { ...process.env, DISPLAY }, args: ['--force-device-scale-factor=1', '--window-position=0,0', '--window-size=1448,991'] });
+  plain = await chromium.launch({ headless: false, env: browserEnv(DISPLAY), args: ['--force-device-scale-factor=1', '--window-position=0,0', '--window-size=1448,991'] });
   return plain;
 }
 

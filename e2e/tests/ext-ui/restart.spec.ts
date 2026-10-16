@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { DISPLAY, EXT_DIR, EXT_ID, LAB_URL } from '../../fixtures/extension.ts';
+import { browserEnv } from '../../fixtures/browser-env.ts';
 
 base('J-177: restart from the menu reloads the extension and reopens the popup', async () => {
   base.skip(DISPLAY === ':99', 'never on the shared display');
@@ -14,7 +15,7 @@ base('J-177: restart from the menu reloads the extension and reopens the popup',
   fs.writeFileSync(path.join(dir, 'Default', 'Preferences'), JSON.stringify({ extensions: { pinned_extensions: [EXT_ID], ui: { developer_mode: true } } }));
   const context = await chromium.launchPersistentContext(dir, {
     headless: false,
-    env: { ...process.env, DISPLAY },
+    env: browserEnv(DISPLAY),
     viewport: null,
     args: [`--disable-extensions-except=${EXT_DIR}`, `--load-extension=${EXT_DIR}`, '--window-size=1280,800'],
   });
