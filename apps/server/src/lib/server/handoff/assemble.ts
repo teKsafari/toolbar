@@ -3,7 +3,7 @@
 // network.jsonl, raw/. No database access here; images, OCR and video frames come in through
 // `io`, so tests run it on fixtures.
 import { gzipSync, gunzipSync } from 'node:zlib';
-import type { CaptureEvent, EnvInfo, TargetRef } from '@toolbar/shared';
+import type { CaptureEvent, EnvInfo, Nav, TargetRef } from '@toolbar/shared';
 import type { Prepared } from '@toolbar/shared/derive';
 import { redactBody, redactHeaders, redactUrl, scrubText } from '@toolbar/shared/redact';
 import {
@@ -253,6 +253,40 @@ function locatorFromTarget(a: AnnotationIn, d: FolderData): Record<string, unkno
   };
 }
 
+/**
+ * Times the top document showed another page: every full load, and every history change of the
+ * top frame to another URL (the hash ignored). Navigations inside iframes do not count (D-161).
+ */
+export function pageChangeTimes(events: readonly Pick<CaptureEvent, 'kind' | 'ctx' | 't' | 'data'>[]): number[] {
+  const out: number[] = [];
+  let url: string | null = null;
+  const bare = (u: string) => u.replace(/#.*$/, '');
+  for (const e of events) {
+    if (e.kind !== 'nav' || (e.ctx && !e.ctx.startsWith('top'))) continue;
+    const n = e.data as Nav;
+    const u = bare(n.url ?? '');
+    if (url !== null && (n.type === 'load' || u !== url)) out.push(e.t);
+    url = u;
+  }
+  return out.sort((a, b) => a - b);
+}
+
+/**
+ * The keyframe that shows a canvas sample's page (D-165): the first one at or after the sample
+ * on the same page, else the last one before it on the same page, else none. A keyframe taken
+ * after the reviewer went to another page shows another page's pixels at the canvas rect.
+ */
+export function keyframeForSample<K extends { t: number }>(t: number, keyframes: readonly K[], pageChanges: readonly number[]): K | null {
+  const pageOf = (x: number) => {
+    let i = 0;
+    while (i < pageChanges.length && pageChanges[i]! <= x) i++;
+    return i;
+  };
+  const page = pageOf(t);
+  const same = keyframes.filter((k) => pageOf(k.t) === page);
+  return same.find((k) => k.t >= t) ?? same.filter((k) => k.t < t).at(-1) ?? null;
+}
+
 /** Shapes from image pixels of the crop into page CSS pixels, when the crop's place on the page is known. */
 function shapesToPage(shapes: Record<string, unknown>[], origin: { x: number; y: number } | null, scale: number): Record<string, unknown>[] {
   if (!origin) return shapes;
@@ -316,6 +350,8 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
         imageSize = { width: css.width, height: css.height };
         add(image, css.png, `annotation ${n}: the element the reviewer marked, drawing burned in, 1x CSS pixels`, 'image/png');
         if (crop) (locator as { crop?: unknown }).crop = { ...crop, file: `${n}.png` };
+        // a toolbar note's packet comes without a crop of its own: the note's crop is the image
+        else if (a.item && a.locator) (locator as { crop?: unknown }).crop = { w: css.width, h: css.height, scale: 1, file: `${n}.png` };
       } catch (e) {
         notes.push(`annotations/${n}.png is missing: its image could not be read (${(e as Error).message}).`);
       }
@@ -575,22 +611,29 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
     ].join('\n');
     add(`outline/${s.id}.md`, body, `span ${s.id}: changed regions and their text`, 'text/markdown');
   }
-  // OCR: canvas regions sampled during the trace, cut from the keyframe nearest after the sample
+  // OCR: canvas regions sampled during the trace, cut from a keyframe of the same page (D-165)
   if (await io.ocrAvailable()) {
     const samples = (d.events ?? []).filter((e) => (e.kind as string) === 'canvas.sample' && (e.data as { phase?: string }).phase === 'after') as unknown as { t: number; data: { key: string; rect: Rect } }[];
     const seen = new Set<string>();
+    const noFrame = new Set<string>();
+    const pageChanges = pageChangeTimes(d.events ?? []);
     let scroll = { x: 0, y: 0 };
     const scrollAt: { t: number; x: number; y: number }[] = [];
     for (const e of d.events ?? []) if (e.kind === 'user' && e.data.scroll) scrollAt.push({ t: e.t, ...e.data.scroll });
     let runs = 0;
     for (const sm of samples) {
       if (runs >= 8) break;
-      const kf = keyframeAssets.find((x) => x.t >= sm.t) ?? keyframeAssets.at(-1);
-      if (!kf || !kfFile.has(kf.a.id)) continue;
+      const kf = keyframeForSample(sm.t, keyframeAssets.filter((x) => kfFile.has(x.a.id)), pageChanges);
+      if (!kf) {
+        if (!noFrame.has(sm.data.key)) notes.push(`A canvas region (${sm.data.key.replace(/`/g, '')}) was sampled, but no keyframe in the folder shows its page, so it has no OCR.`);
+        noFrame.add(sm.data.key);
+        continue;
+      }
       const span = spans.find((s) => sm.t >= startedAt + s.startMs && sm.t <= startedAt + s.startMs + s.durationMs);
       const key = `${span?.id ?? 'x'}:${sm.data.key}`;
       if (seen.has(key)) continue;
       seen.add(key);
+      scroll = { x: 0, y: 0 };
       for (const s of scrollAt) if (s.t <= kf.t) scroll = s;
       try {
         const img = await io.bytes(kf.a.s3Key);

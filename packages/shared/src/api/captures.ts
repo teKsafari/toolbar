@@ -203,7 +203,7 @@ export const captureDetailSchema = captureSummarySchema.extend({
   /** Custom metadata from window.toolbar.setMetadata (J-073), at most 10 KB */
   metadata: z.record(z.string(), z.unknown()).nullable(),
   /** The project whose origin the page was on (D-123); null for captures made before projects or outside one. */
-  project: z.object({ id: idSchema, name: z.string() }).nullable().optional(),
+  project: z.object({ id: idSchema, name: z.string(), traceOpenMs: z.number().int().optional() }).nullable().optional(),
   /** Masking preset applied in the browser when the capture was made (D-125). */
   maskingPreset: z.enum(['staging', 'production', 'none']).nullable().optional(),
 });

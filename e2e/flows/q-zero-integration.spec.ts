@@ -20,7 +20,8 @@ test('Q: no site access at install, a project origin granted from the popup, not
       const perms = () => sw.evaluate(() => (globalThis as unknown as { chrome: { permissions: { getAll(): Promise<{ origins: string[] }> } } }).chrome.permissions.getAll());
       expect((await perms()).origins).toEqual([`${new URL(SERVER).origin}/*`]);
 
-      const { lab, popup } = await connectExtension(b.context, newEmail('zero'), { allowLab: false });
+      // a domain of its own: the admin step needs this account to own its workspace (D-169)
+      const { lab, popup } = await connectExtension(b.context, newEmail('zero', 'zero'), { allowLab: false });
       await expect(popup.getByTestId('site-access')).toHaveAttribute('data-state', 'not-in-project');
       await popup.close();
       const booted = (p: typeof lab) => p.evaluate((k) => !!(window as unknown as Record<symbol, unknown>)[Symbol.for(k)], BOOT);
@@ -32,12 +33,20 @@ test('Q: no site access at install, a project origin granted from the popup, not
       await web.bringToFront(); // a background tab gets no animation frames, and clicks wait for them
       await hydrated(web);
       await expect(web.getByTestId('projects-empty')).toBeVisible();
+      await expect(web.getByTestId('add-project'), 'the new account is the admin of its own workspace').toBeVisible();
       await web.getByTestId('add-project').click();
       await web.getByTestId('project-name').fill('Lab');
       await web.getByTestId('project-origins-input').fill(`${LAB_URL}/some/page`);
       await web.getByTestId('project-save').click();
       await expect(web.getByTestId('project-row')).toHaveCount(1);
       await expect(web.getByTestId('project-origins')).toHaveText(LAB_URL); // the path is dropped
+      // the trace step window is a project setting (D-166): 10 s unless the admin raises it
+      await expect(web.getByTestId('project-trace-open')).toHaveCount(0);
+      await web.getByTestId('project-edit').click();
+      await expect(web.getByTestId('project-trace-open-input')).toHaveValue('10');
+      await web.getByTestId('project-trace-open-input').fill('30');
+      await web.getByTestId('project-save').click();
+      await expect(web.getByTestId('project-trace-open')).toContainText('30 s');
       await web.screenshot({ path: saveShot('q-projects') });
       await web.close();
 
@@ -73,8 +82,9 @@ test('Q: no site access at install, a project origin granted from the popup, not
       const f = await editorFrame(page);
       const link = await createFromEditor(page, f, `Flow Q ${Date.now().toString(36)}`);
       const rec = await captureOf(b.context, link);
-      const detail = await api<{ project: { name: string } | null; maskingPreset: string | null }>(b.context, 'GET', `/api/v1/recordings/${rec.id}`);
+      const detail = await api<{ project: { name: string; traceOpenMs?: number } | null; maskingPreset: string | null }>(b.context, 'GET', `/api/v1/recordings/${rec.id}`);
       expect(detail.body.project?.name).toBe('Lab');
+      expect(detail.body.project?.traceOpenMs).toBe(30_000);
       expect(detail.body.maskingPreset).toBe('staging');
 
       // the server refuses a capture from an origin outside the workspace's projects

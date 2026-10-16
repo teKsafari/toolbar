@@ -354,6 +354,22 @@ test('P2.4: curl | tar xz with a personal token writes the PLAN folder, README i
   expect(files.every((f) => /^(README\.md|feedback\.json|spans\.jsonl|console\.jsonl|network\.jsonl|annotations\/a\d\d\.(png|shapes\.json|locator\.json)|keyframes\/k\d\d\.png|outline\/[\w-]+\.md|text\/[\w-]+\.md|voice\/(transcript\.vtt|audio\.webm|a\d\d\.(webm|vtt))|raw\/(rrweb-\d{3}\.json\.gz|network\.har))$/.test(f)), 'no file outside the PLAN layout').toBe(true);
   expect(fs.readFileSync(path.join(dir, 'voice/transcript.vtt'), 'utf8')).toMatch(/^WEBVTT/);
 
+  // the locator packet of the element comment (D-164): taken by the toolbar, not the server's fallback
+  const loc = JSON.parse(fs.readFileSync(path.join(dir, 'annotations/a01.locator.json'), 'utf8')) as { note?: string; testId?: string; routeFiles: { file: string; source: string }[]; errors?: { message: string }[] };
+  expect(loc.note, 'a01.locator.json comes from the extension').toBeUndefined();
+  expect(loc.testId).toBe('hidden-500');
+  expect(loc.routeFiles[0]).toMatchObject({ file: 'src/routes/+page.svelte', source: 'manifest' });
+  expect(loc.errors?.length ?? 0).toBeGreaterThan(0);
+  // OCR of the canvas reads the canvas page's pixels, not the page the reviewer went to next (D-165)
+  const ocr = files.filter((f) => /^text\/[\w-]+canvas[\w-]*\.md$/.test(f));
+  expect(ocr.length, 'text/ has the canvas OCR').toBeGreaterThan(0);
+  for (const f of ocr) {
+    const text = fs.readFileSync(path.join(dir, f), 'utf8');
+    expect(text, f).toMatch(/OCR/);
+    expect(text, f).toMatch(/python|Hello from the|canvas|exit 0|Traceback/i);
+    expect(text, f).not.toMatch(/Requests and errors/);
+  }
+
   // README.md order (PLAN): header, the fence rule, the reviewer's words, what did not happen,
   // the timeline, search hints and files
   const readme = fs.readFileSync(path.join(dir, 'README.md'), 'utf8');

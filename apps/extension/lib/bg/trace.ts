@@ -12,12 +12,14 @@
 import { browser, type Browser } from 'wxt/browser';
 import { toNdjson, type CaptureEvent } from '@toolbar/shared';
 import { uuidv7 } from '@toolbar/shared/ids';
+import { projectForUrl, traceOpenMsOf } from '@toolbar/shared/projects';
 import type { BgError, BgRequest, BgRequestType, TraceResult, TraceState } from '@toolbar/shared/ext';
 import { KEYFRAME_HASH_SIZE, LiveTrace, dHash, isNearDuplicate, type KeyframeRequest, type Span } from '@toolbar/trace';
 import { CaptureError, isRestrictedUrl, type CaptureService } from '../capture/service';
 import { getAuth, getPrivate, serverUrl, setPrivate } from '../capture/store';
 import { CaptureQueue, cropImage, dataUrlToBlob } from '../crop';
 import { TEST_HOOKS } from '../flags';
+import { projects } from '../scope';
 import { api, HttpError, type UploadAuthLike } from '../upload/client';
 import { enqueueNdjson } from '../upload/draft';
 import { drain, withRetry } from '../upload/queue';
@@ -32,6 +34,8 @@ interface Stored {
   startedAt: number;
   url: string;
   title: string;
+  /** span window for open requests, from the page's project (D-166) */
+  openMs?: number;
 }
 
 export class TraceController {
@@ -96,7 +100,8 @@ export class TraceController {
       source: 'extension',
       ...(env ? { env } : {}),
     });
-    this.cur = { recordingId: created.id, tabId: tab.id, windowId: tab.windowId ?? -1, startedAt, url: tab.url ?? '', title: tab.title ?? '' };
+    const openMs = traceOpenMsOf(projectForUrl(await projects(), tab.url ?? ''));
+    this.cur = { recordingId: created.id, tabId: tab.id, windowId: tab.windowId ?? -1, startedAt, url: tab.url ?? '', title: tab.title ?? '', openMs };
     await setPrivate(KEY, this.cur);
     this.svc.attachTrace(tab.id, created.id, startedAt);
     this.keyframeCount = 0;
@@ -110,7 +115,7 @@ export class TraceController {
 
   private begin() {
     const c = this.cur!;
-    this.live = new LiveTrace({ startedAt: c.startedAt, onKeyframe: (k) => void this.keyframe(k) });
+    this.live = new LiveTrace({ startedAt: c.startedAt, config: { maxOpenMs: traceOpenMsOf({ traceOpenMs: c.openMs }) }, onKeyframe: (k) => void this.keyframe(k) });
     this.untap?.();
     this.untap = this.svc.onEvents((batch) => {
       const mine = batch.filter((e) => e.tab === c.tabId && e.t >= c.startedAt);

@@ -27,7 +27,7 @@ Branch `p4/locator`. Decisions D-128 (locator packets) and D-129 (source maps).
 
 ## What is not built
 
-- No reviewer UI calls `locator.capture` yet: the element comment, text highlight and element screenshot tools (M-10 to M-15) belong to the comment work package. They should hide their own UI, call `locator.capture`, upload the crop as the annotation's asset and send the packet as `annotations[].locator` on finalize. Jam-style editor annotations stay burned into the screenshot with no locator.
+- Wired after the gate 4 review (D-164): the reviewer toolbar asks `locator.capture` for every note and stores the packet on `feedback_item.locator`; the injector's page bundle builds the packet in the page for each comment. Proof: `e2e/tests/reviewer` (production build and the vite dev server), the injector compose test, `apps/server/test/feedback.int.test.ts`. Jam-style editor annotations stay burned into the screenshot with no locator.
 - The hand-off folder writer is not here; it gets `annotations/aNN.locator.json` from `locatorFiles(detail.annotations)` and mapped frames from `stackmap` events by `ref`.
 - Elements inside iframes are described from the top document only (the iframe element itself).
 - Layout files (`+layout.svelte`) are not listed from the route table: SvelteKit's table holds layout node numbers, not their paths. Dev meta names them when the dev server runs.

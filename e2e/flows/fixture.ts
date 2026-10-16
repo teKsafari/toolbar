@@ -538,8 +538,12 @@ export async function launchExtension(opts: { cdpPort?: number; args?: string[];
 }
 
 let accounts = 0;
-/** A fresh address for a new account in this run. */
-export const newEmail = (who = 'flows') => `${who}-${run}-${++accounts}@flows${run}.test`;
+/**
+ * A fresh address for a new account in this run. `domain` gives the account an email domain of
+ * its own: on the shared `flows<run>.test` domain a new account joins the workspace flow N made
+ * with "same domain can join" on, as a member and not the owner of its own workspace (D-169).
+ */
+export const newEmail = (who = 'flows', domain = 'flows') => `${who}-${run}-${++accounts}@${domain}${run}.test`;
 
 /**
  * The worker's shared browser once a flow asked for it. The hook below reads it from here, so a

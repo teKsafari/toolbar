@@ -145,6 +145,46 @@ describe.skipIf(!reachable)('feedback items (integration)', () => {
     expect(bad.status).toBe(422);
   });
 
+  it('keeps the locator packet a note carries and writes it to the folder (D-164)', async () => {
+    const locator = {
+      v: 1,
+      kind: 'element',
+      at: Date.now(),
+      url: 'http://localhost:5173/items/42',
+      route: '/items/42',
+      masking: 'staging',
+      framework: { name: 'sveltekit', dev: true, routeId: '/items/[id]' },
+      routeFiles: [{ file: 'src/routes/items/[id]/+page.svelte', routeId: '/items/[id]', role: 'page', source: 'svelte-meta' }],
+      source: { file: 'src/routes/items/[id]/+page.svelte', line: 12, column: 2, via: 'svelte-meta', depth: 0 },
+      selector: 'main > button',
+      tag: 'button',
+      viewport: { w: 1280, h: 720, scrollX: 0, scrollY: 0, dpr: 1 },
+      errors: [{ t: 1, kind: 'error', message: 'TypeError: x', mapped: true, frames: [{ url: 'http://localhost:5173/_app/x.js', line: 1, col: 2, file: 'src/routes/items/[id]/+page.svelte', srcLine: 14, srcCol: 4 }] }],
+    };
+    const r = await m.route.POST(ev(owner, { method: 'POST', json: { items: [item(7, { locator }), item(8, { locator: { v: 1, kind: 'nonsense' } })] } }) as never);
+    expect(r.status).toBe(201);
+    const out = (await r.json()).items as { n: number; locator?: { routeFiles: unknown[] } }[];
+    expect(out.find((i) => i.n === 7)!.locator).toMatchObject({ source: { line: 12 }, routeFiles: [{ source: 'svelte-meta' }] });
+    // a packet outside the schema is dropped; the note stays
+    expect(out.find((i) => i.n === 8)!.locator).toBeUndefined();
+
+    const { collectFolder } = await import('../src/lib/server/handoff/folder.ts');
+    const { assembleFolder } = await import('../src/lib/server/handoff/assemble.ts');
+    const [rec] = await m.db.select().from(m.schema.recording);
+    const data = await collectFolder(m.db, rec!);
+    const none = async () => {
+      throw new Error('no io');
+    };
+    const f = await assembleFolder(data, { bytes: none, toCss: none, flatten: none, crop: none, size: none, ocr: async () => null, ocrAvailable: async () => false });
+    const n7 = data.annotations.findIndex((a) => a.item?.n === 7);
+    const file = `annotations/a${String(n7 + 1).padStart(2, '0')}.locator.json`;
+    const packet = JSON.parse(String(f.files.find((x) => x.path === file)!.data));
+    expect(packet.routeFiles[0].file).toBe('src/routes/items/[id]/+page.svelte');
+    expect(packet.source).toMatchObject({ file: 'src/routes/items/[id]/+page.svelte', line: 12 });
+    expect(packet.errors[0].frames[0].srcLine).toBe(14);
+    expect(packet.note).toBeUndefined();
+  });
+
   it('vttText joins the cues of a transcript', () => {
     expect(m.svc.vttText('WEBVTT\n\n00:00.000 --> 00:01.000\nThe export\n\n00:01.000 --> 00:02.500\ndoes nothing\n')).toBe('The export does nothing');
   });

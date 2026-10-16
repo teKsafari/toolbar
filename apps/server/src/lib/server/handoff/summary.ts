@@ -9,13 +9,14 @@ import { env } from '../env.ts';
 import type { RecordingRow } from '../share/access.ts';
 import { loadEvents, preparedOf } from '../mcp/data.ts';
 import { deriveSpans } from './spans.ts';
+import { traceConfigOf } from '../projects.ts';
 
 export async function sharePageOf(db: Db, rec: RecordingRow, shareUrl: string, devtools: boolean): Promise<string> {
   const e = (rec.env as EnvInfo | null) ?? null;
   const p = devtools ? await preparedOf(db, rec) : null;
   const events = devtools ? await loadEvents(db, rec) : null;
   const startedAt = rec.startedAt?.getTime();
-  const spans = events ? deriveSpans(events, startedAt !== undefined ? { startedAt } : {}) : null;
+  const spans = events ? deriveSpans(events, { ...(startedAt !== undefined ? { startedAt } : {}), config: await traceConfigOf(db, rec) }) : null;
   const [c] = await db.select({ n: count() }).from(comment).where(and(eq(comment.recordingId, rec.id), isNull(comment.deletedAt)));
   const [a] = await db.select({ n: count() }).from(annotation).where(eq(annotation.recordingId, rec.id));
   const [k] = await db.select({ n: count() }).from(asset).where(and(eq(asset.recordingId, rec.id), eq(asset.kind, 'keyframe')));

@@ -9,6 +9,9 @@ import { startMainWorld } from '@toolbar/capture/main';
 import { startIsolatedWorld } from '@toolbar/capture/isolated';
 import { UI_HOST_TAG } from '@toolbar/shared/constants';
 import { bodyPolicyOf, projectForUrl } from '@toolbar/shared/projects';
+import { completeLocator, createRouteTables } from '@toolbar/shared/locator-complete';
+import { createStackMapper, type FetchedText } from '@toolbar/shared/sourcemap';
+import type { LocatorPacket } from '@toolbar/shared/locator';
 import css from './style.css?inline';
 import Toolbar from './Toolbar.svelte';
 import { PageSession } from './session.ts';
@@ -72,6 +75,37 @@ function boot() {
     /* signed out or offline: events stay held; the next comment or trace tries again */
   });
 
+  // Locator packets for comments (D-164): the page's part from the isolated world (Svelte dev
+  // source through the MAIN-world listener), route files from the app's SvelteKit route table and
+  // the last minute's errors mapped through the app's source maps, all read with the saved fetch
+  // so they stay out of the network log.
+  const fetchText = async (url: string): Promise<FetchedText | null> => {
+    try {
+      const res = await nativeFetch(url, { credentials: 'same-origin', cache: 'force-cache' });
+      if (!res.ok) return null;
+      const headers: Record<string, string> = {};
+      for (const k of ['sourcemap', 'x-sourcemap', 'content-type']) {
+        const v = res.headers.get(k);
+        if (v) headers[k] = v;
+      }
+      return { text: await res.text(), headers };
+    } catch {
+      return null;
+    }
+  };
+  const routes = createRouteTables(fetchText, 8);
+  const mapper = createStackMapper({ fetchText });
+  const locate = async (at: { x: number; y: number }): Promise<LocatorPacket | undefined> => {
+    try {
+      await ensureConfig().catch(() => undefined); // the masking preset shapes the packet
+      if (!iso) return undefined;
+      const page = await iso.locate({ kind: 'element', at });
+      return await completeLocator(page, { routes, mapper, events: session.recentEvents(60_000) });
+    } catch {
+      return undefined;
+    }
+  };
+
   const mountUi = () => {
     const host = document.createElement(UI_HOST_TAG);
     const shadow = host.attachShadow({ mode: 'open' });
@@ -87,7 +121,7 @@ function boot() {
     // Keys typed into the toolbar stay out of the page's shortcuts.
     for (const t of ['keydown', 'keyup', 'keypress'] as const) target.addEventListener(t, (e) => e.stopPropagation());
     document.documentElement.appendChild(host);
-    mount(Toolbar, { target, props: { session, bootstrap, host } });
+    mount(Toolbar, { target, props: { session, bootstrap, host, locate } });
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountUi, { once: true });
   else mountUi();

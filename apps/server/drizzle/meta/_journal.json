@@ -71,6 +71,20 @@
       "when": 1792101900600,
       "tag": "0009_feedback_resolution",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792112544374,
+      "tag": "0010_feedback_item_locator",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792112786181,
+      "tag": "0011_project_trace_open",
+      "breakpoints": true
     }
   ]
 }

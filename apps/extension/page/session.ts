@@ -6,6 +6,7 @@
 // live in sessionStorage, and each new page attaches to it with a fresh rrweb full snapshot.
 import type { Command, Transport } from '@toolbar/capture/transport';
 import type { CaptureEvent, TargetRef } from '@toolbar/shared';
+import type { LocatorPacket } from '@toolbar/shared/locator';
 import { gzipText, ndjson, type PageClient, type PageStream } from './upload.ts';
 
 export const RING_MS = 60_000;
@@ -20,6 +21,8 @@ const tsOf = (e: unknown) => (e as Rr).timestamp ?? 0;
 export interface PageComment {
   comment: string;
   target?: TargetRef;
+  /** locator packet taken at the click (D-164) */
+  locator?: LocatorPacket;
   t: number;
   url: string;
 }
@@ -144,6 +147,12 @@ export class PageSession implements Transport {
     for (const h of this.handlers) h(c);
   }
 
+  /** Events of the last `ms` from the ring (the locator's error window). */
+  recentEvents(ms: number): CaptureEvent[] {
+    const now = this.now();
+    return this.ring.slice(now).events.filter((e) => e.t >= now - ms);
+  }
+
   /** Start the ring, and re-attach a trace that an earlier page of this tab started. */
   boot() {
     this.command({ type: 'ring', enabled: true, minutes: 1 });
@@ -203,7 +212,7 @@ export class PageSession implements Transport {
     const fin = await client.finalize(created.id, {
       title: titleOf(c.comment),
       description: c.comment,
-      annotations: [{ t: Math.max(0, Math.round(c.t - s.start)), shapes: [], comment: c.comment, ...(c.target ? { target: c.target } : {}) }],
+      annotations: [{ t: Math.max(0, Math.round(c.t - s.start)), shapes: [], comment: c.comment, ...(c.target ? { target: c.target } : {}), ...(c.locator ? { locator: c.locator } : {}) }],
     });
     return { shareUrl: fin.shareUrl || created.shareUrl };
   }
@@ -274,7 +283,7 @@ export class PageSession implements Transport {
       title: titleOf(note || lines[0] || `Trace on ${t.title || new URL(t.url).host}`),
       description,
       durationMs: Math.max(0, Math.round(this.now() - t.startedAt)),
-      annotations: t.comments.map((c) => ({ t: Math.max(0, Math.round(c.t - t.startedAt)), shapes: [], comment: c.comment, ...(c.target ? { target: c.target } : {}) })),
+      annotations: t.comments.map((c) => ({ t: Math.max(0, Math.round(c.t - t.startedAt)), shapes: [], comment: c.comment, ...(c.target ? { target: c.target } : {}), ...(c.locator ? { locator: c.locator } : {}) })),
     });
     this.trace = null;
     writeTrace(null);

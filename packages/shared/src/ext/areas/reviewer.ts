@@ -1,6 +1,7 @@
 // Extension messages of the in-page reviewer toolbar (Part 2). They merge into BgRequestMap in
 // ../messages.ts. The worker keeps each tab's unsent items; the page shows them as pins.
 import type { Rect, TargetRef } from '../../events.ts';
+import type { LocatorPacket } from '../../locator.ts';
 import type { FeedbackAnchor, FeedbackContext, FeedbackIntent, FeedbackKind, FeedbackPage, FeedbackSeverity, FeedbackShape } from '../../areas/reviewer.ts';
 
 /** One unsent item as the page sees it (blobs stay in the worker's IndexedDB). */
@@ -12,6 +13,8 @@ export interface ReviewItem {
   comment: string;
   quote?: string;
   target?: TargetRef;
+  /** locator packet from `locator.capture`, taken when the note was made (D-164) */
+  locator?: LocatorPacket;
   anchor?: FeedbackAnchor;
   shapes: FeedbackShape[];
   /** highlighted text boxes in document coordinates (kind `text`); drawn on the page only */

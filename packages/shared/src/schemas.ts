@@ -336,8 +336,11 @@ export const annotationInputSchema = z.object({
   shapes: z.array(z.record(z.string(), z.unknown())),
   target: targetRefSchema.optional(),
   comment: z.string().max(10_000).optional(),
-  /** where in the app's source the annotation points (annotations/aNN.locator.json, D-128) */
-  locator: locatorPacketSchema.optional(),
+  /**
+   * where in the app's source the annotation points (annotations/aNN.locator.json, D-128); a
+   * packet that does not fit the schema is dropped, never the annotation (D-164)
+   */
+  locator: locatorPacketSchema.optional().catch(undefined),
 });
 
 export const finalizeRecordingSchema = z.object({

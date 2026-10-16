@@ -55,6 +55,29 @@ function codeVars(): Map<string, string> {
   return found;
 }
 
+/** Variables the injector container (Go) reads: env("X", ...) and os.Getenv("X") (D-167). */
+function injectorVars(): Map<string, string> {
+  const found = new Map<string, string>();
+  const dir = 'apps/injector';
+  for (const f of readdirSync(join(root, dir)).filter((x) => x.endsWith('.go') && !x.endsWith('_test.go'))) {
+    const s = read(`${dir}/${f}`);
+    for (const m of s.matchAll(/\b(?:env|os\.Getenv|os\.LookupEnv)\(\s*"([A-Z][A-Z0-9_]*)"/g)) if (!found.has(m[1]!)) found.set(m[1]!, `${dir}/${f}`);
+  }
+  for (const m of read('deploy/injector/docker-compose.injector.yml').matchAll(/(?<!\$)\$\{([A-Z][A-Z0-9_]*)/g)) if (!found.has(m[1]!)) found.set(m[1]!, 'deploy/injector/docker-compose.injector.yml');
+  return found;
+}
+
+/** Variables the Agent Skill tells the agent's shell to set: $TOOLBAR_* in SKILL.md and the served copy. */
+function agentVars(): Map<string, string> {
+  const found = new Map<string, string>();
+  for (const f of ['skills/open-toolbar-feedback/SKILL.md', 'packages/shared/src/areas/handoff.ts']) {
+    const s = read(f);
+    for (const m of s.matchAll(/\$\{?(TOOLBAR_[A-Z0-9_]+)/g)) if (!found.has(m[1]!)) found.set(m[1]!, f);
+    for (const m of s.matchAll(/(?:_ENV|ENV_[A-Z]+) = '(TOOLBAR_[A-Z0-9_]+)'/g)) if (!found.has(m[1]!)) found.set(m[1]!, f);
+  }
+  return found;
+}
+
 const COMPOSE_FILES = ['docker-compose.yml', 'docker-compose.coolify.yml'];
 /** Coolify generates SERVICE_* values itself (docs/configuration.md, "Coolify"). */
 const isCoolifyMagic = (n: string) => n.startsWith('SERVICE_');
@@ -128,6 +151,13 @@ describe('docs/configuration.md', () => {
     expect(missing).toEqual([]);
   });
 
+  it('documents every variable the injector container and the agent side read', () => {
+    const inj = injectorVars();
+    expect(inj.size).toBeGreaterThan(5);
+    const missing = [...inj, ...agentVars()].filter(([n]) => !names.has(n)).map(([n, f]) => `${n} (${f})`);
+    expect(missing).toEqual([]);
+  });
+
   it('documents every variable of docker-compose.yml, docker-compose.coolify.yml and .env.example', () => {
     const missing = [...composeVars()].filter(([n]) => !names.has(n)).map(([n, f]) => `${n} (${f})`);
     missing.push(...[...envExampleVars()].filter((n) => !names.has(n)).map((n) => `${n} (.env.example)`));
@@ -135,7 +165,7 @@ describe('docs/configuration.md', () => {
   });
 
   it('lists no variable that nothing reads', () => {
-    const known = new Set([...codeVars().keys(), ...composeVars().keys(), ...envExampleVars()]);
+    const known = new Set([...codeVars().keys(), ...composeVars().keys(), ...envExampleVars(), ...injectorVars().keys(), ...agentVars().keys()]);
     const scripts = scriptText();
     const stale = [...names].filter((n) => !known.has(n) && !new RegExp(`\\b${n}\\b`).test(scripts));
     expect(stale).toEqual([]);

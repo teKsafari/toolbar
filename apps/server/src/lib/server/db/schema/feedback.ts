@@ -23,6 +23,8 @@ export const feedbackItem = pgTable(
     quote: text('quote'),
     /** locator packet of the element (TargetRef) */
     target: jsonb('target'),
+    /** locator packet from the extension (D-164): route files, Svelte dev source, mapped errors */
+    locator: jsonb('locator'),
     anchor: jsonb('anchor'),
     /** drawings in document coordinates */
     shapes: jsonb('shapes').notNull().default(sql`'[]'::jsonb`),

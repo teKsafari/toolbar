@@ -17,7 +17,7 @@ Put a TLS proxy in front of port 3000. On Coolify, deploy `docker-compose.coolif
 
 The extension: `scripts/release-extension.sh` writes versioned zips to `dist/` (load the `-chrome.zip` unpacked, or upload the `-chrome-webstore.zip` as an unlisted Chrome Web Store item); see `docs/extension-release.md`. For development, `docs/dev.md` explains the mock OIDC provider and the dev-only password sign-in.
 
-The extension installs with access to your server only and adds nothing to the apps you review. A workspace admin lists each app under Settings > Projects with its origins and a masking preset (staging or production). After sign-in, open the extension's popup on one of those apps and click Allow: the extension records there and on your other project origins, and nowhere else.
+The extension installs with access to your server only and adds nothing to the apps you review. A workspace admin lists each app under Settings > Projects with its origins and a masking preset (staging or production). After sign-in, open the extension's popup on one of those apps and click Allow: the extension records there and on your other project origins, and nowhere else. A project also sets how long a trace step waits for its open requests (10 s by default); raise it for an app whose actions, such as code runs, take longer.
 
 ## Hand feedback to your agent
 

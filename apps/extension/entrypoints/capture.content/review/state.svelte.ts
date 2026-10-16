@@ -5,7 +5,8 @@ import { browser } from 'wxt/browser';
 import { toasts } from '@toolbar/ui';
 import type { Rect, TargetRef } from '@toolbar/shared';
 import { DRAW_COLORS, type FeedbackAnchor, type FeedbackIntent, type FeedbackKind, type FeedbackSeverity, type FeedbackShape, type ShapeType } from '@toolbar/shared/areas/reviewer';
-import type { BgError, BgRequest, NewReviewItem, ReviewItem } from '@toolbar/shared/ext';
+import type { BgError, BgRequest, LocatorTarget, NewReviewItem, ReviewItem } from '@toolbar/shared/ext';
+import type { LocatorPacket } from '@toolbar/shared/locator';
 import { send, errorText } from '../ui/send';
 import { anchorOf, elementAt, labelOf, pageInfo, painted, pageSelection, selectionElement, shapesBox, targetOf, visibleRect } from './page';
 
@@ -29,6 +30,8 @@ export interface Draft {
   cropAuto?: boolean;
   voiceBlobId?: string;
   voiceDurationMs?: number;
+  /** the locator packet in flight (D-164): asked for when the note is made, awaited when it is added */
+  locatorP?: Promise<LocatorPacket | undefined>;
   comment: string;
   intent: FeedbackIntent;
   severity: FeedbackSeverity;
@@ -68,6 +71,30 @@ async function sendLoose<T>(type: string, req: Record<string, unknown> = {}): Pr
 }
 
 const CORNER_KEY = 'tb:review-corner';
+/** How long adding a note waits for its locator packet (source maps can be slow to fetch). */
+const LOCATOR_WAIT_MS = 8000;
+
+/**
+ * Ask the worker for the note's locator packet (D-164): route files from the app's route table,
+ * Svelte's dev source, the errors of the last minute with mapped stacks. The note has its own
+ * crop, so the packet takes none. Never rejects: a page that does not answer gives no packet.
+ */
+function locate(target: LocatorTarget, quote?: string): Promise<LocatorPacket | undefined> {
+  return send('locator.capture', { ...target, crop: false }).then(
+    (r) => {
+      if (!r.ok) return undefined;
+      const p = r.locator;
+      // the selection is gone by the time the page answers; the note keeps the quote
+      if (quote && p.masking !== 'production') p.selection = quote.slice(0, 2000);
+      return p;
+    },
+    () => undefined,
+  );
+}
+
+function within<T>(p: Promise<T | undefined>, ms: number): Promise<T | undefined> {
+  return Promise.race([p, new Promise<undefined>((r) => setTimeout(() => r(undefined), ms))]);
+}
 
 export class Review {
   awake = $state(false);
@@ -214,6 +241,7 @@ export class Review {
     const kind: FeedbackKind = this.tool === 'shot' ? 'shot' : 'element';
     this.hover = null;
     const draft: Draft = { id: null, kind, label: labelOf(target), target, anchor, shapes: [], comment: '', intent: 'fix', severity: 'important', at: { x, y } };
+    draft.locatorP = locate({ kind: 'element', at: { x, y } });
     const r = el.getBoundingClientRect();
     const rect = visibleRect(r);
     // a comment gets a quiet crop of its element too: the folder's annotations/aNN.png (D-160)
@@ -263,6 +291,7 @@ export class Review {
       draft.anchor = anchorOf(el, tip[0]! - scrollX, tip[1]! - scrollY);
     } else draft.anchor = { fx: 0.5, fy: 0.5, x: tip[0]!, y: tip[1]! };
     const pad = 16;
+    draft.locatorP = locate({ kind: 'area', rect: { x: box.x - scrollX, y: box.y - scrollY, w: box.w, h: box.h } });
     const rect = visibleRect({ left: box.x - scrollX, top: box.y - scrollY, width: box.w, height: box.h }, pad);
     this.draft = draft; // the drawing stays on screen for the crop
     if (rect) await this.shoot(draft, rect, { x: rect.x + scrollX, y: rect.y + scrollY, w: rect.w, h: rect.h });
@@ -314,6 +343,7 @@ export class Review {
       intent: 'fix',
       severity: 'important',
       at: { x: c.box.x + c.box.w, y: c.box.y + c.box.h },
+      locatorP: locate({ kind: 'text', rect: c.box }, c.text),
     };
     // a quiet crop of the selected text, 8 px around it, for the folder (D-160)
     const rect = visibleRect({ left: c.box.x, top: c.box.y, width: c.box.w, height: c.box.h }, 8);
@@ -450,6 +480,7 @@ export class Review {
       if (d.id) {
         r = await send('review.update', { id: d.id, patch: { comment: d.comment, intent: d.intent, severity: d.severity, voiceBlobId: d.voiceBlobId, voiceDurationMs: d.voiceDurationMs } });
       } else {
+        const locator = d.locatorP ? await within(d.locatorP, LOCATOR_WAIT_MS) : undefined;
         const item: NewReviewItem = {
           kind: d.kind,
           comment: d.comment,
@@ -460,6 +491,7 @@ export class Review {
           ...(d.quote ? { quote: d.quote } : {}),
           ...(d.marks ? { marks: $state.snapshot(d.marks) as Rect[] } : {}),
           ...(d.target ? { target: $state.snapshot(d.target) as TargetRef } : {}),
+          ...(locator ? { locator } : {}),
           ...(d.anchor ? { anchor: $state.snapshot(d.anchor) as FeedbackAnchor } : {}),
           ...(d.cropBlobId ? { cropBlobId: d.cropBlobId, cropRect: $state.snapshot(d.cropRect) as Rect } : {}),
           ...(d.voiceBlobId ? { voiceBlobId: d.voiceBlobId, voiceDurationMs: d.voiceDurationMs } : {}),
@@ -515,6 +547,7 @@ export class Review {
         shapes: [],
         voiceBlobId: r.blobId,
         voiceDurationMs: r.durationMs,
+        locatorP: locate({ kind: 'page' }),
         comment: '',
         intent: 'fix',
         severity: 'important',

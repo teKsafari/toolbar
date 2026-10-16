@@ -7,11 +7,25 @@
   import { onMount } from 'svelte';
   import { describeNode } from '@toolbar/capture';
   import type { TargetRef } from '@toolbar/shared';
+  import type { LocatorPacket } from '@toolbar/shared/locator';
   import { UI_HOST_TAG } from '@toolbar/shared/constants';
   import type { PageSession } from './session.ts';
   import type { Bootstrap } from './upload.ts';
 
-  let { session, bootstrap, host }: { session: PageSession; bootstrap: () => Promise<Bootstrap>; host: Element } = $props();
+  let {
+    session,
+    bootstrap,
+    host,
+    locate,
+  }: {
+    session: PageSession;
+    bootstrap: () => Promise<Bootstrap>;
+    host: Element;
+    /** the locator packet of the element under a viewport point (D-164); never rejects */
+    locate?: (at: { x: number; y: number }) => Promise<LocatorPacket | undefined>;
+  } = $props();
+  const LOCATOR_WAIT_MS = 8000;
+  let locatorP: Promise<LocatorPacket | undefined> | null = null;
 
   type Mode = 'idle' | 'picking' | 'composing' | 'stopping';
   let mode: Mode = $state('idle');
@@ -90,6 +104,7 @@
     mode = 'idle';
     text = '';
     target = null;
+    locatorP = null;
     anchor = null;
     showOutline(null);
   }
@@ -110,6 +125,7 @@
     const el = e.target instanceof Element ? e.target : null;
     if (!el || el.tagName.toLowerCase() === UI_HOST_TAG) return;
     target = describeNode(el);
+    locatorP = locate ? locate({ x: e.clientX, y: e.clientY }) : null;
     anchor = el.getBoundingClientRect();
     commentedAt = Date.now();
     mode = 'composing';
@@ -156,7 +172,8 @@
       if (!comment) return;
       busy = true;
       try {
-        const r = await session.comment({ comment, target: target ?? undefined, t: commentedAt || Date.now(), url: location.href });
+        const locator = locatorP ? await Promise.race([locatorP, new Promise<undefined>((r) => setTimeout(() => r(undefined), LOCATOR_WAIT_MS))]) : undefined;
+        const r = await session.comment({ comment, target: target ?? undefined, ...(locator ? { locator } : {}), t: commentedAt || Date.now(), url: location.href });
         if ('queued' in r) {
           queued = session.trace?.comments.length ?? queued + 1;
           toast = { text: 'Added to the trace.' };

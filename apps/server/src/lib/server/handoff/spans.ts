@@ -12,7 +12,7 @@ export interface SpansResult {
 }
 
 /** Spans of a capture's events, through the @toolbar/trace engine (D-150). */
-export function deriveSpans(events: readonly CaptureEvent[], opts: { startedAt?: number; endedAt?: number }): SpansResult | null {
+export function deriveSpans(events: readonly CaptureEvent[], opts: { startedAt?: number; endedAt?: number; config?: { maxOpenMs: number } }): SpansResult | null {
   const t = deriveTrace(events, opts);
   return { spans: t.spans as unknown as FolderSpan[], outcomes: t.summary.outcomes };
 }

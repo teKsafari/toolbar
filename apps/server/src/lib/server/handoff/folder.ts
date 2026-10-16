@@ -15,6 +15,7 @@ import { assembleFolder, type BuiltFolder, type FolderData, type FolderIo } from
 import { cropRegion, flatten, frameToCss, sizeOf, toCssPixels } from './images.ts';
 import { ocrAvailable, ocrPng } from './ocr.ts';
 import { deriveSpans } from './spans.ts';
+import { traceConfigOf } from '../projects.ts';
 import { feedbackItemsOf } from './items.ts';
 import { tarGz } from './tar.ts';
 import sharp from 'sharp';
@@ -52,7 +53,11 @@ export async function collectFolder(db: Db, rec: RecordingRow): Promise<FolderDa
   const prepared = events ? prepare(events, rec.startedAt?.getTime() ?? null, hasVideo) : null;
   const startedAt = rec.startedAt?.getTime();
   const spans = events
-    ? deriveSpans(events, { ...(startedAt !== undefined ? { startedAt } : {}), ...(startedAt !== undefined && rec.durationMs != null ? { endedAt: startedAt + rec.durationMs } : {}) })
+    ? deriveSpans(events, {
+        ...(startedAt !== undefined ? { startedAt } : {}),
+        ...(startedAt !== undefined && rec.durationMs != null ? { endedAt: startedAt + rec.durationMs } : {}),
+        config: await traceConfigOf(db, rec),
+      })
     : null;
   return {
     server: env.publicUrl,
@@ -99,8 +104,8 @@ export async function collectFolder(db: Db, rec: RecordingRow): Promise<FolderDa
         t: it.t,
         shapes: it.shapes,
         target: (it.target as TargetRef | null) ?? null,
-        // the locator work package puts a full packet in target (it has routeFiles)
-        locator: it.target && 'routeFiles' in it.target ? it.target : null,
+        // the packet the extension took with the note (D-164); older rows have only the target
+        locator: it.locator ?? (it.target && 'routeFiles' in it.target ? it.target : null),
         comment: it.comment || null,
         author: it.authorName ?? it.authorEmail ?? rec.authorName ?? 'reviewer',
         createdAt: it.createdAt,

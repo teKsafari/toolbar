@@ -174,6 +174,16 @@ describe.skipIf(!reachable)('projects (integration)', () => {
     expect(await r.json()).toMatchObject({ maskingPreset: 'production', bodyAllowlist: ['https://staging.lab.test/api/public/*'] });
     expect((await patch(owner, { bodyAllowlist: ['not a url'] })).status).toBe(422);
     expect((await patch(owner, { origins: [] })).status).toBe(422);
+    // the trace span window (D-166): 10 s unless the admin changes it, within 3 s to 10 min
+    expect(p!.traceOpenMs).toBe(10_000);
+    const longer = await patch(owner, { traceOpenMs: 45_000 });
+    expect(longer.status).toBe(200);
+    expect(await longer.json()).toMatchObject({ traceOpenMs: 45_000 });
+    expect((await patch(owner, { traceOpenMs: 500 })).status).toBe(422);
+    expect((await patch(owner, { traceOpenMs: 3_600_000 })).status).toBe(422);
+    const { traceConfigOf } = await import('../src/lib/server/projects.ts');
+    expect(await traceConfigOf(m.db, { projectId: p!.id })).toEqual({ maxOpenMs: 45_000 });
+    expect(await traceConfigOf(m.db, { projectId: null })).toEqual({ maxOpenMs: 10_000 });
 
     const before = (await m.db.select().from(m.schema.recording)).length;
     const del = await m.one.DELETE(ev(owner, { method: 'DELETE', url: `http://localhost:3000/api/v1/projects/${p!.id}`, params: { id: p!.id } }) as never);

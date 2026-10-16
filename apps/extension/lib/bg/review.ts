@@ -174,6 +174,7 @@ async function submit(svc: CaptureService, tabId: number, req: BgRequestMap['rev
       comment: it.comment,
       ...(it.quote ? { quote: it.quote } : {}),
       ...(it.target ? { target: it.target } : {}),
+      ...(it.locator ? { locator: it.locator } : {}),
       ...(it.anchor ? { anchor: it.anchor } : {}),
       shapes: it.shapes,
       ...(cropAssetId ? { cropAssetId, ...(it.cropRect ? { cropRect: it.cropRect } : {}) } : {}),

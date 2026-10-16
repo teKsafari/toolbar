@@ -1,6 +1,6 @@
 # Configuration
 
-open-toolbar reads its settings from environment variables. With Docker Compose you put them in `.env` next to `docker-compose.yml`; on Coolify you set them under Environment Variables. This page lists every variable the server, the compose files and the extension build read, grouped by area. A test (`apps/server/test/config-docs.test.ts`) compares this page with the code, both compose files and `.env.example`, and fails when a variable is missing here or listed here without a reader.
+open-toolbar reads its settings from environment variables. With Docker Compose you put them in `.env` next to `docker-compose.yml`; on Coolify you set them under Environment Variables. This page lists every variable the server, the injector container, the compose files, the extension build and the agent's shell read, grouped by area. A test (`apps/server/test/config-docs.test.ts`) compares this page with the server and extension code, the injector's Go code and Coolify file, the Agent Skill, both compose files and `.env.example`, and fails when a variable is missing here or listed here without a reader.
 
 ## The basic deployment
 
@@ -262,13 +262,39 @@ Paused with `FEATURE_AI` (D-084). With the flag on, any OpenAI-compatible chat e
 
 ## Injector
 
-The injector (`apps/injector/README.md`, D-157) adds the toolbar to apps behind it for signed-in reviewers, with no extension and no change to the app. The server issues the reviewer cookies it accepts. Reviewers start at `https://<app host>/__toolbar/login`. The injector's own variables (`INJECTOR_UPSTREAMS`, `TOOLBAR_SERVER_URL`, `TOOLBAR_PUBLIC_URL` and others) and its Coolify setup (`deploy/injector/`) are in `apps/injector/README.md`.
+The injector (`apps/injector/README.md`, D-157) adds the toolbar to apps behind it for signed-in reviewers, with no extension and no change to the app. It is a container of its own (`apps/injector/Dockerfile`, Coolify file in `deploy/injector/`). The server issues the reviewer cookies it accepts. Reviewers start at `https://<app host>/__toolbar/login`.
+
+You set variables in two places: the open-toolbar server (this table) and the injector container (the next table). `INJECTOR_SECRET` goes in both, with the same value.
 
 | Variable | Default | Example | Purpose and when to change |
 |---|---|---|---|
-| `INJECTOR_SECRET` | empty | output of `openssl rand -base64 48` | HMAC key shared with the injector container, at least 32 characters; set the same value on both. Empty: `/review/start` answers 404 and no cookie is issued. On a public URL the server refuses a shorter value. |
+| `INJECTOR_SECRET` | empty | output of `openssl rand -base64 48` | Server and injector container, the same value on both: the HMAC key that signs reviewer cookies, at least 32 characters. Empty on the server: `/review/start` answers 404 and no cookie is issued; on a public URL the server refuses a shorter value. Empty on the injector: it logs a warning and passes every request through without the toolbar; shorter than 32 characters: it exits at start. Set it when you deploy the injector; changing it signs every reviewer out of every site. |
 | `INJECTOR_ORIGINS` | empty | `https://nuru.example.org` | The app origins behind the injector, comma separated. The server signs cookies for these origins only. Empty: the origins of the projects (Settings, Projects) in the reviewer's own workspaces. |
 | `INJECTOR_COOKIE_DAYS` | `7` | `30` | How long a reviewer cookie and its device token last, 1 to 90 days. Each sign-in on a site makes a device token named "Review on <host>" under Settings, Connected browsers; revoking it ends the reviewer's uploads at once and the injection when the cookie expires. |
+
+### Injector container
+
+Read by `apps/injector` (Go), never by the server. Values are trimmed; an empty value means the default. The injector exits at start with a message when a URL is not `http(s)://host` or when neither upstream variable is set.
+
+| Variable | Default | Example | Purpose and when to change |
+|---|---|---|---|
+| `INJECTOR_UPSTREAMS` | empty | `nuru.example.org=http://nuru-app:3000,admin.nuru.example.org=http://nuru-admin:3000` | `host=url` pairs, comma, space or newline separated: for each public host, the app container the injector forwards to. One injector can front several apps. Hosts compare in lower case without the port. Set it, or `INJECTOR_UPSTREAM`, when you put an app behind the injector; add a pair for each new app. |
+| `INJECTOR_UPSTREAM` | empty | `http://nuru-app:3000` | The app for hosts not listed in `INJECTOR_UPSTREAMS`. Enough on its own when the injector fronts one app. With neither set the injector refuses to start. |
+| `TOOLBAR_SERVER_URL` | empty | `http://open-toolbar-server:3000` | The open-toolbar server as the injector container reaches it, usually its container name on the shared Docker network. The injector relays the toolbar's uploads (`/__toolbar/api/...`) there. Empty: those uploads answer 503, so comments and traces from the page fail. Change it when the server's container or network address changes. |
+| `TOOLBAR_PUBLIC_URL` | `TOOLBAR_SERVER_URL` | `https://feedback.example.org` | The open-toolbar server as reviewers' browsers reach it (the server's `PUBLIC_URL`). `/__toolbar/login` sends reviewers there to sign in. Empty and no `TOOLBAR_SERVER_URL`: the login page answers 503. Set it whenever the injector reaches the server at an internal address. |
+| `INJECTOR_TRUST_FORWARDED` | `1` | `0` | `1` reads the scheme and host of each request from `X-Forwarded-Proto` and `X-Forwarded-Host`, which Traefik and most proxies set; the cookie name (`__Host-` on https), the origin check and the upstream choice depend on them. Set `0` when browsers talk to the injector directly, so a client cannot claim another host. |
+| `INJECTOR_SCAN_LIMIT` | `262144` (256 KB) | `524288` | Bytes of an HTML page the injector reads looking for `<head>` before it gives up and sends the page unchanged. Raise it for apps that stream a very long preamble before the head; lower values save memory per request. |
+| `INJECTOR_LISTEN` | `:8080` | `127.0.0.1:9090` | Address and port the injector listens on, and the container healthcheck calls. Change it when 8080 clashes with something else in the container's network namespace, and update the Traefik file (`deploy/injector/traefik-open-toolbar-injector.yml`) to match. |
+| `INJECTOR_ASSETS` | `/srv/toolbar` | `/opt/toolbar` | Folder that holds the page bundle `toolbar.js`, served at `/__toolbar/toolbar.js`. The Dockerfile copies the bundle there; change it only when you build your own image with the bundle somewhere else. |
+
+## Agent side
+
+Read by the coding agent's shell, not by any service: the Agent Skill (`skills/open-toolbar-feedback/SKILL.md`, also served at `<server>/api/v1/skill`) and the pull command on share pages use them. Set them in the environment the agent runs in.
+
+| Variable | Default | Example | Purpose and when to change |
+|---|---|---|---|
+| `TOOLBAR_SERVER` | the server that served the skill (`<server>/api/v1/skill`); empty for the repo copy | `https://feedback.example.com` | Base URL of the open-toolbar server the agent pulls feedback folders from and resolves feedback on. Set it once per agent machine; change it when the server moves. |
+| `TOOLBAR_TOKEN` | empty | a personal API token from Settings, API tokens | Bearer token for the folder download and the resolve call. Read access pulls; write access also resolves. Make one per agent and revoke it when the agent no longer needs access. Never commit or print it. |
 
 ## Media tools
 

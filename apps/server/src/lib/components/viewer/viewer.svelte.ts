@@ -6,6 +6,7 @@ import type { CaptureEvent } from '@toolbar/shared';
 import type { CaptureDetail, CommentThread, Comment } from '@toolbar/shared/api';
 import { buildTimeMap, deriveActions, deriveConsole, deriveMarkers, deriveNetwork, isFailed, type TimeMap } from '@toolbar/ui/viewer';
 import { deriveTrace, type Span } from '@toolbar/trace';
+import { traceOpenMsOf } from '@toolbar/shared/projects';
 import { fetchJsonMaybeGzip, setShareToken } from './api.ts';
 import { loadPrefs, savePrefs, type ViewerPrefs } from './prefs.ts';
 import type { ViewerData } from './types.ts';
@@ -62,7 +63,7 @@ export class Viewer {
   actions = $derived(deriveActions(this.events, this.map));
   markers = $derived(deriveMarkers(this.consoleRows, this.network, this.events, this.map));
   /** Part 2 traces: interaction spans with outcomes, by the event that started each (Actions tab). */
-  spans: Span[] = $derived(this.detail.kind === 'trace' && this.events.length ? deriveTrace(this.events, { startedAt: this.map.startedAt }).spans : []);
+  spans: Span[] = $derived(this.detail.kind === 'trace' && this.events.length ? deriveTrace(this.events, { startedAt: this.map.startedAt, config: { maxOpenMs: traceOpenMsOf(this.detail.project) } }).spans : []);
   spanByEvent = $derived(new Map(this.spans.map((s) => [s.action.eventId, s])));
   chapters: Chapter[] = $derived(this.computeChapters());
   /** Desktop recordings gather several tabs; show a Tab column then (J-224). */

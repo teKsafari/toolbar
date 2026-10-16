@@ -27,7 +27,7 @@ async function desktopRecordingOn(display: string, mode: Mode) {
   });
   const session = async () => (await (await b.sw()).evaluate(async () => (await chrome.storage.session.get('tb:session'))['tb:session'])) as Session;
   try {
-    const { lab, popup: first } = await connectExtension(b.context, newEmail('desk'));
+    const { lab, popup: first } = await connectExtension(b.context, newEmail('desk', 'desk'));
     await first.close();
     await lab.close();
 

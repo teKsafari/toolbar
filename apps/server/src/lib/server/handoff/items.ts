@@ -12,6 +12,7 @@ export interface ItemRow {
   comment: string;
   quote: string | null;
   target: Record<string, unknown> | null;
+  locator: Record<string, unknown> | null;
   shapes: Record<string, unknown>[];
   cropAssetId: string | null;
   cropRect: { x: number; y: number; w: number; h: number } | null;
@@ -54,6 +55,7 @@ export async function feedbackItemsOf(db: Db, recordingId: string): Promise<Item
     comment: String(r.comment ?? ''),
     quote: (r.quote as string | null) ?? null,
     target: json(r.target),
+    locator: json(r.locator),
     shapes: json<Record<string, unknown>[]>(r.shapes) ?? [],
     cropAssetId: (r.crop_asset_id as string | null) ?? null,
     cropRect: json(r.crop_rect),

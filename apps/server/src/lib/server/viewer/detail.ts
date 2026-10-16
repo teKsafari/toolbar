@@ -152,7 +152,7 @@ export async function captureDetail(ctx: ViewerCtx): Promise<CaptureDetail> {
     // window.toolbar.setMetadata output stored at create (J-073)
     metadata: rec.metadata && typeof rec.metadata === 'object' && !Array.isArray(rec.metadata) ? (rec.metadata as Record<string, unknown>) : null,
     // D-123, D-125
-    project: rec.projectId ? ((await db.select({ id: project.id, name: project.name }).from(project).where(eq(project.id, rec.projectId)).limit(1))[0] ?? null) : null,
+    project: rec.projectId ? ((await db.select({ id: project.id, name: project.name, traceOpenMs: project.traceOpenMs }).from(project).where(eq(project.id, rec.projectId)).limit(1))[0] ?? null) : null,
     maskingPreset: rec.maskingPreset ?? (env0 as { maskingPreset?: CaptureDetail['maskingPreset'] } | null)?.maskingPreset ?? null,
   };
 }

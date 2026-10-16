@@ -1,0 +1,1 @@
+ALTER TABLE "project" ADD COLUMN "trace_open_ms" integer DEFAULT 10000 NOT NULL;

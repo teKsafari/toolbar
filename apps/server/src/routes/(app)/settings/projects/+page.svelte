@@ -5,7 +5,7 @@
   import { invalidateAll } from '$app/navigation';
   import { Button, toasts } from '@toolbar/ui';
   import type { Project } from '@toolbar/shared/api';
-  import { PRESET_LABELS, PRESET_SUMMARY, PROJECT_PRESETS, normalizeOrigin, type ProjectPreset } from '@toolbar/shared/projects';
+  import { PRESET_LABELS, PRESET_SUMMARY, PROJECT_PRESETS, TRACE_OPEN_MS, normalizeOrigin, type ProjectPreset } from '@toolbar/shared/projects';
   import Section from '#lib/components/dashboard/Section.svelte';
   import Modal from '#lib/components/dashboard/Modal.svelte';
   import Confirm from '#lib/components/dashboard/Confirm.svelte';
@@ -19,12 +19,15 @@
   let originsText = $state('');
   let preset = $state<ProjectPreset>('staging');
   let allowText = $state('');
+  /** span window for open requests, in seconds (D-166) */
+  let openSec = $state(TRACE_OPEN_MS.default / 1000);
   let busy = $state(false);
   let removing = $state<Project | null>(null);
 
   const lines = (s: string) => s.split(/[\n,]+/).map((x) => x.trim()).filter(Boolean);
   const badOrigins = $derived(lines(originsText).filter((o) => !normalizeOrigin(o)));
-  const valid = $derived(!!name.trim() && lines(originsText).length > 0 && badOrigins.length === 0);
+  const openOk = $derived(Number.isInteger(openSec) && openSec * 1000 >= TRACE_OPEN_MS.min && openSec * 1000 <= TRACE_OPEN_MS.max);
+  const valid = $derived(!!name.trim() && lines(originsText).length > 0 && badOrigins.length === 0 && openOk);
 
   function startAdd() {
     editing = null;
@@ -32,6 +35,7 @@
     originsText = '';
     preset = 'staging';
     allowText = '';
+    openSec = TRACE_OPEN_MS.default / 1000;
     open = true;
   }
   function startEdit(p: Project) {
@@ -40,6 +44,7 @@
     originsText = p.origins.join('\n');
     preset = p.maskingPreset;
     allowText = p.bodyAllowlist.join('\n');
+    openSec = Math.round(p.traceOpenMs / 1000);
     open = true;
   }
 
@@ -47,7 +52,7 @@
     e.preventDefault();
     if (!valid || busy) return;
     busy = true;
-    const body = { name: name.trim(), origins: lines(originsText), maskingPreset: preset, bodyAllowlist: preset === 'production' ? lines(allowText) : [] };
+    const body = { name: name.trim(), origins: lines(originsText), maskingPreset: preset, bodyAllowlist: preset === 'production' ? lines(allowText) : [], traceOpenMs: openSec * 1000 };
     try {
       if (editing) await api('projects.update', { params: { id: editing.id }, body });
       else await api('projects.create', { params: { workspaceId: data.workspaceId }, body });
@@ -96,6 +101,9 @@
           {p.bodyAllowlist.length ? `Bodies kept for ${p.bodyAllowlist.length} allowlisted ${p.bodyAllowlist.length === 1 ? 'URL' : 'URLs'}` : 'No request or response bodies are kept'}
         </p>
       {/if}
+      {#if p.traceOpenMs !== TRACE_OPEN_MS.default}
+        <p class="small muted" data-testid="project-trace-open">Trace steps wait up to {p.traceOpenMs / 1000} s for open requests</p>
+      {/if}
       {#if data.admin}
         <div class="acts">
           <Button size="sm" icon="pen" onclick={() => startEdit(p)} data-testid="project-edit">Edit</Button>
@@ -141,6 +149,11 @@
         <span class="hint">Prefixes; <code>*</code> matches anything. Leave empty to keep no bodies.</span>
       </label>
     {/if}
+    <label>
+      Trace step window, in seconds
+      <input type="number" bind:value={openSec} min={TRACE_OPEN_MS.min / 1000} max={TRACE_OPEN_MS.max / 1000} step="1" data-testid="project-trace-open-input" />
+      {#if !openOk}<span class="err">Use a whole number from {TRACE_OPEN_MS.min / 1000} to {TRACE_OPEN_MS.max / 1000}.</span>{:else}<span class="hint">How long a trace step stays open while its requests are still running. Raise it when actions such as code runs take longer than {TRACE_OPEN_MS.default / 1000} s.</span>{/if}
+    </label>
   </form>
   {#snippet footer()}
     <Button onclick={() => (open = false)}>Cancel</Button>

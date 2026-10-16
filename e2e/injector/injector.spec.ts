@@ -5,7 +5,8 @@
 // 2. A reviewer signs in on the server (mock OIDC), confirms the site and lands back on the lab
 //    with the toolbar, loaded from /__toolbar/ on the lab's own origin.
 // 3. A comment on an element uploads the last minute: the lab's failed request, its uncaught
-//    error and its console lines reach the server, with a DOM replay.
+//    error and its console lines reach the server, with a DOM replay and the element's locator
+//    packet (route file from the lab's route table, the error of the last minute).
 // 4. A trace spans two pages of the lab and keeps a comment made on the way.
 // 5. x-review-skip turns injection off; streamed HTML and the lab's WebSocket pass through.
 // 6. Behind a strict nonce-only CSP the toolbar loads with the reused nonce and renders styled.
@@ -110,6 +111,12 @@ test('a comment uploads the last minute of console, errors, network and DOM', as
   const detail = (await (await api.get(`${SERVER}/api/v1/recordings/${cap.id}`)).json()) as { source: string; kind: string; annotations?: unknown[] };
   expect(detail.source).toBe('injector');
   expect(detail.kind).toBe('replay');
+  // the comment's locator packet (D-164), built in the page: route file from the lab's route
+  // table, the element, and the uncaught error of the last minute
+  const ann = (detail.annotations ?? [])[0] as { locator?: { kind: string; testId?: string; framework?: { name: string }; routeFiles: { file: string; source: string }[]; errors?: { kind: string; message: string }[] } } | undefined;
+  expect(ann?.locator).toMatchObject({ kind: 'element', testId: 'status', framework: { name: 'sveltekit' } });
+  expect(ann!.locator!.routeFiles[0]).toMatchObject({ file: 'src/routes/+page.svelte', source: 'manifest' });
+  expect(ann!.locator!.errors?.some((e) => e.kind === 'error' && /TypeError|profile/i.test(e.message))).toBe(true);
 
   const net = (await (await api.get(`${SERVER}/api/v1/recordings/${cap.id}/network`)).json()) as { items: { url: string; status: number | null }[] };
   expect(net.items.some((n) => n.url.endsWith('/api/fail') && n.status === 500)).toBe(true);

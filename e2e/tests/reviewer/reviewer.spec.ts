@@ -5,9 +5,41 @@
 // compact list, Start and Stop trace from the pill, and submit to the server.
 // Runs against a real server (SERVER_URL) with the mock OIDC provider: the test signs in, makes a
 // personal token and gives it to the extension, then reads what the server stored.
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import type { Locator, Page, Worker } from '@playwright/test';
+import type { LocatorPacket } from '@toolbar/shared/locator';
 import { LAB_URL, SERVER_URL, expect, test } from '../../fixtures/extension.ts';
 import { signInOidc } from '../../fixtures/oidc.ts';
+
+/** The vite dev server of the lab (`npx vite dev --port 5184` in lab/), for __svelte_meta. */
+const LAB_DEV_URL = process.env.LAB_DEV_URL ?? 'http://localhost:5184';
+const LAB_SRC = path.resolve(import.meta.dirname, '../../../lab/src/routes');
+const lineOf = (file: string, needle: string) => fs.readFileSync(path.join(LAB_SRC, file), 'utf8').split('\n').findIndex((l) => l.includes(needle)) + 1;
+
+/** The capture's feedback folder, unpacked: path -> text of each annotations/*.json file. */
+async function folderJson(page: Page, recordingId: string): Promise<Record<string, unknown>> {
+  const r = await page.request.get(`${SERVER_URL}/api/v1/recordings/${recordingId}/folder`);
+  expect(r.status(), await r.text().catch(() => '')).toBe(200);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-folder-'));
+  fs.writeFileSync(path.join(dir, 'f.tgz'), await r.body());
+  execFileSync('tar', ['xzf', 'f.tgz'], { cwd: dir });
+  const out: Record<string, unknown> = {};
+  const root = path.join(dir, '.feedback', recordingId);
+  for (const f of fs.readdirSync(path.join(root, 'annotations'))) if (f.endsWith('.json')) out[`annotations/${f}`] = JSON.parse(fs.readFileSync(path.join(root, 'annotations', f), 'utf8'));
+  fs.rmSync(dir, { recursive: true, force: true });
+  return out;
+}
+
+async function up(url: string): Promise<boolean> {
+  try {
+    return (await fetch(url, { signal: AbortSignal.timeout(3000) })).ok;
+  } catch {
+    return false;
+  }
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const chrome: any;
@@ -21,6 +53,7 @@ interface Item {
   comment: string;
   quote?: string;
   target?: { testId?: string; tag: string; name?: string; selector: string };
+  locator?: LocatorPacket;
   shapes: { type: string; points: number[][] }[];
   cropUrl: string | null;
   cropRect?: { w: number; h: number };
@@ -67,8 +100,8 @@ async function signIn(page: Page, sw: Worker) {
 
 const ui = (page: Page, id: string): Locator => page.getByTestId(id);
 
-async function openLab(page: Page, path = '/') {
-  await page.goto(LAB_URL + path);
+async function openLab(page: Page, path = '/', base = LAB_URL) {
+  await page.goto(base + path);
   await page.bringToFront();
   await expect(ui(page, 'review-launcher').or(ui(page, 'review-pill'))).toBeVisible({ timeout: 15_000 });
 }
@@ -153,6 +186,10 @@ test('comment on an element: hover label, the click never reaches the app, the l
   expect(it!.author.issuer).toContain('oidc.localhost');
   expect(it!.context!.errors.length).toBeGreaterThanOrEqual(1);
   expect(it!.context!.failedRequests.some((r) => r.status === 500)).toBe(true);
+  // the locator packet (D-164): route file from the lab's route table, the element, the error of the last minute
+  expect(it!.locator).toMatchObject({ kind: 'element', testId: 'works', tag: 'button', framework: { name: 'sveltekit', routeId: '/' } });
+  expect(it!.locator!.routeFiles[0]).toMatchObject({ file: 'src/routes/+page.svelte', source: 'manifest' });
+  expect(it!.locator!.errors?.some((e) => e.kind === 'error' && /TypeError/.test(e.message))).toBe(true);
 
   // the capture holds the attached console and network rows, and the capture page lists the note
   await expect
@@ -167,6 +204,42 @@ test('comment on an element: hover label, the click never reaches the app, the l
   await expect(viewer.getByTestId('feedback-item')).toHaveCount(1);
   await expect(viewer.getByTestId('feedback-comment')).toHaveText('Save gives no feedback at all');
   await expect(viewer.getByTestId('feedback-context')).toBeVisible();
+
+  // the agent's folder carries that packet as annotations/a01.locator.json, with the crop's file
+  const folder = await folderJson(page, res.recordingId);
+  const packet = folder['annotations/a01.locator.json'] as LocatorPacket & { note?: string };
+  expect(packet.note).toBeUndefined();
+  expect(packet.routeFiles[0]!.file).toBe('src/routes/+page.svelte');
+  expect(packet.testId).toBe('works');
+  expect(packet.crop?.file).toBe('a01.png');
+});
+
+test('on the vite dev server a comment names the Svelte file and line, and the error maps to its source line', async ({ context, sw }) => {
+  test.skip(!(await up(LAB_DEV_URL)), `lab dev server not running at ${LAB_DEV_URL} (cd lab && npx vite dev --port 5184)`);
+  const page = await context.newPage();
+  await signIn(page, sw);
+  await openLab(page, '/', LAB_DEV_URL);
+  // vite dev hydrates late: the button has no handler before that
+  await page.waitForLoadState('networkidle');
+  await page.getByTestId('throws').click();
+  await sleep(600);
+  await wake(page);
+  await page.keyboard.press('c');
+  await page.getByTestId('works').click();
+  await expect(ui(page, 'review-composer')).toBeVisible();
+  await ui(page, 'review-comment').fill('Where is this button written?');
+  await page.keyboard.press('Enter');
+  await expect(ui(page, 'review-pin')).toHaveCount(1);
+  const res = await send(page, sw);
+  const [it] = await items(page, res.recordingId);
+  expect(it!.locator!.source).toMatchObject({ file: 'src/routes/+page.svelte', line: lineOf('+page.svelte', 'data-testid="works"'), via: 'svelte-meta' });
+  expect(it!.locator!.framework).toMatchObject({ name: 'sveltekit', dev: true });
+  expect(it!.locator!.routeFiles[0]).toMatchObject({ file: 'src/routes/+page.svelte', source: 'svelte-meta' });
+  const err = it!.locator!.errors?.find((e) => e.kind === 'error' && /TypeError/.test(e.message));
+  expect(err?.mapped).toBe(true);
+  expect(err?.frames?.[0]).toMatchObject({ file: 'src/routes/+page.svelte', srcLine: lineOf('+page.svelte', 'return user.profile.name') });
+  const folder = await folderJson(page, res.recordingId);
+  expect((folder['annotations/a01.locator.json'] as LocatorPacket).source?.line).toBe(lineOf('+page.svelte', 'data-testid="works"'));
 });
 
 test('highlight text and comment: the chip opens a composer with the quote, the highlight stays', async ({ context, sw }) => {
@@ -193,6 +266,8 @@ test('highlight text and comment: the chip opens a composer with the quote, the 
   const res = await send(page, sw);
   const [it] = await items(page, res.recordingId);
   expect(it).toMatchObject({ kind: 'text', quote: 'Buttons', target: { tag: 'h1' } });
+  expect(it!.locator).toMatchObject({ kind: 'text', tag: 'h1', selection: 'Buttons' });
+  expect(it!.locator!.routeFiles[0]!.file).toBe('src/routes/+page.svelte');
 });
 
 test('draw a rectangle, an arrow and a freehand line on the live page, each with a flattened crop', async ({ context, sw }) => {

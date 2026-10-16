@@ -2,7 +2,7 @@
 // the origin check every capture passes on submit.
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Project } from '@toolbar/shared/api';
-import { projectForUrl, type ProjectScope } from '@toolbar/shared/projects';
+import { projectForUrl, TRACE_OPEN_MS, traceOpenMsOf, type ProjectScope } from '@toolbar/shared/projects';
 import type { Db } from './db/index.ts';
 import { member, project } from './db/schema/index.ts';
 import { fail } from './share/http.ts';
@@ -18,6 +18,7 @@ export function projectDto(r: Row): Project {
     origins: r.origins,
     maskingPreset: r.maskingPreset,
     bodyAllowlist: r.bodyAllowlist,
+    traceOpenMs: r.traceOpenMs,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };
@@ -30,6 +31,7 @@ export const scopeOf = (r: Row): ProjectScope => ({
   origins: r.origins,
   maskingPreset: r.maskingPreset,
   bodyAllowlist: r.bodyAllowlist,
+  traceOpenMs: r.traceOpenMs,
 });
 
 export async function listProjects(db: Db, workspaceId: string): Promise<Row[]> {
@@ -54,6 +56,17 @@ export interface ProjectInput {
   origins: string[];
   maskingPreset: Row['maskingPreset'];
   bodyAllowlist: string[];
+  traceOpenMs?: number;
+}
+
+/**
+ * The span engine settings of a capture (D-166): its project's window for open requests, or the
+ * default when the capture has no project.
+ */
+export async function traceConfigOf(db: Db, rec: { projectId: string | null }): Promise<{ maxOpenMs: number }> {
+  if (!rec.projectId) return { maxOpenMs: TRACE_OPEN_MS.default };
+  const [r] = await db.select({ v: project.traceOpenMs }).from(project).where(eq(project.id, rec.projectId)).limit(1);
+  return { maxOpenMs: traceOpenMsOf(r ? { traceOpenMs: r.v } : null) };
 }
 
 export async function createProject(db: Db, workspaceId: string, userId: string, input: ProjectInput): Promise<Row> {

@@ -17,7 +17,8 @@
     "./areas/*": "./src/areas/*.ts",
     "./derive": "./src/derive/index.ts",
     "./locator": "./src/locator.ts",
-    "./sourcemap": "./src/sourcemap.ts"
+    "./sourcemap": "./src/sourcemap.ts",
+    "./locator-complete": "./src/locator-complete.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

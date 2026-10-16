@@ -12,7 +12,7 @@ import type { CaptureEvent } from '@toolbar/shared';
 import { prepare } from '@toolbar/shared/derive';
 import { FENCE_RULE, README_TOKEN_LIMIT } from '@toolbar/shared/areas/handoff';
 import { splitPath, tar, tarGz, untar } from '../src/lib/server/handoff/tar.ts';
-import { assembleFolder, type FolderData, type FolderIo } from '../src/lib/server/handoff/assemble.ts';
+import { assembleFolder, keyframeForSample, pageChangeTimes, type FolderData, type FolderIo } from '../src/lib/server/handoff/assemble.ts';
 import { cropRegion, flatten, shapesSvg, sizeOf, toCssPixels } from '../src/lib/server/handoff/images.ts';
 
 const dirs: string[] = [];
@@ -306,6 +306,40 @@ describe('reviewer toolbar voice notes (D-160)', () => {
     const fb = JSON.parse(String(file('feedback.json')!.data)) as { annotations: { n: string; voice?: { audio: string; transcript: string } }[] };
     expect(fb.annotations.find((a) => a.n === 'a02')!.voice).toMatchObject({ audio: 'voice/a02.webm', transcript: 'voice/a02.vtt' });
     expect(f.readme).toContain('-> open voice/a02.vtt');
+  });
+});
+
+describe('canvas OCR keyframe (D-165)', () => {
+  it('counts top-frame page changes only', () => {
+    const navs = [
+      { kind: 'nav', ctx: 'top', t: 10, data: { type: 'load', url: 'https://a.test/x' } },
+      { kind: 'nav', ctx: 'top', t: 20, data: { type: 'hashchange', url: 'https://a.test/x#b' } },
+      { kind: 'nav', ctx: 'f1', t: 25, data: { type: 'load', url: 'https://a.test/embed' } },
+      { kind: 'nav', ctx: 'top', t: 30, data: { type: 'pushState', url: 'https://a.test/buttons' } },
+      { kind: 'nav', ctx: 'top', t: 40, data: { type: 'load', url: 'https://a.test/buttons' } },
+    ] as unknown as CaptureEvent[];
+    expect(pageChangeTimes(navs)).toEqual([30, 40]);
+  });
+  it('takes a keyframe of the same page, after the sample when there is one', () => {
+    const kfs = [{ t: 5, id: 'a' }, { t: 12, id: 'b' }, { t: 35, id: 'c' }];
+    expect(keyframeForSample(10, kfs, [30])?.id).toBe('b');
+    // the only keyframe after the sample shows the next page: take the one before
+    expect(keyframeForSample(20, kfs, [30])?.id).toBe('b');
+    expect(keyframeForSample(20, [{ t: 35, id: 'c' }], [30])).toBeNull();
+  });
+  it('OCRs the canvas from the keyframe of its page, not one after a navigation', async () => {
+    const d = await data();
+    const io = (globalThis as { __io?: FolderIo }).__io!;
+    const read: string[] = [];
+    const io2: FolderIo = { ...io, bytes: async (k) => (read.push(k), io.bytes(k === 'k/kf0' ? 'k/kf1' : k)) };
+    // the canvas page's keyframe at 1.9 s, then the reviewer goes to /buttons at 2.05 s and kf1 shows that page
+    d.events = [...d.events!, ev(1900, 'shot', { assetId: 'kf0', reason: 'keyframe', rect: { x: 0, y: 0, w: 800, h: 600 } }), ev(2050, 'nav', { type: 'pushState', url: 'https://app.test/buttons' })].sort((a, b) => a.t - b.t);
+    d.assets = [...d.assets, { id: 'kf0', kind: 'keyframe', s3Key: 'k/kf0', contentType: 'image/png', width: 800, height: 600, createdAt: new Date(T0 + 1900) }];
+    const f = await assembleFolder(d, io2);
+    const fb = JSON.parse(String(f.files.find((x) => x.path === 'feedback.json')!.data)) as { keyframes: { file: string; atMs: number | null }[] };
+    const kf0 = fb.keyframes.find((k) => k.atMs === 1900)!.file;
+    const md = String(f.files.find((x) => x.path === 'text/s001-canvas-1.md')!.data);
+    expect(md).toContain(`in ${kf0}`);
   });
 });
 

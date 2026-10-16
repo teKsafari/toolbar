@@ -60,19 +60,9 @@ The page's project (the first project in the reviewer's workspaces with an origi
 
 ## Configuration
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `INJECTOR_UPSTREAM` | empty | The app, for hosts not in `INJECTOR_UPSTREAMS`. |
-| `INJECTOR_UPSTREAMS` | empty | `host=url` pairs, comma separated: `nuru.example.org=http://nuru-app:3000`. One injector can front several apps. |
-| `TOOLBAR_SERVER_URL` | empty | The open-toolbar server as the injector reaches it, for the upload relay. |
-| `TOOLBAR_PUBLIC_URL` | `TOOLBAR_SERVER_URL` | The server as browsers reach it, for `/__toolbar/login`. |
-| `INJECTOR_SECRET` | empty | HMAC key shared with the server, at least 32 characters. Empty: no cookie is ever valid, so the injector only passes traffic through. |
-| `INJECTOR_TRUST_FORWARDED` | `1` | Read the scheme and host from `X-Forwarded-Proto` and `X-Forwarded-Host` (Traefik sets them). `0` when browsers talk to the injector directly. |
-| `INJECTOR_SCAN_LIMIT` | `262144` | Bytes scanned for a head before giving up. |
-| `INJECTOR_LISTEN` | `:8080` | Listen address. |
-| `INJECTOR_ASSETS` | `/srv/toolbar` | Folder with `toolbar.js`. |
+Every variable of the injector container, with its default, an example and when to change it, is in [docs/configuration.md, "Injector container"](../../docs/configuration.md#injector-container): `INJECTOR_UPSTREAMS` or `INJECTOR_UPSTREAM`, `TOOLBAR_SERVER_URL`, `TOOLBAR_PUBLIC_URL`, `INJECTOR_SECRET`, `INJECTOR_TRUST_FORWARDED`, `INJECTOR_SCAN_LIMIT`, `INJECTOR_LISTEN` and `INJECTOR_ASSETS`. A test there fails when the Go code reads a variable the page does not list.
 
-On the open-toolbar server: `INJECTOR_SECRET` (the same value), `INJECTOR_ORIGINS` (the app origins, comma separated; empty means the origins of each person's projects) and `INJECTOR_COOKIE_DAYS` (default 7). See `docs/configuration.md`.
+On the open-toolbar server: `INJECTOR_SECRET` (the same value), `INJECTOR_ORIGINS` (the app origins, comma separated; empty means the origins of each person's projects) and `INJECTOR_COOKIE_DAYS` (default 7), in the same page's "Injector" section.
 
 ## Coolify
 

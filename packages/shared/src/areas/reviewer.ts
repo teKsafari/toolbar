@@ -4,7 +4,7 @@
 // stores them as `feedback_item` rows on a capture (a running trace, or a capture of kind
 // `feedback` made at submit). Import from '@toolbar/shared/areas/reviewer'.
 import { z } from 'zod';
-import { rectSchema, targetRefSchema } from '../schemas.ts';
+import { locatorPacketSchema, rectSchema, targetRefSchema } from '../schemas.ts';
 
 /**
  * What a feedback item points at.
@@ -94,6 +94,8 @@ export const feedbackItemInputSchema = z.object({
   /** highlighted text (kind `text`) */
   quote: z.string().max(5_000).optional(),
   target: targetRefSchema.optional(),
+  /** locator packet (D-128, D-164): route files, Svelte dev source, mapped errors of the last minute */
+  locator: locatorPacketSchema.optional().catch(undefined),
   anchor: feedbackAnchorSchema.optional(),
   shapes: z.array(feedbackShapeSchema).max(50).default([]),
   /** crop of the element, selection or drawing at 1x CSS pixels, drawings flattened in */

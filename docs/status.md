@@ -42,7 +42,7 @@ Fixed on the way: the folder had no `voice/` for toolbar voice notes and no imag
 | Voice note on a comment or on the whole trace; WebVTT on the server | built | Scenario `v` (whole trace) with a real clip transcribed by whisper.cpp; comment voice notes in `tests/reviewer` |
 | Comment without a trace, with the last 60 s of errors and failed requests | built | `tests/reviewer`, injector compose test |
 | Start trace and Stop trace | built | Scenario `x` twice |
-| Interaction spans: start at an action, close at 500 ms quiet, 2.5 s no effect, 10 s with open requests (a setting) | built | `packages/trace` unit tests (43); scenario spans |
+| Interaction spans: start at an action, close at 500 ms quiet, 2.5 s no effect, 10 s with open requests (a setting) | built | `packages/trace` unit tests (43); scenario spans. The 10 s is the project setting `traceOpenMs` (D-166), used by the extension's live engine and every server derivation: `projects.int.test.ts`, `packages/shared/test/locator-complete.test.ts` |
 | Outcomes changed, error, dead, stuck, silent (2xx and 4xx/5xx) | built | Scenario: all five on the lab buttons |
 | Canvas redraw compared by pixels | built | Scenario: the canvas redraw is `changed` |
 | `caused_by` links with confidence | built | `packages/trace` unit tests |
@@ -51,11 +51,12 @@ Fixed on the way: the folder had no `voice/` for toolbar voice notes and no imag
 | CLI `npx <cli> pull`, with a `curl ... \| tar xz` alternative | built (curl); CLI paused | The curl command is the default and is proven; the CLI stays behind `FEATURE_CLI` (docs/scope.md) |
 | Folder layout | built | Scenario step 5 checks every path against the layout; toolbar voice notes as `voice/aNN.*` (D-160) |
 | README.md order and size (< 8k tokens) | built | Scenario step 5 |
+| `text/` OCR of canvas regions, labeled as OCR | built | D-165: the region is cut from a keyframe of the canvas's own page, never one taken after the reviewer left it. `handoff.unit.test.ts` (navigation between sample and keyframe); the scenario checks that each `text/*canvas*.md` reads the canvas text |
 | Images at 1x CSS pixels, cropped, about ten keyframes | built | Scenario: element crop at 1x, at most ten keyframes |
 | Agent Skill | built | D-148: `skills/open-toolbar-feedback/SKILL.md`, `GET /api/v1/skill`; it ships with the repo and the server because the CLI is paused |
 | Remote MCP server (OAuth) after the folder | built | Flow J (OAuth consent in one click); scenario step 6 with a token from a real Claude Code run |
-| Locator packet with each annotation | built | D-128; `aNN.locator.json` in the scenario folder |
-| `__svelte_meta` on dev servers | built | `packages/capture/test/locator.test.ts` (Svelte 5 and 4); `tests/locator` with the lab's dev build (`LAB_DEV_URL`) |
+| Locator packet with each annotation | built | D-128, D-164: every reviewer toolbar note and every injector comment sends one. `tests/reviewer` (item and folder `a01.locator.json` with the route file from the lab's route table and the last minute's error), the injector compose test, the scenario's `a01.locator.json`, `feedback.int.test.ts` |
+| `__svelte_meta` on dev servers | built | `packages/capture/test/locator.test.ts` (Svelte 5 and 4); `tests/locator` and `tests/reviewer` on the lab's vite dev server (`LAB_DEV_URL`): a toolbar comment names `src/routes/+page.svelte` at the button's line and maps the TypeError to its source line |
 | Console stacks through source maps | built | D-129 |
 | SvelteKit `__data.json`, form actions, Next.js RSC named | built | `packages/trace` classify tests |
 | Redaction before upload | built | D-125, D-149 |
@@ -79,15 +80,18 @@ Fixed on the way: the folder had no `voice/` for toolbar voice notes and no imag
 | Deliverable 1: extension release (store zip and unpacked build) | built | D-155; the scenario ran on the unpacked release zip |
 | Deliverable 2: `docker-compose.yml` with defaults plus the required values | built | D-151, D-152; the scenario stack |
 | Deliverable 3: `docker-compose.coolify.yml` | built | D-153; not yet deployed on a real Coolify |
-| Configuration: required values only; `docs/configuration.md` for every variable | built | D-151, D-154 (drift test) |
+| Configuration: required values only; `docs/configuration.md` for every variable | built | D-151, D-154 (drift test); D-167: the injector container and the agent side are documented there and the drift test scans the injector's Go code and the Agent Skill |
 
 ### Part 1 suites and Part 2 area suites, rerun on main (2026-10-15)
 
 | Suite | Result | Notes |
 |---|---|---|
 | `pnpm -r build`, `check`, `test`; `go test` in `apps/injector` | pass | Unit tests: shared 140, cli 9, trace 43, capture 49, ui 81, extension 38, server 250 (7 skipped without Mailpit or a key) |
+| Same, after the gate 4 fixes | pass | shared 145, cli 9, trace 43, capture 49, ui 81, extension 38, server 255 (7 skipped). Area suites on the test build: `tests/reviewer` 9 of 9 (two new locator tests, one on the lab's vite dev server), `tests/locator` and `tests/trace` pass (two locator tests skip without the source-mapped lab on :5186); the injector compose test 5 of 5 with the page bundle's locator check |
 | Flows (`e2e/flows`, release build, fresh volumes, seeded) | 25 of 26 in one run, then the one rerun twice: pass | Flow Q timed out once in the full run and passed in the first full run and in two reruns; flaky, cause not found. Fixed in this pass: flow R (keys typed straight after the click were lost behind the new quiet crop; type-ahead, D-160) and the visual pass, which waited out its timeout on the editor's destination menu, a part of the tracker picker paused by owner scope (now taken only when the menu exists). P2's first attempt on one fresh stack failed at the popup sign-in and passed on the rerun |
+| Gate 4 fixes (D-164 to D-169): flows on a dev server of this tree (`:3320`, database `toolbar_g4fix`), release build, display `:196` | full run: 23 passed, 1 skipped (`k-cli-pull`, paused), 2 failed; reruns pass | E: the share picker stayed open after Share (the Xvfb picker issue, docs/spikes.md S2), passed on the rerun. Q reproduced its timeout; the cause is D-169 and is fixed: D, E, N and Q in one run pass, and `k-cli-pull`, N and Q pass again with Q's new project-setting steps. P2 passed with the new checks: `a01.locator.json` from the extension with the route file, and both `text/*canvas*.md` reading the canvas |
 | Parity (`e2e/parity`, release build) | 33 passed, 2 skipped (S7.3 integrations and S8.2 CLI, paused by owner scope) | The scenarios sign in as `@example.com`, so the server needs `example.com` in `ALLOWED_EMAIL_DOMAINS` beside `test` (the allowlist arrived with D-114 after Gate 3); noted in `playwright.parity.config.ts` |
+| Parity, gate 4 fixes (same dev server, `ALLOWED_EMAIL_DOMAINS=test,example.com`, `AUTH_DEV_PASSWORD=1`) | 32 passed, 2 skipped (paused), 1 failed | S1.6 step 3 restarts the compose server on `:3000` with `MAX_RECORDING_MIN=1`, while this run's server was the dev server on `:3320`, so the cap never applied there; the harness also passes the shell's variables to that restart, so run parity against the compose server or restore it afterwards. Steps 1 and 2 of S1.6 ran |
 | Area: reviewer, hand-off, trace, zero integration (test build) | 16 of 16 after one rerun | "The popup starts and stops a trace" saw 0 actions once and passed on the rerun |
 | Injector compose test | 5 of 5 | After D-162 |
 
@@ -148,7 +152,7 @@ How it was verified:
 | H folders | `h-folders` | pass: new folder from the sidebar, move by checkbox (3 clicks), drag onto the folder | - |
 | I Ctrl+K | `i-search` | pass: two words of the title, Enter opens the capture | results 0.4 s |
 | J agent over MCP | `j-agent` | pass: MCP page snippet, DCR, consent in one click, `get_capture`, `get_network_requests` (5xx with the body), `get_console_logs`; connected agent listed, removal revokes. With `FLOWS_CLAUDE=1` a real Claude Code run with a throwaway `--mcp-config` answered "`/api/fail` returned `database_unavailable`" | Claude Code run about 10 s |
-| CLI pull | `k-cli-pull` | pass: token from Settings, `open-toolbar login --token`, `open-toolbar pull <share link>` writes summary.md, details, console, network, actions, frames | - |
+| CLI pull | `k-cli-pull` | paused with the CLI (D-168): skipped unless the server has `FEATURE_CLI=1`; with it, token from Settings, `open-toolbar login --token`, `open-toolbar pull <share link>` writes summary.md, details, console, network, actions, frames | - |
 | K delete | `k-delete` | pass: its own screenshot, then three-dot, Delete, confirm (3 clicks); toast, dashboard, gone from the grid, the API (404), the share link (404) and Ctrl+K search | toast 0.4 s, dashboard 0.6 to 0.8 s after confirm |
 | L invite | `l-invite` | pass: header Invite, email, Invite (seat stays creator); the mail reaches Mailpit; the teammate opens the join link in a fresh browser, signs in with a new password, joins in one click as creator; the members page lists them | - |
 | M draft after the tab closed | `m-recover-draft` | pass: close the tab with the editor open, drafts pill, View, create | - |

@@ -2,7 +2,7 @@
 // extension may run on in a workspace and the masking preset it applies there. Workspace admins
 // manage them; every member reads them, and the extension gets them in its bootstrap.
 import { z } from 'zod';
-import { LIMITS_PROJECT, normalizeAllowlistEntry, normalizeOrigin, PROJECT_PRESETS } from '../projects.ts';
+import { LIMITS_PROJECT, normalizeAllowlistEntry, normalizeOrigin, PROJECT_PRESETS, TRACE_OPEN_MS } from '../projects.ts';
 import { api, defineRoute, idSchema, isoSchema, okSchema } from './common.ts';
 
 export const projectPresetSchema = z.enum(PROJECT_PRESETS);
@@ -34,6 +34,13 @@ export const allowlistSchema = z
     return out;
   });
 
+/** Span window for open requests in ms (D-166), whole seconds from the settings page. */
+export const traceOpenMsSchema = z
+  .number()
+  .int()
+  .min(TRACE_OPEN_MS.min, `At least ${TRACE_OPEN_MS.min / 1000} s`)
+  .max(TRACE_OPEN_MS.max, `At most ${TRACE_OPEN_MS.max / 1000} s`);
+
 const nameSchema = z
   .string()
   .transform((s) => s.trim().replace(/\s+/g, ' '))
@@ -46,13 +53,15 @@ export const projectSchema = z.object({
   origins: z.array(z.string()),
   maskingPreset: projectPresetSchema,
   bodyAllowlist: z.array(z.string()),
+  /** traces: an action's span closes this long after it started while requests are still open */
+  traceOpenMs: z.number().int(),
   createdAt: isoSchema,
   updatedAt: isoSchema,
 });
 export type Project = z.infer<typeof projectSchema>;
 
 /** What the extension keeps of each project (bootstrap). */
-export const projectScopeSchema = projectSchema.pick({ id: true, workspaceId: true, name: true, origins: true, maskingPreset: true, bodyAllowlist: true });
+export const projectScopeSchema = projectSchema.pick({ id: true, workspaceId: true, name: true, origins: true, maskingPreset: true, bodyAllowlist: true, traceOpenMs: true }).partial({ traceOpenMs: true });
 
 const workspaceParams = z.object({ workspaceId: idSchema });
 
@@ -75,6 +84,7 @@ export const createProjectBodySchema = z.object({
   origins: originListSchema.pipe(z.array(z.string()).min(1, 'Add at least one origin')),
   maskingPreset: projectPresetSchema.default('staging'),
   bodyAllowlist: allowlistSchema.default([]),
+  traceOpenMs: traceOpenMsSchema.default(TRACE_OPEN_MS.default),
 });
 
 export const createProject = defineRoute({
@@ -107,12 +117,13 @@ export const updateProject = defineRoute({
       origins: originListSchema.pipe(z.array(z.string()).min(1, 'Keep at least one origin')),
       maskingPreset: projectPresetSchema,
       bodyAllowlist: allowlistSchema,
+      traceOpenMs: traceOpenMsSchema,
     })
     .partial(),
   response: projectSchema,
   area: 'dashboard',
   tasks: ['P2-zero-integration'],
-  summary: 'Rename a project, change its origins, preset or body allowlist.',
+  summary: 'Rename a project, change its origins, preset, body allowlist or trace span window.',
 });
 
 export const deleteProject = defineRoute({
