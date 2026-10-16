@@ -1,4 +1,4 @@
-// Reviewer sign-in for apps behind the injector (D-157, D-200). A review link (/go/<project>)
+// Reviewer sign-in for apps behind the injector (D-157, D-201). A review link (/go/<project>)
 // asks the signed-in person to confirm, then mints a device token for that app origin (listed
 // under connected browsers, so it can be revoked) and signs it into a cookie value that the
 // browser posts to the injector's /__toolbar/session on the app's own origin.
@@ -6,7 +6,7 @@ import type { Db } from '../db/index.ts';
 import { env } from '../env.ts';
 import { createApiToken } from '../tokens.ts';
 import { normalizeOrigin, signReview } from './cookie.ts';
-import { reviewAccess } from './access.ts';
+import { injectorOriginListed, reviewAccess } from './access.ts';
 
 export { injectorOriginListed, reviewAccess, type ReviewAccess } from './access.ts';
 
@@ -45,4 +45,28 @@ export function reviewSite(site: string | null | undefined, projectOrigins: stri
 export function reviewLink(publicUrl: string, projectId: string, origin: string, projectOrigins: string[]): string {
   const base = `${publicUrl.replace(/\/+$/, '')}/go/${projectId}`;
   return reviewSite(null, projectOrigins) === origin ? base : `${base}?site=${encodeURIComponent(origin)}`;
+}
+
+export interface ReviewLink {
+  origin: string;
+  host: string;
+  href: string;
+}
+
+/**
+ * The review links of projects, by project id: one per exact origin (a `*.` origin names no
+ * single site), none for an origin outside INJECTOR_ORIGINS. Null while the injector is off.
+ */
+export function reviewLinksOf(projects: { id: string; origins: string[] }[], e = env): Record<string, ReviewLink[]> | null {
+  if (!injectorEnabled(e)) return null;
+  return Object.fromEntries(
+    projects.map((p) => [
+      p.id,
+      p.origins
+        .filter((o) => !o.includes('*'))
+        .map((o) => normalizeOrigin(o))
+        .filter((o): o is string => !!o && injectorOriginListed(o, e))
+        .map((o) => ({ origin: o, host: new URL(o).host, href: reviewLink(e.publicUrl, p.id, o, p.origins) })),
+    ]),
+  );
 }

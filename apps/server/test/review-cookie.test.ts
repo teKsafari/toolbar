@@ -35,10 +35,10 @@ describe('reviewer cookie', () => {
     const on = e('x'.repeat(32), ['https://nuru.example.org/']);
     expect(injectorOriginListed('https://nuru.example.org', on)).toBe(true);
     expect(injectorOriginListed('https://other.example.org', on)).toBe(false);
-    // an empty INJECTOR_ORIGINS lists every origin; the project check still applies (D-200)
+    // an empty INJECTOR_ORIGINS lists every origin; the project check still applies (D-201)
     expect(injectorOriginListed('https://other.example.org', e('x'.repeat(32), []))).toBe(true);
   });
-  it('review links name the project, and the site only when the project has several (D-200)', () => {
+  it('review links name the project, and the site only when the project has several (D-201)', () => {
     expect(reviewSite('nuru.example.org')).toBe('https://nuru.example.org');
     expect(reviewSite('http://localhost:5173/x')).toBe('http://localhost:5173');
     expect(reviewSite('javascript:alert(1)')).toBeNull();

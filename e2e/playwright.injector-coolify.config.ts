@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
-// The injector behind a Traefik set up like Coolify's (D-200), run by
+// The injector behind a Traefik set up like Coolify's (D-201), run by
 // apps/injector/test/coolify-like/run.sh: a headed Chromium with no extension on the display the
 // script names (E2E_DISPLAY, default :350), the proxy's self-signed certificate accepted.
 export default defineConfig({

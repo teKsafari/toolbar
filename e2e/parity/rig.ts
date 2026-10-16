@@ -451,8 +451,9 @@ export async function allowLab(context: BrowserContext, lab: Page, popup: Page):
   let p = await clickIcon(context, lab);
   const card = p.getByTestId('site-access');
   if (!(await card.count())) return p;
-  await expect(card).toHaveAttribute('data-state', 'needs-grant', { timeout: 20_000 });
-  await xclickPopup(p, p.getByTestId('site-allow'));
+  // D-200: a server in `all` mode asks once for every site; the strict mode for the project origins
+  await expect(card).toHaveAttribute('data-state', /^(needs-grant|needs-all-sites)$/, { timeout: 20_000 });
+  await xclickPopup(p, p.getByTestId((await card.getAttribute('data-state')) === 'needs-all-sites' ? 'site-allow-all' : 'site-allow'));
   await sleep(700);
   const win = xdo('search', '--onlyvisible', '--name', 'Chrom')
     .split('\n')

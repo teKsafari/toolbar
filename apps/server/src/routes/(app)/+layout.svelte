@@ -8,6 +8,7 @@
   import WorkspaceMenu from '#lib/components/auth/WorkspaceMenu.svelte';
   import InviteDialog from '#lib/components/auth/InviteDialog.svelte';
   import FolderList from '#lib/components/dashboard/FolderList.svelte';
+  import ProjectList from '#lib/components/dashboard/ProjectList.svelte';
   import Onboarding from '#lib/components/dashboard/Onboarding.svelte';
   import HelpMenu from '#lib/components/dashboard/HelpMenu.svelte';
   import NewCapture from '#lib/components/dashboard/NewCapture.svelte';
@@ -47,6 +48,7 @@
         {/each}
       </nav>
       <FolderList folders={data.dash.folders} workspaceId={data.activeWorkspaceId} {canCreate} />
+      <ProjectList projects={data.dash.projects} />
       <div class="grow"></div>
       <Onboarding data={data.dash.onboarding} />
       <div class="bottom">

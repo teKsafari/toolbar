@@ -1,4 +1,4 @@
-# Coolify: Traefik dynamic configuration for the open-toolbar injector (apps/injector, D-157, D-200).
+# Coolify: Traefik dynamic configuration for the open-toolbar injector (apps/injector, D-157, D-201).
 # Step by step: docs/injector-on-coolify.md.
 #
 # Add it in Coolify under Servers > <server> > Proxy > Dynamic Configurations (it lands in

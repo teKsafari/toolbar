@@ -15,9 +15,37 @@
   let error = $state('');
   const version = browser.runtime.getManifest().version;
 
+  // D-200: the server's site access mode and whether Chrome granted every site
+  const ALL_SITES = ['http://*/*', 'https://*/*'];
+  let mode = $state<'all' | 'projects' | null>(null);
+  let allSites = $state(false);
+  let accessError = $state('');
+
+  async function readAccess() {
+    const got = await browser.storage.local.get([STORAGE.bootstrap.key, STORAGE.auth.key]);
+    const auth = got[STORAGE.auth.key] as { token?: string } | undefined;
+    const boot = got[STORAGE.bootstrap.key] as { data?: { siteAccess?: { mode: 'all' | 'projects' } } } | undefined;
+    mode = auth?.token ? (boot?.data?.siteAccess?.mode ?? 'projects') : null;
+    allSites = await browser.permissions.contains({ origins: ALL_SITES }).catch(() => false);
+  }
+
+  async function allowAll() {
+    accessError = '';
+    // first await of the click: Chrome needs the user gesture for the prompt
+    const ok = await browser.permissions.request({ origins: ALL_SITES }).catch(() => false);
+    if (!ok) accessError = 'Access was not granted. The extension records nothing until it is.';
+    await readAccess();
+  }
+
+  async function revokeAll() {
+    await browser.permissions.remove({ origins: ALL_SITES }).catch(() => false);
+    await readAccess();
+  }
+
   onMount(async () => {
     const got = await browser.storage.local.get(STORAGE.serverUrl.key);
     value = resolveServerUrl(got[STORAGE.serverUrl.key]);
+    await readAccess();
   });
 
   async function save(e: SubmitEvent) {
@@ -59,6 +87,21 @@
     {#if error}<p class="err" role="alert">{error}</p>{/if}
     {#if saved}<p class="ok" role="status">{saved}</p>{/if}
   </form>
+  {#if mode}
+    <section class="card" data-site-access={mode} data-all-sites={allSites}>
+      <h2>Site access</h2>
+      {#if mode === 'all' && allSites}
+        <p class="hint">Access to all sites. Each site you capture on becomes a project on your server. The extension never runs on the server itself or on your blocked sites.</p>
+        <Button onclick={revokeAll} data-revoke-all>Remove access to all sites</Button>
+      {:else if mode === 'all'}
+        <p class="hint">Your server lets the extension run on any site. Chrome asks once; until then nothing is recorded. Revoke it here or in Chrome’s extension details, under Site access.</p>
+        <Button variant="primary" onclick={allowAll} data-allow-all>Allow access to all sites</Button>
+      {:else}
+        <p class="hint">Your server allows capture on its projects’ origins only. Open the popup on a project’s page and click Allow; Chrome asks for those origins.</p>
+      {/if}
+      {#if accessError}<p class="err" role="alert">{accessError}</p>{/if}
+    </section>
+  {/if}
   <p class="foot">Version {version}. Other settings are in the popup: click the toolbar icon, then the three-dot menu.</p>
 </main>
 
@@ -93,6 +136,19 @@
     border: 1px solid var(--nb-border);
     border-radius: var(--nb-radius-lg);
     background: var(--nb-surface);
+  }
+  .card {
+    margin-top: 16px;
+    padding: 0 20px 20px;
+    border: 1px solid var(--nb-border);
+    border-radius: var(--nb-radius-lg);
+    background: var(--nb-surface);
+  }
+  h2 {
+    margin: 0 -20px;
+    padding: 14px 20px 12px;
+    border-bottom: 1px solid var(--nb-border);
+    font: var(--nb-weight-semibold) var(--nb-text-base) / 1.4 var(--nb-font-sans);
   }
   label {
     display: block;

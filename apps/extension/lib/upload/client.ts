@@ -72,8 +72,24 @@ export interface CreateCaptureInput {
   durationMs?: number;
 }
 
+/**
+ * Called after the server accepted a new capture, with its page URL. The worker refreshes its
+ * project list when the page had no project (D-200: the server just made one).
+ */
+export const captureCreatedHooks = new Set<(pageUrl: string) => void>();
+
 export const api = {
-  createCapture: (a: UploadAuthLike, body: CreateCaptureInput) => call<{ id: string; shareUrl: string; uploadToken?: string }>(a, 'captures.create', {}, { json: body }),
+  createCapture: async (a: UploadAuthLike, body: CreateCaptureInput) => {
+    const r = await call<{ id: string; shareUrl: string; uploadToken?: string }>(a, 'captures.create', {}, { json: body });
+    for (const h of captureCreatedHooks) {
+      try {
+        h(body.page.url);
+      } catch {
+        /* a hook never fails the upload */
+      }
+    }
+    return r;
+  },
 
   putChunk: (a: UploadAuthLike, id: string, stream: StreamName, seq: number, body: Blob, meta: { sha256: string; t0: number; t1: number; contentType: string; contentEncoding: 'gzip' | null }) => {
     const headers: Record<string, string> = {

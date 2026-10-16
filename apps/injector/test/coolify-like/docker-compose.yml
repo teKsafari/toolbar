@@ -1,4 +1,4 @@
-# The injector behind a Traefik set up like Coolify's (D-200), for apps/injector/test/coolify-like/run.sh.
+# The injector behind a Traefik set up like Coolify's (D-201), for apps/injector/test/coolify-like/run.sh.
 #
 # - coolify-proxy: traefik:v3.7 with the command line Coolify generates for its proxy
 #   (coollabsio/coolify bootstrap/helpers/proxy.php), its Docker provider and file provider, and

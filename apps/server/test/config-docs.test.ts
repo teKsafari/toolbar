@@ -245,7 +245,7 @@ describe('docs/configuration.md', () => {
     for (const n of REQUIRED) expect(where.get(n), n).toBe('Required');
   });
 
-  it('keeps the injector Coolify files in step with each other and the Go code (D-200)', () => {
+  it('keeps the injector Coolify files in step with each other and the Go code (D-201)', () => {
     const inj = read('deploy/injector/docker-compose.injector.yml');
     // Coolify asks for exactly the two values it cannot know
     expect([...inj.matchAll(/\$\{([A-Z_]+):\?\}/g)].map((m) => m[1]).sort()).toEqual(['INJECTOR_SECRET', 'TOOLBAR_SERVER_URL']);

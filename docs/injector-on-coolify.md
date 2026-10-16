@@ -1,6 +1,6 @@
 # The injector on Coolify
 
-The injector puts the open-toolbar on any app your Coolify server runs, for reviewers only, with no browser extension and no change to the app (D-157, D-200). You set it up once per Coolify server. After that, opening an app for review takes two steps in the open-toolbar dashboard: add the app's origin to a project, then share the project's review link.
+The injector puts the open-toolbar on any app your Coolify server runs, for reviewers only, with no browser extension and no change to the app (D-157, D-201). You set it up once per Coolify server. After that, opening an app for review takes two steps in the open-toolbar dashboard: add the app's origin to a project, then share the project's review link.
 
 This page uses the owner's names: Coolify project **Lab**, the open-toolbar server at `https://toolbar.teksafari.com`, and the lab app at `https://lab-toolbar.teksafari.com` as the first site to review. Put your own names in their place.
 
@@ -95,7 +95,7 @@ Then do the onboarding below for the lab and open its review link.
 
 For each app you want reviewed, in the open-toolbar dashboard (`https://toolbar.teksafari.com`):
 
-1. **Settings**, **Projects**. Add a project, or edit one, and put the app's origin in **Origins**, for example `https://lab-toolbar.teksafari.com`. With the extension's automatic projects (D-198) the origin may already be in a project; then there is nothing to add.
+1. **Settings**, **Projects**. Add a project, or edit one, and put the app's origin in **Origins**, for example `https://lab-toolbar.teksafari.com`. With the extension's automatic projects (D-200) the origin may already be in a project; then there is nothing to add.
 2. Under each origin of the project: **Copy review link** copies `https://toolbar.teksafari.com/go/<project id>` (with `?site=` when the project has several origins). **Open with toolbar** opens the app with the toolbar for you, right away.
 3. Send the link to the reviewer. They click it, sign in with Google if they are not signed in yet, press **Open <host> with the toolbar**, and land on the app with the toolbar at the bottom of the page.
 

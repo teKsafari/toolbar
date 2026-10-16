@@ -56,7 +56,14 @@ Email and password accounts stay off. They exist only for development and tests,
 - **Unlisted Chrome Web Store item.** Upload `dist/open-toolbar-extension-<version>-chrome-webstore.zip` as an unlisted item and send testers its store link. The item gets its own id; add it to `EXTENSION_IDS` on the server. `docs/extension-release.md` walks through the listing and the review.
 - **Firefox.** The zip builds and lints, and the server accepts its sign-in. Video and the screenshot editor are Chrome-only, and the add-on is not signed yet (`docs/extension-release.md`, "Firefox").
 
-The extension asks for access to your server only. A workspace admin lists each app under Settings > Projects with its origins and a masking preset. After you sign in, open the extension's popup on one of those apps and click Allow: Chrome asks once for the origins of your projects, and the extension records there and nowhere else. Chrome lets the extension take screenshots of a tab only after you have opened its popup there (or pressed Ctrl+Shift+Y); the toolbar tells you when that is missing.
+### Site access
+
+At install the extension asks for access to your server only. What happens after sign-in depends on Settings > Server, Capture defaults, Site access (`SITE_ACCESS`, D-200):
+
+- **All sites (default).** The popup shows one screen that explains the request, and you click Allow; Chrome asks once for every site. The extension then runs everywhere except your server and your blocked sites. The first capture on a site makes a project for it (named after the host, for example `localhost:5173`), and the dashboard's sidebar groups captures by project. An admin merges projects in Settings > Projects or on a project's page, so `nuru.sh`, `staging.nuru.sh` and `116.nuru.sh` become one project, or adds a domain such as `*.nuru.sh` that covers the bare domain and every subdomain over https. An exact origin wins over a domain. To take the access back, use the options page or Chrome's extension details, Site access.
+- **Project origins only.** The strict mode. A workspace admin lists each app under Settings > Projects with its origins and a masking preset. Open the extension's popup on one of those apps and click Allow: Chrome asks once for the origins of your projects, and the extension records there and nowhere else. The server refuses captures from other origins and makes no project by itself.
+
+Chrome lets the extension take screenshots of a tab only after you have opened its popup there (or pressed Ctrl+Shift+Y); the toolbar tells you when that is missing.
 
 On a page, Ctrl+Shift+. wakes the reviewer toolbar. Its keys: `c` comment, `t` comment on the selected text, `v` voice note, `x` start or stop a trace.
 

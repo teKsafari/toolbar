@@ -1,4 +1,4 @@
-// The injector behind a Traefik set up like Coolify's (D-200), in a headed Chromium without the
+// The injector behind a Traefik set up like Coolify's (D-201), in a headed Chromium without the
 // extension. Run by apps/injector/test/coolify-like/run.sh, which starts the stack: traefik:v3.7
 // with Coolify's command line and labels, the lab and a strict-CSP page as two apps, the injector
 // in loopback mode behind deploy/injector/traefik-open-toolbar-injector.yml, and the worktree's
@@ -87,11 +87,20 @@ test('2. onboarding: add the origins to a project, open the site from the projec
   const labLink = row.locator(`[data-testid=project-review] li[data-origin="${LAB}"]`);
   await expect(labLink.getByTestId('review-copy')).toBeVisible();
   // several sites in one project: each link names its site
-  expect(await labLink.getByTestId('review-copy').getAttribute('data-href')).toMatch(new RegExp(`^${SERVER}/go/[0-9a-f-]{36}\\?site=`));
+  const href = await labLink.getByTestId('review-copy').getAttribute('data-href');
+  expect(href).toMatch(new RegExp(`^${SERVER}/go/[0-9a-f-]{36}\\?site=`));
+  await dash.screenshot({ path: 'test-results-injector/coolify-settings-projects.png' });
+
+  // the project's own page has the same links
+  const projectId = /\/go\/([0-9a-f-]{36})/.exec(href!)![1]!;
+  await dash.goto(`${SERVER}/p/${projectId}`);
+  const pageLink = dash.locator(`[data-testid=project-review] li[data-origin="${LAB}"]`);
+  await expect(pageLink.getByTestId('review-open')).toBeVisible();
+  await dash.waitForLoadState('networkidle');
   await dash.screenshot({ path: 'test-results-injector/coolify-project-page.png' });
 
   const before = injectorRequests().length;
-  const [tab] = await Promise.all([ctx.waitForEvent('page'), labLink.getByTestId('review-open').click()]);
+  const [tab] = await Promise.all([ctx.waitForEvent('page'), pageLink.getByTestId('review-open').click()]);
   app = tab;
   await app.waitForURL((u) => u.origin === LAB && u.pathname === '/', { timeout: 30_000 });
   await expect(toolbar(app)).toBeVisible();
@@ -201,8 +210,8 @@ test('4. WebSockets and server-sent events through the loop; x-review-skip', asy
 });
 
 test('5. the copied review link opens the strict-CSP app with the toolbar', async () => {
-  const row = dash.getByTestId('project-row').filter({ hasText: 'Lab on Coolify' });
-  const href = await row.locator(`[data-testid=project-review] li[data-origin="${CSP}"]`).getByTestId('review-copy').getAttribute('data-href');
+  // the dashboard is still on the project's page
+  const href = await dash.locator(`[data-testid=project-review] li[data-origin="${CSP}"]`).getByTestId('review-copy').getAttribute('data-href');
   expect(href).toBeTruthy();
   const page = await ctx.newPage();
   const violations: string[] = [];

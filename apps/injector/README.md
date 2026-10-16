@@ -1,12 +1,12 @@
 # Injector
 
-A small Go reverse proxy that adds the open-toolbar to an app's pages without any change to the app (PLAN "Zero integration", delivery 2; D-157, D-200). It sits beside Traefik: Traefik sends it only reviewers' requests, for any host, and the injector sends them back into Traefik, which routes them to the app. For a signed-in reviewer it adds one script tag to the `<head>` of each HTML page. Everyone else never reaches it.
+A small Go reverse proxy that adds the open-toolbar to an app's pages without any change to the app (PLAN "Zero integration", delivery 2; D-157, D-201). It sits beside Traefik: Traefik sends it only reviewers' requests, for any host, and the injector sends them back into Traefik, which routes them to the app. For a signed-in reviewer it adds one script tag to the `<head>` of each HTML page. Everyone else never reaches it.
 
 Setting it up on Coolify, and opening an app for review: [docs/injector-on-coolify.md](../../docs/injector-on-coolify.md).
 
 ## Two modes
 
-- **Loopback** (`INJECTOR_LOOPBACK`, D-200), for Coolify and any Traefik in front of many apps. The injector forwards each request back to the proxy with the original `Host`, that host as the TLS server name (so the proxy's certificate for the app is checked against the system roots; `INJECTOR_LOOPBACK_INSECURE=1` for a self-signed proxy), HTTP/1.1 (WebSocket upgrades pass), the `X-Forwarded-*` headers kept and this hop added, no reviewer cookie and `Via: 1.1 open-toolbar-injector`. Without the cookie the second pass misses the injector router and takes the app's own router. A request that comes back with the injector's `Via` token is answered 508, so a request passes the injector at most once. The injector needs no list of apps.
+- **Loopback** (`INJECTOR_LOOPBACK`, D-201), for Coolify and any Traefik in front of many apps. The injector forwards each request back to the proxy with the original `Host`, that host as the TLS server name (so the proxy's certificate for the app is checked against the system roots; `INJECTOR_LOOPBACK_INSECURE=1` for a self-signed proxy), HTTP/1.1 (WebSocket upgrades pass), the `X-Forwarded-*` headers kept and this hop added, no reviewer cookie and `Via: 1.1 open-toolbar-injector`. Without the cookie the second pass misses the injector router and takes the app's own router. A request that comes back with the injector's `Via` token is answered 508, so a request passes the injector at most once. The injector needs no list of apps.
 - **Explicit** (`INJECTOR_UPSTREAMS`, `INJECTOR_UPSTREAM`): the injector forwards to app containers you list by host. A host listed there skips the loopback. The plain compose test (`test/run.sh`) uses it.
 
 ## What it does
@@ -48,7 +48,7 @@ tbr1.<base64url(JSON {"v":1,"o":"<origin>","u":"<user id>","x":<expiry, unix s>,
 
 The server signs it (`apps/server/src/lib/server/review/cookie.ts`); the injector checks it offline (`cookie.go`). Both sides pin the format to `testdata/review-cookie.json`. The device token inside is a normal open-toolbar device token named "Review on <host>": it shows under Settings, Connected browsers, expires with the cookie and can be revoked there. The cookie's name is `__Host-tb_review` on https and `tb_review` on http.
 
-Sign-in, step by step (D-200):
+Sign-in, step by step (D-201):
 
 1. The reviewer opens a review link, `https://feedback.example/go/<project id>` (Settings, Projects, "Copy review link"; `?site=<origin>` when the project has several origins). `https://app.example/__toolbar/login` leads to the same page as `/go?site=https://app.example`. The server asks them to sign in when they are not.
 2. The server checks the origin: it must be in a project of the person's workspaces (`reviewOriginAllowed` in `apps/server/src/lib/server/projects/`) and, when `INJECTOR_ORIGINS` is set, in that list too. The page names the site and the account, and reads `https://app.example/__toolbar/health` to make sure the injector answers there.

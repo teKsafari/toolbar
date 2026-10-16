@@ -149,11 +149,11 @@ DISPLAY=:101 ~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome --user-d
 
 `--no-first-run` matters: without it a fresh profile opens a modal terms-of-service dialog and Chromium loads nothing until someone clicks Accept. openbox takes its display from `DISPLAY` and rejects a `--display` flag.
 
-Site access (D-123, D-126): a release build can talk to its server and nothing else. To capture on an app, a workspace admin adds it under Settings, Projects (name, origins, masking preset). After sign-in, open the popup on that app and click Allow; Chrome asks once for the origins of all your projects. On any other site the popup says the site is in no project and nothing is injected. A build pointed at another server through the options page asks for that server's origin when you save it.
+Site access (D-123, D-126, D-200): at install a release build can talk to its server and nothing else. The server's mode (`SITE_ACCESS`, Settings > Server) decides the rest. In the default `all` mode the popup, right after sign-in, shows one screen and its Allow asks Chrome once for `http://*/*` and `https://*/*`; the capture scripts then run everywhere but the server and the blocked sites, and the first capture on an origin makes its project on the server. In the strict `projects` mode a workspace admin adds each app under Settings, Projects (name, origins, masking preset); open the popup on that app and click Allow, and Chrome asks once for the origins of all your projects; on any other site the popup says the site is in no project and nothing is injected. A build pointed at another server through the options page asks for that server's origin when you save it. Test builds hold `<all_urls>` and ignore the mode unless storage key `tb:test-scope` is `release` (follow the server) or `projects` (force the strict mode).
 
 WXT's own browser runner is off (`webExt.disabled`), because this VM has no display for it and the shared browser belongs to another agent.
 
-How the pieces connect: the service worker registers `content-scripts/capture-main.js` (MAIN world) and `content-scripts/capture.js` (ISOLATED) at `document_start` for the origins of the signed-in user's projects that the person allowed (D-126; test builds: every site unless storage key `tb:test-scope` is `projects`). The MAIN script installs the page hooks from `@toolbar/capture` and relays events over a private `MessageChannel`; the isolated script forwards them to the worker on the `capture` port and, in the top frame, mounts `<toolbar-root>` with the Svelte UI in a shadow root.
+How the pieces connect: the service worker registers `content-scripts/capture-main.js` (MAIN world) and `content-scripts/capture.js` (ISOLATED) at `document_start` for every http(s) site less the server and the blocked sites once the person allowed all sites (D-200), or in the strict mode for the origins of the signed-in user's projects that the person allowed (D-126); test builds: every site unless storage key `tb:test-scope` is `release` or `projects`. The MAIN script installs the page hooks from `@toolbar/capture` and relays events over a private `MessageChannel`; the isolated script forwards them to the worker on the `capture` port and, in the top frame, mounts `<toolbar-root>` with the Svelte UI in a shadow root.
 
 The manifest `key` is the Chrome Web Store item's public key, so every build has the store id. Google holds the private half; the repository needs no signing key (docs/extension-release.md).
 
@@ -163,7 +163,7 @@ The manifest `key` is the Chrome Web Store item's public key, so every build has
 cd apps/injector && go test -race ./...      # unit tests: streaming injection, chunk boundaries, nonce, gzip, errors, cookie, relay
 pnpm --filter @toolbar/extension build:page  # the page bundle, apps/extension/.output/page/toolbar.js
 apps/injector/test/run.sh                    # compose test: builds the image, runs e2e/injector in a browser without the extension
-apps/injector/test/coolify-like/run.sh       # the same behind traefik:v3.7 set up like Coolify's (D-200)
+apps/injector/test/coolify-like/run.sh       # the same behind traefik:v3.7 set up like Coolify's (D-201)
 ```
 
 `run.sh` reads the repo root `.env`. The server it talks to (default http://localhost:3306, `SERVER_URL`) needs `INJECTOR_SECRET` and the mock OIDC provider (the spec adds `http://localhost:3506` to a project of the reviewer); the injector container reaches it as `host.docker.internal`, which the dev server's Vite config allows. See `apps/injector/README.md`.
@@ -177,7 +177,7 @@ Two Playwright suites in `e2e/`, both headed Chromium on a private Xvfb display 
 | Suite | Specs | Extension build | Config | Default display |
 |---|---|---|---|---|
 | Area suites | `e2e/tests/**` (one folder per area, about 230 tests) | test build `chrome-mv3-test` (open shadow root, `globalThis.__tb`) | `playwright.config.ts` | `:101` |
-| User journeys | `e2e/flows/*.spec.ts`, flows A to O of `docs/jam/flows.md`, P (branding), Q (zero integration, D-126), R (reviewer keys in the release build) and P2 (the owner's Part 2 scenario, D-163) | release build `chrome-mv3` | `playwright.flows.config.ts` | `:120` |
+| User journeys | `e2e/flows/*.spec.ts`, flows A to O of `docs/jam/flows.md`, P (branding), Q (zero integration in the strict site access mode, D-126), S (site access: one prompt for all sites, a project per origin, merge, strict mode; D-200), R (reviewer keys in the release build) and P2 (the owner's Part 2 scenario, D-163) | release build `chrome-mv3` | `playwright.flows.config.ts` | `:120` |
 
 ### Everything, from a clean database
 
@@ -215,7 +215,7 @@ Points that keep the runs deterministic:
 
 - Listeners the server must call (webhooks, the GitHub and Slack stand-ins) bind `0.0.0.0`. `e2e/fixtures/net.ts` gives the server `host.docker.internal` when a container publishes the server's port (compose maps it to the host gateway), else `127.0.0.1`; the browser keeps using `127.0.0.1`.
 - Chrome's share picker crashes Chromium on Xvfb now and then (`docs/spikes.md` S2). Tests that go through it (flows D and E, the capture suite's J-201) run in a browser of their own on a private Xvfb display (`e2e/fixtures/xvfb.ts`, the suite's display number plus 40). A crash, and only a crash, gets another try in a fresh browser: D and E fall back to Chromium's fake media flags after three crashes and say `LIMITATION` in the log and a `limitation` annotation in the report; J-201 has four tries and no fallback, since a fake picker cannot be cancelled.
-- `connectExtension` (flows) adds a project for the lab to the new account's workspace and allows it from the popup, accepting Chrome's permission prompt with Tab and Return through xdotool; flow Q does the same steps by hand and checks that a second origin gets nothing. The area suites' test build holds `<all_urls>`; `e2e/tests/zero-integration` switches it to the release scope with `tb:test-scope` (D-127).
+- `connectExtension` (flows) adds a project for the lab to the new account's workspace and allows it from the popup (every site in the default `all` mode, the project origins in the strict mode), accepting Chrome's permission prompt with Tab and Return through xdotool. Flows Q and S switch the site access mode through the admin API (the account's own session when it is the instance admin, else the seeded dana@toolbar.test with `AUTH_DEV_PASSWORD=1`), skip with a reason when they cannot, and reset it at the end; Q does the strict mode's steps by hand and checks that a second origin gets nothing. The area suites' test build holds `<all_urls>`; `e2e/tests/zero-integration` switches it to the release scope with `tb:test-scope` (D-127).
 - The flows close the app's pages each flow leaves open. Playwright reports every page as visible, so left-over capture tabs would each hold a comments stream (a real browser drops it for background tabs) and use up Chromium's six connections to the server.
 
 ## Where area work goes

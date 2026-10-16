@@ -113,11 +113,90 @@ export function originMatches(origin: string, url: string): boolean {
   return u.host === host;
 }
 
-/** The first project whose origins cover `url`, or null. */
+/**
+ * How specific a normalized origin is, for matching precedence (D-200): an exact origin beats any
+ * wildcard domain, an exact host with a port beats one without (which covers every port), and a
+ * longer wildcard domain beats a shorter one (`*.app.nuru.sh` before `*.nuru.sh`).
+ */
+export function originSpecificity(origin: string): number {
+  const o = /^(https?):\/\/(\*\.)?([^/:]+)(?::(\d+))?$/.exec(origin);
+  if (!o) return 0;
+  if (o[2]) return 1_000 + o[3]!.length;
+  return o[4] ? 3_000 : 2_000;
+}
+
+/** The most specific origin of `origins` that covers `url`, with its specificity; null when none does. */
+export function bestOriginFor(origins: readonly string[], url: string): { origin: string; score: number } | null {
+  let best: { origin: string; score: number } | null = null;
+  for (const o of origins) {
+    if (!originMatches(o, url)) continue;
+    const score = originSpecificity(o);
+    if (!best || score > best.score) best = { origin: o, score };
+  }
+  return best;
+}
+
+/**
+ * The project whose origins cover `url`, or null. Precedence (D-200): the project with an exact
+ * origin for the page wins over one that covers it by a wildcard domain, and among wildcards the
+ * most specific wins. On a tie the earlier project in the list wins (callers list oldest first).
+ */
 export function projectForUrl<P extends Pick<ProjectScope, 'origins'>>(projects: readonly P[], url: string | null | undefined): P | null {
   if (!url) return null;
-  for (const p of projects) if (p.origins.some((o) => originMatches(o, url))) return p;
-  return null;
+  let best: P | null = null;
+  let bestScore = 0;
+  for (const p of projects) {
+    const m = bestOriginFor(p.origins, url);
+    if (m && m.score > bestScore) {
+      best = p;
+      bestScore = m.score;
+    }
+  }
+  return best;
+}
+
+/**
+ * Site access (D-200). `all`: the extension asks Chrome once for every site, and the first capture
+ * on an origin makes a project for it. `projects`: the strict mode of D-126, capture only on the
+ * origins of projects, each approved in Chrome.
+ */
+export const SITE_ACCESS_MODES = ['all', 'projects'] as const;
+export type SiteAccessMode = (typeof SITE_ACCESS_MODES)[number];
+
+/** The exact origin (scheme, host, port when not the default) of a page; null for anything but http(s). */
+export function pageOrigin(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    // a wildcard is a project's domain pattern, never a page
+    if (/[*%]/.test(u.hostname)) return null;
+    return normalizeOrigin(u.origin);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The project the first capture on an origin creates in `all` mode (D-200): named after the host
+ * (the hostname, with the port when it is not the scheme's default), with that one origin.
+ */
+export function autoProjectOf(url: string | null | undefined): { name: string; origins: string[] } | null {
+  const origin = pageOrigin(url);
+  if (!origin) return null;
+  const host = origin.replace(/^https?:\/\//, '');
+  return { name: host.slice(0, LIMITS_PROJECT.name), origins: [origin] };
+}
+
+/**
+ * The origins of two projects merged (D-200): the first project's in their order, then those of
+ * the second it does not list yet. Throws a RangeError past the project limit.
+ */
+export function mergeOrigins(into: readonly string[], from: readonly string[]): string[] {
+  const out = [...into];
+  for (const o of from) if (!out.includes(o)) out.push(o);
+  if (out.length > LIMITS_PROJECT.origins) throw new RangeError(`A project holds at most ${LIMITS_PROJECT.origins} origins`);
+  return out;
 }
 
 /** Every origin of every project, once each, in a stable order. */

@@ -1,10 +1,11 @@
-// Flow Q: zero integration (PLAN "Zero integration", D-123 to D-127), with the release build in a
-// browser of its own. The extension installs with access to its server only. A new reviewer
+// Flow Q: zero integration in the strict site access mode (PLAN "Zero integration", D-123 to
+// D-127; SITE_ACCESS=projects, D-200, which the flow switches on for its run through the admin
+// API and resets after), with the release build in a browser of its own. The extension installs with access to its server only. A new reviewer
 // signs in, sees that the lab is in no project, an admin adds it under Settings > Projects, the
 // popup asks for the lab's origin and Chrome's prompt grants it. From then on the lab is
 // captured and a second origin serving the same page is not, and a capture of the lab carries
 // its project and masking preset.
-import { LAB_URL, SERVER, acceptPermissionPrompt, api, captureOf, chord, connectExtension, createFromEditor, editorFrame, expect, hydrated, labPage, launchExtension, newEmail, openPopup, saveShot, test, withPrivateDisplay } from './fixture.ts';
+import { LAB_URL, SERVER, acceptPermissionPrompt, api, captureOf, chord, connectExtension, createFromEditor, editorFrame, expect, hydrated, labPage, launchExtension, newEmail, openPopup, saveShot, setSiteAccess, test, withPrivateDisplay } from './fixture.ts';
 
 /** The same lab page on an origin that no project lists. */
 const OTHER = LAB_URL.replace('localhost', '127.0.0.1');
@@ -14,7 +15,10 @@ test('Q: no site access at install, a project origin granted from the popup, not
   test.setTimeout(240_000);
   await withPrivateDisplay(async (display) => {
     const b = await launchExtension({ display, cdpPort: Number(process.env.FLOWS_CDP_PORT ?? 9341) + 30 });
+    // D-200: this is the strict mode, an admin setting; the default `all` mode is flow S
+    const strict = await setSiteAccess(b.context, 'projects');
     try {
+      test.skip(!strict, 'needs the strict site access mode: an instance admin (seeded dana@toolbar.test with AUTH_DEV_PASSWORD=1) to switch it, and SITE_ACCESS unset');
       const sw = await b.sw();
       // installed: the build's server, nothing else
       const perms = () => sw.evaluate(() => (globalThis as unknown as { chrome: { permissions: { getAll(): Promise<{ origins: string[] }> } } }).chrome.permissions.getAll());
@@ -101,6 +105,7 @@ test('Q: no site access at install, a project origin granted from the popup, not
       await page.close();
       await lab.close();
     } finally {
+      if (strict) await setSiteAccess(b.context, null);
       await b.close();
     }
   });

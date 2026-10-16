@@ -1,11 +1,13 @@
-// Keeps the capture scripts registered for exactly the granted project origins (D-126): on
+// Keeps the capture scripts registered for exactly the scope (D-126, D-200, lib/scope.ts): on
 // worker start, on sign-in and sign-out, when the bootstrap's project list changes, and when the
 // person grants or removes a site. Also keeps the project list fresh, and registers the server
 // page script for a server set on the options page. background.ts calls registerScope() once.
 import { browser } from 'wxt/browser';
 import { STORAGE, type StorageValues } from '@toolbar/shared/ext';
 import { syncRegistration } from '../registration';
-import { TEST_SCOPE_KEY } from '../scope';
+import { projects, TEST_SCOPE_KEY } from '../scope';
+import { projectForUrl } from '@toolbar/shared/projects';
+import { captureCreatedHooks } from '../upload/client';
 import { authClient, readStore, serverUrl } from '../auth/chrome';
 import { resolveServerUrl } from '../server-url';
 
@@ -50,6 +52,10 @@ export function registerScope() {
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
     if (changes[STORAGE.auth.key] || changes[STORAGE.bootstrap.key] || changes[TEST_SCOPE_KEY]) sync();
+    // D-200: in `all` mode the blocked-sites list (J-012) is excluded from the registration
+    const s = changes[STORAGE.settings.key];
+    const blocked = (v: unknown) => JSON.stringify((v as { replayBlockedSites?: unknown } | undefined)?.replayBlockedSites ?? null);
+    if (s && blocked(s.oldValue) !== blocked(s.newValue)) sync();
     if (changes[STORAGE.serverUrl.key]) void syncServerScript();
   });
   browser.permissions.onAdded.addListener(() => {
@@ -68,6 +74,12 @@ export function registerScope() {
   } catch {
     /* alarms permission */
   }
+  // D-200: the first capture on an origin makes its project on the server; fetch it
+  captureCreatedHooks.add((pageUrl) => {
+    void projects().then((list) => {
+      if (/^https?:/i.test(pageUrl) && !projectForUrl(list, pageUrl)) void refreshProjects(true);
+    });
+  });
   void refreshProjects();
   void syncServerScript();
 }

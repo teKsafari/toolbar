@@ -4,12 +4,12 @@
 // default. The specs below drive the server's resolver, the admin API and the settings page.
 import { z } from 'zod';
 import { api, defineRoute } from './common.ts';
-import { PROJECT_PRESETS, TRACE_OPEN_MS } from '../projects.ts';
+import { PROJECT_PRESETS, SITE_ACCESS_MODES, TRACE_OPEN_MS } from '../projects.ts';
 
 export const INSTANCE_SECTIONS = [
   { id: 'signin', title: 'Sign-in', description: 'Who may sign in, and how the sign-in button reads.' },
   { id: 'transcription', title: 'Transcription', description: 'How voice notes and narrated recordings become text.' },
-  { id: 'capture', title: 'Capture defaults', description: 'Defaults for new projects and recordings. Workspace admins can change the project defaults for their workspace.' },
+  { id: 'capture', title: 'Capture defaults', description: 'Where the extension captures, and defaults for new projects and recordings. Workspace admins can change the project defaults for their workspace.' },
   { id: 'sharing', title: 'Sharing and export', description: 'Share links, the bulk export for agents, and the extension’s problem reports.' },
   { id: 'limits', title: 'Limits', description: 'Caps that keep cost and abuse in check.' },
 ] as const;
@@ -61,6 +61,7 @@ export const instanceValueSchemas = {
   transcribeConcurrency: z.number().int().min(1, 'At least 1').max(16, 'At most 16'),
   whisperUrl: httpUrl,
   maxRecordingMin: z.number().int().min(1, 'At least 1 minute').max(600, 'At most 600 minutes'),
+  siteAccess: z.enum(SITE_ACCESS_MODES),
   defaultMaskingPreset: z.enum(PROJECT_PRESETS),
   defaultTraceOpenMs: z
     .number()
@@ -159,6 +160,14 @@ export const INSTANCE_FIELDS: readonly InstanceFieldSpec[] = [
   {
     key: 'transcribeConcurrency', section: 'transcription', kind: 'int', label: 'Parallel requests',
     env: ['TRANSCRIBE_CONCURRENCY'], hint: 'Chunk requests in flight per recording. Lower it when the provider rate-limits you.',
+  },
+  {
+    key: 'siteAccess', section: 'capture', kind: 'enum', label: 'Site access', env: ['SITE_ACCESS'],
+    options: [
+      { value: 'all', label: 'All sites: one Chrome prompt, each new origin becomes a project' },
+      { value: 'projects', label: 'Project origins only: each listed origin approved in Chrome' },
+    ],
+    hint: 'All sites is the default. Project origins only is the strict mode: the extension captures on the origins listed under Settings, Projects and nowhere else, and no project is made automatically.',
   },
   {
     key: 'defaultMaskingPreset', section: 'capture', kind: 'enum', label: 'Masking preset for new projects', env: [],

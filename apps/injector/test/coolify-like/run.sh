@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The injector behind a Traefik set up like Coolify's (D-200), end to end:
+# The injector behind a Traefik set up like Coolify's (D-201), end to end:
 #
 #   apps/injector/test/coolify-like/run.sh [playwright args]
 #

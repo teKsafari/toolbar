@@ -1,6 +1,6 @@
 package main
 
-// Loopback mode (D-200): Traefik sends the injector only reviewer requests and /__toolbar/, for
+// Loopback mode (D-201): Traefik sends the injector only reviewer requests and /__toolbar/, for
 // any host, and the injector forwards each one back into Traefik instead of to a configured app
 // address. Traefik then routes it to the app through the router Coolify made from the app's
 // labels, so the injector needs no list of apps.

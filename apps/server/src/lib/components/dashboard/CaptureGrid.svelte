@@ -18,6 +18,8 @@
   interface Props {
     /** "none" for the main grid (unfiled captures), a folder id, or "all" */
     folderId: string;
+    /** only the captures of this project (D-200) */
+    projectId?: string;
     workspaceId: string | null;
     folders: Folder[];
     canEdit: boolean;
@@ -26,7 +28,7 @@
     /** nothing here at all, no filters set */
     empty: Snippet;
   }
-  let { folderId, workspaceId, folders, canEdit, header, empty }: Props = $props();
+  let { folderId, projectId, workspaceId, folders, canEdit, header, empty }: Props = $props();
 
   let items = $state<CaptureSummary[]>([]);
   let total = $state<number | null>(null);
@@ -45,6 +47,7 @@
   const query = $derived({
     workspaceId,
     folderId: filters.link ? 'all' : folderId,
+    projectId,
     kinds: kindsOf(filters.types),
     sources: filters.sources,
     authors: filters.authors,

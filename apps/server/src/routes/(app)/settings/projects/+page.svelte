@@ -9,6 +9,8 @@
   import Section from '#lib/components/dashboard/Section.svelte';
   import Modal from '#lib/components/dashboard/Modal.svelte';
   import Confirm from '#lib/components/dashboard/Confirm.svelte';
+  import ReviewLinks from '#lib/components/dashboard/ReviewLinks.svelte';
+  import MergeProjects from '#lib/components/dashboard/MergeProjects.svelte';
   import { api, errMsg } from '#lib/components/dashboard/api.ts';
 
   let { data } = $props();
@@ -23,6 +25,8 @@
   let openSec = $state(TRACE_OPEN_MS.default / 1000);
   let busy = $state(false);
   let removing = $state<Project | null>(null);
+  let mergeInto = $state<Project | null>(null);
+  let mergeOpen = $state(false);
 
   const lines = (s: string) => s.split(/[\n,]+/).map((x) => x.trim()).filter(Boolean);
   const badOrigins = $derived(lines(originsText).filter((o) => !normalizeOrigin(o)));
@@ -66,19 +70,6 @@
     }
   }
 
-  const pathOf = (href: string) => {
-    const u = new URL(href);
-    return u.pathname + u.search;
-  };
-  async function copyLink(href: string) {
-    try {
-      await navigator.clipboard.writeText(href);
-      toasts.success('Review link copied. Anyone in this workspace who opens it gets the toolbar on the site.');
-    } catch {
-      toasts.error(`Copy failed. The link: ${href}`);
-    }
-  }
-
   async function del(p: Project) {
     await api('projects.delete', { params: { id: p.id } });
     toasts.success('Project removed');
@@ -92,8 +83,12 @@
   <h1>Projects</h1>
   {#if data.admin}<Button variant="primary" icon="plus" onclick={startAdd} data-testid="add-project">Add project</Button>{/if}
 </div>
-<p class="muted lead">
-  A project is a web app your team reviews. The extension asks each reviewer for access to the project’s origins after sign-in, and records nothing on any other site. Captures from other origins are refused.
+<p class="muted lead" data-testid="projects-lead" data-mode={data.siteAccess}>
+  {#if data.siteAccess === 'all'}
+    A project is a web app your team reviews. The extension has access to all sites, and the first capture on a new origin makes a project for it. Merge projects to group the hostnames and domains of one app, such as <code>nuru.sh</code>, <code>staging.nuru.sh</code> and <code>*.nuru.sh</code>.
+  {:else}
+    A project is a web app your team reviews. This server captures on project origins only: the extension asks each reviewer for access to the project’s origins after sign-in, and records nothing on any other site. Captures from other origins are refused.
+  {/if}
 </p>
 {#if data.reviewLinks}
   <p class="muted lead" data-testid="review-links-hint">
@@ -108,26 +103,13 @@
   {#each data.projects as p (p.id)}
     <div class="proj" data-testid="project-row" data-id={p.id}>
       <div class="pr">
-        <strong class="name">{p.name}</strong>
+        <a class="name" href="/p/{p.id}" data-testid="project-open">{p.name}</a>
         <span class="preset {p.maskingPreset}" data-testid="project-preset" title={PRESET_SUMMARY[p.maskingPreset]}>{PRESET_LABELS[p.maskingPreset]}</span>
       </div>
       <ul class="chips" data-testid="project-origins">
         {#each p.origins as o (o)}<li><code>{o}</code></li>{/each}
       </ul>
-      {#if data.reviewLinks?.[p.id]?.length}
-        <!-- review links (D-200): a reviewer opens the link, signs in, and lands on the site with the toolbar -->
-        <ul class="review" data-testid="project-review">
-          {#each data.reviewLinks[p.id] as l (l.origin)}
-            <li data-origin={l.origin}>
-              <span class="rhost">{l.host}</span>
-              <Button size="sm" icon="copy" onclick={() => copyLink(l.href)} data-testid="review-copy" data-href={l.href}>Copy review link</Button>
-              <form method="POST" action={pathOf(l.href)} target="_blank">
-                <Button size="sm" variant="ghost" icon="external" type="submit" data-testid="review-open">Open with toolbar</Button>
-              </form>
-            </li>
-          {/each}
-        </ul>
-      {/if}
+      {#if data.reviewLinks?.[p.id]}<ReviewLinks links={data.reviewLinks[p.id] ?? []} />{/if}
       {#if p.maskingPreset === 'production'}
         <p class="small muted">
           {p.bodyAllowlist.length ? `Bodies kept for ${p.bodyAllowlist.length} allowlisted ${p.bodyAllowlist.length === 1 ? 'URL' : 'URLs'}` : 'No request or response bodies are kept'}
@@ -139,6 +121,9 @@
       {#if data.admin}
         <div class="acts">
           <Button size="sm" icon="pen" onclick={() => startEdit(p)} data-testid="project-edit">Edit</Button>
+          {#if data.projects.length > 1}
+            <Button size="sm" onclick={() => ((mergeInto = p), (mergeOpen = true))} data-testid="project-merge-row">Merge into this</Button>
+          {/if}
           <Button size="sm" variant="ghost" icon="trash" onclick={() => (removing = p)} data-testid="project-delete">Remove</Button>
         </div>
       {/if}
@@ -163,7 +148,7 @@
     <label>
       Origins, one per line
       <textarea rows="3" bind:value={originsText} placeholder={'https://staging.example.com\nhttps://*.preview.example.com'} data-testid="project-origins-input"></textarea>
-      {#if badOrigins.length}<span class="err" data-testid="project-origin-error">Not a web origin: {badOrigins.join(', ')}</span>{:else}<span class="hint">Scheme and host, and a port when it is not 80 or 443. <code>*.</code> covers subdomains.</span>{/if}
+      {#if badOrigins.length}<span class="err" data-testid="project-origin-error">Not a web origin: {badOrigins.join(', ')}</span>{:else}<span class="hint">Scheme and host, and a port when it is not 80 or 443. <code>*.example.com</code> covers example.com and every subdomain, over https unless you list <code>http://*.example.com</code> too. An exact origin wins over a domain.</span>{/if}
     </label>
     <fieldset>
       <legend>Masking preset</legend>
@@ -193,6 +178,8 @@
   {/snippet}
 </Modal>
 
+<MergeProjects bind:open={mergeOpen} into={mergeInto} others={data.projects.filter((x) => x.id !== mergeInto?.id)} />
+
 <Confirm
   open={!!removing}
   title="Remove this project?"
@@ -213,16 +200,14 @@
   .proj { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); background: var(--nb-surface); }
   .pr { display: flex; align-items: center; gap: 10px; }
   .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--nb-weight-medium); letter-spacing: var(--nb-tracking-ui); }
+  a.name { color: var(--nb-text); text-decoration: none; }
+  a.name:hover { text-decoration: underline; }
   .preset { font-size: var(--nb-text-xs); font-weight: var(--nb-weight-medium); padding: 2px 8px; border-radius: var(--nb-radius-pill); background: var(--nb-info-tint); color: var(--nb-info-text); white-space: nowrap; }
   .preset.production { background: var(--nb-warning-tint, var(--nb-surface-sunken)); color: var(--nb-warning-text); }
   .chips { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
   .chips li { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: var(--nb-radius-sm); border: 1px solid var(--nb-border); background: var(--nb-surface-2); }
   .chips code { font-size: var(--nb-text-sm); overflow-wrap: anywhere; }
   .acts { display: flex; gap: 6px; flex-wrap: wrap; }
-  .review { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-  .review li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .review form { display: contents; }
-  .rhost { font: var(--nb-text-sm) var(--nb-font-mono, monospace); color: var(--nb-text-muted); margin-right: 4px; overflow-wrap: anywhere; }
   .presets { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: var(--nb-text-md); }
   .presets dt { font-weight: var(--nb-weight-semibold); }
   .presets dd { margin: 0; color: var(--nb-text-muted); }

@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The review link's page (D-200): one button that opens the site with the toolbar. Before the
+  // The review link's page (D-201): one button that opens the site with the toolbar. Before the
   // hand-off the page checks that the injector answers on the site (its /__toolbar/health allows
   // any origin), so a site that is not behind the injector shows a clear message instead of the
   // app's own error page. The hand-off is a form post, so the cookie value never sits in a URL,

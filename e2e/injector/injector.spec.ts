@@ -2,7 +2,7 @@
 // PLAN "Zero integration", delivery 2). Run by apps/injector/test/run.sh.
 //
 // 1. Without the reviewer cookie the lab comes back byte for byte, toolbar-free.
-// 2. A reviewer signs in on the server (mock OIDC), confirms the site (a project origin, D-200) and lands back on the lab
+// 2. A reviewer signs in on the server (mock OIDC), confirms the site (a project origin, D-201) and lands back on the lab
 //    with the toolbar, loaded from /__toolbar/ on the lab's own origin.
 // 3. A comment on an element uploads the last minute: the lab's failed request, its uncaught
 //    error and its console lines reach the server, with a DOM replay and the element's locator
@@ -27,7 +27,7 @@ async function signInAsReviewer(page: Page) {
   await mockProviderLogin(page, EMAIL, 'Rita Reviewer');
   // a first sign-in may pass through onboarding; the confirm page is what matters
   await page.waitForURL((u) => u.origin === new URL(SERVER).origin && !u.pathname.startsWith('/api/auth'), { timeout: 30_000 });
-  // the site must be in a project of the reviewer's workspace (D-200)
+  // the site must be in a project of the reviewer's workspace (D-201)
   await ensureProject(page.context().request, SERVER, INJECTOR);
   // the review page rendered before the project existed: load it again
   await page.goto(`${SERVER}/go?site=${encodeURIComponent(INJECTOR)}&next=/`);
