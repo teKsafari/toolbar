@@ -62,6 +62,8 @@ Paused features (docs/scope.md) stay hidden unless their flag is set to 1: `FEAT
 
 Compose works with no `.env`: every variable has a dev default. Whisper is optional and sits in the `whisper` profile (`.env.example` turns it on with `COMPOSE_PROFILES=whisper`; `pnpm stack` and `scripts/e2e-all.sh` start it). Postgres, Garage, whisper and Mailpit (override file) publish their ports on `127.0.0.1` only; the mock OIDC provider stays on all interfaces because the server container reaches it through the host gateway. `docker-compose.coolify.yml` is the Coolify variant (`docs/configuration.md`, "Coolify"). For anything beyond localhost, run `scripts/gen-secrets.sh https://your.host` to write `.env` with random secrets (`.env.example` lists every variable). The server refuses to start on a non-localhost `PUBLIC_URL` with dev secrets. Sign-in rate limits (3 tries per 10 s per address) are on in the image; `AUTH_RATE_LIMIT=off` turns them off for an e2e run.
 
+Both compose files read `OPENAI_API_KEY` from your shell as well as from `.env`. If it is set in the shell, `docker compose up` passes it into the server container (transcription then uses the hosted provider), and `docker compose config` prints its value in clear. Run `env -u OPENAI_API_KEY docker compose ...` when you want neither, and never save `docker compose config` output to a file that others can read (D-193).
+
 `docker compose down -v` wipes the database, the bucket and the whisper model.
 
 ## Dev mode

@@ -34,7 +34,7 @@ def wrap(s, ind, width=COLS - 4):
     return lines
 # screen setup: clear, keep row 1 for the status bar via a scroll region
 emit('\x1b[2J\x1b[2;%dr\x1b[2;1H' % ROWS + status(0), 0.3)
-prompt = 'Fix the problem reported in http://localhost:3263/s/g6htgaobdENSInReTgt4lg'
+prompt = 'Fix the problem reported in http://localhost:3263/s/REVOKED_share_token_xx'
 emit(f'{GRN}~/nuru{RST} $ ', 0.6)
 for i in range(0, len(prompt) + 1, 6):
     pass

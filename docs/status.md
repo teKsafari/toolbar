@@ -2,6 +2,20 @@
 
 Part 1 (step 2, after the merge), further down: one line per row of `docs/tasks.md`: the eight foundations (X-01 to X-08) and the 251 catalogue rows, with the status each area reported after its completer pass. Rows marked "merge" changed status in the merge commits on main; their area e2e specs were not re-run after the merge. The per-area reports, with how each row was verified and what a partial row lacks, follow the table.
 
+## Part 2, step 5: real software and the owner's demo (2026-10-16)
+
+All five items of PLAN "Part 2, step 5" are done on main. Gate 5 waits on the owner seeing the running instance and the extension (DEMO.md). `PROGRESS.md` keeps the running notes.
+
+| Item | Result | Report | Decisions |
+|---|---|---|---|
+| 1. Owner's scenario on Nuru | Done on https://116.nuru.sh with the release extension, Nuru unchanged. Seven Nuru bugs found, five open-toolbar fixes. | `docs/real-world/nuru.md` | D-185 |
+| 2. Second app | Done on IdrisElectro (SvelteKit 1 with Sanity), through the extension and the injector. Five fixes. | `docs/real-world/second-app.md` | D-186 |
+| 3. Experiments | rrweb cost: 0.64 MB a minute gzipped, a quarter of a core. Span labels: 83 % agreement before, 87 % after. Hand-off: twelve agent runs on three bugs. | `docs/experiments/rrweb-cost.md`, `docs/experiments/span-labels.md`, `docs/agent-handoff-results.md` | D-187 to D-190 |
+| 4. Hand-off to Claude Code, Codex and opencode | Done on real folders; text provenance added to README.md. | `docs/agent-handoff-results.md`, `docs/agent-handoff/` | D-187 |
+| 5. Show the owner | README.md for users, DEMO.md with a 2:44 video, a GIF and 15 screenshots; stack on :3000 and `dist/` zips rebuilt. | `README.md`, `DEMO.md` | D-191 |
+
+Secrets: e2e browser launches now get an allowlisted environment (D-192). Leftover traces and a rendered compose config that still held `OPENAI_API_KEY` were deleted, and the share link recorded in the demo cast was revoked (D-193). OpenAI spend in step 5: about 2.75 USD of the 3 USD cap.
+
 ## Part 2, step 4: the owner's specifics (2026-10-15)
 
 All step 4 packages are merged on main (zero-integration, trace, locator, transcribe, reviewer-ui, handoff, deliver, injector; area reports in `docs/status/p4-*.md`). The owner's scenario ran end to end on main from empty volumes: `docker compose --profile dev --profile whisper up --build` (mock OIDC), the lab on :5173, the release extension unpacked from `dist/open-toolbar-extension-0.0.1-chrome.zip` on Xvfb `:179`. Spec: `e2e/flows/p2-scenario.spec.ts` (D-163).
