@@ -12,7 +12,7 @@ import { bodyPolicyOf, projectForUrl } from '@toolbar/shared/projects';
 import { completeLocator, createRouteTables } from '@toolbar/shared/locator-complete';
 import { createStackMapper, type FetchedText } from '@toolbar/shared/sourcemap';
 import type { LocatorPacket } from '@toolbar/shared/locator';
-import tokens from '@toolbar/ui/tokens.css?inline';
+import tokens from '@toolbar/ui/tokens.shadow.css?inline';
 import { registerFonts } from '@toolbar/ui/fonts';
 import css from './style.css?inline';
 import Toolbar from './Toolbar.svelte';

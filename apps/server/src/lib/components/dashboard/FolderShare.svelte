@@ -134,4 +134,6 @@
   .rm:hover { background: var(--nb-surface-sunken); }
   .ga { display: flex; align-items: center; gap: 8px; }
   .ga select { flex: 1; }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .rm:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
 </style>

@@ -11,7 +11,7 @@ How to run each part of the repo on this machine or a fresh one. The product is 
 | `apps/injector` | `@toolbar/injector` | Go reverse proxy that injects the page bundle for signed-in reviewers (D-157); its `package.json` wraps `go build`, `go vet` and `go test`, so `pnpm -r` needs Go 1.26 |
 | `packages/shared` | `@toolbar/shared` | Event envelope and kinds, zod schemas, constants, ids; `/api` endpoint contracts and route table; `/ext` extension messaging, session state machine, storage keys |
 | `packages/capture` | `@toolbar/capture` | Page-side capture: `Transport`, MAIN/ISOLATED bridge, hook installers |
-| `packages/ui` | `@toolbar/ui` | Design tokens (`tokens.ts`, generated `tokens.css`), the accent derivation (`accent.ts`), bundled fonts (`fonts/`, `fonts.css`, `fonts.ts`; SIL OFL 1.1), icons, Svelte primitives (Button, Icon, Popover, Segmented, Switch, Toaster) |
+| `packages/ui` | `@toolbar/ui` | Design tokens (`tokens.ts`, generated `tokens.css`, and `tokens.shadow.css` with `:host`-only `!important` values for the extension's in-page shadow roots), the accent derivation (`accent.ts`), bundled fonts (`fonts/`, `fonts.css`, `fonts.ts`; SIL OFL 1.1), icons, Svelte primitives (Button, Icon, Popover, Segmented, Switch, Toaster) |
 | `packages/trace` | `@toolbar/trace` | Part 2 traces: the span engine (outcomes, `causedBy`), keyframe planner and dHash, SvelteKit and Next.js request names; runs in the extension worker and on the server (D-117 to D-122) |
 | `e2e` | `@toolbar/e2e` | Playwright 1.63.0 suite that loads the unpacked extension |
 | `lab` | (own project) | The capture test target; not in the workspace, own lockfile |

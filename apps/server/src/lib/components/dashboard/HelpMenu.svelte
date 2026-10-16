@@ -76,4 +76,6 @@
     border-radius: var(--nb-radius-pill); font-size: var(--nb-text-sm); color: var(--nb-text-muted); cursor: pointer;
   }
   .seg button[aria-checked='true'] { background: var(--nb-surface); color: var(--nb-text); box-shadow: var(--nb-shadow-sm); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .seg button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: -2px; }
 </style>

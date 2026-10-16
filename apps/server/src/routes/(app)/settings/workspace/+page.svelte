@@ -149,5 +149,7 @@
     color: var(--nb-text); padding: 0 8px; font: inherit; font-size: var(--nb-text-md); max-width: 240px;
   }
   .pill { font-size: var(--nb-text-xs); font-weight: var(--nb-weight-medium); padding: 2px 8px; border-radius: var(--nb-radius-pill); background: var(--nb-surface-sunken); color: var(--nb-text-muted); }
-  .pill.on { background: var(--nb-success-tint); color: var(--nb-success); }
+  .pill.on { background: var(--nb-success-tint); color: var(--nb-success-text); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .link:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; border-radius: 2px; }
 </style>

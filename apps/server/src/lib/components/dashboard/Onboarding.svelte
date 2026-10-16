@@ -50,4 +50,6 @@
   .done a { color: var(--nb-text-faint); text-decoration: line-through; }
   a { color: var(--nb-text); text-decoration: none; }
   a:hover { text-decoration: underline; }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .x:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; color: var(--nb-text); }
 </style>

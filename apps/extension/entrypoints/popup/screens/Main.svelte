@@ -258,7 +258,7 @@
   }
   .badge.warn {
     background: var(--nb-warning-tint);
-    color: var(--nb-warning);
+    color: var(--nb-warning-text);
   }
   .err {
     margin: 0;

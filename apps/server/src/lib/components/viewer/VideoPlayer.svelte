@@ -354,4 +354,6 @@
     .chap { display: none; }
     .row :global([data-testid='quality']) { display: none; }
   }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .list button:focus-visible { outline: 2px solid #fafafa; outline-offset: -2px; }
 </style>

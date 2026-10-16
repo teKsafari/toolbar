@@ -125,4 +125,7 @@
   .setup p { margin: 0 0 8px; color: var(--nb-text-muted); }
   .snip { position: relative; }
   .snip .copy { position: absolute; top: 6px; right: 6px; background: var(--nb-surface); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .mini:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
+  .menu button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: -2px; }
 </style>

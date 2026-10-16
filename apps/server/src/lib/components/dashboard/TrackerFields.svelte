@@ -118,4 +118,6 @@
   .chips button.on { border-color: var(--nb-accent); background: var(--nb-accent-tint); color: var(--nb-accent-text); }
   .dot { width: 8px; height: 8px; border-radius: 50%; }
   .err { color: var(--nb-danger); margin: 0; font-size: var(--nb-text-sm); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .chips button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
 </style>

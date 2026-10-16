@@ -1,0 +1,27 @@
+light capture console rows: kind-navigation vp-time=6.47, kind-navigation msg=15.19, lvl-error vp-time=6.47, lvl-error msg=5.54
+light capture actions rows: kind-navigation vp-time=6.47, kind-navigation msg=15.19
+light capture network rows: failed c-i=6.47, failed c-name=5.54, failed ell=5.54, failed c-m=5.54, failed c-s=5.54, failed c-d=5.54, failed c-t=5.54, failed c-f=5.54, failed c-z=5.54, failed c-ms=5.54
+light capture console row focus found true BUTTON.main outline=solid 2px rgb(0, 0, 0) fv=true
+light share console rows: kind-navigation vp-time=6.47, kind-navigation msg=15.19, lvl-error vp-time=6.47, lvl-error msg=5.54
+light share actions rows: kind-navigation vp-time=6.47, kind-navigation msg=15.19
+light share network rows: failed c-i=6.47, failed c-name=5.54, failed ell=5.54, failed c-m=5.54, failed c-s=5.54, failed c-d=5.54, failed c-t=5.54, failed c-f=5.54, failed c-z=5.54, failed c-ms=5.54
+light share console row focus found true BUTTON.main outline=solid 2px rgb(0, 0, 0) fv=true
+light actions attr chip focus found true BUTTON.attr outline=solid 2px rgb(0, 0, 0) fv=true
+light dismiss focus found true BUTTON.x outline=solid 2px rgb(0, 0, 0) fv=true
+light workspace pill color rgb(22, 101, 52)
+light 390 / off-screen focus stops in 30 Tabs: 0 []
+light 390 /settings/workspace off-screen focus stops in 30 Tabs: 0 []
+drawer opened: focus stops inside it in 30 Tabs: 14
+dark capture console rows: kind-navigation vp-time=5.95, kind-navigation msg=12.03, lvl-error vp-time=6.07, lvl-error msg=5.54
+dark capture actions rows: kind-navigation vp-time=5.95, kind-navigation msg=12.03
+dark capture network rows: failed c-i=6.07, failed c-name=5.54, failed ell=5.54, failed c-m=5.54, failed c-s=5.54, failed c-d=5.54, failed c-t=5.54, failed c-f=5.54, failed c-z=5.54, failed c-ms=5.54
+dark capture console row focus found true BUTTON.main outline=solid 2px rgb(250, 250, 250) fv=true
+dark share console rows: kind-navigation vp-time=5.95, kind-navigation msg=12.03, lvl-error vp-time=6.07, lvl-error msg=5.54
+dark share actions rows: kind-navigation vp-time=5.95, kind-navigation msg=12.03
+dark share network rows: failed c-i=6.07, failed c-name=5.54, failed ell=5.54, failed c-m=5.54, failed c-s=5.54, failed c-d=5.54, failed c-t=5.54, failed c-f=5.54, failed c-z=5.54, failed c-ms=5.54
+dark share console row focus found true BUTTON.main outline=solid 2px rgb(250, 250, 250) fv=true
+dark actions attr chip focus found true BUTTON.attr outline=solid 2px rgb(250, 250, 250) fv=true
+dark dismiss focus found true BUTTON.x outline=solid 2px rgb(250, 250, 250) fv=true
+dark workspace pill color rgb(74, 222, 128)
+dark 390 / off-screen focus stops in 30 Tabs: 0 []
+dark 390 /settings/workspace off-screen focus stops in 30 Tabs: 0 []

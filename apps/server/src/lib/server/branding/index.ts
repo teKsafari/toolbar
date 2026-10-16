@@ -19,7 +19,7 @@ import { instanceSetting } from '../db/schema/index.ts';
 import { env } from '../env.ts';
 import { getBytes, headObject, keys, putObject } from '../s3.ts';
 import { BrandImageError, processLogo, renditions, type LogoFiles } from './image.ts';
-import { DEFAULT_NAME, defaultLogoSvg, resolveBrand, validAccent, type Brand } from './resolve.ts';
+import { DEFAULT_NAME, defaultIconSvg, defaultLogoSvg, onAccentOf, resolveBrand, validAccent, type Brand } from './resolve.ts';
 
 export type { Brand } from './resolve.ts';
 export { BrandImageError } from './image.ts';
@@ -169,9 +169,10 @@ async function defaultRendition(accent: string, name: string): Promise<Buffer> {
   const k = `default:${accent}:${name}`;
   const hit = fileCache.get(k);
   if (hit) return hit;
-  const r = await renditions(Buffer.from(defaultLogoSvg(accent)), true);
+  // icons carry an edge so they read on dark browser chrome; mail keeps the plain rectangle
+  const r = await renditions(Buffer.from(defaultIconSvg(accent, onAccentOf(accent) ?? '#ffffff')), true);
   for (const n of BRAND_ICON_SIZES) remember(`default:${accent}:icon-${n}.png`, r.icons[n]);
-  remember(`default:${accent}:email.png`, r.email);
+  remember(`default:${accent}:email.png`, (await renditions(Buffer.from(defaultLogoSvg(accent)), true)).email);
   return fileCache.get(k)!;
 }
 

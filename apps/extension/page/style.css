@@ -1,5 +1,5 @@
 /* In-page toolbar of the injector bundle (D-158). Adopted into the shadow root as a constructed
-   stylesheet after @toolbar/ui/tokens.css, so a page CSP without 'unsafe-inline' styles still lets
+   stylesheet after @toolbar/ui/tokens.shadow.css, so a page CSP without 'unsafe-inline' styles still lets
    it apply. The teksafari language of the extension's in-page UI (D-176): a near-black chrome
    capsule for the bar, theme surface cards for the composer, the menu and the toast, the bundled
    faces (registered on the page from /__toolbar/), the accent as the one primary. */

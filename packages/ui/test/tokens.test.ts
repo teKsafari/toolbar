@@ -2,12 +2,20 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { contrast, themes, tokensCss, iconNames, icons, iconSvg } from '../src/index.ts';
+import { shadowTokensCss } from '../src/tokens.ts';
 import { BASE_ACCENT, accentCss, accentVars, deriveAccent } from '../src/accent.ts';
 import { DEFAULT_ACCENT } from '@toolbar/shared/api';
 
 describe('tokens', () => {
   it('tokens.css matches tokens.ts (run gen:tokens after editing tokens.ts)', () => {
     expect(readFileSync(join(import.meta.dirname, '../src/tokens.css'), 'utf8')).toBe(tokensCss());
+  });
+
+  it('tokens.shadow.css matches tokens.ts, :host only and important', () => {
+    const css = readFileSync(join(import.meta.dirname, '../src/tokens.shadow.css'), 'utf8');
+    expect(css).toBe(shadowTokensCss());
+    expect(css).not.toMatch(/:root/);
+    for (const line of css.split('\n').filter((l) => /^\s*--nb-/.test(l))) expect(line).toMatch(/ !important;$/);
   });
 
   it('defines the same token names in both themes', () => {
@@ -56,6 +64,33 @@ describe('tokens', () => {
       it(`${theme}: ${fg} on ${bg} has contrast >= ${min}`, () => {
         expect(contrast(themes[theme][fg]!, themes[theme][bg]!)).toBeGreaterThanOrEqual(min);
       });
+
+  // A tint token is `rgb(r g b / a)` laid over a page fill; flatten it to the hex a reader sees.
+  const over = (tint: string, base: string) => {
+    const m = /rgb\((\d+) (\d+) (\d+) \/ ([\d.]+)\)/.exec(tint)!;
+    const a = Number(m[4]);
+    const b = parseInt(base.slice(1), 16);
+    const ch = [16, 8, 0].map((s, i) => Math.round(Number(m[i + 1]) * a + ((b >> s) & 255) * (1 - a)));
+    return '#' + ch.map((c) => c.toString(16).padStart(2, '0')).join('');
+  };
+  // Tinted pills and dev-tools rows (error, warning, navigation, failed request): the status text
+  // and the row's secondary text (text-muted, which tinted rows use in place of text-faint) on the
+  // tint over each fill a row or pill sits on.
+  for (const theme of ['light', 'dark'] as const)
+    for (const s of ['danger', 'warning', 'success', 'info'])
+      for (const fill of ['surface', 'bg', 'surface-sunken'])
+        it(`${theme}: ${s}-text and text-muted on ${s}-tint over ${fill} pass AA`, () => {
+          const t = themes[theme];
+          const bg = over(t[`${s}-tint`]!, t[fill]!);
+          expect(contrast(t[`${s}-text`]!, bg)).toBeGreaterThanOrEqual(4.5);
+          expect(contrast(t['text-muted']!, bg)).toBeGreaterThanOrEqual(4.5);
+          expect(contrast(t.text!, bg)).toBeGreaterThanOrEqual(4.5);
+        });
+  for (const theme of ['light', 'dark'] as const)
+    it(`${theme}: text-muted on the selected row (accent-tint over surface) passes AA`, () => {
+      const t = themes[theme];
+      expect(contrast(t['text-muted']!, over(t['accent-tint']!, t.surface!))).toBeGreaterThanOrEqual(4.5);
+    });
 
   it('takes the light values from teksafari.org', () => {
     const l = themes.light;

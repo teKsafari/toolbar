@@ -75,4 +75,6 @@
   .cmd { display: flex; align-items: center; gap: var(--nb-space-2); padding: 8px 12px; border-radius: var(--nb-radius-md); border: 1px solid var(--nb-border); background: var(--nb-surface-2); }
   .cmd code { flex: 1; overflow-wrap: anywhere; }
   .warn { margin-top: var(--nb-space-4); padding: 10px 12px; border-radius: var(--nb-radius-md); background: var(--nb-warning-tint); font-size: var(--nb-text-md); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .seg button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: -2px; }
 </style>

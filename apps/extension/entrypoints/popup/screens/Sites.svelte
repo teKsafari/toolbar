@@ -132,7 +132,7 @@
     color: var(--nb-text-faint);
   }
   li button:hover {
-    color: var(--nb-danger);
+    color: var(--nb-danger-text);
     background: var(--nb-danger-tint);
   }
   .empty {

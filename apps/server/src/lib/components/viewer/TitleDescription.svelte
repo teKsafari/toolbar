@@ -160,4 +160,7 @@
   .fbtn { all: unset; align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--nb-border-strong); background: var(--nb-surface); font-size: var(--nb-text-md); font-weight: var(--nb-weight-medium); cursor: pointer; box-shadow: var(--nb-shadow-sm); }
   .fbtn:hover { border-color: color-mix(in srgb, var(--nb-text-faint) 60%, var(--nb-border-strong)); }
   iframe { width: 100%; aspect-ratio: 16 / 10; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-lg); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .desc :global(.nb-timelink:focus-visible) { outline: 2px solid var(--nb-focus); outline-offset: 2px; border-radius: 2px; }
+  .fbtn:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
 </style>

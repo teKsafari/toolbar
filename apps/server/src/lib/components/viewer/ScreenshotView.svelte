@@ -90,4 +90,6 @@
   .lightbox img { max-width: 100%; height: auto; border-radius: 6px; }
   .close { all: unset; position: fixed; top: 16px; right: 16px; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: rgb(255 255 255 / 0.15); color: #fff; cursor: pointer; }
   @media (max-width: 720px) { .card { border-radius: 0; border-left: 0; border-right: 0; } }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .close:focus-visible { outline: 2px solid #fafafa; outline-offset: 2px; }
 </style>

@@ -160,6 +160,9 @@
   .frames a { color: var(--nb-accent-text); }
   .src { color: var(--nb-text-muted); }
   .link { all: unset; color: var(--nb-accent-text); cursor: pointer; text-decoration: underline; }
-  .lvl-error .ic, .lvl-error .msg { color: var(--nb-danger); }
-  .lvl-warn .ic { color: var(--nb-warning); }
+  .lvl-error .ic, .lvl-error .msg { color: var(--nb-danger-text); }
+  .lvl-warn .ic { color: var(--nb-warning-text); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .main:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 0; border-radius: 2px; }
+  .link:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; border-radius: 2px; }
 </style>

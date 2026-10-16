@@ -164,4 +164,6 @@
   .cf input { height: 34px; }
   .small { font-size: var(--nb-text-sm); margin: 0; }
   .err { color: var(--nb-danger); margin: 0; }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .rm:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
 </style>

@@ -152,4 +152,6 @@
   .muted { color: var(--nb-text-faint); }
   .foot { display: flex; gap: 10px; font: 11px var(--nb-font-mono); color: var(--nb-text-faint); min-width: 0; }
   .foot span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .crop:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; border-radius: var(--nb-radius-sm); }
 </style>

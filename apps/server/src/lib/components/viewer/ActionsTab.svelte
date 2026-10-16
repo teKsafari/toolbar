@@ -112,8 +112,10 @@
   .attrs dd { margin: 0; word-break: break-all; }
   .trace-sum { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px 4px; }
   .oc { flex: none; font: 500 10px/16px var(--nb-font-sans); padding: 0 6px; border-radius: 999px; background: var(--nb-surface-sunken); color: var(--nb-text-muted); white-space: nowrap; }
-  .oc-changed { background: var(--nb-success-tint); color: var(--nb-success); }
-  .oc-error, .oc-stuck { background: var(--nb-danger-tint); color: var(--nb-danger); }
-  .oc-dead, .oc-silent { background: var(--nb-warning-tint); color: var(--nb-warning); }
+  .oc-changed { background: var(--nb-success-tint); color: var(--nb-success-text); }
+  .oc-error, .oc-stuck { background: var(--nb-danger-tint); color: var(--nb-danger-text); }
+  .oc-dead, .oc-silent { background: var(--nb-warning-tint); color: var(--nb-warning-text); }
   .banner { display: flex; gap: 8px; align-items: center; margin: 8px; padding: 8px 10px; border: 1px solid var(--nb-border); border-radius: var(--nb-radius-md); background: var(--nb-surface-2); color: var(--nb-text); font-size: var(--nb-text-md); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .attr:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
 </style>

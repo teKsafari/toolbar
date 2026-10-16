@@ -171,4 +171,6 @@
   li { display: flex; align-items: center; gap: 8px; font-size: var(--nb-text-md); }
   .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; }
   .meta { color: var(--nb-text-faint); font-size: var(--nb-text-sm); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .textbtn:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; border-radius: 2px; }
 </style>

@@ -44,8 +44,8 @@ export const palette = {
   },
   marker: { 300: '#ffd866', 400: '#ffc933', 500: '#f2b100', 600: '#c98f00' },
   red: { 300: '#fca5a5', 400: '#f87171', 600: '#dc2626', 700: '#b91c1c' },
-  green: { 400: '#4ade80', 700: '#15803d' },
-  amber: { 400: '#fbbf24', 700: '#b45309' },
+  green: { 400: '#4ade80', 700: '#15803d', 800: '#166534' },
+  amber: { 400: '#fbbf24', 700: '#b45309', 800: '#92400e' },
   blue: { 400: '#60a5fa', 700: '#1d4ed8' },
 } as const;
 
@@ -92,6 +92,12 @@ export const themes: Record<ThemeName, Record<string, string>> = {
     'success-tint': tint(palette.green[700], 0.1),
     info: palette.blue[700],
     'info-tint': tint(palette.blue[700], 0.1),
+    /** status text on its own tint (pills, tinted rows): one step darker, since the base step is
+        AA on white only (#15803d on its tint is 4.2:1) */
+    'danger-text': palette.red[700],
+    'warning-text': palette.amber[800],
+    'success-text': palette.green[800],
+    'info-text': palette.blue[700],
     /** Dark chrome (recording bar, toolbar, tooltips) stays dark in both themes. */
     chrome: n[900],
     'chrome-2': n[800],
@@ -134,6 +140,10 @@ export const themes: Record<ThemeName, Record<string, string>> = {
     'success-tint': tint(palette.green[400], 0.14),
     info: palette.blue[400],
     'info-tint': tint(palette.blue[400], 0.14),
+    'danger-text': palette.red[400],
+    'warning-text': palette.amber[400],
+    'success-text': palette.green[400],
+    'info-text': palette.blue[400],
     chrome: n[850],
     'chrome-2': n[800],
     'chrome-border': n[750],
@@ -222,9 +232,9 @@ export const scale = {
 /** CSS custom property name for a token: --nb-<name>. */
 export const cssVar = (name: string) => `--nb-${name}`;
 
-function block(sel: string, vars: Record<string, string>) {
+function block(sel: string, vars: Record<string, string>, important = false) {
   return `${sel} {\n${Object.entries(vars)
-    .map(([k, v]) => `  ${cssVar(k)}: ${v};`)
+    .map(([k, v]) => `  ${cssVar(k)}: ${v}${important ? ' !important' : ''};`)
     .join('\n')}\n}`;
 }
 
@@ -240,6 +250,26 @@ export function tokensCss(): string {
     `@media (prefers-color-scheme: dark) {\n${block(':root:not([data-theme="light"]), :host(:not([data-theme="light"]))', themes.dark).replace(/^/gm, '  ')}\n}`,
     block('[data-theme="dark"], :host([data-theme="dark"])', themes.dark),
     block('[data-theme="light"], :host([data-theme="light"])', themes.light),
+    '',
+  ].join('\n\n');
+}
+
+/**
+ * The same tokens for the extension's in-page shadow roots (`tokens.shadow.css`): `:host` only,
+ * every value `!important`. A page rule that names the host element (`toolbar-root { --nb-chrome:
+ * lime }`) beats a plain `:host` rule, since outer styles win over the shadow root's for normal
+ * declarations; for important ones the shadow root wins, so the page cannot restyle the bar
+ * (D-178). The accent of a signed-in server goes on an element inside the root, where it still
+ * overrides these by inheritance.
+ */
+export function shadowTokensCss(): string {
+  const base = { ...scale, 'font-sans': font.sans, 'font-display': font.display, 'font-mono': font.mono };
+  return [
+    '/* Generated from tokens.ts by `pnpm --filter @toolbar/ui gen:tokens`. Do not edit. */',
+    block(':host', { ...base, ...themes.light }, true),
+    `@media (prefers-color-scheme: dark) {\n${block(':host(:not([data-theme="light"]))', themes.dark, true).replace(/^/gm, '  ')}\n}`,
+    block(':host([data-theme="dark"])', themes.dark, true),
+    block(':host([data-theme="light"])', themes.light, true),
     '',
   ].join('\n\n');
 }

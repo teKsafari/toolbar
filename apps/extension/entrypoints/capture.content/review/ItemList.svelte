@@ -79,7 +79,7 @@
   .n { flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--nb-accent); color: var(--nb-on-accent); font: var(--nb-weight-semibold) 10px/1 var(--nb-font-sans); font-variant-numeric: tabular-nums; }
   .txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .page { max-width: 90px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--nb-font-mono); font-size: 11px; letter-spacing: 0; }
-  .warn { flex: none; font: var(--nb-weight-medium) 10px/16px var(--nb-font-sans); color: var(--nb-warning); background: var(--nb-warning-tint); border-radius: var(--nb-radius-pill); padding: 0 6px; }
+  .warn { flex: none; font: var(--nb-weight-medium) 10px/16px var(--nb-font-sans); color: var(--nb-warning-text); background: var(--nb-warning-tint); border-radius: var(--nb-radius-pill); padding: 0 6px; }
   .del { all: unset; flex: none; width: 24px; height: 24px; display: grid; place-items: center; border-radius: var(--nb-radius-sm); cursor: pointer; color: var(--nb-text-faint); }
   .del:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
   .foot { display: flex; justify-content: flex-end; gap: 6px; padding: 8px 10px 10px; border-top: 1px solid var(--nb-border); }

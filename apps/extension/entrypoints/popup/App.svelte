@@ -134,7 +134,7 @@
     margin-right: 4px;
     border-radius: var(--nb-radius-pill);
     background: var(--nb-info-tint);
-    color: var(--nb-info);
+    color: var(--nb-info-text);
     font: var(--nb-weight-semibold) var(--nb-text-sm) / 1 var(--nb-font-sans);
     font-variant-numeric: tabular-nums;
     cursor: pointer;

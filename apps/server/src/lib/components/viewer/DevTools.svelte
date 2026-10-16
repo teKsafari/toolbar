@@ -48,4 +48,6 @@
   .hide:focus-visible { outline: 2px solid var(--nb-focus); }
   .hide:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
   .body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .tabs button[role='tab']:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: -2px; border-radius: var(--nb-radius-sm); }
 </style>

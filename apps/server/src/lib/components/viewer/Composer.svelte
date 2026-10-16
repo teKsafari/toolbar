@@ -247,4 +247,6 @@
   .file img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .up { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--nb-surface) 60%, transparent); }
   .rm { all: unset; position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: rgb(11 11 11 / 0.66); color: #fafafa; cursor: pointer; }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .rm:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
 </style>

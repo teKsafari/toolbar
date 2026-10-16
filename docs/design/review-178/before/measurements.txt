@@ -1,0 +1,27 @@
+light capture console rows: kind-navigation vp-time=4.14, kind-navigation msg=15.19, lvl-error vp-time=4.14, lvl-error msg=4.14
+light capture actions rows: kind-navigation vp-time=4.14, kind-navigation msg=15.19
+light capture network rows: failed c-i=4.14, failed c-name=4.14, failed ell=4.14, failed c-m=4.14, failed c-s=4.14, failed c-d=4.14, failed c-t=4.14, failed c-f=4.14, failed c-z=4.14, failed c-ms=4.14
+light capture console row focus found true BUTTON.main outline=none 3px rgb(17, 24, 39) fv=true
+light share console rows: kind-navigation vp-time=4.14, kind-navigation msg=15.19, lvl-error vp-time=4.14, lvl-error msg=4.14
+light share actions rows: kind-navigation vp-time=4.14, kind-navigation msg=15.19
+light share network rows: failed c-i=4.14, failed c-name=4.14, failed ell=4.14, failed c-m=4.14, failed c-s=4.14, failed c-d=4.14, failed c-t=4.14, failed c-f=4.14, failed c-z=4.14, failed c-ms=4.14
+light share console row focus found true BUTTON.main outline=none 3px rgb(17, 24, 39) fv=true
+light actions attr chip focus found true BUTTON.attr outline=none 3px rgb(75, 85, 99) fv=true
+light dismiss focus found true BUTTON.x outline=none 3px rgb(107, 114, 128) fv=true
+light workspace pill color rgb(21, 128, 61)
+light 390 / off-screen focus stops in 30 Tabs: 14 ["F Flow Reviewer's wo","All captures","Created by me","Recording links","Folders","New folder"]
+light 390 /settings/workspace off-screen focus stops in 30 Tabs: 22 ["Back to captures","General","Members","Projects","Privacy and data","SDK"]
+drawer opened, next Tab lands inside it: false
+dark capture console rows: kind-navigation vp-time=4.37, kind-navigation msg=12.03, lvl-error vp-time=4.46, lvl-error msg=5.54
+dark capture actions rows: kind-navigation vp-time=4.37, kind-navigation msg=12.03
+dark capture network rows: failed c-i=4.46, failed c-name=5.54, failed ell=5.54, failed c-m=5.54, failed c-s=5.54, failed c-d=5.54, failed c-t=5.54, failed c-f=5.54, failed c-z=5.54, failed c-ms=5.54
+dark capture console row focus found true BUTTON.main outline=none 3px rgb(230, 230, 230) fv=true
+dark share console rows: kind-navigation vp-time=4.37, kind-navigation msg=12.03, lvl-error vp-time=4.46, lvl-error msg=5.54
+dark share actions rows: kind-navigation vp-time=4.37, kind-navigation msg=12.03
+dark share network rows: failed c-i=4.46, failed c-name=5.54, failed ell=5.54, failed c-m=5.54, failed c-s=5.54, failed c-d=5.54, failed c-t=5.54, failed c-f=5.54, failed c-z=5.54, failed c-ms=5.54
+dark share console row focus found true BUTTON.main outline=none 3px rgb(230, 230, 230) fv=true
+dark actions attr chip focus found true BUTTON.attr outline=none 3px rgb(163, 163, 163) fv=true
+dark dismiss focus found true BUTTON.x outline=none 3px rgb(138, 138, 143) fv=true
+dark workspace pill color rgb(74, 222, 128)
+dark 390 / off-screen focus stops in 30 Tabs: 14 ["F Flow Reviewer's wo","All captures","Created by me","Recording links","Folders","New folder"]
+dark 390 /settings/workspace off-screen focus stops in 30 Tabs: 22 ["Back to captures","General","Members","Projects","Privacy and data","SDK"]

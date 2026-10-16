@@ -236,4 +236,6 @@
   .sbtn.primary:hover { background: var(--nb-accent-hover); }
   .sbtn:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; }
   @media (hover: none) { .hover { display: flex; position: static; margin-left: auto; align-self: flex-start; border: 0; box-shadow: none; background: transparent; } }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .rpill:focus-visible, .picker button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
 </style>

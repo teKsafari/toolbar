@@ -157,4 +157,6 @@
   .snippet pre { flex: 1; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: var(--nb-text-md) var(--nb-font-mono); }
   ol { padding-left: 20px; display: grid; gap: 6px; }
   .actions { display: flex; justify-content: flex-end; gap: var(--nb-space-2); margin-top: var(--nb-space-3); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .pop button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: -2px; }
 </style>

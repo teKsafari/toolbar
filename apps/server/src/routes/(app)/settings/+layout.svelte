@@ -89,8 +89,9 @@
   .mobilebar { display: none; }
   @media (max-width: 860px) {
     .settings { grid-template-columns: minmax(0, 1fr); }
-    nav { position: fixed; z-index: 30; top: 48px; left: 0; bottom: 0; height: auto; width: 260px; background: var(--nb-surface); transform: translateX(calc(-100% - 24px)); transition: transform var(--nb-dur-med) var(--nb-ease-out); box-shadow: var(--nb-shadow-lg); }
-    nav.open { transform: none; }
+    nav { position: fixed; z-index: 30; top: 48px; left: 0; bottom: 0; height: auto; width: 260px; background: var(--nb-surface); transform: translateX(calc(-100% - 24px)); visibility: hidden; transition: transform var(--nb-dur-med) var(--nb-ease-out), visibility 0s linear var(--nb-dur-med); box-shadow: var(--nb-shadow-lg); }
+    /* closed, the nav is hidden too, so Tab skips its links (as the app drawer) */
+    nav.open { transform: none; visibility: visible; transition: transform var(--nb-dur-med) var(--nb-ease-out), visibility 0s; }
     .mobilebar {
       position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; height: 48px; padding: 0 12px;
       border-bottom: 1px solid var(--nb-border); background: color-mix(in srgb, var(--nb-bg) 82%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -99,4 +100,5 @@
     .mobilebar a:hover, .mobilebar button:hover { background: var(--nb-surface-sunken); }
     main { padding: 20px 16px 48px; }
   }
+  .mobilebar a:focus-visible, .mobilebar button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: -2px; }
 </style>

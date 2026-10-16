@@ -193,10 +193,10 @@
   .nrow > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 4px 1px 0; line-height: 18px; }
   .nrow :global(.vp-gutter) { width: 14px; height: 20px; }
   /* selected: the accent tint with the 2 px accent bar (language section 10) */
-  .nrow.sel { background: var(--nb-accent-tint) !important; }
+  .nrow.sel { background: var(--nb-accent-tint) !important; --nb-text-faint: var(--nb-text-muted); }
   .nrow.sel::after { content: ''; position: absolute; left: -3px; top: 0; bottom: 0; width: 2px; background: var(--nb-accent); }
   .nrow.failed:not(.sel)::after { content: ''; position: absolute; left: -3px; top: 0; bottom: 0; width: 2px; background: var(--nb-danger); }
-  .nrow.failed { background: var(--nb-danger-tint); color: var(--nb-danger); }
+  .nrow.failed { background: var(--nb-danger-tint); color: var(--nb-danger-text); --nb-text-faint: var(--nb-text-muted); }
   .nrow.pending .c-s { color: var(--nb-text-faint); font-style: italic; }
   .c-i { color: var(--nb-text-faint); }
   .c-name { display: flex; align-items: center; gap: 5px; min-width: 0; }

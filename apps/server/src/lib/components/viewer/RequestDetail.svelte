@@ -206,7 +206,7 @@
   dt { color: var(--nb-text-faint); }
   /* long values wrap at word boundaries, breaking inside a word only when nothing else fits */
   dd { margin: 0; overflow-wrap: anywhere; word-break: normal; }
-  .masked { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; border-radius: 999px; background: var(--nb-success-tint); color: var(--nb-success); font-family: var(--nb-font-sans); }
+  .masked { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; border-radius: 999px; background: var(--nb-success-tint); color: var(--nb-success-text); font-family: var(--nb-font-sans); }
   pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
   .none { color: var(--nb-text-muted); font-family: var(--nb-font-sans); }
   .frames { list-style: none; margin: 0; padding: 0; }
@@ -230,4 +230,6 @@
   .frames .op { font-weight: 700; text-align: center; }
   .frames .op-send .op { color: var(--nb-accent-text); }
   .frames .op-recv .op, .frames .op-message .op { color: var(--nb-success); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .frames li > button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: -2px; border-radius: 2px; }
 </style>

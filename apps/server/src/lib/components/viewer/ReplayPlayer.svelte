@@ -222,4 +222,7 @@
   .list { display: flex; flex-direction: column; padding: 4px; border-radius: var(--nb-radius-md); border: 1px solid var(--nb-chrome-border); background: var(--nb-chrome); color: var(--nb-on-chrome); box-shadow: var(--nb-shadow-lg); }
   .list button { all: unset; padding: 5px 10px; border-radius: var(--nb-radius-sm); cursor: pointer; font-size: var(--nb-text-md); }
   .list button:hover, .list .sel { background: var(--nb-chrome-2); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .again:focus-visible { outline: 2px solid #fafafa; outline-offset: 2px; }
+  .list button:focus-visible { outline: 2px solid #fafafa; outline-offset: -2px; }
 </style>

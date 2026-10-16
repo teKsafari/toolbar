@@ -1,8 +1,8 @@
 // Instance branding (D-112): precedence, colours, SVG sanitising and PNG renditions.
 import { describe, expect, it } from 'vitest';
 import sharp from 'sharp';
-import { contrast, defaultLogoSvg, onAccentOf, resolveBrand, validAccent, type BrandInputs } from '../src/lib/server/branding/resolve.ts';
-import { BrandImageError, processLogo, sanitizeSvg } from '../src/lib/server/branding/image.ts';
+import { contrast, defaultIconSvg, defaultLogoSvg, onAccentOf, resolveBrand, validAccent, type BrandInputs } from '../src/lib/server/branding/resolve.ts';
+import { BrandImageError, processLogo, renditions, sanitizeSvg } from '../src/lib/server/branding/image.ts';
 import { brandHead } from '../src/lib/server/branding/head.ts';
 
 const noLogo = { light: null, dark: null, lightSet: false, darkSet: false };
@@ -136,5 +136,19 @@ describe('brandHead', () => {
     const h = brandHead(resolveBrand(inputs({ stored: { name: "Lee's & Co", accent: '#0b7a5c' } })));
     expect(h).toContain('--nb-accent:#0b7a5c');
     expect(h).toContain('Lee&#39;s &amp; Co');
+  });
+});
+
+describe('default icon', () => {
+  it('edges the black rectangle in white, so the 16 px PNG reads on a dark toolbar (D-178)', async () => {
+    const r = await renditions(Buffer.from(defaultIconSvg('#000000', '#ffffff')), true);
+    const { data, info } = await sharp(r.icons[16]).raw().toBuffer({ resolveWithObject: true });
+    const px = (x: number, y: number) => Array.from(data.subarray((y * info.width + x) * info.channels, (y * info.width + x) * info.channels + 4));
+    const [cr, cg, cb, ca] = px(8, 8);
+    expect([cr, cg, cb, ca]).toEqual([0, 0, 0, 255]);
+    // the edge row above the fill is light and opaque
+    const edge = px(8, 4);
+    expect(edge[3]).toBeGreaterThan(200);
+    expect(Math.min(edge[0]!, edge[1]!, edge[2]!)).toBeGreaterThan(150);
   });
 });

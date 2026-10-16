@@ -125,4 +125,6 @@
   .tk-lit { color: var(--nb-danger); }
   .tk-p { color: var(--nb-text-muted); }
   .more { margin: 0 2px; padding: 0 4px; border-radius: 4px; background: var(--nb-surface-sunken); color: var(--nb-text-muted); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .seg button:focus-visible, .copy:focus-visible, .fold button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
 </style>

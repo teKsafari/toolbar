@@ -1,7 +1,8 @@
 /* Dev tools panel rows (J-102 to J-108): dense like browser DevTools, 12 px Geist Mono at 1.5,
    22 px rows on edge dividers. Levels keep their tint (parity J-055: same icon and tint per
    level) and add the language's 2 px bar on the left; the current row has the text-colour bar
-   and a gutter triangle. */
+   and a gutter triangle. On a tinted row the faint text (timestamps) takes text-muted and status
+   text takes its -text step, since the base steps fall under 4.5:1 on the tint (D-178). */
 .vp-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 10px; border-bottom: 1px solid var(--nb-border); }
 .vp-search { display: flex; align-items: center; gap: 6px; flex: 1 1 140px; min-width: 120px; height: 28px; padding: 0 8px; border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-sm); color: var(--nb-text-faint); background: var(--nb-surface); transition: border-color var(--nb-dur-fast) var(--nb-ease-out), box-shadow var(--nb-dur-fast) var(--nb-ease-out); }
 .vp-search:focus-within { border-color: var(--nb-focus); box-shadow: var(--nb-focus-ring); }
@@ -23,6 +24,7 @@
 .vp-row.lvl-error { background: var(--nb-danger-tint); }
 .vp-row.lvl-warn { background: var(--nb-warning-tint); }
 .vp-row.kind-navigation { background: var(--nb-info-tint); }
+.vp-row.lvl-error, .vp-row.lvl-warn, .vp-row.kind-navigation { --nb-text-faint: var(--nb-text-muted); }
 .vp-row.lvl-error::after, .vp-row.lvl-warn::after, .vp-row.kind-navigation::after { content: ''; position: absolute; left: -3px; top: 0; bottom: 0; width: 2px; }
 .vp-row.lvl-error::after { background: var(--nb-danger); }
 .vp-row.lvl-warn::after { background: var(--nb-warning); }

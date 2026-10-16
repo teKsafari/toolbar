@@ -158,4 +158,6 @@
   .dark .tab, .dark .tb { background: #1b1b1b; }
   .cta { all: unset; align-self: flex-start; height: var(--nb-control-md); line-height: var(--nb-control-md); padding: 0 14px; border-radius: var(--nb-radius-md); background: var(--pv-accent); color: var(--pv-on); font: var(--nb-weight-medium) var(--nb-text-md) var(--nb-font-sans); box-shadow: 0 1px 2px rgb(0 0 0 / 0.2), inset 0 1px 0 rgb(255 255 255 / 0.16); }
   @media (max-width: 560px) { input[type='text'] { width: 150px; } }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .link:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; border-radius: 2px; }
 </style>

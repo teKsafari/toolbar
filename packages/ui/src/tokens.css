@@ -81,6 +81,10 @@
   --nb-success-tint: rgb(21 128 61 / 0.1);
   --nb-info: #1d4ed8;
   --nb-info-tint: rgb(29 78 216 / 0.1);
+  --nb-danger-text: #b91c1c;
+  --nb-warning-text: #92400e;
+  --nb-success-text: #166534;
+  --nb-info-text: #1d4ed8;
   --nb-chrome: #131313;
   --nb-chrome-2: #262626;
   --nb-chrome-border: #2e2e2e;
@@ -128,6 +132,10 @@
     --nb-success-tint: rgb(74 222 128 / 0.14);
     --nb-info: #60a5fa;
     --nb-info-tint: rgb(96 165 250 / 0.14);
+    --nb-danger-text: #f87171;
+    --nb-warning-text: #fbbf24;
+    --nb-success-text: #4ade80;
+    --nb-info-text: #60a5fa;
     --nb-chrome: #1b1b1b;
     --nb-chrome-2: #262626;
     --nb-chrome-border: #2e2e2e;
@@ -175,6 +183,10 @@
   --nb-success-tint: rgb(74 222 128 / 0.14);
   --nb-info: #60a5fa;
   --nb-info-tint: rgb(96 165 250 / 0.14);
+  --nb-danger-text: #f87171;
+  --nb-warning-text: #fbbf24;
+  --nb-success-text: #4ade80;
+  --nb-info-text: #60a5fa;
   --nb-chrome: #1b1b1b;
   --nb-chrome-2: #262626;
   --nb-chrome-border: #2e2e2e;
@@ -221,6 +233,10 @@
   --nb-success-tint: rgb(21 128 61 / 0.1);
   --nb-info: #1d4ed8;
   --nb-info-tint: rgb(29 78 216 / 0.1);
+  --nb-danger-text: #b91c1c;
+  --nb-warning-text: #92400e;
+  --nb-success-text: #166534;
+  --nb-info-text: #1d4ed8;
   --nb-chrome: #131313;
   --nb-chrome-2: #262626;
   --nb-chrome-border: #2e2e2e;

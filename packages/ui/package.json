@@ -13,6 +13,7 @@
     },
     "./tokens": "./src/tokens.ts",
     "./tokens.css": "./src/tokens.css",
+    "./tokens.shadow.css": "./src/tokens.shadow.css",
     "./fonts.css": "./src/fonts.css",
     "./accent": "./src/accent.ts",
     "./fonts": "./src/fonts.ts",

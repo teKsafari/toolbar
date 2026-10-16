@@ -182,12 +182,18 @@ export async function pickEntireScreenInPage(win = { x: 0, y: 0, w: 1440 }, time
   await new Promise((r) => setTimeout(r, 500));
   clickAt(left + 491, top + 96); // Entire Screen
   await new Promise((r) => setTimeout(r, 1000)); // the thumbnail paints
-  clickAt(left + 170, top + 225); // the screen
-  await new Promise((r) => setTimeout(r, 300));
-  clickAt(left + 610 - 57, top + 574); // Share
-  for (let i = 0; i < 50; i++) {
-    if (!dimmed(pixel(left - 30, top + 300))) return 3;
-    await new Promise((r) => setTimeout(r, 100));
+  // Share stays disabled until the screen thumbnail is selected, and under load the thumbnail can
+  // paint after the first click on it: then the picker is still up, so pick and share again (a
+  // full flows run failed once that way and passed alone). The user's clicks stay 3.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt) console.log(`picker: still open after Share, picking the screen again (try ${attempt + 1})`);
+    clickAt(left + 170, top + 225); // the screen
+    await new Promise((r) => setTimeout(r, 300));
+    clickAt(left + 610 - 57, top + 574); // Share
+    for (let i = 0; i < 50; i++) {
+      if (!dimmed(pixel(left - 30, top + 300))) return 3;
+      await new Promise((r) => setTimeout(r, 100));
+    }
   }
   throw new Error('the share picker stayed open after Share');
 }

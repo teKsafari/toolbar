@@ -109,3 +109,13 @@ export function defaultLogoSvg(fill: string, dark?: string): string {
   const style = dark ? `<style>@media (prefers-color-scheme: dark){rect{fill:${dark}}}</style>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">${style}<rect x="2" y="7" width="20" height="10" fill="${fill}"/></svg>`;
 }
+
+/**
+ * The square PNG icons of the built-in logo (favicon PNGs, the extension's toolbar icon): the
+ * same rectangle inside a 1.5 unit edge of `edge` (the accent's text colour). A PNG cannot follow
+ * the OS theme as the SVG does, and the black default alone measures about 1.5:1 on a dark
+ * browser toolbar; the edge outlines it there and melts into a light toolbar (D-178).
+ */
+export function defaultIconSvg(fill: string, edge: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><rect x="0.5" y="5.5" width="23" height="13" fill="${edge}"/><rect x="2" y="7" width="20" height="10" fill="${fill}"/></svg>`;
+}

@@ -23,7 +23,7 @@ Without `ADMIN_EMAILS`, the first account created on the server is the instance 
 
 - Formats: SVG or PNG, at most 512 KB; a PNG at most 2048 by 2048 pixels; an SVG needs a `viewBox` or a width and height.
 - SVG files are cleaned on upload. A file with scripts, event handlers, embedded HTML, `<image>` or `<use>` elements, links to other files or a DOCTYPE is refused with the reason, so export a plain vector file. Editor metadata (Inkscape, Figma) is dropped.
-- From the logo the server renders square PNG icons at 16, 32, 48, 128, 180 and 512 pixels (favicons, the iOS home-screen icon, the extension's toolbar icon) and a 64 px high PNG for mail, since most mail clients show no SVG. A wide logo sits centred in the square icons, so a compact mark works best there.
+- From the logo the server renders square PNG icons at 16, 32, 48, 128, 180 and 512 pixels (favicons, the iOS home-screen icon, the extension's toolbar icon) and a 64 px high PNG for mail, since most mail clients show no SVG. A wide logo sits centred in the square icons, so a compact mark works best there. The default rectangle's icons carry a thin edge in the accent's text colour (white around the black default), because a PNG cannot follow the OS theme as the SVG favicon does and a plain black mark is lost on a dark browser toolbar. The extension's own icon, shown before sign-in, is the same black rectangle with a white edge.
 - Files are served from `/brand/`: `logo.svg` or `logo.png`, `logo-dark.*`, `icon-<size>.png`, `email.png`. `/favicon.ico` redirects to the 32 px icon. With the current `?v=` they are cached for a year, so a change shows at once with new URLs.
 - `GET /api/v1/branding` returns the name, accent and absolute file URLs, without sign-in.
 

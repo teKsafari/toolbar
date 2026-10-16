@@ -117,4 +117,6 @@
   .picker button.on, .picker button:hover { background: var(--nb-accent-tint); }
   .n { font-weight: 500; }
   .e { margin-left: auto; color: var(--nb-text-faint); font-size: var(--nb-text-sm); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .picker button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: -2px; }
 </style>

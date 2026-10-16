@@ -110,4 +110,6 @@
   .chips button { all: unset; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; }
   .chips button:hover { background: var(--nb-surface-sunken); }
   select { height: 34px; border: 1px solid var(--nb-border-strong); border-radius: var(--nb-radius-md); background: var(--nb-surface); color: var(--nb-text); padding: 0 8px; font: inherit; font-size: var(--nb-text-md); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .chips button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
 </style>

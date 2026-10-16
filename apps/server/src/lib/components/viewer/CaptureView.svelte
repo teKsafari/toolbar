@@ -162,4 +162,6 @@
     .show-dev-narrow .left { display: none; }
     .show-dev-narrow .right { display: block; }
   }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .narrowbar button:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: -2px; }
 </style>

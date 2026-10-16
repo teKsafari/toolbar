@@ -130,9 +130,12 @@
     .shell { grid-template-columns: minmax(0, 1fr); }
     aside {
       position: fixed; z-index: 30; left: 0; top: 0; bottom: 0; width: 270px; transform: translateX(calc(-100% - 24px));
-      transition: transform var(--nb-dur-med) var(--nb-ease-out); box-shadow: var(--nb-shadow-lg);
+      /* closed, the drawer is hidden as well as moved off-canvas, so Tab skips its links; visibility
+         flips after the slide on close and at once on open */
+      visibility: hidden;
+      transition: transform var(--nb-dur-med) var(--nb-ease-out), visibility 0s linear var(--nb-dur-med); box-shadow: var(--nb-shadow-lg);
     }
-    aside.open { transform: none; }
+    aside.open { transform: none; visibility: visible; transition: transform var(--nb-dur-med) var(--nb-ease-out), visibility 0s; }
     .scrim.show { all: unset; display: block; position: fixed; inset: 0; z-index: 29; background: var(--nb-overlay); }
     .menu { display: grid; }
     aside { background: var(--nb-surface); border-right-color: var(--nb-border); }

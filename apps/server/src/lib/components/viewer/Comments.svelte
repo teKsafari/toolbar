@@ -156,4 +156,6 @@
   .dock { position: sticky; bottom: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0 12px; background: linear-gradient(transparent, var(--nb-bg) 30%); }
   .dock > :global(.composer) { align-self: stretch; }
   .jump { all: unset; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px 0 6px; border-radius: 999px; background: var(--nb-chrome); color: var(--nb-on-chrome); font-size: var(--nb-text-md); font-weight: var(--nb-weight-medium); cursor: pointer; box-shadow: var(--nb-shadow-lg); }
+  /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
+  .jump:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; border-radius: 2px; }
 </style>
