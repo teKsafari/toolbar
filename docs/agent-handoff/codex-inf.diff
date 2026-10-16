@@ -1,0 +1,101 @@
+diff --git a/.gitignore b/.gitignore
+index 5b8bb27..7491d23 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -39,6 +39,7 @@ yarn-error.log*
+ # Misc
+ .DS_Store
+ *.pem
++.feedback/
+ 
+ # context for agents
+ context
+diff --git a/packages/wasm/core/Nuru b/packages/wasm/core/Nuru
+index 7bf0486..d474358 160000
+--- a/packages/wasm/core/Nuru
++++ b/packages/wasm/core/Nuru
+@@ -1 +1 @@
+-Subproject commit 7bf0486868acb719c1f1bdc01fbf97bf9843401d
++Subproject commit d4743582dd95a70f3d324db8188929b07e2aa139
+diff --git a/packages/wasm/core/Nuru/evaluator/evaluator_test.go b/packages/wasm/core/Nuru/evaluator/evaluator_test.go
+index b6e830d..900adb5 100644
+--- a/packages/wasm/core/Nuru/evaluator/evaluator_test.go
++++ b/packages/wasm/core/Nuru/evaluator/evaluator_test.go
+@@ -265,6 +265,22 @@ kama (10 > 1) {
+ 			`{"jina": "Avi"}[unda(x) {x}];`,
+ 			"Mstari 1: Samahani, UNDO (FUNCTION) haitumiki kama ufunguo",
+ 		},
++		{
++			"1 / 0",
++			"Mstari 1: Huwezi kugawanya kwa sifuri",
++		},
++		{
++			"1.0 / 0",
++			"Mstari 1: Huwezi kugawanya kwa sifuri",
++		},
++		{
++			"1 / 0.0",
++			"Mstari 1: Huwezi kugawanya kwa sifuri",
++		},
++		{
++			"1 % 0",
++			"Mstari 1: Huwezi kugawanya kwa sifuri",
++		},
+ 	}
+ 
+ 	for _, tt := range tests {
+diff --git a/packages/wasm/core/Nuru/evaluator/infix.go b/packages/wasm/core/Nuru/evaluator/infix.go
+index 2e51052..bf99438 100644
+--- a/packages/wasm/core/Nuru/evaluator/infix.go
++++ b/packages/wasm/core/Nuru/evaluator/infix.go
+@@ -119,8 +119,14 @@ func evalFloatIntegerInfixExpression(operator string, left, right object.Object,
+ 	case "**":
+ 		val = math.Pow(float64(leftVal), float64(rightVal))
+ 	case "/":
++		if rightVal == 0 {
++			return newError("Mstari %d: Huwezi kugawanya kwa sifuri", line)
++		}
+ 		val = leftVal / rightVal
+ 	case "%":
++		if rightVal == 0 {
++			return newError("Mstari %d: Huwezi kugawanya kwa sifuri", line)
++		}
+ 		val = math.Mod(leftVal, rightVal)
+ 	case "<":
+ 		return nativeBoolToBooleanObject(leftVal < rightVal)
+@@ -191,7 +197,15 @@ func evalFloatInfixExpression(operator string, left, right object.Object, line i
+ 	case "**":
+ 		return &object.Float{Value: math.Pow(float64(leftVal), float64(rightVal))}
+ 	case "/":
++		if rightVal == 0 {
++			return newError("Mstari %d: Huwezi kugawanya kwa sifuri", line)
++		}
+ 		return &object.Float{Value: leftVal / rightVal}
++	case "%":
++		if rightVal == 0 {
++			return newError("Mstari %d: Huwezi kugawanya kwa sifuri", line)
++		}
++		return &object.Float{Value: math.Mod(leftVal, rightVal)}
+ 	case "<":
+ 		return nativeBoolToBooleanObject(leftVal < rightVal)
+ 	case "<=":
+@@ -224,6 +238,9 @@ func evalIntegerInfixExpression(operator string, left, right object.Object, line
+ 	case "**":
+ 		return &object.Float{Value: float64(math.Pow(float64(leftVal), float64(rightVal)))}
+ 	case "/":
++		if rightVal == 0 {
++			return newError("Mstari %d: Huwezi kugawanya kwa sifuri", line)
++		}
+ 		x := float64(leftVal) / float64(rightVal)
+ 		if math.Mod(x, 1) == 0 {
+ 			return &object.Integer{Value: int64(x)}
+@@ -231,6 +248,9 @@ func evalIntegerInfixExpression(operator string, left, right object.Object, line
+ 			return &object.Float{Value: x}
+ 		}
+ 	case "%":
++		if rightVal == 0 {
++			return newError("Mstari %d: Huwezi kugawanya kwa sifuri", line)
++		}
+ 		return &object.Integer{Value: leftVal % rightVal}
+ 	case "<":
+ 		return nativeBoolToBooleanObject(leftVal < rightVal)

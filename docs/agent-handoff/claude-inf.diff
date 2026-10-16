@@ -1,0 +1,83 @@
+diff --git a/.gitignore b/.gitignore
+index 5b8bb27..b7eb8eb 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -45,3 +45,4 @@ context
+ 
+ # Browser automation artifacts
+ .playwright-mcp/
++.feedback/
+diff --git a/packages/wasm/web/patches/0002-division-by-zero.patch b/packages/wasm/web/patches/0002-division-by-zero.patch
+new file mode 100644
+index 0000000..6cb05be
+--- /dev/null
++++ b/packages/wasm/web/patches/0002-division-by-zero.patch
+@@ -0,0 +1,56 @@
++diff -ru a/evaluator/assignEqual.go b/evaluator/assignEqual.go
++--- a/evaluator/assignEqual.go
+++++ b/evaluator/assignEqual.go
++@@ -120,6 +120,16 @@
++ 			return newError("Mstari %d: Huwezi kutumia '*=' na %v", node.Token.Line, arg.Type())
++ 		}
++ 	case "/=":
+++		switch val := value.(type) {
+++		case *object.Integer:
+++			if val.Value == 0 {
+++				return newError("Mstari %d: Huwezi kugawanya kwa sifuri", node.Token.Line)
+++			}
+++		case *object.Float:
+++			if val.Value == 0 {
+++				return newError("Mstari %d: Huwezi kugawanya kwa sifuri", node.Token.Line)
+++			}
+++		}
++ 		switch arg := left.(type) {
++ 		case *object.Integer:
++ 			switch val := value.(type) {
++diff -ru a/evaluator/infix.go b/evaluator/infix.go
++--- a/evaluator/infix.go
+++++ b/evaluator/infix.go
++@@ -108,6 +108,10 @@
++ 		rightVal = right.(*object.Float).Value
++ 	}
++ 
+++	if (operator == "/" || operator == "%") && rightVal == 0 {
+++		return newError("Mstari %d: Huwezi kugawanya kwa sifuri", line)
+++	}
+++
++ 	var val float64
++ 	switch operator {
++ 	case "+":
++@@ -181,6 +185,10 @@
++ 	leftVal := left.(*object.Float).Value
++ 	rightVal := right.(*object.Float).Value
++ 
+++	if (operator == "/" || operator == "%") && rightVal == 0 {
+++		return newError("Mstari %d: Huwezi kugawanya kwa sifuri", line)
+++	}
+++
++ 	switch operator {
++ 	case "+":
++ 		return &object.Float{Value: leftVal + rightVal}
++@@ -214,6 +222,10 @@
++ 	leftVal := left.(*object.Integer).Value
++ 	rightVal := right.(*object.Integer).Value
++ 
+++	if (operator == "/" || operator == "%") && rightVal == 0 {
+++		return newError("Mstari %d: Huwezi kugawanya kwa sifuri", line)
+++	}
+++
++ 	switch operator {
++ 	case "+":
++ 		return &object.Integer{Value: leftVal + rightVal}
+diff --git a/packages/wasm/web/patches/README.md b/packages/wasm/web/patches/README.md
+index 92ed5c8..955ad6d 100644
+--- a/packages/wasm/web/patches/README.md
++++ b/packages/wasm/web/patches/README.md
+@@ -23,3 +23,4 @@ Refresh the patch against the new upstream, or drop it once upstream has the fix
+ | Patch | Why |
+ |---|---|
+ | `0001-jaza-empty-answer.patch` | `jaza()` treated an empty answer or the typed word `null` as a failure in the browser, while the stdin replay path accepted them. Only a JS `null`/`undefined` from `prompt()` (no input available, or the run was stopped) is a failure now. |
++| `0002-division-by-zero.patch` | `/`, `%` and `/=` with a zero divisor returned Go's `+Inf` or `NaN` as the answer, and integer `%` or `/=` crashed the run with a Go panic. All of them now stop the program with `Kosa: Mstari N: Huwezi kugawanya kwa sifuri`. |
+diff --git a/packages/wasm/worker/nuru.wasm b/packages/wasm/worker/nuru.wasm
+index f123164..2f267d9 100644
+Binary files a/packages/wasm/worker/nuru.wasm and b/packages/wasm/worker/nuru.wasm differ

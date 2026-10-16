@@ -1,0 +1,164 @@
+diff --git a/.gitignore b/.gitignore
+index 5b8bb27..78f7b91 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -45,3 +45,5 @@ context
+ 
+ # Browser automation artifacts
+ .playwright-mcp/
++
++.feedback/
+diff --git a/packages/mtaala/README.md b/packages/mtaala/README.md
+index e6823f7..33d40cb 100644
+--- a/packages/mtaala/README.md
++++ b/packages/mtaala/README.md
+@@ -100,6 +100,14 @@ DATABASE_URL=postgres://postgres:dev@localhost:5432/nuru pnpm exec tsx scripts/s
+ 
+ `seed` inaingiza au kusasisha moduli na masomo. Utambulisho unatokana na slug, hivyo kupanda tena hakuvunji maendeleo ya wanafunzi. Somo lililoondolewa kwenye Markdown linaondolewa kwenye moduli yake pia.
+ 
++Kama moduli yenye slug hiyo tayari ipo kwenye hifadhidata (imetengenezwa kwenye dashibodi au na seed ya zamani), `seed` inairuka na kuiorodhesha kama mgogoro. Masomo ya Markdown hayaingii, na tovuti inaendelea kuonyesha maudhui ya zamani. Ichukue kwa `--chukua`:
++
++```bash
++DATABASE_URL=... pnpm exec tsx scripts/seed.ts --chukua misingi-ya-nuru
++```
++
++Moduli inabaki na id yake, hivyo madarasa yanayoitumia hayavunjiki. Maendeleo ya somo la zamani yanahamia somo jipya lenye slug ileile. Baada ya hapo moduli ni ya `seed`, na kupanda tena hakuhitaji `--chukua`.
++
+ ## English
+ 
+ The Nuru curriculum: every lesson on the platform, written as Markdown. Each reference solution runs on the real Nuru interpreter (wasm) before it reaches the database.
+@@ -161,3 +169,11 @@ For every lesson, `hakiki` checks that:
+ - a drawing or LED sequence produced by the solution is not empty.
+ 
+ `seed` upserts modules and lessons. Ids derive from slugs, so re-seeding never breaks learner progress. A lesson removed from the Markdown is removed from its module too.
++
++If the database already has a module with the same slug (made in the dashboard, or by an older seed), `seed` skips that module and lists it as a conflict. The Markdown lessons never load, and the site keeps showing the old content. Take the module over with `--chukua`:
++
++```bash
++DATABASE_URL=... pnpm exec tsx scripts/seed.ts --chukua misingi-ya-nuru
++```
++
++The module keeps its id, so classrooms that list it keep working. Progress on an old lesson moves to the new lesson with the same slug. From then on the module belongs to `seed`, and later runs need no flag.
+diff --git a/packages/mtaala/scripts/seed.ts b/packages/mtaala/scripts/seed.ts
+index 9ea3b56..e6f666f 100644
+--- a/packages/mtaala/scripts/seed.ts
++++ b/packages/mtaala/scripts/seed.ts
+@@ -14,6 +14,17 @@
+ // lessons the seed manages (ids starting with `les_`; the dashboard gives its
+ // lessons random UUIDs) and only when no learner has progress on them. Anything
+ // the seed refuses to do is listed at the end and the script exits with code 1.
++//
++// Taking over a module. A module whose slug already belongs to another module
++// (made in the dashboard, or by a seed from before this package) is skipped,
++// because the seed cannot tell curriculum from a teacher's own work. Pass its
++// slug to take it over:
++//   pnpm --filter @nuru/mtaala seed --chukua misingi-ya-nuru
++// The module keeps its id, so classrooms that list it keep working. Its lessons
++// get the seed's ids: progress on an old lesson with the same slug moves to the
++// new one, and old lessons gone from the Markdown are removed unless a learner
++// has progress on them. The module then belongs to the seed, and later seeds
++// update it without the flag.
+ import fs from "node:fs";
+ import path from "node:path";
+ import YAML from "yaml";
+@@ -28,6 +39,16 @@ const ID_PATTERN = /^les_[A-Za-z0-9_-]{1,190}$/;
+ 
+ const migogoro: string[] = [];
+ 
++/** Slugs given with --chukua (repeatable, or comma-separated). */
++function chukuaSlugs(argv: string[]): Set<string> {
++	const slugs = new Set<string>();
++	for (let i = 0; i < argv.length; i++) {
++		const value = argv[i].startsWith("--chukua=") ? argv[i].slice("--chukua=".length) : argv[i] === "--chukua" ? argv[++i] : undefined;
++		for (const s of (value ?? "").split(",")) if (s.trim()) slugs.add(s.trim());
++	}
++	return slugs;
++}
++
+ /** The `id` and `aliases` of a lesson's sw/ front-matter (load.ts does not read them). */
+ function frontMatterIds(file: string): { id?: string; aliases: string[] } {
+ 	try {
+@@ -80,23 +101,29 @@ async function main() {
+ 		.values({ id: ORG_ID, name: "teKsafari", slug: "teksafari" })
+ 		.onConflictDoNothing();
+ 
++	const chukua = chukuaSlugs(process.argv.slice(2));
+ 	const { run, close } = makeRunner();
+ 	const curriculum = loadCurriculum();
+ 	const seen = new Map<string, string>(); // lesson id -> file
+ 
+ 	for (const mod of curriculum) {
+-		const moduleId = `mod_${mod.slug}`;
++		let moduleId = `mod_${mod.slug}`;
+ 
+ 		// modules.slug is unique: a dashboard module may already use this slug.
+ 		const [clash] = await db
+-			.select({ id: modules.id })
++			.select({ id: modules.id, createdBy: modules.createdBy })
+ 			.from(modules)
+ 			.where(and(eq(modules.slug, mod.slug), ne(modules.id, moduleId)))
+ 			.limit(1);
+-		if (clash) {
+-			migogoro.push(`moduli ${mod.slug}: slug tayari inatumiwa na moduli ${clash.id}. Moduli hii imerukwa; badilisha slug moja kati yao.`);
++		const adopted = Boolean(clash) && (clash.createdBy === SYSTEM_USER || chukua.has(mod.slug));
++		if (clash && !adopted) {
++			migogoro.push(
++				`moduli ${mod.slug}: slug tayari inatumiwa na moduli ${clash.id}. Moduli hii imerukwa; badilisha slug moja kati yao, au endesha seed na --chukua ${mod.slug} kuichukua.`,
++			);
+ 			continue;
+ 		}
++		if (adopted) moduleId = clash.id;
++		chukua.delete(mod.slug);
+ 
+ 		const values = {
+ 			id: moduleId,
+@@ -152,6 +179,20 @@ async function main() {
+ 			};
+ 			await db.insert(lessons).values(row).onConflictDoUpdate({ target: lessons.id, set: row });
+ 
++			// A module taken over from the dashboard: its old lesson with this slug
++			// hands its progress to the seed's lesson and goes.
++			if (adopted) {
++				const predecessors = await db
++					.select({ id: lessons.id })
++					.from(lessons)
++					.where(and(eq(lessons.moduleId, moduleId), eq(lessons.slug, lesson.slug), ne(lessons.id, id), sql`${lessons.id} NOT LIKE 'les\\_%'`));
++				for (const old of predecessors) {
++					await moveProgress(old.id, id, moduleId);
++					await db.delete(lessons).where(and(eq(lessons.id, old.id), sql`NOT EXISTS (SELECT 1 FROM maendeleo WHERE lesson_id = ${old.id})`));
++					console.log(`  ${old.id} -> ${id}: maendeleo yamehamishwa`);
++				}
++			}
++
+ 			// Old ids of this lesson: carry their progress over, then drop them.
+ 			for (const alias of fm.aliases) {
+ 				const oldId = alias.startsWith("les_") ? alias : `les_${mod.slug}_${alias}`;
+@@ -165,11 +206,18 @@ async function main() {
+ 		}
+ 
+ 		// Seed-managed lessons removed from the Markdown leave the module, unless a
+-		// learner has progress on them (the foreign key would cascade it away).
++		// learner has progress on them (the foreign key would cascade it away). In a
++		// module the seed took over, every lesson is seed-managed.
+ 		const stale = await db
+ 			.select({ id: lessons.id })
+ 			.from(lessons)
+-			.where(and(eq(lessons.moduleId, moduleId), like(lessons.id, "les\\_%"), lessonIds.length ? notInArray(lessons.id, lessonIds) : undefined));
++			.where(
++				and(
++					eq(lessons.moduleId, moduleId),
++					adopted ? undefined : like(lessons.id, "les\\_%"),
++					lessonIds.length ? notInArray(lessons.id, lessonIds) : undefined,
++				),
++			);
+ 		const keep: string[] = [];
+ 		for (const { id } of stale) {
+ 			const n = await progressCount(id);
+@@ -190,6 +238,7 @@ async function main() {
+ 	}
+ 
+ 	close();
++	for (const slug of chukua) migogoro.push(`--chukua ${slug}: hakuna moduli yenye slug hii kwenye Markdown.`);
+ 	if (migogoro.length) {
+ 		console.error(`\nMigogoro ${migogoro.length}:`);
+ 		for (const m of migogoro) console.error(`  - ${m}`);

@@ -1,0 +1,12 @@
+diff --git a/.gitignore b/.gitignore
+index 5b8bb27..fae1bab 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -42,6 +42,7 @@ yarn-error.log*
+ 
+ # context for agents
+ context
++.feedback/
+ 
+ # Browser automation artifacts
+ .playwright-mcp/

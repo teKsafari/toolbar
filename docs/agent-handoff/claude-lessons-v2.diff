@@ -1,0 +1,172 @@
+diff --git a/.gitignore b/.gitignore
+index 5b8bb27..b7eb8eb 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -45,3 +45,4 @@ context
+ 
+ # Browser automation artifacts
+ .playwright-mcp/
++.feedback/
+diff --git a/packages/mtaala/README.md b/packages/mtaala/README.md
+index e6823f7..4a4b5db 100644
+--- a/packages/mtaala/README.md
++++ b/packages/mtaala/README.md
+@@ -100,6 +100,14 @@ DATABASE_URL=postgres://postgres:dev@localhost:5432/nuru pnpm exec tsx scripts/s
+ 
+ `seed` inaingiza au kusasisha moduli na masomo. Utambulisho unatokana na slug, hivyo kupanda tena hakuvunji maendeleo ya wanafunzi. Somo lililoondolewa kwenye Markdown linaondolewa kwenye moduli yake pia.
+ 
++Kama hifadhidata ina nakala ya zamani ya moduli yenye slug ileile lakini id nyingine (kwa mfano masomo yaliyoingizwa kabla ya `seed`), `seed` inairuka na kuonyesha mgogoro. Hapo masomo ya zamani yanabaki kwenye tovuti. Ichukue kwa `--adopt`:
++
++```bash
++DATABASE_URL=... pnpm exec tsx scripts/seed.ts --adopt misingi-ya-nuru
++```
++
++Maendeleo ya wanafunzi yanahamia somo lenye slug ileile, madarasa yanaorodhesha moduli mpya, na moduli ya zamani inafutwa ikibaki tupu.
++
+ ## English
+ 
+ The Nuru curriculum: every lesson on the platform, written as Markdown. Each reference solution runs on the real Nuru interpreter (wasm) before it reaches the database.
+@@ -161,3 +169,11 @@ For every lesson, `hakiki` checks that:
+ - a drawing or LED sequence produced by the solution is not empty.
+ 
+ `seed` upserts modules and lessons. Ids derive from slugs, so re-seeding never breaks learner progress. A lesson removed from the Markdown is removed from its module too.
++
++When the database holds an older copy of a module under the same slug with another id (lessons imported before `seed` existed, for example), `seed` skips that module and reports a conflict, and the site keeps serving the old lessons. Take it over with `--adopt`:
++
++```bash
++DATABASE_URL=... pnpm exec tsx scripts/seed.ts --adopt misingi-ya-nuru
++```
++
++Learner progress moves to the lesson with the same slug, classes list the new module, and the old module is deleted once it is empty.
+diff --git a/packages/mtaala/scripts/seed.ts b/packages/mtaala/scripts/seed.ts
+index 9ea3b56..fb1869e 100644
+--- a/packages/mtaala/scripts/seed.ts
++++ b/packages/mtaala/scripts/seed.ts
+@@ -14,6 +14,16 @@
+ // lessons the seed manages (ids starting with `les_`; the dashboard gives its
+ // lessons random UUIDs) and only when no learner has progress on them. Anything
+ // the seed refuses to do is listed at the end and the script exits with code 1.
++//
++// Adopting an older module. A module whose slug is already taken by another id
++// (an import from before this seed, or a dashboard module) is skipped. If that
++// module is an old copy of the curriculum, name its slug with --adopt:
++//   DATABASE_URL=... pnpm --filter @nuru/mtaala seed --adopt misingi-ya-nuru
++// The old module is renamed to `<slug>--zamani--<id>` and made private, the
++// curriculum module takes the slug, learners' progress moves to the lesson with
++// the same slug, classes that listed the old module list the new one, and the
++// old module is deleted once no lesson is left in it. A run that stops halfway
++// is finished by the next run, with or without --adopt.
+ import fs from "node:fs";
+ import path from "node:path";
+ import YAML from "yaml";
+@@ -28,6 +38,54 @@ const ID_PATTERN = /^les_[A-Za-z0-9_-]{1,190}$/;
+ 
+ const migogoro: string[] = [];
+ 
++/** Slugs named with `--adopt a,b` or `--adopt=a`. */
++function adoptArgs(argv: string[]): Set<string> {
++	const out = new Set<string>();
++	argv.forEach((arg, i) => {
++		const value = arg.startsWith("--adopt=") ? arg.slice(8) : arg === "--adopt" ? argv[i + 1] : undefined;
++		for (const slug of (value ?? "").split(",")) if (slug.trim()) out.add(slug.trim());
++	});
++	return out;
++}
++
++const ADOPTED = "--zamani--";
++
++/**
++ * Empty an adopted module into `moduleId`: progress follows the lesson slug,
++ * classes switch module ids, and the old module goes once it has no lessons.
++ */
++async function finishAdoption(oldModuleId: string, moduleId: string, slug: string, idBySlug: Map<string, string>) {
++	const oldLessons = await db.select({ id: lessons.id, slug: lessons.slug }).from(lessons).where(eq(lessons.moduleId, oldModuleId));
++	let moved = 0;
++	for (const old of oldLessons) {
++		const target = idBySlug.get(old.slug);
++		if (target) {
++			if ((await progressCount(old.id)) > 0) moved++;
++			await moveProgress(old.id, target, moduleId);
++		}
++		const n = await progressCount(old.id);
++		if (n > 0) {
++			migogoro.push(
++				`${slug}: somo la zamani ${old.id} (${old.slug}) halina somo lenye slug hiyo kwenye Markdown, na lina maendeleo ${n}. Halijafutwa; liongeze kama somo au lifute kwa mkono.`,
++			);
++			continue;
++		}
++		await db.delete(lessons).where(and(eq(lessons.id, old.id), sql`NOT EXISTS (SELECT 1 FROM maendeleo WHERE lesson_id = ${old.id})`));
++	}
++	await db.execute(sql`
++		UPDATE madarasa SET module_ids = (
++			SELECT COALESCE(jsonb_agg(v ORDER BY o), '[]'::jsonb) FROM (
++				SELECT CASE WHEN x = ${oldModuleId} THEN ${moduleId} ELSE x END AS v, min(o) AS o
++				FROM jsonb_array_elements_text(module_ids) WITH ORDINALITY AS t(x, o)
++				GROUP BY 1
++			) s
++		)
++		WHERE module_ids ? ${oldModuleId}
++	`);
++	await db.delete(modules).where(and(eq(modules.id, oldModuleId), sql`NOT EXISTS (SELECT 1 FROM lessons WHERE module_id = ${oldModuleId})`));
++	console.log(`  ${oldModuleId} -> ${moduleId}: moduli ya zamani imechukuliwa (maendeleo ya masomo ${moved} yamehamishwa)`);
++}
++
+ /** The `id` and `aliases` of a lesson's sw/ front-matter (load.ts does not read them). */
+ function frontMatterIds(file: string): { id?: string; aliases: string[] } {
+ 	try {
+@@ -80,6 +138,7 @@ async function main() {
+ 		.values({ id: ORG_ID, name: "teKsafari", slug: "teksafari" })
+ 		.onConflictDoNothing();
+ 
++	const adopt = adoptArgs(process.argv.slice(2));
+ 	const { run, close } = makeRunner();
+ 	const curriculum = loadCurriculum();
+ 	const seen = new Map<string, string>(); // lesson id -> file
+@@ -93,10 +152,20 @@ async function main() {
+ 			.from(modules)
+ 			.where(and(eq(modules.slug, mod.slug), ne(modules.id, moduleId)))
+ 			.limit(1);
+-		if (clash) {
+-			migogoro.push(`moduli ${mod.slug}: slug tayari inatumiwa na moduli ${clash.id}. Moduli hii imerukwa; badilisha slug moja kati yao.`);
++		if (clash && !adopt.has(mod.slug)) {
++			migogoro.push(
++				`moduli ${mod.slug}: slug tayari inatumiwa na moduli ${clash.id}. Moduli hii imerukwa; badilisha slug moja kati yao, au endesha seed na --adopt ${mod.slug} kama ${clash.id} ni nakala ya zamani ya mtaala.`,
++			);
+ 			continue;
+ 		}
++		if (clash) {
++			await db.update(modules).set({ slug: `${mod.slug}${ADOPTED}${clash.id}`, visibility: "private" }).where(eq(modules.id, clash.id));
++		}
++		// Adopted modules, this run's or one an earlier run left half done.
++		const adopted = await db
++			.select({ id: modules.id })
++			.from(modules)
++			.where(and(like(modules.slug, `${mod.slug.replace(/[\\%_]/g, "\\$&")}${ADOPTED}%`), ne(modules.id, moduleId)));
+ 
+ 		const values = {
+ 			id: moduleId,
+@@ -114,6 +183,7 @@ async function main() {
+ 		await db.insert(modules).values(values).onConflictDoUpdate({ target: modules.id, set: values });
+ 
+ 		const lessonIds: string[] = [];
++		const idBySlug = new Map<string, string>();
+ 		for (const lesson of mod.lessons) {
+ 			const fm = frontMatterIds(lesson.file);
+ 			const id = fm.id ?? `les_${mod.slug}_${lesson.slug}`;
+@@ -136,6 +206,7 @@ async function main() {
+ 			}
+ 			seen.set(id, lesson.file);
+ 			lessonIds.push(id);
++			idBySlug.set(lesson.slug, id);
+ 
+ 			const tests = await resolveTests(lesson, run);
+ 			const row = {
+@@ -164,6 +235,8 @@ async function main() {
+ 			}
+ 		}
+ 
++		for (const old of adopted) await finishAdoption(old.id, moduleId, mod.slug, idBySlug);
++
+ 		// Seed-managed lessons removed from the Markdown leave the module, unless a
+ 		// learner has progress on them (the foreign key would cascade it away).
+ 		const stale = await db

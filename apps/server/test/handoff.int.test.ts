@@ -178,5 +178,12 @@ describe.skipIf(!reachable)('hand-off (integration)', () => {
     const rest = await resolveFeedback(db, rec!, ids.dana, { note: 'Typo fixed', items: [2] }, 'API');
     expect(rest).toMatchObject({ resolved: true, itemsResolved: [2], itemsOpen: 0, note: 'Typo fixed' });
     expect((await resolutionOf(db, ids.rec)).itemsOpen).toBe(0);
+
+    // reopening the feedback opens its pins too, so the next folder does not read "resolved" under each note
+    await reopenFeedback(db, ids.rec);
+    expect(await resolutionOf(db, ids.rec)).toMatchObject({ resolved: false, itemsOpen: 2 });
+    const again = await assembleFolder(await collectFolder(db, rec!), { bytes: none, toCss: none, flatten: none, crop: none, size: none, ocr: async () => null, ocrAvailable: async () => false });
+    expect(again.readme).toContain('element pin 1 = a01 (fix, blocking, pending');
+    expect(again.readme).not.toMatch(/pin \d = a\d\d \([^)]*resolved/);
   });
 });

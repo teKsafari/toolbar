@@ -1,0 +1,24 @@
+diff --git a/.gitignore b/.gitignore
+index 5b8bb27..9721ac7 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -45,3 +45,6 @@ context
+ 
+ # Browser automation artifacts
+ .playwright-mcp/
++
++# Toolbar feedback exports
++.feedback/
+diff --git a/packages/mtaala/moduli/01-misingi-ya-nuru/sw/02-andika.md b/packages/mtaala/moduli/01-misingi-ya-nuru/sw/02-andika.md
+index f01aab6..63bcf17 100644
+--- a/packages/mtaala/moduli/01-misingi-ya-nuru/sw/02-andika.md
++++ b/packages/mtaala/moduli/01-misingi-ya-nuru/sw/02-andika.md
+@@ -28,7 +28,7 @@ Ukitenganisha vitu kwa koma `,`, Nuru inaweka nafasi kati yao. Mfano huu unaandi
+ 
+ ### Mstari mpya
+ 
+-Ndani ya maandishi, alama `\n` maana yake ni "anza mstari mpya". Ni backslash `\` na herufi `n`, si `/n`.
++Ndani ya maandishi, alama `\n` maana yake ni "anza mstari mpya". Ni backslash `\` na herufi `n`, si `\n`.
+ 
+ ```nuru
+ andika("Simba+++\n+++Yanga")

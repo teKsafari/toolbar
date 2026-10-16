@@ -12,6 +12,7 @@ import {
   pullCommand,
   renderReadme,
   sharePageMarkdown,
+  textSources,
   type ReadmeInput,
 } from '../src/areas/handoff.ts';
 
@@ -128,7 +129,27 @@ describe('skill', () => {
     expect(s).toContain('| tar xz');
     expect(s).toContain('README.md first');
     expect(s).toContain('Open images only when the timeline points at them');
+    expect(s).toContain('open the image of that note before you search the code');
+    expect(s).toContain('"source": "guess"');
+    expect(s).toContain('When the code already looks right');
     expect(s).toContain('/resolve');
     expect(s).toContain('https://tb.example');
+  });
+});
+
+describe('textSources', () => {
+  const rows = [
+    { rid: 'r1', responseBody: '{"ok":true}' },
+    { rid: 'r2', responseBody: '{"title":{"sw":"1. Welcome to Nuru!"},"task":"Tumia `andika()`\\nkatika mistari miwili"}' },
+    { rid: 'r3', responseBody: '<h1>Welcome&nbsp;to <b>Nuru</b>!</h1>' },
+  ];
+  it('finds the body that held a text, without markup, escapes, spacing or case', () => {
+    expect(textSources('Welcome to Nuru!', rows)).toEqual(['r2', 'r3']);
+    expect(textSources('Tumia andika() katika mistari miwili', rows)).toEqual(['r2']);
+    expect(textSources('Karibu Nuru! Huu ni mwanzo', rows)).toEqual([]);
+  });
+  it('does not guess for short texts', () => {
+    expect(textSources('Run', rows)).toBeNull();
+    expect(textSources('  ', rows)).toBeNull();
   });
 });

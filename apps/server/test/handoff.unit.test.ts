@@ -281,6 +281,57 @@ describe('assembleFolder', () => {
   });
 });
 
+describe('where a marked text came from', () => {
+  const note = (id: string, n: number, text: string, comment: string, t: number) => ({
+    id,
+    assetId: null,
+    t: T0 + t,
+    shapes: [],
+    target: null,
+    locator: { v: 1, kind: 'element', tag: 'h2', text, route: '/sw/lesson/1', url: 'https://app.test/sw/lesson/1' },
+    comment,
+    author: 'Amani',
+    createdAt: new Date(T0 + t),
+    item: { n, kind: 'element', quote: null, intent: 'fix', severity: 'important', status: 'pending', voiceText: null, context: null, page: null, cropRect: null },
+  });
+  async function lessonData(masking: 'staging' | 'production'): Promise<FolderData> {
+    const base = await data();
+    // a Next.js RSC answer whose lesson row holds the stale English title the page showed
+    const rsc = '1:["$","div",null,{"lesson":{"slug":"karibu","title":{"en":"1. Welcome to Nuru!","sw":"1. Welcome to Nuru!"},"task":{"sw":"Tumia `andika()` ukitumia `/n`."}}}]\n';
+    const evs: CaptureEvent[] = [
+      ...events,
+      ev(2600, 'net.req', { rid: 'r2', method: 'GET', url: 'https://app.test/sw/lesson/1?_rsc=1x', headers: {}, source: 'page', initiator: 'fetch' }),
+      ev(2700, 'net.res', { rid: 'r2', status: 200, headers: { 'content-type': 'text/x-component' }, body: rsc, contentType: 'text/x-component' }),
+    ];
+    return {
+      ...base,
+      rec: { ...base.rec, maskingPreset: masking },
+      events: evs,
+      prepared: prepare(evs, T0, false),
+      annotations: [...base.annotations, note('n1', 1, 'Welcome to Nuru!', 'The title is English on /sw', 3000), note('n2', 2, 'Tumia andika() ukitumia /n.', 'The task says /n', 3100), note('n3', 3, 'Endesha programu yako sasa', 'Button label', 3200)],
+    } as FolderData;
+  }
+
+  it('names the response whose body held the text under the reviewer note, and says when none did', async () => {
+    const f = await assembleFolder(await lessonData('staging'), (globalThis as { __io?: FolderIo }).__io!);
+    const words = f.readme.slice(f.readme.indexOf("## The reviewer's words"), f.readme.indexOf('## What did not happen'));
+    // markdown backticks in the body and punctuation on the page do not matter
+    expect(words.match(/The marked text came in the response body of request `r2` \(`GET \/sw\/lesson\/1 200[^`]*`\)/g)).toHaveLength(2);
+    expect(words).toContain(`jq -r 'select(.rid=="r2") | .responseBody' network.jsonl`);
+    expect(words).toContain('The marked text is in no captured response body');
+    // the line sits under its own note
+    const n2 = words.indexOf('The task says /n');
+    expect(words.indexOf('response body of request `r2`', n2)).toBeGreaterThan(n2);
+    // the canvas annotation without a toolbar item gets no line
+    expect(words.slice(0, words.indexOf('The title is English')).match(/marked text/g)).toBeNull();
+  });
+
+  it('stays quiet under the production preset, which keeps bodies only for allowlisted URLs', async () => {
+    const f = await assembleFolder(await lessonData('production'), (globalThis as { __io?: FolderIo }).__io!);
+    expect(f.readme).not.toContain('The marked text');
+  });
+});
+
 describe('reviewer toolbar voice notes (D-160)', () => {
   it('writes voice/aNN.webm and .vtt per note, and joins them into voice/transcript.vtt when the capture has no voice track', async () => {
     const base = await data();

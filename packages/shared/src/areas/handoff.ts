@@ -142,6 +142,65 @@ export interface ReviewerWords {
   text: string;
   /** file in the folder that shows what the words are about */
   ref?: string;
+  /**
+   * For a note on an element or a text: the captured responses whose body holds the marked text
+   * (see `textSources`). Undefined when nobody looked; empty when no captured body holds it.
+   */
+  servedBy?: { rid: string; label: string }[];
+}
+
+// ---------- where a page text came from ----------
+
+/** Letters and digits only, lower case, with JSON and HTML escapes undone and HTML tags dropped, so markup, markdown and spacing do not matter. */
+export function matchText(s: string): string {
+  return s
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, h: string) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/\\[nrt]/g, ' ')
+    .replace(/<\/?[a-zA-Z][^<>]{0,200}>/g, '')
+    .replace(/&(amp|lt|gt|quot|#39|nbsp);/g, ' ')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+/** Shorter marked texts match too much by chance ("OK", "Run"). */
+export const TEXT_SOURCE_MIN = 10;
+const TEXT_SOURCE_PROBE = 48;
+
+/**
+ * The requests whose response body holds a text the reviewer marked: the first 48 letters and
+ * digits of the text, compared without markup, punctuation, spacing or case. Answers null when the
+ * text is too short to tell, else the matching rids in capture order (at most `max`). An agent
+ * reads that body to see what the app was given, which tells stale data or an old deploy from a
+ * bug in the code it has.
+ */
+export function textSources(
+  text: string | null | undefined,
+  rows: { rid: string; responseBody?: string | null; /** `matchText(responseBody)`, when the caller has it */ matchBody?: string }[],
+  max = 3,
+): string[] | null {
+  const probe = matchText(String(text ?? '')).slice(0, TEXT_SOURCE_PROBE);
+  if (probe.length < TEXT_SOURCE_MIN) return null;
+  const out: string[] = [];
+  for (const r of rows) {
+    if (!r.responseBody || r.responseBody.length < probe.length) continue;
+    if ((r.matchBody ?? matchText(r.responseBody)).includes(probe)) out.push(r.rid);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/** A request id as it may appear in a jq filter: the extension's ids are letters, digits, `-` and `_`. */
+const safeRid = (rid: string) => /^[A-Za-z0-9_-]{1,64}$/.test(rid);
+
+function servedLine(w: ReviewerWords): string | null {
+  if (!w.servedBy) return null;
+  if (!w.servedBy.length)
+    return 'The marked text is in no captured response body: the page had it from its first load (not captured) or built it in its own code.';
+  const ok = w.servedBy.filter((s) => safeRid(s.rid));
+  if (!ok.length) return null;
+  const list = ok.map((s) => `\`${s.rid}\` (${code(s.label, 160)})`).join(', ');
+  return `The marked text came in the response body of ${ok.length === 1 ? 'request' : 'requests'} ${list}. That body is what the app was given: compare it with the source before you change code. Read it with \`jq -r 'select(.rid=="${ok[0]!.rid}") | .responseBody' network.jsonl\`.`;
 }
 
 export interface FolderFile {
@@ -217,6 +276,8 @@ function wordsBlock(words: ReviewerWords[], maxChars: number): string[] {
     if (t.length > maxChars) t = `${t.slice(0, maxChars)}\n[cut at ${maxChars} characters; the full text is in feedback.json${w.source.startsWith('voice') ? ' and voice/transcript.vtt' : ''}]`;
     const where = [w.atMs != null ? `at ${fmtOffset(w.atMs)}` : null, w.ref ? `see ${w.ref}` : null].filter(Boolean).join(', ');
     out.push(`**${oneLine(w.source, 160)}** by ${code(w.author, 120)}${where ? ` (${where})` : ''}:`, '', fence(t, { source: w.source, author: w.author, atMs: w.atMs, ref: w.ref }), '');
+    const served = servedLine(w);
+    if (served) out.push(served, '');
   }
   return out;
 }
@@ -298,7 +359,7 @@ function renderOnce(r: ReadmeInput, maxLines: number, maxChars: number): string 
   L.push(`jq -c 'select(.outcome=="dead" or .outcome=="stuck" or .outcome=="silent")' spans.jsonl`);
   L.push(`jq -c 'select(.status >= 400 or .state != "done")' network.jsonl`);
   L.push(`jq -c 'select(.level == "error")' console.jsonl`);
-  L.push(`grep -n '<rid>' network.jsonl spans.jsonl    # a request id from the timeline`);
+  L.push(`grep -n '<rid>' network.jsonl spans.jsonl    # a request id from spans.jsonl (requests[].rid) or from the lines above`);
   for (const h of r.hints ?? []) L.push(h);
   L.push('```', '');
   L.push('| File | Size | What it holds |', '|---|---|---|');
@@ -346,7 +407,7 @@ export function sharePageMarkdown(p: SharePageInput): string {
     '',
     `The command above writes \`${folderDir(p.id)}/\` into the current directory. Set \`${TOKEN_ENV}\` to a personal API token of a member of this workspace first (${p.server}/settings/tokens). Then read \`${folderDir(p.id)}/README.md\` before anything else; it says which images to open.`,
     '',
-    `Agent skill for this flow: ${p.server}${SKILL_PATH} (save it as \`.claude/skills/${SKILL_NAME}/SKILL.md\` or your agent's skills folder). The same data is on the MCP server at ${p.server}/mcp and on the HTTP API at ${p.server}/api/v1.`,
+    `Agent skill for this flow: ${p.server}${SKILL_PATH} (save it as \`.claude/skills/${SKILL_NAME}/SKILL.md\` for Claude Code, \`.agents/skills/${SKILL_NAME}/SKILL.md\` for Codex and opencode). The same data is on the MCP server at ${p.server}/mcp and on the HTTP API at ${p.server}/api/v1.`,
     '',
     `To learn from all feedback of the workspace at once, pull the bulk export with the same token: \`curl -fsSL -H "Authorization: Bearer $${TOKEN_ENV}" "${p.server.replace(/\/$/, '')}/api/v1/feedback/export" | tar xz\` writes \`${FEEDBACK_DIR}/INDEX.md\` (a table of the captures and digests across them; read it first) and one \`${FEEDBACK_DIR}/<id>/\` folder per capture. Over MCP: \`list_feedback\` and \`get_feedback_index\`.`,
     '',
@@ -427,7 +488,9 @@ Read \`${FEEDBACK_DIR}/<id>/README.md\` from top to bottom before you open any o
 
 ### 3. Open images only when the timeline points at them
 
-Timeline lines end with \`-> open <file>\` when an image shows that moment. Open \`annotations/aNN.png\` (the element the reviewer marked, at 1x CSS pixels, drawing included) or \`keyframes/kNN.png\` only for the lines you are investigating. \`annotations/aNN.locator.json\` lists the selector, text, role, route and candidate source files of the marked element: start your code search there.
+Timeline lines end with \`-> open <file>\` when an image shows that moment. Open \`annotations/aNN.png\` (the element the reviewer marked, at 1x CSS pixels, drawing included) or \`keyframes/kNN.png\` only for the lines you are investigating. When the reviewer's note is about what the page shows (wording, language, layout, overlap, colour), open the image of that note before you search the code: it is what the reviewer saw. Open a PNG with the tool you read files with (Claude Code's Read, Codex's view_image, opencode's read).
+
+\`annotations/aNN.locator.json\` lists the selector, text, role, route and candidate source files of the marked element: start your code search there. A route file with \`"source": "guess"\` is guessed from the URL and may not exist in this repo; then search for the element's visible text instead.
 
 ### 4. Dig with grep and jq
 
@@ -438,7 +501,11 @@ Timeline lines end with \`-> open <file>\` when an image shows that moment. Open
 - \`voice/transcript.vtt\`: the reviewer's voice with times; \`voice/aNN.vtt\` and \`voice/aNN.webm\` are the voice note of annotation aNN.
 - \`raw/\`: the DOM recording (rrweb) and a HAR file, for tools that read them. You rarely need them.
 
-### 5. Fix, then mark the feedback resolved
+### 5. When the code already looks right
+
+If the source in the repo already reads the way the reviewer expects, the running app was given something else: stale data in its database, an older deploy, a flag. Do not edit text that is already right. Under a reviewer's note, README.md names the request whose response body held the marked text; read that body in \`network.jsonl\` and name the request and the field that carry the wrong value. Then fix what put it there (a seed or migration script, a loader, the build), or say which step someone has to run, such as a re-seed or a deploy. When no change in the repo can fix it, leave the feedback open and tell the user that step instead of marking it resolved.
+
+### 6. Fix, then mark the feedback resolved
 
 Fix the cause in the code and run the project's tests. Then tell the server, with one sentence on the cause and the fix and the commit if there is one:
 

@@ -1,0 +1,155 @@
+diff --git a/.gitignore b/.gitignore
+index 5b8bb27..2223138 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -45,3 +45,6 @@ context
+ 
+ # Browser automation artifacts
+ .playwright-mcp/
++
++# open-toolbar captures
++.feedback/
+diff --git a/packages/wasm/core/Nuru b/packages/wasm/core/Nuru
+index 7bf0486..801aed6 160000
+--- a/packages/wasm/core/Nuru
++++ b/packages/wasm/core/Nuru
+@@ -1 +1 @@
+-Subproject commit 7bf0486868acb719c1f1bdc01fbf97bf9843401d
++Subproject commit 801aed6422487aff2cb9f5a6a931218ae3163b6d
+diff --git a/packages/wasm/core/Nuru/evaluator/assignEqual.go b/packages/wasm/core/Nuru/evaluator/assignEqual.go
+index 6ec2bf2..5b46abe 100644
+--- a/packages/wasm/core/Nuru/evaluator/assignEqual.go
++++ b/packages/wasm/core/Nuru/evaluator/assignEqual.go
+@@ -124,9 +124,15 @@ func evalAssignEqual(node *ast.AssignEqual, env *object.Environment) object.Obje
+ 		case *object.Integer:
+ 			switch val := value.(type) {
+ 			case *object.Integer:
++				if val.Value == 0 {
++					return divideByZeroError(node.Token.Line)
++				}
+ 				v := arg.Value / val.Value
+ 				return env.Set(node.Left.Token.Literal, &object.Integer{Value: v})
+ 			case *object.Float:
++				if val.Value == 0 {
++					return divideByZeroError(node.Token.Line)
++				}
+ 				v := float64(arg.Value) / val.Value
+ 				return env.Set(node.Left.Token.Literal, &object.Float{Value: v})
+ 			default:
+@@ -135,9 +141,15 @@ func evalAssignEqual(node *ast.AssignEqual, env *object.Environment) object.Obje
+ 		case *object.Float:
+ 			switch val := value.(type) {
+ 			case *object.Integer:
++				if val.Value == 0 {
++					return divideByZeroError(node.Token.Line)
++				}
+ 				v := arg.Value / float64(val.Value)
+ 				return env.Set(node.Left.Token.Literal, &object.Float{Value: v})
+ 			case *object.Float:
++				if val.Value == 0 {
++					return divideByZeroError(node.Token.Line)
++				}
+ 				v := arg.Value / val.Value
+ 				return env.Set(node.Left.Token.Literal, &object.Float{Value: v})
+ 			default:
+diff --git a/packages/wasm/core/Nuru/evaluator/evaluator_test.go b/packages/wasm/core/Nuru/evaluator/evaluator_test.go
+index b6e830d..e3fad05 100644
+--- a/packages/wasm/core/Nuru/evaluator/evaluator_test.go
++++ b/packages/wasm/core/Nuru/evaluator/evaluator_test.go
+@@ -261,6 +261,14 @@ kama (10 > 1) {
+ 			`"Habari" - "Habari"`,
+ 			"Mstari 1: Operesheni Haieleweki: NENO - NENO",
+ 		},
++		{
++			"5 / 0",
++			"Mstari 1: Huwezi kugawanya kwa sifuri",
++		},
++		{
++			"5.0 / 0.0",
++			"Mstari 1: Huwezi kugawanya kwa sifuri",
++		},
+ 		{
+ 			`{"jina": "Avi"}[unda(x) {x}];`,
+ 			"Mstari 1: Samahani, UNDO (FUNCTION) haitumiki kama ufunguo",
+@@ -282,6 +290,36 @@ kama (10 > 1) {
+ 	}
+ }
+ 
++func TestAssignEqualDivisionByZero(t *testing.T) {
++	tests := []struct {
++		input           string
++		expectedMessage string
++	}{
++		{
++			"a = 5; a /= 0",
++			"Mstari 1: Huwezi kugawanya kwa sifuri",
++		},
++		{
++			"a = 5.0; a /= 0.0",
++			"Mstari 1: Huwezi kugawanya kwa sifuri",
++		},
++	}
++
++	for _, tt := range tests {
++		evaluated := testEval(tt.input)
++
++		errObj, ok := evaluated.(*object.Error)
++		if !ok {
++			t.Errorf("no error object return, got=%T(%+v)", evaluated, evaluated)
++			continue
++		}
++
++		if errObj.Message != fmt.Sprintf(tt.expectedMessage) {
++			t.Errorf("wrong error message, expected=%q, got=%q", fmt.Sprintf(tt.expectedMessage), errObj.Message)
++		}
++	}
++}
++
+ func TestLetStatement(t *testing.T) {
+ 	tests := []struct {
+ 		input    string
+diff --git a/packages/wasm/core/Nuru/evaluator/infix.go b/packages/wasm/core/Nuru/evaluator/infix.go
+index 2e51052..f2dc517 100644
+--- a/packages/wasm/core/Nuru/evaluator/infix.go
++++ b/packages/wasm/core/Nuru/evaluator/infix.go
+@@ -98,6 +98,10 @@ func evalInfixExpression(operator string, left, right object.Object, line int) o
+ 	}
+ }
+ 
++func divideByZeroError(line int) object.Object {
++	return newError("Mstari %d: Huwezi kugawanya kwa sifuri", line)
++}
++
+ func evalFloatIntegerInfixExpression(operator string, left, right object.Object, line int) object.Object {
+ 	var leftVal, rightVal float64
+ 	if left.Type() == object.FLOAT_OBJ {
+@@ -119,6 +123,9 @@ func evalFloatIntegerInfixExpression(operator string, left, right object.Object,
+ 	case "**":
+ 		val = math.Pow(float64(leftVal), float64(rightVal))
+ 	case "/":
++		if rightVal == 0 {
++			return divideByZeroError(line)
++		}
+ 		val = leftVal / rightVal
+ 	case "%":
+ 		val = math.Mod(leftVal, rightVal)
+@@ -191,6 +198,9 @@ func evalFloatInfixExpression(operator string, left, right object.Object, line i
+ 	case "**":
+ 		return &object.Float{Value: math.Pow(float64(leftVal), float64(rightVal))}
+ 	case "/":
++		if rightVal == 0 {
++			return divideByZeroError(line)
++		}
+ 		return &object.Float{Value: leftVal / rightVal}
+ 	case "<":
+ 		return nativeBoolToBooleanObject(leftVal < rightVal)
+@@ -224,6 +234,9 @@ func evalIntegerInfixExpression(operator string, left, right object.Object, line
+ 	case "**":
+ 		return &object.Float{Value: float64(math.Pow(float64(leftVal), float64(rightVal)))}
+ 	case "/":
++		if rightVal == 0 {
++			return divideByZeroError(line)
++		}
+ 		x := float64(leftVal) / float64(rightVal)
+ 		if math.Mod(x, 1) == 0 {
+ 			return &object.Integer{Value: int64(x)}

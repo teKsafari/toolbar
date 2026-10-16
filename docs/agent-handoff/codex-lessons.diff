@@ -1,0 +1,30 @@
+diff --git a/.gitignore b/.gitignore
+index 5b8bb27..b8829be 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -45,3 +45,6 @@ context
+ 
+ # Browser automation artifacts
+ .playwright-mcp/
++
++# Open-toolbar feedback captures
++.feedback/
+diff --git a/packages/mtaala/scripts/tests.ts b/packages/mtaala/scripts/tests.ts
+index f388c47..82d0224 100644
+--- a/packages/mtaala/scripts/tests.ts
++++ b/packages/mtaala/scripts/tests.ts
+@@ -82,6 +82,14 @@ export async function checkLesson(lesson: CurriculumLesson, tests: TestCaseV1[],
+ 	if (!lesson.solution) problems.push("hakuna suluhisho (no solution)");
+ 	if (!lesson.task?.sw) problems.push("hakuna kazi (no task)");
+ 	if (!lesson.hasEnglish) problems.push("hakuna faili la Kiingereza (missing en/ file)");
++	if (lesson.file.endsWith("01-karibu.md")) {
++		if (lesson.title.sw !== "Karibu Nuru!") problems.push(`kichwa cha sw/01-karibu.md si sahihi: ${lesson.title.sw}`);
++		if (!lesson.description.sw.includes("Karibu!")) problems.push("maelezo ya sw/01-karibu.md hayapo kwa Kiswahili");
++	}
++	if (lesson.file.endsWith("02-andika.md")) {
++		if (!lesson.task?.sw.includes("\\n")) problems.push("sw/02-andika.md haionyeshi \\n");
++		if (lesson.task?.sw.includes("/n")) problems.push("sw/02-andika.md bado inatumia /n");
++	}
+ 	if (tests.some((t) => (t.type === "kobe_picha" || t.type === "ubao_mfuatano") && (t.expectedOutput ?? "") === "[]")) {
+ 		problems.push("suluhisho halichori chochote (solution draws nothing)");
+ 	}

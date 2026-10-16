@@ -13,8 +13,10 @@ import {
   fence,
   fmtOffset,
   folderDir,
+  matchText,
   pullCommand,
   renderReadme,
+  textSources,
   type FolderFile,
   type MaskingPresetName,
   type ReadmeInput,
@@ -325,6 +327,8 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
   const anns = [...d.annotations].sort((a, b) => (a.t ?? a.createdAt.getTime()) - (b.t ?? b.createdAt.getTime()));
   const annFile = new Map<string, string>();
   const annJson: Record<string, unknown>[] = [];
+  /** the text of the marked element (the highlighted text, else the locator's text), to find the response that carried it */
+  const annText = new Map<string, string>();
   /** reviewer toolbar voice notes, written to voice/ below (D-160) */
   const noteVoices: { n: string; atMs: number | null; voice: NonNullable<NonNullable<AnnotationIn['item']>['voice']> }[] = [];
   for (const [i, a] of anns.entries()) {
@@ -386,6 +390,8 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
     // what the README points at for this annotation: its image, else its voice note, else its locator
     const voiceRef = a.item?.voice ? `voice/${n}.${a.item.voice.vtt ? 'vtt' : 'webm'}` : null;
     annFile.set(a.id, image ?? voiceRef ?? `annotations/${n}.locator.json`);
+    const marked = a.item?.quote ?? (typeof locator.text === 'string' ? locator.text : null);
+    if (marked) annText.set(n, marked);
     annJson.push({
       n,
       id: a.id,
@@ -551,6 +557,8 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
 
   // ---- reviewer words ----
   const words: ReviewerWords[] = [];
+  /** the reviewer's note on a marked element or text, with that text: README says which response carried it */
+  const wordProbe = new Map<ReviewerWords, string>();
   if (d.rec.title) words.push({ source: 'title', author: reviewer, text: d.rec.title });
   if (d.rec.description) words.push({ source: 'description', author: reviewer, text: d.rec.description });
   for (const a of annJson) {
@@ -566,6 +574,8 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
       if (a.quote) words.push({ source: `highlighted text of ${a.n}`, author: 'page', atMs, text: String(a.quote), ref });
       if (a.voiceTranscript) words.push({ source: `voice note ${a.n}`, author: String(a.author), atMs, text: String(a.voiceTranscript), ref });
       if (!a.comment && !a.quote && !a.voiceTranscript) words.push({ source: label, author: String(a.author), atMs, text: '(no words; see the image)', ref });
+      const marked = annText.get(String(a.n));
+      if (marked && (a.kind === 'element' || a.kind === 'text' || a.kind === 'shot')) wordProbe.set(words[words.length - 1]!, marked);
     } else if (a.comment) words.push({ source: `annotation ${a.n}`, author: String(a.author), atMs, text: String(a.comment), ref });
   }
   const voiceNotes = new Map<string, TranscriptIn>();
@@ -774,6 +784,29 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
       graphql: n.graphql,
     };
   });
+  // ---- where the marked texts came from ----
+  if (wordProbe.size && masking !== 'production') {
+    const bodies = netRows.filter((n) => n.responseBody).map((n) => ({ rid: n.rid, responseBody: n.responseBody, matchBody: matchText(n.responseBody!) }));
+    if (bodies.length) {
+      const byRid = new Map(netRows.map((n) => [n.rid, n]));
+      for (const [w, marked] of wordProbe) {
+        const rids = textSources(marked, bodies);
+        if (!rids) continue;
+        w.servedBy = rids.map((rid) => {
+          const n = byRid.get(rid)!;
+          const path = (() => {
+            try {
+              const u = new URL(n.url);
+              return u.pathname;
+            } catch {
+              return n.url;
+            }
+          })();
+          return { rid, label: `${n.method} ${path} ${n.status ?? n.state}${n.span ? `, span ${n.span}` : ''}` };
+        });
+      }
+    }
+  }
   add('network.jsonl', jsonl(netRows), `requests with headers and bodies, redacted, bodies cut at ${BODY_LIMIT / 1024} KB; match spans by rid`, 'application/x-ndjson');
   add('raw/network.har', JSON.stringify(toHar(harRows, { url: d.rec.pageUrl, title: d.rec.pageTitle, startedAt })), 'the same requests as HAR 1.2', 'application/json');
 

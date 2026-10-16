@@ -63,7 +63,7 @@ Fixed on the way: the folder had no `voice/` for toolbar voice notes and no imag
 | Two masking presets per project, written into the folder header | built | Scenario README header: `staging` |
 | Share URLs: 128-bit token, 14 days, revocable, no-referrer, noindex, summary only; folder needs a personal token | built | Scenario step 5; `tests/handoff` (a share token gets 401 on the folder) |
 | Fence every captured string with source and author | built | Scenario README |
-| Experiments (rrweb size and CPU, 30 labeled actions, three agents) | deferred | PLAN step 5, on Nuru; needs the owner's Nuru access |
+| Experiments (rrweb size and CPU, 30 labeled actions, three agents) | partial | Experiment 3 (three agents, one-line prompt, real folders) run on Nuru and the second app: `docs/agent-handoff-results.md` (D-187). Experiments 1 and 2: PLAN step 5 |
 
 ### Scope items (docs/scope.md)
 

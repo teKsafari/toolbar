@@ -8,7 +8,7 @@ import type { RecordingRow } from '../share/access.ts';
 import { dispatch } from '../webhooks/index.ts';
 import { capturePayload } from '../dashboard/notices.ts';
 import { feedbackPayload } from './payload.ts';
-import { resolveItems } from './items.ts';
+import { reopenItems, resolveItems } from './items.ts';
 
 type Row = typeof feedbackResolution.$inferSelect;
 
@@ -70,6 +70,8 @@ export async function resolveFeedback(db: Db, rec: RecordingRow, userId: string,
   return res;
 }
 
+/** Open the feedback again, with its reviewer toolbar pins. */
 export async function reopenFeedback(db: Db, recId: string): Promise<void> {
   await db.delete(feedbackResolution).where(eq(feedbackResolution.recordingId, recId));
+  await reopenItems(db, recId);
 }

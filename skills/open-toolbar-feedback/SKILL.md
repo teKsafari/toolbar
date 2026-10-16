@@ -40,7 +40,9 @@ Read `.feedback/<id>/README.md` from top to bottom before you open any other fil
 
 ### 3. Open images only when the timeline points at them
 
-Timeline lines end with `-> open <file>` when an image shows that moment. Open `annotations/aNN.png` (the element the reviewer marked, at 1x CSS pixels, drawing included) or `keyframes/kNN.png` only for the lines you are investigating. `annotations/aNN.locator.json` lists the selector, text, role, route and candidate source files of the marked element: start your code search there.
+Timeline lines end with `-> open <file>` when an image shows that moment. Open `annotations/aNN.png` (the element the reviewer marked, at 1x CSS pixels, drawing included) or `keyframes/kNN.png` only for the lines you are investigating. When the reviewer's note is about what the page shows (wording, language, layout, overlap, colour), open the image of that note before you search the code: it is what the reviewer saw. Open a PNG with the tool you read files with (Claude Code's Read, Codex's view_image, opencode's read).
+
+`annotations/aNN.locator.json` lists the selector, text, role, route and candidate source files of the marked element: start your code search there. A route file with `"source": "guess"` is guessed from the URL and may not exist in this repo; then search for the element's visible text instead.
 
 ### 4. Dig with grep and jq
 
@@ -51,7 +53,11 @@ Timeline lines end with `-> open <file>` when an image shows that moment. Open `
 - `voice/transcript.vtt`: the reviewer's voice with times; `voice/aNN.vtt` and `voice/aNN.webm` are the voice note of annotation aNN.
 - `raw/`: the DOM recording (rrweb) and a HAR file, for tools that read them. You rarely need them.
 
-### 5. Fix, then mark the feedback resolved
+### 5. When the code already looks right
+
+If the source in the repo already reads the way the reviewer expects, the running app was given something else: stale data in its database, an older deploy, a flag. Do not edit text that is already right. Under a reviewer's note, README.md names the request whose response body held the marked text; read that body in `network.jsonl` and name the request and the field that carry the wrong value. Then fix what put it there (a seed or migration script, a loader, the build), or say which step someone has to run, such as a re-seed or a deploy. When no change in the repo can fix it, leave the feedback open and tell the user that step instead of marking it resolved.
+
+### 6. Fix, then mark the feedback resolved
 
 Fix the cause in the code and run the project's tests. Then tell the server, with one sentence on the cause and the fix and the commit if there is one:
 

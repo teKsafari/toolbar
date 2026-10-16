@@ -1,0 +1,180 @@
+diff --git a/.gitignore b/.gitignore
+index 5b8bb27..fae1bab 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -42,6 +42,7 @@ yarn-error.log*
+ 
+ # context for agents
+ context
++.feedback/
+ 
+ # Browser automation artifacts
+ .playwright-mcp/
+diff --git a/apps/playground/lib/lessons.server.ts b/apps/playground/lib/lessons.server.ts
+index 270ff0b..b224557 100644
+--- a/apps/playground/lib/lessons.server.ts
++++ b/apps/playground/lib/lessons.server.ts
+@@ -1,7 +1,10 @@
+ import { db, modules, lessons } from "@nuru/db";
+ import { and, asc, eq, sql } from "drizzle-orm";
++import { loadCurriculum, type CurriculumLesson } from "@nuru/mtaala/load";
+ import { Module, Lesson, Language } from "@/types/playground";
+ 
++const curriculumBySlug = new Map(loadCurriculum().map((module) => [module.slug, module]));
++
+ export async function getAllModules(): Promise<{ id: string; slug: string; title: Record<Language, string> }[]> {
+ 	const allModules = await db.select({
+ 		id: modules.id,
+@@ -12,7 +15,13 @@ export async function getAllModules(): Promise<{ id: string; slug: string; title
+ 	.where(eq(modules.visibility, "public"))
+ 	.orderBy(asc(modules.order));
+ 	
+-	return allModules as { id: string; slug: string; title: Record<Language, string> }[];
++	return allModules.map((module) => {
++		const source = curriculumBySlug.get(module.slug);
++		return {
++			...module,
++			title: (source?.title ?? module.title) as Record<Language, string>,
++		};
++	});
+ }
+ 
+ type LessonRow = typeof lessons.$inferSelect;
+@@ -26,33 +35,36 @@ type LessonRow = typeof lessons.$inferSelect;
+  * login, and grading still runs client-side, so /api/maendeleo trusts the
+  * browser's `passed` flag. Server-side re-grading is out of scope.
+  */
+-function toClientLesson(l: LessonRow): Lesson {
+-	const solution = l.solution || "";
++function toClientLesson(l: LessonRow, source?: CurriculumLesson): Lesson {
++	const solution = source?.solution || l.solution || "";
+ 	return {
+ 		id: l.id,
+ 		slug: l.slug,
+-		title: l.title as Record<Language, string>,
+-		description: l.description as Record<Language, string>,
+-		task: (l.task as Record<Language, string>) || undefined,
+-		initialCode: l.defaultCode || "",
++		title: (source?.title ?? l.title) as Record<Language, string>,
++		description: (source?.description ?? l.description) as Record<Language, string>,
++		task: (source?.task ?? (l.task as Record<Language, string> | undefined)) || undefined,
++		initialCode: source?.initialCode ?? l.defaultCode ?? "",
+ 		hasSolution: solution.trim().length > 0,
+ 		solutionUses: {
+ 			kobe: /tumia\s+kobe\b/.test(solution),
+ 			ubao: /tumia\s+ubao\b/.test(solution),
+ 		},
+-		tests: l.tests as Lesson["tests"],
++		tests: (source?.tests ?? (l.tests as Lesson["tests"])) as Lesson["tests"],
+ 	};
+ }
+ 
+ /** A public lesson's reference solution, or null. Used by GET /api/suluhisho. */
+ export async function getLessonSolution(lessonId: string): Promise<string | null> {
+ 	const rows = await db
+-		.select({ solution: lessons.solution })
++		.select({ solution: lessons.solution, slug: lessons.slug, moduleSlug: modules.slug })
+ 		.from(lessons)
+ 		.innerJoin(modules, eq(lessons.moduleId, modules.id))
+ 		.where(and(eq(lessons.id, lessonId), eq(modules.visibility, "public")))
+ 		.limit(1);
+-	return rows[0]?.solution || null;
++	const row = rows[0];
++	if (!row) return null;
++	const source = curriculumBySlug.get(row.moduleSlug)?.lessons.find((lesson) => lesson.slug === row.slug);
++	return source?.solution || row.solution || null;
+ }
+ 
+ export async function getModuleBySlug(slug: string): Promise<Module> {
+@@ -69,14 +81,22 @@ export async function getModuleBySlug(slug: string): Promise<Module> {
+ 		throw new Error(`Module ${slug} not found or is private`);
+ 	}
+ 
++	const source = curriculumBySlug.get(slug);
++	const lessonsBySlug = new Map(moduleResult.lessons.map((lesson) => [lesson.slug, lesson]));
++
+ 	return {
+ 		id: moduleResult.id,
+ 		slug: moduleResult.slug,
+-		title: moduleResult.title as Record<Language, string>,
+-		difficulty: moduleResult.difficulty || undefined,
++		title: (source?.title ?? moduleResult.title) as Record<Language, string>,
++		difficulty: source?.difficulty ?? moduleResult.difficulty ?? undefined,
+ 		executor: moduleResult.executorType,
+-		panels: moduleResult.layoutConfig as Module["panels"],
+-		lessons: moduleResult.lessons.map(toClientLesson),
++		panels: (source?.layoutConfig ?? moduleResult.layoutConfig) as Module["panels"],
++		lessons: source?.lessons
++			.map((lesson) => {
++				const row = lessonsBySlug.get(lesson.slug);
++				return row ? toClientLesson(row, lesson) : null;
++			})
++			.filter((lesson): lesson is Lesson => lesson !== null) ?? moduleResult.lessons.map((lesson) => toClientLesson(lesson)),
+ 	};
+ }
+ 
+@@ -91,13 +111,22 @@ export async function getAllModulesWithLessons(): Promise<Module[]> {
+ 		orderBy: [asc(modules.order)],
+ 	});
+ 
+-	return allModules.map(m => ({
+-		id: m.id,
+-		slug: m.slug,
+-		title: m.title as Record<Language, string>,
+-		difficulty: m.difficulty || undefined,
+-		executor: m.executorType,
+-		panels: m.layoutConfig as Module["panels"],
+-		lessons: m.lessons.map(toClientLesson),
+-	}));
++	return allModules.map((m) => {
++		const source = curriculumBySlug.get(m.slug);
++		const lessonsBySlug = new Map(m.lessons.map((lesson) => [lesson.slug, lesson]));
++		return {
++			id: m.id,
++			slug: m.slug,
++			title: (source?.title ?? m.title) as Record<Language, string>,
++			difficulty: source?.difficulty ?? m.difficulty ?? undefined,
++			executor: m.executorType,
++			panels: (source?.layoutConfig ?? m.layoutConfig) as Module["panels"],
++			lessons: source?.lessons
++				.map((lesson) => {
++					const row = lessonsBySlug.get(lesson.slug);
++					return row ? toClientLesson(row, lesson) : null;
++				})
++				.filter((lesson): lesson is Lesson => lesson !== null) ?? m.lessons.map((lesson) => toClientLesson(lesson)),
++		};
++	});
+ }
+diff --git a/apps/playground/package.json b/apps/playground/package.json
+index eae0280..027248e 100644
+--- a/apps/playground/package.json
++++ b/apps/playground/package.json
+@@ -41,6 +41,7 @@
+ 		"@lezer/highlight": "^1.1.6",
+ 		"@logto/next": "^4.2.9",
+ 		"@nuru/db": "workspace:*",
++		"@nuru/mtaala": "workspace:*",
+ 		"@nuru/ui": "workspace:*",
+ 		"@neondatabase/serverless": "^1.0.2",
+ 		"@next/third-parties": "^16.2.2",
+@@ -116,4 +117,4 @@
+ 		"typescript": "^5",
+ 		"yaml": "^2.8.2"
+ 	}
+-}
+\ No newline at end of file
++}
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index 8e82c62..c8bee5e 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -168,6 +168,9 @@ importers:
+       '@nuru/db':
+         specifier: workspace:*
+         version: link:../../packages/db
++      '@nuru/mtaala':
++        specifier: workspace:*
++        version: link:../../packages/mtaala
+       '@nuru/ui':
+         specifier: workspace:*
+         version: link:../../packages/ui

@@ -1,0 +1,49 @@
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..a4bb532
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1 @@
++.feedback/
+diff --git a/store/src/routes/cart/checkout.svelte b/store/src/routes/cart/checkout.svelte
+index 7db1fc1..230b596 100644
+--- a/store/src/routes/cart/checkout.svelte
++++ b/store/src/routes/cart/checkout.svelte
+@@ -92,7 +92,7 @@
+ 			<div class="flex flex-wrap items-start child:min-w-[150px]">
+ 				<div class="mb-4 flex-1 mr-1 relative">
+ 					<label for="first" class="block mb-2 text-sm font-medium text-neutral-700 dark:text-white">First name</label>
+-					<input bind:value={$firstName.value} type="text" class="bg-neutral-50 border border-neutral-300 text-neutral-700 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-neutral-700 dark:border-neutral-600 dark:placeholder-neutral-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500 outline-none" placeholder="First name" required />
++					<input bind:value={$firstName.value} type="text" id="first" class="bg-neutral-50 border border-neutral-300 text-neutral-700 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-neutral-700 dark:border-neutral-600 dark:placeholder-neutral-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500 outline-none" placeholder="First name" required />
+ 					{#if errors.get($firstName.name)}
+ 						<p class="text-xs text-red-400 absolute top-[80%]">{explanations[errors.get($firstName.name)]}</p>
+ 					{/if}
+@@ -106,14 +106,14 @@
+ 				</div>
+ 			</div>
+ 			<div class="mt-1 mb-3">
+-				<label for="user" class="block mb-2 text-sm font-medium text-neutral-700 dark:text-white">Phone Number</label>
+-				<input bind:value={$phoneNumber.value} type="text" id="user" class="bg-neutral-50 border border-neutral-300 text-neutral-700 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-neutral-700 dark:border-neutral-600 dark:placeholder-neutral-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500 outline-none" placeholder="Enter your phone number" required />
++				<label for="phone" class="block mb-2 text-sm font-medium text-neutral-700 dark:text-white">Phone Number</label>
++				<input bind:value={$phoneNumber.value} type="text" id="phone" class="bg-neutral-50 border border-neutral-300 text-neutral-700 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-neutral-700 dark:border-neutral-600 dark:placeholder-neutral-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500 outline-none" placeholder="Enter your phone number" required />
+ 				{#if errors.get($phoneNumber.name)}
+ 					<p class="text-xs text-red-400 !my-1">{explanations[errors.get($phoneNumber.name)]}</p>
+ 				{/if}
+ 			</div>
+ 			<div class="mt-1 mb-3">
+-				<label for="user" class="block mb-2 text-sm font-medium text-neutral-700 dark:text-white">City</label>
++				<label class="block mb-2 text-sm font-medium text-neutral-700 dark:text-white">City</label>
+ 				<Dropdown items={regions.map((region) => region.name)} getter={$city.value} setter={(value) => ($city.value = value)} />
+ 				<!-- <input bind:value={$city.value} type="text" id="user" class="bg-neutral-50 border border-neutral-300 text-neutral-700 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-neutral-700 dark:border-neutral-600 dark:placeholder-neutral-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500 outline-none" placeholder="Enter your city" required /> -->
+ 				{#if errors.get($city.name)}
+@@ -121,8 +121,8 @@
+ 				{/if}
+ 			</div>
+ 			<div class="mt-1 mb-3">
+-				<label for="user" class="block mb-2 text-sm font-medium text-neutral-700 dark:text-white">Address</label>
+-				<input bind:value={$address.value} type="text" id="user" class="bg-neutral-50 border border-neutral-300 text-neutral-700 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-neutral-700 dark:border-neutral-600 dark:placeholder-neutral-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500 outline-none" placeholder="Enter your phone number" required />
++				<label for="address" class="block mb-2 text-sm font-medium text-neutral-700 dark:text-white">Address</label>
++				<input bind:value={$address.value} type="text" id="address" class="bg-neutral-50 border border-neutral-300 text-neutral-700 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-neutral-700 dark:border-neutral-600 dark:placeholder-neutral-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500 outline-none" placeholder="Enter your address" required />
+ 				{#if errors.get($address.name)}
+ 					<p class="text-xs text-red-400 !my-1">{explanations[errors.get($address.name)]}</p>
+ 				{/if}

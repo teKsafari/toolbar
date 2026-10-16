@@ -91,3 +91,14 @@ export async function resolveItems(db: Db, recordingId: string, ns: number[] | n
   const open = (await db.execute(sql`select count(*)::int as c from feedback_item where recording_id = ${recordingId} and status in ('pending', 'acknowledged')`)) as unknown as { c: number }[];
   return { resolved: changed.map((r) => Number(r.n)).sort((a, b) => a - b), open: Number(open[0]?.c ?? 0) };
 }
+
+/**
+ * Open the resolved items of a capture again, as reopening the feedback does: a pin closed by the
+ * resolution would otherwise stay closed on an open capture, and the next agent's README would
+ * read "resolved" under every note.
+ */
+export async function reopenItems(db: Db, recordingId: string): Promise<number> {
+  if (!(await hasItemsTable(db))) return 0;
+  const rows = (await db.execute(sql`update feedback_item set status = 'pending' where recording_id = ${recordingId} and status = 'resolved' returning n`)) as unknown as { n: number }[];
+  return rows.length;
+}

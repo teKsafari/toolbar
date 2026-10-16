@@ -27,7 +27,20 @@ Create a personal token under Settings > API tokens and give your agent two vari
 curl -fsSL -H "Authorization: Bearer $TOOLBAR_TOKEN" "$TOOLBAR_SERVER/api/v1/recordings/<id>/folder" | tar xz
 ```
 
-You get `.feedback/<id>/`. The agent reads `README.md` first: who reported what, the reviewer's words, the actions that had no effect, and a timeline that names the screenshot for each moment. A share link answers the same command as its first line when an agent fetches it as markdown. Install the Agent Skill from `skills/open-toolbar-feedback/SKILL.md` (or `$TOOLBAR_SERVER/api/v1/skill`) so Claude Code, Codex or opencode follow that path and mark the feedback resolved when the fix is in. The MCP server at `/mcp` serves the same folder.
+You get `.feedback/<id>/`. The agent reads `README.md` first: who reported what, the reviewer's words, the actions that had no effect, and a timeline that names the screenshot for each moment. A share link answers the same command as its first line when an agent fetches it as markdown, so "Fix the problem reported in <share link>" is enough of a prompt once the skill is installed. The MCP server at `/mcp` serves the same folder.
+
+Install the Agent Skill in the repo you want fixed, so Claude Code, Codex or opencode follow that path and mark the feedback resolved when the fix is in. Each agent reads skills from its own folder:
+
+```sh
+# Claude Code (opencode reads this folder too)
+mkdir -p .claude/skills/open-toolbar-feedback
+curl -fsSL "$TOOLBAR_SERVER/api/v1/skill" -o .claude/skills/open-toolbar-feedback/SKILL.md
+# Codex and opencode
+mkdir -p .agents/skills/open-toolbar-feedback
+curl -fsSL "$TOOLBAR_SERVER/api/v1/skill" -o .agents/skills/open-toolbar-feedback/SKILL.md
+```
+
+The same file is `skills/open-toolbar-feedback/SKILL.md` in this repo. `docs/agent-handoff-results.md` shows how the three agents did with real feedback folders.
 
 To let the agent learn from all feedback at once, pull the bulk export:
 
