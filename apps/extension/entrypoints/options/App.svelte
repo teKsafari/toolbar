@@ -4,12 +4,12 @@
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { Button, Icon } from '@toolbar/ui';
-  import { DEFAULT_SERVER_URL } from '@toolbar/shared/constants';
   import { STORAGE } from '@toolbar/shared/ext';
   import BrandLogo from '../../lib/ui/BrandLogo.svelte';
   import { brand } from '../../lib/brand.svelte';
+  import { resolveServerUrl } from '../../lib/server-url';
 
-  const fallback = (import.meta.env.WXT_SERVER_URL as string | undefined) || DEFAULT_SERVER_URL;
+  const fallback = resolveServerUrl(null);
   let value = $state('');
   let saved = $state('');
   let error = $state('');
@@ -17,7 +17,7 @@
 
   onMount(async () => {
     const got = await browser.storage.local.get(STORAGE.serverUrl.key);
-    value = (got[STORAGE.serverUrl.key] as string | undefined) ?? fallback;
+    value = resolveServerUrl(got[STORAGE.serverUrl.key]);
   });
 
   async function save(e: SubmitEvent) {

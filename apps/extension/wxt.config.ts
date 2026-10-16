@@ -72,7 +72,12 @@ const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 
 export default defineConfig({
   modules: ['@wxt-dev/module-svelte'],
-  outDirTemplate: testHooks ? `{{browser}}-mv{{manifestVersion}}-test${process.env.WXT_OUT_SUFFIX ?? ''}` : undefined,
+  // WXT_OUT_SUFFIX gives a release build its own folder too (e2e/tests/ext-ui/server-url.spec.ts)
+  outDirTemplate: testHooks
+    ? `{{browser}}-mv{{manifestVersion}}-test${process.env.WXT_OUT_SUFFIX ?? ''}`
+    : process.env.WXT_OUT_SUFFIX
+      ? `{{browser}}-mv{{manifestVersion}}${process.env.WXT_OUT_SUFFIX}`
+      : undefined,
   // The VM has no display for WXT's own browser runner, and the shared browser belongs to another agent.
   webExt: { disabled: true },
   // the Firefox build sets data_collection_permissions in build:manifestGenerated below

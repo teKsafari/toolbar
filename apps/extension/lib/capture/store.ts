@@ -1,9 +1,9 @@
 // Typed chrome.storage access for the keys in @toolbar/shared/ext STORAGE, plus the capture
 // area's private keys. Service worker and extension pages only (not the offscreen document).
 import { browser } from 'wxt/browser';
-import { DEFAULT_SERVER_URL } from '@toolbar/shared/constants';
 import { DEFAULT_USER_SETTINGS, type ExtensionSettings } from '@toolbar/shared/api';
 import { STORAGE, type AuthState, type StorageName, type StorageValues } from '@toolbar/shared/ext';
+import { BUILT_SERVER_URL, accountServerUrl, resolveServerUrl } from '../server-url';
 
 const areaOf = (a: 'local' | 'session') => (a === 'local' ? browser.storage.local : browser.storage.session);
 
@@ -41,12 +41,13 @@ export async function getSettings(): Promise<ExtensionSettings> {
 }
 
 export function defaultServerUrl(): string {
-  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
-  return env?.WXT_SERVER_URL || DEFAULT_SERVER_URL;
+  return resolveServerUrl(null, BUILT_SERVER_URL);
 }
 
+/** The configured server (override, else the build's), or the signed-in server's when they differ. */
 export async function serverUrl(): Promise<string> {
-  return (await getStore('serverUrl')) || (await getStore('auth'))?.serverUrl || defaultServerUrl();
+  const override = await getStore('serverUrl');
+  return override ? resolveServerUrl(override) : accountServerUrl();
 }
 
 /** Signed-in state, or null. The token is never logged. */

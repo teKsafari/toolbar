@@ -3,11 +3,11 @@
 // person grants or removes a site. Also keeps the project list fresh, and registers the server
 // page script for a server set on the options page. background.ts calls registerScope() once.
 import { browser } from 'wxt/browser';
-import { DEFAULT_SERVER_URL } from '@toolbar/shared/constants';
 import { STORAGE, type StorageValues } from '@toolbar/shared/ext';
 import { syncRegistration } from '../registration';
 import { TEST_SCOPE_KEY } from '../scope';
 import { authClient, readStore, serverUrl } from '../auth/chrome';
+import { resolveServerUrl } from '../server-url';
 
 const REFRESH_ALARM = 'tb-projects-refresh';
 /** Project changes reach a signed-in extension within this long, or at the next popup open. */
@@ -27,7 +27,7 @@ async function refreshProjects(force = false) {
  * page (granted there) gets the same script registered at runtime.
  */
 async function syncServerScript() {
-  const built = new URL((import.meta.env as Record<string, string | undefined>).WXT_SERVER_URL || DEFAULT_SERVER_URL).origin;
+  const built = new URL(resolveServerUrl(null)).origin;
   let origin: string | null = null;
   try {
     origin = new URL(await serverUrl()).origin;
