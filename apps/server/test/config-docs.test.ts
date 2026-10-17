@@ -250,7 +250,9 @@ describe('docs/configuration.md', () => {
     // Coolify asks for exactly the two values it cannot know
     expect([...inj.matchAll(/\$\{([A-Z_]+):\?\}/g)].map((m) => m[1]).sort()).toEqual(['INJECTOR_SECRET', 'TOOLBAR_SERVER_URL']);
     expect(inj).toMatch(/^ {6}INJECTOR_LOOPBACK: https:\/\/coolify-proxy:443$/m);
-    expect(inj).not.toMatch(/INJECTOR_UPSTREAMS?:|INJECTOR_LOOPBACK_INSECURE|^\s+ports:/m);
+    expect(inj).not.toMatch(/INJECTOR_UPSTREAMS?:|^\s+ports:/m);
+    // optional, off unless set: for a proxy without publicly trusted certificates (Cloudflare tunnel)
+    expect(inj).toMatch(/^ {6}INJECTOR_LOOPBACK_INSECURE: \$\{INJECTOR_LOOPBACK_INSECURE:-0\}$/m);
     expect(inj).toMatch(/aliases:\n\s+- open-toolbar-injector\n/);
     const traefik = read('deploy/injector/traefik-open-toolbar-injector.yml');
     // the router reaches the alias on the injector's default port, and checks its health route
