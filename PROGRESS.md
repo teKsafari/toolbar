@@ -48,3 +48,10 @@ All five items of PLAN "Part 2, step 5" are done on main. Gate 5 waits on the ow
 - No backwards compatibility (D-196): the manifest key is the Web Store item's public key (id `laobpjhffglefallhhojihfdbdkoendk` for every build and the server default); old variable names, the `nib` storage and localStorage moves, the `nib-*` HKDF labels and the other compatibility code are gone. Local stack on :3000 rebuilt and reseeded.
 - Settings > MCP agent picker: cards of a row share one height and labels stay on one line ("Other agent"); `e2e/tests/dashboard/overflow.spec.ts` checks it at 1600 to 390 px in both themes.
 - Firefox sign-in (D-197): the server accepts the `extensions.allizom.org` redirect for `EXTENSION_GECKO_IDS`. Not yet run in a real Firefox; screenshots (editor page) and video stay Chrome-only.
+
+## State on 2026-10-17
+- Production: open-toolbar on Coolify (Lab), https://toolbar.teksafari.com, Google OIDC, builds from main via the GitHub app webhook (never deploy through the API).
+- Extension: store item laobpjhffglefallhhojihfdbdkoendk, private to teKsafari; 0.1.0 published, 0.1.4 (required all-sites access, managed serverUrl policy) in review with auto-publish. GitHub releases up to v0.1.4.
+- Site access: all sites by default with automatic per-origin projects and merging; strict mode is an admin setting (D-200, D-202).
+- Injector: removed from production by the owner; code stays as an optional delivery (docs/injector-on-coolify.md). Parity with the extension toolbar not planned; if clients review through it, add element screenshot, voice note and text highlight only.
+- Docs: concise reference style (owner preference).
