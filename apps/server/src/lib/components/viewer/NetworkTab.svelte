@@ -22,6 +22,7 @@
   import RequestDetail from './RequestDetail.svelte';
   import { useViewer } from './viewer.svelte.ts';
   import { followPlayback } from './follow.svelte.ts';
+  import { inWindow } from './layout.ts';
 
   const v = useViewer();
   let q = $state('');
@@ -33,7 +34,9 @@
   let list: HTMLDivElement | undefined = $state();
   let flash: string | null = $state(null);
 
-  const rows = $derived(sortNetwork(filterNetwork(v.network, { chip, q, errorsOnly }), sortKey, sortDir));
+  // a note's context chip shows only its window, its failed requests selected (D-206)
+  const rows = $derived(sortNetwork(filterNetwork(v.network, { chip, q, errorsOnly }).filter((r) => inWindow(v.noteWin, r.t)), sortKey, sortDir));
+  const picked = (r: NetworkViewRow) => !!v.noteWin && v.noteWin.rids.has(r.rid);
   const selected = $derived(v.selectedRid ? (v.network.find((n) => n.rid === v.selectedRid) ?? null) : null);
   const follow = followPlayback(() => list, () => (sortKey === 'index' && sortDir === 1 ? rows : []), v);
   const span = $derived(Math.max(1, ...v.network.map((n) => n.startAt + (n.durationMs ?? 0))));
@@ -67,7 +70,7 @@
     void tick().then(() => list?.querySelector(`[data-rid="${CSS.escape(next.rid)}"]`)?.scrollIntoView({ block: 'nearest' }));
   }
   function onKey(e: KeyboardEvent) {
-    if (!v.selectedRid || v.tab !== 'network') return;
+    if (!v.selectedRid || v.shownTab !== 'network') return;
     const t = e.target as HTMLElement | null;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -78,6 +81,19 @@
   const typeIcon = (r: NetworkViewRow) =>
     r.type === 'websocket' || r.type === 'eventsource' ? 'link' : r.type === 'image' || r.type === 'media' ? 'screenshot' : r.type === 'document' ? 'tab' : r.type === 'script' || r.type === 'stylesheet' ? 'console' : 'network';
   const typeLabel = (r: NetworkViewRow) => (r.type === 'eventsource' ? 'sse' : r.type === 'websocket' ? 'ws' : r.type === 'stylesheet' ? 'css' : r.type === 'script' ? 'js' : r.type);
+
+  // a note's chip: clear the filters, open the first attached request and bring it into view
+  $effect(() => {
+    const w = v.noteWin;
+    if (!w || w.show !== 'requests') return;
+    void v.noteSel?.k;
+    q = '';
+    chip = 'all';
+    errorsOnly = false;
+    const first = v.network.find((n) => w.rids.has(n.rid));
+    if (first) select(first);
+    void tick().then(() => list?.querySelector('.nrow.picked')?.scrollIntoView({ block: 'nearest' }));
+  });
 
   $effect(() => {
     const f = v.focus;
@@ -129,13 +145,15 @@
             <span role="columnheader" class="h c-w" data-col="waterfall">Waterfall</span>
           {/if}
         </div>
-        {#if !rows.length}<div class="vp-striped">No requests match these filters.</div>{/if}
+        {#if !rows.length}<div class="vp-striped">{v.noteWin ? 'No requests in this note’s window.' : 'No requests match these filters.'}</div>{/if}
         {#each rows as r, i (r.rid)}
           <div
             class="vp-row nrow"
             class:failed={isFailed(r)}
             class:pending={r.state === 'pending'}
-            class:sel={v.selectedRid === r.rid}
+            class:sel={v.selectedRid === r.rid || picked(r)}
+            class:picked={picked(r)}
+            data-picked={picked(r) || undefined}
             class:future={v.playable && r.at > v.now + 1}
             class:current={follow.current === i && v.playable}
             class:flash={flash === r.rid}

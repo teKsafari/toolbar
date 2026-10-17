@@ -2,6 +2,8 @@
 //   d1 no requests and no user events (J-231)       d2 recording-link capture without logs (J-206)
 //   d3 desktop recording across two tabs (J-224)   d4 instant replay with a DOM recording (J-100, J-229)
 //   d5 console rows with object, array, Date and Map arguments and call-site stacks (J-055, J-056)
+//   d6 comment-only reviewer feedback: three notes, no logs (D-206, the lean page)
+//   d7 reviewer feedback whose second note attached an error and a failed request (D-206 chips)
 // Run after the seed: node e2e/tests/viewer/fixtures/extra.ts (reads the worktree .env).
 import { gzipSync } from 'node:zlib';
 import { createEmitter, STREAM_CONTENT_TYPES, type CaptureEvent } from '@toolbar/shared';
@@ -9,9 +11,14 @@ import { db, sqlClient } from '../../../../apps/server/src/lib/server/db/index.t
 import * as t from '../../../../apps/server/src/lib/server/db/schema/index.ts';
 import { keys, putObject } from '../../../../apps/server/src/lib/server/s3.ts';
 import { fixtureEnv, FIXTURE_T0, LAB } from '../../../../apps/server/fixtures/events.ts';
+import { contextFromEvents } from '@toolbar/shared/areas/reviewer';
+import { createHash } from 'node:crypto';
+import { base64url } from '@toolbar/shared';
+import { seal } from '../../../../apps/server/src/lib/server/crypto.ts';
+import { hashToken } from '../../../../apps/server/src/lib/server/tokens.ts';
 
 const u = (n: number) => `019a0000-0000-7000-8000-${n.toString(16).padStart(12, '0')}`;
-export const EXTRA = { empty: u(0xd1), link: u(0xd2), desktop: u(0xd3), replay: u(0xd4), consoleArgs: u(0xd5) };
+export const EXTRA = { empty: u(0xd1), link: u(0xd2), desktop: u(0xd3), replay: u(0xd4), consoleArgs: u(0xd5), feedback: u(0xd6), feedbackCtx: u(0xd7) };
 const WS = u(0xa1);
 const DANA = u(0x1);
 const RL = u(0x91);
@@ -156,6 +163,57 @@ async function main() {
     await db.insert(t.recording).values({ ...base, id: EXTRA.consoleArgs, clientId: u(0xe0d5), kind: 'screenshot', title: 'Console with object arguments', pageUrl: `${LAB}/`, startedAt: new Date(t0), createdAt: new Date(t0 + 1000), updatedAt: new Date(t0 + 1000), env: tl.out[0]!.data });
     await putEvents(EXTRA.consoleArgs, tl.out);
     await db.insert(t.asset).values({ recordingId: EXTRA.consoleArgs, kind: 'screenshot', s3Key: keys.asset(C2, u(0xe2)), contentType: 'image/png', width: 1280, height: 720, bytes: 1 });
+  }
+  // d6 and d7: reviewer feedback as the extension submits it (kind feedback, one row per note)
+  const note = (recordingId: string, n: number, t: number, comment: string, testId: string, context?: unknown) =>
+    db.insert(t_feedback).values({
+      recordingId,
+      clientId: u(0xf000 + n + (recordingId === EXTRA.feedback ? 0 : 0x10)),
+      n,
+      kind: 'element',
+      comment,
+      target: { selector: `[data-testid="${testId}"]`, tag: 'button', testId, name: testId },
+      page: { url: `${LAB}/`, title: 'Lab' },
+      t,
+      ...(context ? { context } : {}),
+      authorUserId: DANA,
+      authorName: 'Dana Reviewer',
+      authorEmail: 'dana@toolbar.test',
+    });
+  const t_feedback = t.feedbackItem;
+  {
+    const t0 = FIXTURE_T0 + 9_500_000;
+    const env = fixtureEnv(`${LAB}/`, 'Lab');
+    await db.insert(t.recording).values({ ...base, id: EXTRA.feedback, clientId: u(0xe0d6), kind: 'feedback', title: 'Comment-only feedback on the lab', pageUrl: `${LAB}/`, pageTitle: 'Lab', startedAt: new Date(t0), createdAt: new Date(t0 + 1000), updatedAt: new Date(t0 + 1000), env });
+    await note(EXTRA.feedback, 1, t0 + 100, 'The Save button gives no feedback', 'works');
+    await note(EXTRA.feedback, 2, t0 + 200, 'Export looks disabled but is not', 'dead');
+    await note(EXTRA.feedback, 3, t0 + 300, 'Spacing under the header is off', 'status');
+  }
+  {
+    const t0 = FIXTURE_T0 + 9_600_000;
+    const tl = timeline(t0);
+    tl.emit('top', 'env', fixtureEnv(`${LAB}/`, 'Lab'));
+    tl.at(3000);
+    tl.emit('top', 'error', { type: 'error', name: 'TypeError', message: "Cannot read properties of undefined (reading 'total')", stack: `TypeError: Cannot read properties of undefined (reading 'total')\n    at save (${LAB}/_app/x.js:1:1)` });
+    tl.at(3200);
+    tl.emit('top', 'net.req', { rid: 'f-0', method: 'POST', url: `${LAB}/api/fail`, initiator: 'fetch', source: 'page' });
+    tl.at(3300);
+    tl.emit('top', 'net.res', { rid: 'f-0', status: 500, statusText: 'Internal Server Error', headers: { 'content-type': 'application/json' }, body: '{"error":"boom"}', contentType: 'application/json', timing: { start: t0 + 3200, end: t0 + 3300 }, source: 'page' });
+    tl.at(90_000);
+    tl.emit('top', 'console', { level: 'error', args: ['a later error, outside the note window'] });
+    const events = tl.out;
+    // the first note came before anything failed; the second attached the error and the 500;
+    // the console error after it belongs to no note
+    const ctx2 = contextFromEvents(events, t0 + 5000);
+    await db.insert(t.recording).values({ ...base, id: EXTRA.feedbackCtx, clientId: u(0xe0d7), kind: 'feedback', title: 'Feedback with an error attached', pageUrl: `${LAB}/`, pageTitle: 'Lab', startedAt: new Date(t0), createdAt: new Date(t0 + 1000), updatedAt: new Date(t0 + 1000), env: events[0]!.data });
+    await putEvents(EXTRA.feedbackCtx, events);
+    await note(EXTRA.feedbackCtx, 1, t0 + 500, 'The total looks wrong', 'works', contextFromEvents(events, t0 + 500));
+    await note(EXTRA.feedbackCtx, 2, t0 + 5000, 'Save fails without a message', 'works', ctx2);
+  }
+  // share links for d6 and d7, derived as the seed derives its own (helpers.ts shareToken)
+  for (const id of [EXTRA.feedback, EXTRA.feedbackCtx]) {
+    const token = base64url(createHash('sha256').update(`tb-seed:share:${id}`).digest().subarray(0, 16));
+    await db.insert(t.shareLink).values({ recordingId: id, tokenHash: hashToken(token), tokenEnc: seal(token, 'share-token'), access: 'anyone', createdBy: DANA });
   }
   console.log('[extra] captures', ids.join(' '));
 }

@@ -64,7 +64,7 @@
     </ol>
     <div class="foot">
       <button type="button" class="btn" onclick={() => void r.clearAll()} data-testid="review-clear">Discard all</button>
-      <button type="button" class="btn primary" disabled={r.busy} onclick={() => void r.submit()} data-testid="review-list-send">{r.trace ? 'Add to trace' : 'Send'} {r.items.length}</button>
+      <button type="button" class="btn primary" disabled={r.busy} onclick={() => void r.send()} data-testid="review-list-send">{r.trace ? 'Add to trace' : 'Send'} {r.items.length}</button>
     </div>
   {/if}
 </div>

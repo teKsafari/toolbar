@@ -1,11 +1,14 @@
 <script lang="ts">
   // Feedback items of a capture (Part 2 reviewer toolbar): one card per pin in pin order, with
   // the crop, the quoted text, the comment, the voice note and its transcript, and the errors and
-  // failed requests that came with it. Shown on the capture page above the title.
+  // failed requests that came with it. Shown on the capture page above the title. Those last two
+  // are chips; on a page with the dev tools, a chip opens Console or Network on the note's window
+  // with its entries selected (D-206).
   import { onMount } from 'svelte';
   import type { FeedbackItem } from '@toolbar/shared/areas/reviewer';
   import { call } from '../viewer/api.ts';
   import VIcon from '../viewer/VIcon.svelte';
+  import { useViewer } from '../viewer/viewer.svelte.ts';
 
   interface Props {
     recordingId: string;
@@ -13,6 +16,10 @@
     primary?: boolean;
   }
   let { recordingId, primary = false }: Props = $props();
+  /** the capture page's state, when the list is on it with the dev tools */
+  const v = useViewer();
+  const canOpen = $derived(!!v?.data.devtools);
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
   let items: FeedbackItem[] = $state([]);
   let loaded = $state(false);
@@ -100,17 +107,19 @@
             {/if}
           {/if}
           {#if it.context && (it.context.errors.length || it.context.failedRequests.length)}
-            <details class="ctx" data-testid="feedback-context">
-              <summary>
-                <VIcon name="warning" size={13} />
-                {it.context.errors.length} {it.context.errors.length === 1 ? 'error' : 'errors'}, {it.context.failedRequests.length}
-                failed {it.context.failedRequests.length === 1 ? 'request' : 'requests'} in the {Math.round(it.context.windowMs / 1000)} s before
-              </summary>
-              <ul>
-                {#each it.context.errors as e, i (i)}<li class="err">{e.text}</li>{/each}
-                {#each it.context.failedRequests as r, i (i)}<li class="net"><b>{r.status || r.error || 'failed'}</b> {r.text}</li>{/each}
-              </ul>
-            </details>
+            {@const ctx = it.context}
+            <div class="ctx" data-testid="feedback-context">
+              {#each [{ show: 'errors' as const, n: ctx.errors.length, text: plural(ctx.errors.length, 'error', 'errors'), list: ctx.errors }, { show: 'requests' as const, n: ctx.failedRequests.length, text: plural(ctx.failedRequests.length, 'failed request', 'failed requests'), list: ctx.failedRequests }] as c (c.show)}
+                {#if c.n}
+                  {@const tip = c.list.map((e) => (e.status || e.error ? `${e.status || e.error} ` : '') + e.text).join('\n')}
+                  {#if canOpen}
+                    <button type="button" class="cchip" title={tip} onclick={() => v!.showNoteContext(it, c.show)} data-testid="feedback-chip-{c.show}">{c.text}</button>
+                  {:else}
+                    <span class="cchip" title={tip} data-testid="feedback-chip-{c.show}">{c.text}</span>
+                  {/if}
+                {/if}
+              {/each}
+            </div>
           {/if}
           <div class="foot muted">
             <span title={it.page.url}>{pathOf(it.page.url)}</span>
@@ -146,9 +155,12 @@
   .voice { display: flex; align-items: center; gap: 8px; }
   .voice audio { height: 32px; max-width: 100%; }
   .transcript { margin: 0; font-size: var(--nb-text-md); color: var(--nb-text-body); background: var(--nb-surface-2); border: 1px solid var(--nb-border); border-radius: var(--nb-radius-md); padding: 6px 8px; }
-  .ctx summary { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: var(--nb-text-sm); color: var(--nb-warning); }
-  .ctx ul { margin: 6px 0 0; padding-left: 18px; font-family: var(--nb-font-mono); font-size: 11px; display: flex; flex-direction: column; gap: 2px; }
-  .ctx .err { color: var(--nb-danger); }
+  /* context chips: 20 px capsules on the danger tint (language section 10, badges) */
+  .ctx { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cchip { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: var(--nb-radius-pill); background: var(--nb-danger-tint); color: var(--nb-danger-text); font: var(--nb-weight-medium) 11px/20px var(--nb-font-sans); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  button.cchip { cursor: pointer; transition: box-shadow var(--nb-dur-fast) var(--nb-ease-out); }
+  button.cchip:hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nb-danger-text) 45%, transparent); }
+  button.cchip:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; }
   .muted { color: var(--nb-text-faint); }
   .foot { display: flex; gap: 10px; font: 11px var(--nb-font-mono); color: var(--nb-text-faint); min-width: 0; }
   .foot span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

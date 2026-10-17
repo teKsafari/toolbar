@@ -161,7 +161,7 @@ Two Playwright suites in `e2e/`, both headed Chromium on a private Xvfb display 
 | Suite | Specs | Extension build | Config | Default display |
 |---|---|---|---|---|
 | Area suites | `e2e/tests/**` (one folder per area, about 230 tests) | test build `chrome-mv3-test` (open shadow root, `globalThis.__tb`) | `playwright.config.ts` | `:101` |
-| User journeys | `e2e/flows/*.spec.ts`, flows A to O of `docs/jam/flows.md`, P (branding), Q (zero integration in the project sites mode, D-126, D-202), S (site access: add a site from the icon, the toolbar without a reload, close and reopen, a second origin stays clean; S2 the all sites mode with merge; D-202, D-203, D-205), R (reviewer keys in the release build) and P2 (the owner's Part 2 scenario, D-163) | release build `chrome-mv3` | `playwright.flows.config.ts` | `:120` |
+| User journeys | `e2e/flows/*.spec.ts`, flows A to O of `docs/jam/flows.md`, P (branding), Q (zero integration in the project sites mode, D-126, D-202), S (site access: add a site from the icon, the toolbar without a reload, close and reopen, a second origin stays clean; S2 the all sites mode with merge; D-202, D-203, D-205), R (reviewer keys, the title row and the toast's Open in the release build, D-206) and P2 (the owner's Part 2 scenario, D-163) | release build `chrome-mv3` | `playwright.flows.config.ts` | `:120` |
 
 ### Everything, from a clean database
 

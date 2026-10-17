@@ -12,7 +12,8 @@
 
 <div class="nb-toaster nb-{position}" role="region" aria-label="Notifications" aria-live="polite">
   {#each toasts.items as t (t.id)}
-    <div class="nb-toast nb-{t.kind}" role={t.kind === 'error' ? 'alert' : 'status'} data-kind={t.kind}>
+    <!-- data-nb-interactive: over a host page the extension's pointer guard (a picking tool on) lets clicks through to it -->
+    <div class="nb-toast nb-{t.kind}" role={t.kind === 'error' ? 'alert' : 'status'} data-kind={t.kind} data-nb-interactive>
       <span class="nb-ticon"><Icon name={iconFor[t.kind]} size={16} /></span>
       <span class="nb-msg">{t.message}</span>
       {#if t.action}

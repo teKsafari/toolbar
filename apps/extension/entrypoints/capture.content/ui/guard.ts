@@ -18,6 +18,8 @@ const CLICKISH = new Set(['click', 'dblclick', 'auxclick', 'mouseup', 'pointerup
 
 let handler: GuardHandler | null = null;
 let swallowUntil = 0;
+/** swallow the rest of the current press: its pointerup, mouseup and click */
+let swallowingPress = false;
 let uiRoot: ShadowRoot | null = null;
 let uiHost: Element | null = null;
 
@@ -38,6 +40,14 @@ export function swallowClicksFor(ms: number) {
   swallowUntil = performance.now() + ms;
 }
 
+/**
+ * Swallow the rest of the press now going on (its pointerup, mouseup and click), whatever the
+ * handler: a press that only dismissed one of our popups must not also pick an element.
+ */
+export function swallowPress() {
+  swallowingPress = true;
+}
+
 /** True when the event lands on one of our elements marked data-nb-interactive. */
 export function overOurUi(e: Event): boolean {
   if (!uiRoot || !uiHost) return false;
@@ -50,6 +60,10 @@ export function overOurUi(e: Event): boolean {
 }
 
 function onPointer(e: Event) {
+  if (swallowingPress && (e.type === 'pointerup' || e.type === 'pointercancel')) {
+    swallowingPress = false;
+    swallowClicksFor(80);
+  }
   if (overOurUi(e)) return;
   const trailing = CLICKISH.has(e.type) && performance.now() < swallowUntil;
   if (!trailing && !(handler && handler(e))) return;

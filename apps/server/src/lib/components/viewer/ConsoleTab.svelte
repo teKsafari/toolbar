@@ -9,6 +9,7 @@
   import EmptyState from './EmptyState.svelte';
   import { useViewer } from './viewer.svelte.ts';
   import { followPlayback } from './follow.svelte.ts';
+  import { inWindow } from './layout.ts';
 
   const v = useViewer();
   const LEVELS = [
@@ -29,7 +30,9 @@
   let list: HTMLDivElement | undefined = $state();
 
   const chips = $derived(presentConsoleChips(v.consoleRows));
-  const rows = $derived(filterConsole(v.consoleRows, { q, levels, hidden }));
+  // a note's context chip shows only its window, its own entries selected (D-206)
+  const rows = $derived(filterConsole(v.consoleRows, { q, levels, hidden }).filter((r) => inWindow(v.noteWin, r.t)));
+  const picked = (r: ConsoleViewRow) => !!v.noteWin && (v.noteWin.ids.has(r.id) || (!!r.rid && v.noteWin.rids.has(r.rid)));
   const follow = followPlayback(() => list, () => rows, v);
   const tz = $derived(v.prefs.timeZone === 'utc' ? 'UTC' : v.prefs.timeZone === 'capture' ? (v.detail.env?.tz ?? undefined) : undefined);
 
@@ -54,6 +57,17 @@
   }
   const icon = (r: ConsoleViewRow) =>
     r.kind === 'navigation' ? 'external' : r.kind === 'click' ? 'select' : r.kind === 'input' ? 'text' : r.kind === 'media' ? 'record' : r.kind === 'network' ? 'network' : r.level === 'error' ? 'warning' : r.level === 'warn' ? 'warning' : 'info';
+
+  // a note's chip: clear the filters that would hide its entries, and bring the first one into view
+  $effect(() => {
+    const w = v.noteWin;
+    if (!w || w.show !== 'errors') return;
+    void v.noteSel?.k;
+    q = '';
+    levels = [];
+    hidden = [];
+    void tick().then(() => list?.querySelector<HTMLElement>('.vp-row.picked')?.scrollIntoView({ block: 'center' }));
+  });
 
   // Marker clicks and "open in console" requests (J-095).
   $effect(() => {
@@ -100,7 +114,7 @@
     {:else if !v.consoleRows.length}
       <div class="vp-note">Nothing was logged during this capture.</div>
     {:else if !rows.length}
-      <div class="vp-striped">No rows match these filters.</div>
+      <div class="vp-striped">{v.noteWin ? 'Nothing in this note’s window.' : 'No rows match these filters.'}</div>
     {/if}
     {#each rows as r, i (r.id)}
       {@const open = expanded.has(r.id)}
@@ -109,6 +123,8 @@
         class:future={v.playable && r.at > v.now + 1}
         class:current={follow.current === i && v.playable}
         class:flash={flash === r.id}
+        class:picked={picked(r)}
+        data-picked={picked(r) || undefined}
         data-id={r.id}
         data-row-index={i}
         role="listitem">
@@ -161,6 +177,8 @@
   .src { color: var(--nb-text-muted); }
   .link { all: unset; color: var(--nb-accent-text); cursor: pointer; text-decoration: underline; }
   .lvl-error .ic, .lvl-error .msg { color: var(--nb-danger-text); }
+  /* an entry a note attached (its context chip): the selected-row look of the tables (D-206) */
+  .cr.picked { background: var(--nb-accent-tint); box-shadow: inset 2px 0 0 var(--nb-accent); }
   .lvl-warn .ic { color: var(--nb-warning-text); }
   /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
   .main:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 0; border-radius: 2px; }

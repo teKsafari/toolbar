@@ -1,6 +1,6 @@
 // The 60 s context a reviewer comment carries (Part 2 "Comment without a trace").
 import { describe, expect, it } from 'vitest';
-import { CONTEXT_WINDOW_MS, contextEventIds, contextFromEvents, feedbackItemInputSchema } from '../src/areas/reviewer.ts';
+import { autoFeedbackTitle, CONTEXT_WINDOW_MS, contextEventIds, contextFromEvents, feedbackItemInputSchema } from '../src/areas/reviewer.ts';
 
 const now = 1_000_000;
 let seq = 0;
@@ -54,5 +54,19 @@ describe('feedbackItemInputSchema', () => {
     const p = feedbackItemInputSchema.parse(base);
     expect(p).toMatchObject({ comment: '', intent: 'fix', severity: 'important', shapes: [{ width: 3 }] });
     expect(feedbackItemInputSchema.safeParse({ ...base, kind: 'poem' }).success).toBe(false);
+  });
+});
+
+describe('autoFeedbackTitle (D-206: the title row placeholder and the title of a skipped row)', () => {
+  const page = { url: 'http://localhost:5173/checkout?step=2' };
+  it('takes the first line of the first comment, at most 80 characters', () => {
+    expect(autoFeedbackTitle([{ comment: '', page }, { comment: '  Save gives no feedback \nmore', page }])).toBe('Save gives no feedback');
+    const long = autoFeedbackTitle([{ comment: 'x'.repeat(120), page }]);
+    expect(long).toHaveLength(80);
+    expect(long.endsWith('…')).toBe(true);
+  });
+  it('falls back to the page path, then to "Feedback"', () => {
+    expect(autoFeedbackTitle([{ comment: ' ', page }])).toBe('Feedback on /checkout');
+    expect(autoFeedbackTitle([{ comment: '', page: { url: 'not a url' } }])).toBe('Feedback');
   });
 });

@@ -18,6 +18,8 @@ export const IDS = {
   desktop: u(0xd3),
   replay: u(0xd4),
   consoleArgs: u(0xd5),
+  feedback: u(0xd6),
+  feedbackCtx: u(0xd7),
   folder: u(0xf1),
   thread: u(0xb1),
   dana: u(0x1),

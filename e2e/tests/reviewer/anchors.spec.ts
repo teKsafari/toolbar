@@ -248,6 +248,7 @@ test('nested scroller: the crop and annotations/aNN.shapes.json of a drawing lin
 
   const before = await sw.evaluate(() => (globalThis as unknown as { __tbReview: { submits(): unknown[] } }).__tbReview.submits().length);
   await ui(page, 'review-send').click();
+  await page.keyboard.press('Enter'); // the title row: the automatic title
   await expect.poll(async () => sw.evaluate(() => (globalThis as unknown as { __tbReview: { submits(): unknown[] } }).__tbReview.submits().length), { timeout: 30_000 }).toBe(before + 1);
   const res = await sw.evaluate((i) => (globalThis as unknown as { __tbReview: { submits(): { recordingId: string }[] } }).__tbReview.submits()[i]!, before);
 

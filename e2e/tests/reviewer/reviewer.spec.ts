@@ -116,10 +116,13 @@ async function submits(sw: Worker): Promise<Submit[]> {
   return sw.evaluate(() => (globalThis as unknown as { __tbReview: { submits(): Submit[] } }).__tbReview.submits());
 }
 
-/** Send from the pill and return what the worker reported. */
-async function send(page: Page, sw: Worker): Promise<Submit> {
+/** Send from the pill, Enter in the title row (the automatic title), and return what the worker reported. */
+async function send(page: Page, sw: Worker, title?: string): Promise<Submit> {
   const before = (await submits(sw)).length;
   await ui(page, 'review-send').click();
+  await expect(ui(page, 'review-title')).toBeFocused();
+  if (title) await page.keyboard.type(title);
+  await page.keyboard.press('Enter');
   await expect.poll(async () => (await submits(sw)).length, { timeout: 30_000 }).toBe(before + 1);
   return (await submits(sw))[before]!;
 }
@@ -658,8 +661,18 @@ test('at 390 px the pill wraps onto two rows: Send and Close stay on screen and 
     expect(b.x, id).toBeGreaterThanOrEqual(pill.x);
     expect(b.x + b.width, id).toBeLessThanOrEqual(pill.x + pill.width + 0.5);
   }
-  const sent = await send(page, sw);
-  expect(sent.count).toBe(1);
+  // the title row fits the phone's width, above the pill
+  await ui(page, 'review-send').click();
+  await expect(ui(page, 'review-title-row')).toBeVisible();
+  await page.waitForTimeout(300);
+  const row = (await ui(page, 'review-title-row').boundingBox())!;
+  expect(row.x).toBeGreaterThanOrEqual(0);
+  expect(row.x + row.width).toBeLessThanOrEqual(390);
+  expect(row.y + row.height).toBeLessThanOrEqual((await ui(page, 'review-pill').boundingBox())!.y);
+  const before = (await submits(sw)).length;
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await submits(sw)).length, { timeout: 30_000 }).toBe(before + 1);
+  expect((await submits(sw))[before]!.count).toBe(1);
 });
 
 /** The box of a test id, once it has settled (the dock is re-fitted on the next frame). */
@@ -899,4 +912,101 @@ test('the collapsed launcher drags past a small threshold, keeps its spot per or
   await launcher.click();
   await expect(ui(page, 'review-pill')).toBeVisible();
   onScreen(await settled(page, 'review-dock'), 390, 844, 'pill at 390');
+});
+
+test('the toast\'s Open after Send opens the capture page in a tab next to this one, with the comment tool still on', async ({ context, sw }) => {
+  const page = await context.newPage();
+  await signIn(page, sw);
+  await openLab(page);
+  await wake(page);
+  await page.keyboard.press('c');
+  await page.getByTestId('works').click();
+  await ui(page, 'review-comment').fill('Open me afterwards');
+  await page.keyboard.press('Enter');
+  await expect(ui(page, 'review-pin')).toHaveCount(1);
+  // the comment tool stays on for the next note, as a reviewer leaves it
+  await expect(ui(page, 'review-tool-comment')).toHaveAttribute('aria-pressed', 'true');
+  const res = await send(page, sw);
+  const open = page.getByRole('button', { name: 'Open', exact: true });
+  await expect(open).toBeVisible();
+  const opened = context.waitForEvent('page');
+  await open.click();
+  const capture = await opened;
+  await capture.waitForLoadState();
+  expect(capture.url()).toBe(res.url);
+  await expect(capture.getByTestId('feedback-item')).toHaveCount(1);
+  // the click went to the toast, not to the app or the picker
+  await expect(ui(page, 'review-composer')).toBeHidden();
+});
+
+async function titleOf(page: Page, recordingId: string): Promise<string> {
+  await expect.poll(async () => (await (await page.request.get(`${SERVER_URL}/api/v1/recordings/${recordingId}`)).json()).status, { timeout: 30_000 }).toBe('ready');
+  return (await (await page.request.get(`${SERVER_URL}/api/v1/recordings/${recordingId}`)).json()).title as string;
+}
+
+test('Send asks for a title in one row: the first comment is the placeholder, a typed title is stored, Skip and Esc send with the automatic one, a click outside cancels', async ({ context, sw }) => {
+  const page = await context.newPage();
+  await signIn(page, sw);
+  await openLab(page);
+  await wake(page);
+  const note = async (testId: string, text: string) => {
+    if ((await ui(page, 'review-tool-comment').getAttribute('aria-pressed')) !== 'true') await page.keyboard.press('c');
+    await page.getByTestId(testId).click();
+    await ui(page, 'review-comment').fill(text);
+    await page.keyboard.press('Enter');
+    await expect(ui(page, 'review-composer')).toBeHidden();
+  };
+
+  // a typed title
+  await note('works', 'Save gives no feedback\nsecond line');
+  await note('dead', 'Export does nothing');
+  await ui(page, 'review-send').click();
+  const row = ui(page, 'review-title-row');
+  await expect(row).toBeVisible();
+  await expect(ui(page, 'review-title')).toBeFocused();
+  await expect(ui(page, 'review-title')).toHaveAttribute('placeholder', 'Save gives no feedback');
+  // one field and Skip, nothing more
+  await expect(row.locator('input, button, select, textarea')).toHaveCount(2);
+  // single keys are text here, not tools
+  await page.keyboard.type('Checkout: save and export');
+  await expect(ui(page, 'review-tool-comment')).toHaveAttribute('aria-pressed', 'true');
+  let before = (await submits(sw)).length;
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await submits(sw)).length, { timeout: 30_000 }).toBe(before + 1);
+  let res = (await submits(sw))[before]!;
+  expect(res.count).toBe(2);
+  await expect(row).toBeHidden();
+  expect(await titleOf(page, res.recordingId)).toBe('Checkout: save and export');
+
+  // a click outside cancels: nothing is sent, the notes stay
+  await note('works', 'Skip keeps the automatic title');
+  await ui(page, 'review-send').click();
+  await expect(row).toBeVisible();
+  await page.keyboard.type('never sent');
+  before = (await submits(sw)).length;
+  await page.mouse.click(400, 300);
+  await expect(row).toBeHidden();
+  await sleep(500);
+  expect((await submits(sw)).length).toBe(before);
+  await expect(ui(page, 'review-count')).toHaveText('1');
+
+  // Skip: the automatic title, even after typing was cancelled before
+  await ui(page, 'review-send').click();
+  await expect(ui(page, 'review-title')).toHaveValue('');
+  await ui(page, 'review-title-skip').click();
+  await expect.poll(async () => (await submits(sw)).length, { timeout: 30_000 }).toBe(before + 1);
+  res = (await submits(sw))[before]!;
+  expect(await titleOf(page, res.recordingId)).toBe('Skip keeps the automatic title');
+
+  // Esc: the automatic title, whatever was typed
+  await note('dead', 'Esc sends as well');
+  before = (await submits(sw)).length;
+  await ui(page, 'review-send').click();
+  await page.keyboard.type('dropped');
+  await page.keyboard.press('Escape');
+  await expect.poll(async () => (await submits(sw)).length, { timeout: 30_000 }).toBe(before + 1);
+  res = (await submits(sw))[before]!;
+  expect(await titleOf(page, res.recordingId)).toBe('Esc sends as well');
+  // the toolbar stays awake after Esc in the row
+  await expect(ui(page, 'review-pill')).toBeVisible();
 });

@@ -184,6 +184,17 @@ export function setOwnRoot(r: ShadowRoot | null) {
 }
 
 /** True when a key event comes from a field the person types in (page or ours). */
+/**
+ * True when a pointer event lands in `el`, one of our elements. A listener on window sees only
+ * the host of a closed shadow root in the event's path, so the root says what is under the point.
+ */
+export function pointerIn(e: PointerEvent, el: Element): boolean {
+  const path = e.composedPath?.() ?? [];
+  if (path.includes(el)) return true;
+  if (ownRoot && path[0] === ownRoot.host) return el.contains(ownRoot.elementFromPoint(e.clientX, e.clientY));
+  return false;
+}
+
 export function typingIn(e: Event): boolean {
   let el = (e.composedPath?.()[0] ?? e.target) as HTMLElement | null;
   // inside a closed shadow root the path ends at the host: ask the root what has focus

@@ -82,7 +82,7 @@
     return true;
   }
   $effect(() => {
-    if (!r.awake || blocked || !r.tool || r.draft) return;
+    if (!r.awake || blocked || !r.tool || r.draft || r.naming) return;
     setGuard(guard);
     return () => setGuard(null);
   });

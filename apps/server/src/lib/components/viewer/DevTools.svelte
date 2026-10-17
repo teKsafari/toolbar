@@ -1,22 +1,23 @@
 <script lang="ts">
   // Right-hand dev tools panel (J-090, J-091, J-109): info, console, network, actions and agent
-  // tabs with red or green dots, the last used tab remembered, and the hide toggle.
+  // tabs with red or green dots, the last used tab remembered, and the hide toggle. Tabs with no
+  // entries are hidden (D-206); a note's context chip narrows Console and Network to its window.
   import VIcon from './VIcon.svelte';
   import InfoTab from './InfoTab.svelte';
   import ConsoleTab from './ConsoleTab.svelte';
   import NetworkTab from './NetworkTab.svelte';
   import ActionsTab from './ActionsTab.svelte';
   import AgentSlot from './AgentSlot.svelte';
-  import { TABS, useViewer } from './viewer.svelte.ts';
+  import { useViewer } from './viewer.svelte.ts';
 
   const v = useViewer();
 </script>
 
 <section class="panel" aria-label="Dev tools" data-testid="devtools">
   <div class="tabs" role="tablist">
-    {#each TABS as t (t.id)}
+    {#each v.visibleTabs as t (t.id)}
       {@const st = v.tabState[t.id]}
-      <button type="button" role="tab" aria-selected={v.tab === t.id} class:on={v.tab === t.id} onclick={() => v.setTab(t.id)} data-testid="tab-{t.id}">
+      <button type="button" role="tab" aria-selected={v.shownTab === t.id} class:on={v.shownTab === t.id} onclick={() => v.setTab(t.id)} data-testid="tab-{t.id}">
         {t.label}{#if st !== 'none' && t.id !== 'info'}<span class="dot {st}" data-testid="dot-{t.id}" data-state={st}></span>{/if}
       </button>
     {/each}
@@ -25,10 +26,17 @@
   </div>
   <div class="body" role="tabpanel">
     {#if v.eventsError}<div class="vp-note">Logs could not be loaded: {v.eventsError}</div>{/if}
-    {#if v.tab === 'info'}<InfoTab />
-    {:else if v.tab === 'console'}<ConsoleTab />
-    {:else if v.tab === 'network'}<NetworkTab />
-    {:else if v.tab === 'actions'}<ActionsTab />
+    {#if v.noteWin && (v.shownTab === 'console' || v.shownTab === 'network')}
+      {@const w = v.noteWin}
+      <div class="notewin" data-testid="note-window">
+        <span>Note {w.n}, {Math.round((w.to - 1000 - w.from) / 1000)} s before it</span>
+        <button type="button" onclick={() => v.clearNoteWindow()} aria-label="Show every entry" title="Show every entry" data-testid="note-window-clear"><VIcon name="close" size={12} /></button>
+      </div>
+    {/if}
+    {#if v.shownTab === 'info'}<InfoTab />
+    {:else if v.shownTab === 'console'}<ConsoleTab />
+    {:else if v.shownTab === 'network'}<NetworkTab />
+    {:else if v.shownTab === 'actions'}<ActionsTab />
     {:else}<AgentSlot />{/if}
   </div>
 </section>
@@ -47,6 +55,12 @@
   .hide { all: unset; display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--nb-radius-sm); color: var(--nb-text-muted); cursor: pointer; flex: none; transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out); }
   .hide:focus-visible { outline: 2px solid var(--nb-focus); }
   .hide:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
+  /* a note's window: one quiet line above the list, cleared with its X */
+  .notewin { flex: none; display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 12px; border-bottom: 1px solid var(--nb-border); background: var(--nb-accent-tint); color: var(--nb-text); font-size: var(--nb-text-sm); }
+  .notewin span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .notewin button { all: unset; display: grid; place-items: center; width: 22px; height: 22px; border-radius: var(--nb-radius-sm); color: var(--nb-text-muted); cursor: pointer; }
+  .notewin button:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
+  .notewin button:focus-visible { outline: 2px solid var(--nb-focus); }
   .body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
   .tabs button[role='tab']:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: -2px; border-radius: var(--nb-radius-sm); }

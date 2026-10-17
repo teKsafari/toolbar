@@ -4,7 +4,7 @@
 import { browser } from 'wxt/browser';
 import { toasts } from '@toolbar/ui';
 import type { Rect, TargetRef } from '@toolbar/shared';
-import { DRAW_COLORS, type FeedbackAnchor, type FeedbackIntent, type FeedbackKind, type FeedbackSeverity, type FeedbackShape, type ShapeType } from '@toolbar/shared/areas/reviewer';
+import { DRAW_COLORS, autoFeedbackTitle, type FeedbackAnchor, type FeedbackIntent, type FeedbackKind, type FeedbackSeverity, type FeedbackShape, type ShapeType } from '@toolbar/shared/areas/reviewer';
 import type { BgError, BgRequest, LocatorTarget, NewReviewItem, ReviewItem } from '@toolbar/shared/ext';
 import type { LocatorPacket } from '@toolbar/shared/locator';
 import { TOOLBAR_CLOSED_KEY, toolbarClosedOn } from '@toolbar/shared/areas/ext-ui';
@@ -152,6 +152,9 @@ export class Review {
   closed = $state(false);
   /** D-205: the X found a running trace or voice note and asks "Stop trace?" */
   confirmClose = $state(false);
+  /** the title row above the pill is open (Send asks for a title first); `title` is what is typed */
+  naming = $state(false);
+  title = $state('');
   /** bumps on scroll, resize and a slow timer, so pins follow the page */
   tick = $state(0);
   now = $state(Date.now());
@@ -258,6 +261,7 @@ export class Review {
 
   sleep() {
     this.confirmClose = false;
+    this.naming = false;
     if (this.voice) void this.cancelVoice();
     this.tool = null;
     this.draft = null;
@@ -289,6 +293,7 @@ export class Review {
 
   /** Esc: one level back. */
   back() {
+    if (this.naming) return void (this.naming = false);
     if (this.voice) return void this.cancelVoice();
     if (this.draft) return this.cancelDraft();
     if (this.drawing) {
@@ -726,9 +731,34 @@ export class Review {
     this.trace = { recordingId: r.trace.recordingId, startedAt: r.trace.startedAt, spans: 0 };
   }
 
-  async submit(): Promise<boolean> {
-    if (this.busy) return false;
-    // a note still in the composer or the microphone goes with the rest
+  /** The title the capture gets when none is typed (the title row's placeholder). */
+  get autoTitle(): string {
+    return autoFeedbackTitle(this.items);
+  }
+
+  /**
+   * Send from the pill or the list: notes for a new capture first ask for a title in one row
+   * above the pill (Enter sends, Esc or Skip sends with the automatic title, a click elsewhere
+   * cancels). Notes that go onto a running trace send at once: the trace has its own title.
+   */
+  async send() {
+    if (this.busy) return;
+    if (this.trace) return void (await this.submit());
+    if (this.naming) return void (await this.submit(this.title));
+    if (!(await this.flush())) return;
+    this.listOpen = false;
+    this.hover = null;
+    this.title = '';
+    this.naming = true;
+  }
+
+  /** Esc or Skip in the title row: send with the automatic title. */
+  skipTitle() {
+    void this.submit('');
+  }
+
+  /** A note still in the composer or the microphone goes with the rest. False when nothing is left to send. */
+  private async flush(): Promise<boolean> {
     if (this.voice) await this.stopVoice();
     if (this.draft) await this.saveDraft();
     await this.saving;
@@ -736,10 +766,17 @@ export class Review {
       toasts.show('Nothing to send yet');
       return false;
     }
+    return true;
+  }
+
+  async submit(title?: string): Promise<boolean> {
+    if (this.busy) return false;
+    this.naming = false;
+    if (!(await this.flush())) return false;
     this.busy = true;
     const toast = toasts.loading(`Sending ${this.items.length} ${this.items.length === 1 ? 'note' : 'notes'}`);
     try {
-      const r = await send('review.submit', { traceRecordingId: this.trace?.recordingId ?? null });
+      const r = await send('review.submit', { traceRecordingId: this.trace?.recordingId ?? null, ...(title?.trim() ? { title: title.trim() } : {}) });
       if (!r.ok) {
         toasts.update(toast, { kind: 'error', message: errorText(r), duration: 6000 });
         return false;

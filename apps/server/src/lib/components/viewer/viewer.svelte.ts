@@ -10,6 +10,8 @@ import { traceOpenMsOf } from '@toolbar/shared/projects';
 import { fetchJsonMaybeGzip, setShareToken } from './api.ts';
 import { loadPrefs, savePrefs, type ViewerPrefs } from './prefs.ts';
 import type { ViewerData } from './types.ts';
+import { activeTab, countsFromIndex, isLean, noteWindow, tabVisible, type NoteWindow, type TabCounts } from './layout.ts';
+import type { FeedbackItem } from '@toolbar/shared/areas/reviewer';
 
 export type TabId = 'info' | 'console' | 'network' | 'actions' | 'agent';
 export const TABS: { id: TabId; label: string }[] = [
@@ -71,6 +73,23 @@ export class Viewer {
   signedIn = $derived.by(() => !!this.data?.me);
   canEdit = $derived.by(() => this.detail.canEdit && this.data.mode === 'member');
 
+  /** Entries per data tab: the index until the events file is in, then the panel rows (D-206). */
+  tabCounts: TabCounts = $derived.by(() =>
+    this.eventsLoaded && !this.eventsError
+      ? { console: this.consoleRows.length, network: this.network.length, actions: this.actions.length + this.spans.length }
+      : countsFromIndex(this.detail),
+  );
+  /** Tabs with no entries are hidden; Info and Agent always show (D-206). */
+  visibleTabs = $derived(TABS.filter((t) => tabVisible(t.id, this.tabCounts)));
+  /** The tab on screen: the chosen one, or the first visible one when the chosen one is hidden. */
+  shownTab: TabId = $derived(activeTab(this.tab, this.tabCounts));
+  /** Nothing for the dev tools and no video, replay or trace: pane collapsed, facts in a strip (D-206). */
+  lean = $derived(isLean(this.detail, this.tabCounts));
+  /** A feedback note's context chip was clicked: console and network show its window (D-206). */
+  noteSel: { item: Pick<FeedbackItem, 'n' | 't' | 'context'>; show: NoteWindow['show']; k: number } | null = $state(null);
+  /** derived, so entries match once the events file is in even when the chip was clicked before */
+  noteWin: NoteWindow | null = $derived(this.noteSel ? noteWindow(this.noteSel.item, this.events, this.noteSel.show) : null);
+
   tabState = $derived.by(() => {
     const errs = this.consoleRows.some((r) => r.level === 'error');
     const failed = this.network.some((n) => isFailed(n));
@@ -90,7 +109,8 @@ export class Viewer {
     this.folders = data.folders;
     setShareToken(data.shareToken);
     this.tab = this.prefs.lastTab;
-    this.devtoolsOpen = data.devtools && this.prefs.devtoolsOpen;
+    // a lean capture starts with the pane collapsed, whatever the last capture did (D-206)
+    this.devtoolsOpen = data.devtools && this.prefs.devtoolsOpen && !isLean(data.detail, countsFromIndex(data.detail));
     this.highlightComment = data.highlight;
     this.duration = data.detail.media.video?.durationMs ?? data.detail.durationMs ?? 0;
   }
@@ -143,7 +163,24 @@ export class Viewer {
 
   toggleDevtools(open = !this.devtoolsOpen) {
     this.devtoolsOpen = open;
-    this.setPref({ devtoolsOpen: open });
+    // opening the pane on a lean capture says nothing about the next capture
+    if (!this.lean) this.setPref({ devtoolsOpen: open });
+  }
+
+  /**
+   * A note's context chip: open the pane on Console (errors) or Network (failed requests), show
+   * only the note's window and select the entries it attached (D-206).
+   */
+  showNoteContext(item: Pick<FeedbackItem, 'n' | 't' | 'context'>, show: NoteWindow['show']) {
+    this.noteSel = { item, show, k: (this.noteSel?.k ?? 0) + 1 };
+    this.tab = show === 'errors' ? 'console' : 'network';
+    this.selectedRid = null;
+    if (!this.devtoolsOpen) this.devtoolsOpen = true;
+    this.narrowView = 'devtools';
+  }
+
+  clearNoteWindow() {
+    this.noteSel = null;
   }
 
   seek(ms: number, opts: { arm?: boolean } = {}) {
@@ -155,6 +192,7 @@ export class Viewer {
 
   /** Open a tab at a row (marker click, J-095). */
   reveal(tab: TabId, id: string) {
+    this.noteSel = null;
     this.setTab(tab);
     if (!this.devtoolsOpen) this.toggleDevtools(true);
     this.narrowView = 'devtools';

@@ -158,6 +158,21 @@ export const feedbackItemSchema = feedbackItemInputSchema.extend({
 });
 export type FeedbackItem = z.infer<typeof feedbackItemSchema>;
 
+/**
+ * The title a feedback capture gets when the reviewer types none: the first line of the first
+ * comment (80 characters at most), else "Feedback on <path>". The title row shows it as its
+ * placeholder, and the worker stores it when the row is skipped or left empty.
+ */
+export function autoFeedbackTitle(items: readonly { comment: string; page: { url: string } }[]): string {
+  const first = items.find((i) => i.comment.trim())?.comment.trim().split('\n')[0]?.trim() ?? '';
+  if (first) return first.length > 80 ? `${first.slice(0, 79)}…` : first;
+  try {
+    return `Feedback on ${new URL(items[0]!.page.url).pathname}`;
+  } catch {
+    return 'Feedback';
+  }
+}
+
 /** How far back a comment without a trace looks for errors and failed requests (PLAN). */
 export const CONTEXT_WINDOW_MS = 60_000;
 

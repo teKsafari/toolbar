@@ -345,24 +345,25 @@ test('J-224 desktop recording adds a Tab column; tab recordings do not', async (
   await tab(page, 'console');
 });
 
-test('J-231 empty network and actions tabs', async ({ page }) => {
+test('J-231 a capture without requests has no Network tab; Actions keeps its calm line next to the page load (D-206)', async ({ page }) => {
   await open(page, captureUrl(IDS.empty));
   await ready(page);
-  await tab(page, 'network');
-  await expect(page.getByTestId('network-empty')).toContainText('Not a single request');
+  // tabs with no entries are hidden (owner, D-206); the page load is the one action
+  await expect(page.getByTestId('tab-network')).toHaveCount(0);
   await tab(page, 'actions');
   await expect(page.getByTestId('actions-empty')).toContainText('Nobody clicked');
+  await expect(page.getByTestId('actions-list')).toContainText('Loaded http://localhost:5173/canvas');
   await tab(page, 'console');
 });
 
-test('J-206 recording-link capture without logs', async ({ page }) => {
+test('J-206 recording-link capture without logs: only Info and Agent (D-206)', async ({ page }) => {
   await open(page, captureUrl(IDS.link));
-  await tab(page, 'console');
-  await expect(page.getByTestId('empty')).toContainText('No logs for recording-link captures');
-  await expect(page.getByTestId('empty').getByRole('link')).toBeVisible();
-  await tab(page, 'network');
-  await expect(page.getByTestId('empty')).toContainText('No network logs');
-  await tab(page, 'actions');
-  await expect(page.getByTestId('rl-banner')).toBeVisible();
-  await tab(page, 'console');
+  await ready(page);
+  const tabs = page.getByTestId('devtools').getByRole('tab');
+  await expect(tabs).toHaveText(['Info', 'Agent']);
+  await expect(page.getByTestId('tab-info')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('info-tab')).toContainText('http://localhost:5173/checkout');
+  // a video keeps the two columns (D-206): no info strip
+  await expect(page.getByTestId('right-panel')).toBeVisible();
+  await expect(page.getByTestId('info-strip')).toHaveCount(0);
 });

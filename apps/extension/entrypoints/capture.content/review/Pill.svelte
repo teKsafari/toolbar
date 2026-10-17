@@ -9,6 +9,8 @@
   import { DRAW_COLORS } from '@toolbar/shared/areas/reviewer';
   import { review as r, type DockPos, type Tool } from './state.svelte';
   import { EDGE, fitIn, viewport } from './viewport.svelte';
+  import { pointerIn } from './page';
+  import { swallowPress } from '../ui/guard';
 
   const tools: { tool: Tool; icon: IconName; label: string; key: string }[] = [
     { tool: 'comment', icon: 'comment', label: 'Comment on an element', key: 'C' },
@@ -124,6 +126,39 @@
       bottom: p.v === 'b' ? `${p.y}px` : 'auto',
     };
   });
+  // ---- the title row (Send asks for a title first): focused when it opens, a press outside it
+  // (Send aside, which sends) cancels without sending
+  let titleRow: HTMLDivElement | undefined = $state();
+  let titleBox: HTMLInputElement | undefined = $state();
+  let sendBtn: HTMLButtonElement | undefined = $state();
+  $effect(() => {
+    if (!r.naming) return;
+    titleBox?.focus();
+    const outside = (e: PointerEvent) => {
+      if (titleRow && pointerIn(e, titleRow)) return;
+      if (sendBtn && pointerIn(e, sendBtn)) return;
+      r.naming = false;
+      // with a picking tool on, the press only closes the row: it neither reaches the app nor picks
+      if (r.tool) {
+        swallowPress();
+        e.stopImmediatePropagation();
+        if (e.cancelable) e.preventDefault();
+      }
+    };
+    addEventListener('pointerdown', outside, true);
+    return () => removeEventListener('pointerdown', outside, true);
+  });
+  function titleKey(e: KeyboardEvent) {
+    if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      void r.submit(r.title);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      r.skipTitle();
+    }
+  }
+
   /** the action's shortcut (Ctrl+Shift+Y): opening the menu on the tab lets Chrome grant screenshots (D-185) */
   const menuKey = /Mac|iPhone|iPad/.test(navigator.platform) ? 'Cmd+Shift+Y' : 'Ctrl+Shift+Y';
 </script>
@@ -206,13 +241,19 @@
       <button type="button" class="ib" aria-pressed={r.pinsHidden} aria-label={r.pinsHidden ? 'Show pins (H)' : 'Hide pins (H)'} title={r.pinsHidden ? 'Show pins (H)' : 'Hide pins (H)'} data-testid="review-hide-pins" onclick={() => (r.pinsHidden = !r.pinsHidden)}>
         <Icon name={r.pinsHidden ? 'eye' : 'eye-off'} size={17} />
       </button>
-      <button type="button" class="send" disabled={!r.items.length || r.busy} aria-label="Send {r.items.length} notes" title={r.trace ? 'Add the notes to the trace' : 'Send the notes'} data-testid="review-send" onclick={() => void r.submit()}>
+      <button type="button" class="send" disabled={!r.items.length || r.busy} aria-label="Send {r.items.length} notes" title={r.trace ? 'Add the notes to the trace' : 'Send the notes'} data-testid="review-send" bind:this={sendBtn} onclick={() => void r.send()}>
         <Icon name="send" size={15} />{r.items.length || ''}
       </button>
       <button type="button" class="ib" aria-label="Collapse (Esc)" title="Collapse (Esc)" data-testid="review-close" onclick={() => r.sleep()}><Icon name="chevron-down" size={17} /></button>
       <!-- D-205: closes the toolbar on this site until the extension icon is clicked here -->
       <button type="button" class="ib" aria-label="Close on this site" title="Close on this site" data-testid="review-close-site" onclick={() => void r.close()}><Icon name="close" size={17} /></button>
     </div>
+    {#if r.naming}
+      <div class="title-row" bind:this={titleRow} use:fitIn data-nb-interactive data-testid="review-title-row">
+        <input bind:this={titleBox} bind:value={r.title} type="text" maxlength="500" placeholder={r.autoTitle} aria-label="Title" spellcheck="false" autocomplete="off" onkeydown={titleKey} data-testid="review-title" />
+        <button type="button" class="skip" data-testid="review-title-skip" onclick={() => r.skipTitle()}>Skip</button>
+      </div>
+    {/if}
     {#if r.confirmClose}
       <div class="confirm" use:fitIn role="alertdialog" aria-label={r.trace ? 'Stop trace?' : 'Stop voice note?'} data-nb-interactive data-testid="review-close-confirm">
         <span>{r.trace ? 'Stop trace?' : 'Stop voice note?'}</span>
@@ -250,6 +291,18 @@
   .confirm { pointer-events: auto; position: absolute; right: 0; bottom: calc(100% + 8px); display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 12px; border-radius: 22px; background: var(--nb-chrome); color: var(--nb-on-chrome); box-shadow: inset 0 0 0 1px var(--nb-chrome-border), var(--nb-shadow-lg); font: var(--nb-weight-medium) 12px/1 var(--nb-font-sans); white-space: nowrap; }
   .dock.left .confirm { right: auto; left: 0; }
   .dock.top .confirm { bottom: auto; top: calc(100% + 8px); }
+  /* Send's title row, one line above the pill (below it in a top corner): one field on the chrome */
+  .title-row { pointer-events: auto; position: absolute; right: 0; bottom: calc(100% + 8px); display: flex; align-items: center; gap: 4px; width: min(380px, calc(100vw - 24px)); box-sizing: border-box; padding: 4px 4px 4px 14px; border-radius: 22px; background: var(--nb-chrome); color: var(--nb-on-chrome); box-shadow: inset 0 0 0 1px var(--nb-chrome-border), var(--nb-shadow-lg); animation: fade var(--nb-dur-med) var(--nb-ease-out); }
+  /* opacity only: fitIn measures the row's box, which a scale would shrink while it runs */
+  @keyframes fade { from { opacity: 0; } }
+  .dock.left .title-row { right: auto; left: 0; }
+  .dock.top .title-row { bottom: auto; top: calc(100% + 8px); }
+  .title-row input { all: unset; flex: 1; min-width: 0; height: 32px; color: var(--nb-on-chrome); font: var(--nb-weight-medium) 13px/32px var(--nb-font-sans); letter-spacing: var(--nb-tracking-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .title-row input::placeholder { color: var(--nb-on-chrome-muted); }
+  .title-row:focus-within { box-shadow: inset 0 0 0 1px var(--nb-chrome-accent), var(--nb-shadow-lg); }
+  .skip { all: unset; box-sizing: border-box; flex: none; height: 28px; padding: 0 10px; border-radius: 14px; cursor: pointer; color: var(--nb-on-chrome-muted); font: var(--nb-weight-medium) 12px/28px var(--nb-font-sans); transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out); }
+  .skip:hover { background: var(--nb-chrome-2); color: var(--nb-on-chrome); }
+  .skip:focus-visible { outline: 2px solid var(--nb-chrome-accent); outline-offset: 1px; color: var(--nb-on-chrome); }
   /* phone width (390 px): the pill wraps onto two rows, so Send and Close stay on screen (D-185) */
   @media (max-width: 520px) {
     .pill { flex-wrap: wrap; justify-content: center; height: auto; padding: 6px; row-gap: 4px; max-width: calc(100vw - 24px); overflow: visible; }
@@ -280,7 +333,7 @@
   .send:active:not(:disabled) { transform: translateY(1px); }
   .send:disabled { opacity: 0.4; cursor: default; }
   @media (prefers-reduced-motion: reduce) {
-    .pill, .rec-dot { animation: none; }
-    .launcher, .ib, .send { transition: none; }
+    .pill, .rec-dot, .title-row { animation: none; }
+    .launcher, .ib, .send, .skip { transition: none; }
   }
 </style>

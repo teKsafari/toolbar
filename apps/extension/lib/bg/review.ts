@@ -6,7 +6,7 @@
 import { browser } from 'wxt/browser';
 import { createEmitter, type CaptureEvent, type EnvInfo } from '@toolbar/shared';
 import { ROUTES, buildPath } from '@toolbar/shared/api';
-import { CONTEXT_WINDOW_MS, contextEventIds, contextFromEvents, type FeedbackItemInput } from '@toolbar/shared/areas/reviewer';
+import { CONTEXT_WINDOW_MS, autoFeedbackTitle, contextEventIds, contextFromEvents, type FeedbackItemInput } from '@toolbar/shared/areas/reviewer';
 import type { BgError, BgRequestMap, NewReviewItem, ReviewItem, ReviewPatch, ReviewSubmitResult } from '@toolbar/shared/ext';
 import { TEST_HOOKS } from '../flags';
 import { CaptureQueue, cropImage, dataUrlToBlob } from '../crop';
@@ -137,16 +137,6 @@ async function postJson<T>(a: UploadAuthLike, path: string, body: unknown): Prom
   return data;
 }
 
-function titleOf(items: StoredItem[]): string {
-  const first = items.find((i) => i.comment.trim())?.comment.trim().split('\n')[0] ?? '';
-  if (first) return first.length > 80 ? `${first.slice(0, 79)}…` : first;
-  try {
-    return `Feedback on ${new URL(items[0]!.page.url).pathname}`;
-  } catch {
-    return 'Feedback';
-  }
-}
-
 async function submit(svc: CaptureService, tabId: number, req: BgRequestMap['review.submit']['req']): Promise<ReviewSubmitResult> {
   const st = tabOf(tabId);
   const items = st.items.slice();
@@ -213,7 +203,7 @@ async function submit(svc: CaptureService, tabId: number, req: BgRequestMap['rev
       await api.putChunk(a, recordingId, 'events', 0, body, { sha256: await sha256Hex(body), t0: events[0]!.t, t1: events[events.length - 1]!.t, contentType: 'application/x-ndjson', contentEncoding: 'gzip' });
       await api.completeStream(a, recordingId, 'events', { lastSeq: 0, totalBytes: body.size });
     }
-    const fin = await api.finalize(a, recordingId, { title: req.title ?? titleOf(items), description: '', annotations: [] });
+    const fin = await api.finalize(a, recordingId, { title: req.title?.trim().slice(0, 500) || autoFeedbackTitle(items), description: '', annotations: [] });
     shareUrl = fin.shareUrl || shareUrl;
   }
   await dropBlobs(items);
