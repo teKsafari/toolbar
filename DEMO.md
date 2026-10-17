@@ -89,11 +89,10 @@ A running instance is on this repose machine (project `toolbar`). Attach with `r
   - Dev SSO (needs port 3311): user name `sub-amani@nuru.test`, claims `{"email": "amani@nuru.test", "email_verified": true, "name": "Amani Reviewer"}` shows the Nuru captures. Any `*.test` address gets in.
   - Password: `dana@toolbar.test` / `toolbar-dev-password`, the instance admin. `repose open 3000` is enough for this one.
   - Transcription starts off; pick "Local whisper.cpp" in Settings > Server as Dana.
-- **Extension**: load the zip unpacked; it points at http://localhost:3000.
+- **Extension**: the release zip from GitHub releases, with "Use another server" set to http://localhost:3000; or a local build, which points there by default:
 
   ```sh
-  repose cp toolbar:/home/dev/toolbar/dist/open-toolbar-extension-0.0.1-chrome.zip .
-  unzip open-toolbar-extension-0.0.1-chrome.zip -d open-toolbar-extension
+  pnpm --filter @toolbar/extension build   # load apps/extension/.output/chrome-mv3 unpacked
   ```
 
 - **Nuru**: open https://116.nuru.sh/sw, Ctrl+Shift+. for the toolbar, `x` to start a trace.
