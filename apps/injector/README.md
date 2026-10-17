@@ -1,8 +1,8 @@
 # Injector
 
-A small Go reverse proxy that adds the open-toolbar to an app's pages without any change to the app (PLAN "Zero integration", delivery 2; D-157, D-201). It sits beside Traefik: Traefik sends it only reviewers' requests, for any host, and the injector sends them back into Traefik, which routes them to the app. For a signed-in reviewer it adds one script tag to the `<head>` of each HTML page. Everyone else never reaches it.
+Go reverse proxy that adds one script tag to the `<head>` of an app's HTML pages for signed-in reviewers (D-157, D-201). Optional: the default deployment does not run it. Traefik sends it only reviewers' requests; it sends them back into Traefik, which routes them to the app.
 
-Setting it up on Coolify, and opening an app for review: [docs/injector-on-coolify.md](../../docs/injector-on-coolify.md).
+Coolify setup: [docs/injector-on-coolify.md](../../docs/injector-on-coolify.md).
 
 ## Two modes
 
@@ -48,30 +48,26 @@ tbr1.<base64url(JSON {"v":1,"o":"<origin>","u":"<user id>","x":<expiry, unix s>,
 
 The server signs it (`apps/server/src/lib/server/review/cookie.ts`); the injector checks it offline (`cookie.go`). Both sides pin the format to `testdata/review-cookie.json`. The device token inside is a normal open-toolbar device token named "Review on <host>": it shows under Settings, Connected browsers, expires with the cookie and can be revoked there. The cookie's name is `__Host-tb_review` on https and `tb_review` on http.
 
-Sign-in, step by step (D-201):
+Sign-in (D-201):
 
-1. The reviewer opens a review link, `https://feedback.example/go/<project id>` (Settings, Projects, "Copy review link"; `?site=<origin>` when the project has several origins). `https://app.example/__toolbar/login` leads to the same page as `/go?site=https://app.example`. The server asks them to sign in when they are not.
-2. The server checks the origin: it must be in a project of the person's workspaces (`reviewOriginAllowed` in `apps/server/src/lib/server/projects/`) and, when `INJECTOR_ORIGINS` is set, in that list too. The page names the site and the account, and reads `https://app.example/__toolbar/health` to make sure the injector answers there.
-3. "Open app.example with the toolbar" mints the token and signs the cookie for that origin only. "Open with toolbar" on the project page does this step at once.
-4. The page posts the value to `https://app.example/__toolbar/session`; the injector sets the cookie and sends the browser to `next`.
-
-The page has an error state for each failure: the site is in no project of the person (or not in `INJECTOR_ORIGINS`), the project is gone or not theirs, the injector does not answer on the site, the server has no `INJECTOR_SECRET`.
+1. Review link `<server>/go/<project id>` (`?site=<origin>` for a project with several origins). `https://app.example/__toolbar/login` leads to `/go?site=https://app.example`.
+2. The server checks the origin against the reviewer's projects (`reviewOriginAllowed` in `apps/server/src/lib/server/projects/`) and `INJECTOR_ORIGINS`, and probes `https://app.example/__toolbar/health`.
+3. The server mints the device token and signs the cookie for that origin only.
+4. The page posts the value to `https://app.example/__toolbar/session`; the injector sets the cookie and redirects to `next`.
 
 ## The page bundle (D-158)
 
-`apps/extension/page/` (`pnpm --filter @toolbar/extension build:page`, output `apps/extension/.output/page/toolbar.js`, about 73 KB gzipped, with the bundled OFL fonts and their licences beside it, which it registers on the page from `/__toolbar/`). It runs the same capture code as the extension: the MAIN-world hooks and the isolated-world recorder of `@toolbar/capture`, both in the page's realm and joined by their usual bridge, with `PageSession` as the `Transport`. It keeps the last 60 seconds of console, errors, network, user events and DOM replay in memory. The UI is a small bar at the bottom of the page:
+`apps/extension/page/`, built with `pnpm --filter @toolbar/extension build:page` to `apps/extension/.output/page/toolbar.js` (about 73 KB gzipped, plus the OFL fonts served from `/__toolbar/`). It runs the MAIN-world hooks and the isolated-world recorder of `@toolbar/capture` in the page's realm, with `PageSession` as the `Transport`, and keeps the last 60 seconds of console, errors, network, user events and DOM replay in memory.
 
-- **Comment**: pick an element, write, send. Without a trace it creates an instant-replay capture of the last minute with the comment as an annotation on that element's locator. During a trace it joins the trace.
-- **Start trace / Stop trace**: a capture that streams events and DOM replay to the server every two seconds and follows the reviewer across pages of the tab (its id and chunk counters live in `sessionStorage`). Stop asks for an optional note.
-- **Menu**: who is signed in, hide the bar, "Stop reviewing on this site" (removes the cookie and revokes its device token).
+- **Comment**: outside a trace, an instant-replay capture of the last minute with the comment on the element's locator; inside a trace, joins the trace.
+- **Start trace / Stop trace**: streams events and DOM replay every two seconds, across pages of the tab (state in `sessionStorage`).
+- **Menu**: account, hide, "Stop reviewing on this site" (removes the cookie, revokes the token).
 
-The page's project (the first project in the reviewer's workspaces with an origin that matches the page, from the bootstrap) sets the masking preset and body policy (D-125) and the workspace each capture goes to; events wait in the page until the preset is known. With no matching project the bundle uses the staging preset with bodies of the page's own origin, and the reviewer's active workspace. Captures it makes carry `source: injector` ("Toolbar on the site" in the dashboard filter).
+The first project in the reviewer's workspaces whose origin matches the page sets the masking preset, body policy (D-125) and workspace. Without one: staging preset, bodies of the page's origin, the active workspace. Captures carry `source: injector`.
 
 ## Configuration
 
-Every variable of the injector container, with its default, an example and when to change it, is in [docs/configuration.md, "Injector container"](../../docs/configuration.md#injector-container): `INJECTOR_LOOPBACK` and `INJECTOR_LOOPBACK_INSECURE`, or `INJECTOR_UPSTREAMS` and `INJECTOR_UPSTREAM`, `TOOLBAR_SERVER_URL`, `TOOLBAR_PUBLIC_URL`, `INJECTOR_SECRET`, `INJECTOR_TRUST_FORWARDED`, `INJECTOR_SCAN_LIMIT`, `INJECTOR_LISTEN` and `INJECTOR_ASSETS`. A test there fails when the Go code reads a variable the page does not list.
-
-On the open-toolbar server: `INJECTOR_SECRET` (the same value), `INJECTOR_ORIGINS` (an optional hard allowlist on top of the projects) and `INJECTOR_COOKIE_DAYS` (default 7), in the same page's "Injector" section.
+Container variables: [docs/configuration.md, "Injector container"](../../docs/configuration.md#injector-container) (`INJECTOR_LOOPBACK`, `INJECTOR_LOOPBACK_INSECURE`, `INJECTOR_UPSTREAMS`, `INJECTOR_UPSTREAM`, `TOOLBAR_SERVER_URL`, `TOOLBAR_PUBLIC_URL`, `INJECTOR_SECRET`, `INJECTOR_TRUST_FORWARDED`, `INJECTOR_SCAN_LIMIT`, `INJECTOR_LISTEN`, `INJECTOR_ASSETS`). Server variables: `INJECTOR_SECRET`, `INJECTOR_ORIGINS`, `INJECTOR_COOKIE_DAYS` (default 7), in the "Injector" section of the same page.
 
 `/injector pass-value` prints the `X-Open-Toolbar-Pass` value for the Traefik file, `base64url(HMAC-SHA256(INJECTOR_SECRET, "open-toolbar pass v1"))`. `/injector healthcheck` is the container health check.
 
@@ -79,12 +75,7 @@ The injector logs one line per request it handles (`kind=loopback`, `app`, `tool
 
 ## Coolify
 
-`deploy/injector/` has both files; [docs/injector-on-coolify.md](../../docs/injector-on-coolify.md) has the steps.
-
-- `docker-compose.injector.yml`: the injector as a Compose resource, on the `coolify` network under the alias `open-toolbar-injector`, in loopback mode to `https://coolify-proxy:443`, with no domains of its own. Coolify asks for `INJECTOR_SECRET` and `TOOLBAR_SERVER_URL`.
-- `traefik-open-toolbar-injector.yml`: a dynamic configuration for Coolify's proxy. One router on the `https` entry point for any host (`HostRegexp(`.+`)`), priority 100000, matching only `/__toolbar/` and requests that carry the reviewer cookie, and leaving out requests with the right `X-Open-Toolbar-Pass` header. Its middleware adds that header and compresses responses. Its service is a failover: the injector while its health check passes, else the proxy itself (`https://coolify-proxy:443`), where the header makes the request skip this router and reach the app. So visitors never pass through the injector, and while it is down reviewers get the plain app. No Traefik plugin and no extra domain. The pass value keeps page scripts from sending the header themselves to get the reviewer cookie to the app; the injector never forwards it, so apps do not learn it while the injector runs.
-
-`deploy/lab/docker-compose.lab.yml` deploys the lab app (`lab/Dockerfile`) as a first site to review.
+`deploy/injector/docker-compose.injector.yml` (Compose resource) and `deploy/injector/traefik-open-toolbar-injector.yml` (Traefik dynamic configuration); files, rule and variables in [docs/injector-on-coolify.md](../../docs/injector-on-coolify.md). `deploy/lab/docker-compose.lab.yml` deploys the lab app as a test site.
 
 ## Develop and test
 
@@ -94,15 +85,12 @@ apps/injector/test/run.sh                    # compose test: the injector in fro
 apps/injector/test/coolify-like/run.sh       # traefik:v3.7 set up like Coolify's, loopback mode, the whole reviewer journey
 ```
 
-`run.sh` needs the lab on :5173, a server on `SERVER_URL` (default http://localhost:3306) that signs in through the mock OIDC provider, and `INJECTOR_SECRET` on that server; it reads the repo root `.env`. It builds the image, starts it on :3506 in explicit mode and runs `e2e/injector/injector.spec.ts`.
-
-`coolify-like/run.sh` (docs/dev.md, "The injector") runs `traefik:v3.7` with the command line and labels Coolify generates, the lab and a strict-CSP page as two apps, `traefik/whoami` to see what an app receives, and the injector behind the rendered Traefik file, then `e2e/injector/coolify.spec.ts` headed on display `:350`.
+`run.sh` needs the lab on :5173 and a server on `SERVER_URL` (default http://localhost:3306) with the mock OIDC provider and `INJECTOR_SECRET`; it reads the repo root `.env`, starts the injector on :3506 in explicit mode and runs `e2e/injector/injector.spec.ts`. `coolify-like/run.sh`: docs/dev.md, "The injector".
 
 ## Known limits
 
-- In loopback mode an app sees the injector's address as the client of a reviewer's requests, unless the proxy trusts `X-Forwarded-For` from the `coolify` network (docs/injector-on-coolify.md, "Optional").
+- In loopback mode an app sees the injector's address as the client of a reviewer's requests, unless the proxy trusts `X-Forwarded-For` from the `coolify` network (docs/injector-on-coolify.md, "Optional: client addresses").
 - While the injector is down, reviewers' requests reach the app through the fallback with the reviewer cookie and the pass header on them. In the first seconds, before Traefik's health check notices, they get a 502.
-
 - The bundle shares the page's JavaScript realm. The app's own scripts could call the `/__toolbar/api/` relay as the reviewer while the reviewer has the page open; the relay only allows the capture upload routes, and the cookie and token never reach page scripts or the app's server. The extension's isolated world does not have this exposure.
 - Page console calls show `toolbar.js` as their source in the browser's own devtools, because the hook wraps `console`.
 - No screenshots: a page cannot capture its own pixels without a permission prompt. The DOM replay covers what the page showed.

@@ -1,45 +1,37 @@
 # Branding an instance
 
-open-toolbar shows its own name and a filled rectangle as its logo. On your server you can replace both and pick the accent colour. People see your brand on the sign-in page, share pages, recording links, the dashboard, browser tabs (favicon), mail, and in the browser extension once it is signed in to your server.
+Name, logo and accent colour apply to the sign-in page, share pages, recording links, the dashboard, favicons, mail, and the extension once signed in. Set them in Settings > Server, Branding, or by variable; a set variable wins and locks the field. Defaults: `open-toolbar`, a filled rectangle, accent `#000000` (near-white `#fafafa` on dark pages).
 
-## Two ways to set it
-
-1. **Environment variables**, read when the server starts. A value set here wins and is shown read-only in the admin page.
-2. **Settings > Server**, in the dashboard. Only the instance admin sees this page; it saves at once.
-
-When neither sets a field, the default applies: `open-toolbar`, the rectangle, accent `#000000` (black, shown as near-white `#fafafa` on dark pages).
-
-| Variable | Example | What it does |
+| Variable | Example | Effect |
 |---|---|---|
-| `APP_NAME` | `Acme Review` | Product name in titles, headers, mail, the MCP server title and the extension. 1 to 40 letters, digits, spaces or `. , ' & ( ) + _ -`. |
-| `APP_LOGO_URL` | `https://acme.example/logo.svg` or `file:///brand/logo.svg` | Logo, SVG or PNG, at most 512 KB. The server fetches it once at start (5 s timeout, redirects only on the same host) and keeps a copy in object storage. A `file:` path is inside the server container, so mount it as a volume. If the fetch fails, the server logs a warning and shows the default. |
+| `APP_NAME` | `Acme Review` | Name in titles, headers, mail, the MCP server title and the extension. 1 to 40 letters, digits, spaces or `. , ' & ( ) + _ -`. |
+| `APP_LOGO_URL` | `https://acme.example/logo.svg` or `file:///brand/logo.svg` | SVG or PNG, at most 512 KB, fetched once at start (5 s timeout, same-host redirects only) and copied to object storage. `file:` paths are inside the container. On failure the server logs a warning and uses the default. |
 | `APP_LOGO_DARK_URL` | | Logo for dark pages. Optional. |
-| `APP_ACCENT` | `#0b7a5c` | Accent colour for buttons, links, focus rings, the toolbar's main button and the default logo. The server picks white or near-black text on it and refuses a colour where neither reads well. Hover and pressed shades, link text and focus are derived from it and kept at WCAG AA contrast: a light accent gets darker link text on light pages. Dark pages get a lighter shade of it, lightened until it reads on dark surfaces; black and greys turn near-white there instead. Page background, surfaces, text and the red, green and amber status colours stay neutral whatever the accent. |
-| `ADMIN_EMAILS` | `ops@acme.example,lee@acme.example` | Who may open Settings > Server. Each address must be verified by your sign-in provider. |
+| `APP_ACCENT` | `#0b7a5c` | Buttons, links, focus rings, the toolbar's main button and the default logo. The server picks white or near-black text and refuses a colour where neither reads. Hover, pressed, link and focus shades are derived at WCAG AA contrast; dark pages get a lighter shade (black and greys become near-white). Background, surfaces, text and status colours stay neutral. |
 
-`ADMIN_EMAILS` is one of the six required values. On a public URL with no allowed email domains, only those addresses can sign in until an admin has (the bootstrap rule, `docs/configuration.md`, "Who gets in"); with it empty there, nobody can sign in and the server log says so at start. On localhost without `ADMIN_EMAILS`, the first account created is the instance admin. After the first sign-in, the admin sets allowed email domains and transcription on the same page, Settings > Server.
+`ADMIN_EMAILS` names who may open Settings > Server; see `docs/configuration.md`, "Who gets in".
 
 ## Logos
 
-- Formats: SVG or PNG, at most 512 KB; a PNG at most 2048 by 2048 pixels; an SVG needs a `viewBox` or a width and height.
-- SVG files are cleaned on upload. A file with scripts, event handlers, embedded HTML, `<image>` or `<use>` elements, links to other files or a DOCTYPE is refused with the reason, so export a plain vector file. Editor metadata (Inkscape, Figma) is dropped.
-- From the logo the server renders square PNG icons at 16, 32, 48, 128, 180 and 512 pixels (favicons, the iOS home-screen icon, the extension's toolbar icon) and a 64 px high PNG for mail, since most mail clients show no SVG. A wide logo sits centred in the square icons, so a compact mark works best there. The default rectangle's icons carry a thin edge in the accent's text colour (white around the black default), because a PNG cannot follow the OS theme as the SVG favicon does and a plain black mark is lost on a dark browser toolbar. The extension's own icon, shown before sign-in, is the same black rectangle with a white edge.
-- Files are served from `/brand/`: `logo.svg` or `logo.png`, `logo-dark.*`, `icon-<size>.png`, `email.png`. `/favicon.ico` redirects to the 32 px icon. With the current `?v=` they are cached for a year, so a change shows at once with new URLs.
-- `GET /api/v1/branding` returns the name, accent and absolute file URLs, without sign-in.
+- SVG or PNG, at most 512 KB; PNG at most 2048 by 2048; SVG needs a `viewBox` or width and height.
+- SVGs with scripts, event handlers, embedded HTML, `<image>` or `<use>`, external references or a DOCTYPE are refused with the reason. Editor metadata is dropped.
+- The server renders square PNG icons at 16, 32, 48, 128, 180 and 512 px and a 64 px high `email.png`. Wide logos sit centred in the squares, so a compact mark works best. The default rectangle's PNG icons get a thin edge in the accent's text colour so they read on dark browser toolbars.
+- Served from `/brand/`: `logo.svg` or `logo.png`, `logo-dark.*`, `icon-<size>.png`, `email.png`. `/favicon.ico` redirects to the 32 px icon. URLs carry `?v=` and are cached for a year.
+- `GET /api/v1/branding` returns the name, accent and absolute file URLs without sign-in.
 
 ## The browser extension
 
-The extension's name in `chrome://extensions`, the store and permission prompts comes from its manifest, which no server can change. After sign-in the extension fetches your server's brand and uses it for the toolbar icon and its tooltip, the popup, the options page, the draft editor and the accent of the in-page recording bar. Signing out puts back the extension's own icon and name.
+The manifest name (shown in `chrome://extensions`, the store and permission prompts) is fixed at build time. After sign-in the extension uses the server's brand for its toolbar icon, tooltip, popup, options page, draft editor and recording bar; sign-out restores its own.
 
-To ship an extension with your name and icon everywhere, build it yourself:
+A fully branded build:
 
 ```sh
 WXT_APP_NAME="Acme Review" WXT_APP_ICON=/path/to/icon.svg WXT_SERVER_URL=https://review.acme.example \
   pnpm --filter @toolbar/extension build
 ```
 
-`WXT_APP_ICON` takes an SVG or PNG; the build renders the 16, 32, 48 and 128 px icons from it. A build of your own needs a signing key of your own (the manifest `key`), which gives it a different extension id; add that id to the server's `EXTENSION_IDS`.
+`WXT_APP_ICON` takes SVG or PNG and renders the 16, 32, 48 and 128 px icons. Publishing your own build needs your own manifest key, which changes the extension id; add it to `EXTENSION_IDS`.
 
 ## Fixed names
 
-Some names identify the software, not the instance, and stay the same on every server: the MCP server name `open-toolbar` (tools appear as `mcp__open-toolbar__...` in agents), the paused command-line tool `open-toolbar`, the `x-toolbar-*` headers and the `toolbar-*` user agents of webhooks. Agent configurations, skills and webhook receivers depend on them.
+These identify the software and do not change per instance: the MCP server name `open-toolbar` (`mcp__open-toolbar__...` tools), the paused CLI `open-toolbar`, the `x-toolbar-*` headers and the `toolbar-*` webhook user agents.

@@ -83,24 +83,21 @@ All captures of the workspace, with filters by type, source and creator, folders
 
 ## Try it yourself
 
-A running instance and the extension are ready on this repose machine (project `toolbar`).
+A running instance is on this repose machine (project `toolbar`). Attach with `repose attach toolbar` so ports 3000 and 3311 forward.
 
-1. **The server.** While you are attached (`repose attach toolbar`), every port here appears on your laptop: open http://localhost:3000. Sign in with "Sign in with Dev SSO". The mock provider asks for a user name and claims; to see the Nuru captures, use the user name `sub-amani@nuru.test` and the claims `{"email": "amani@nuru.test", "email_verified": true, "name": "Amani Reviewer"}`. Any `*.test` address gets in. The seeded account `dana@toolbar.test` with password `toolbar-dev-password` works too. Dev SSO needs port 3311 as well, so use attach. `repose open 3000` forwards only one port, which is enough for the password sign-in.
+- **Server**: http://localhost:3000, stack from `docker-compose.yml`, `docker-compose.dev.yml` and `docker-compose.whisper.yml` (`docs/dev.md`).
+  - Dev SSO (needs port 3311): user name `sub-amani@nuru.test`, claims `{"email": "amani@nuru.test", "email_verified": true, "name": "Amani Reviewer"}` shows the Nuru captures. Any `*.test` address gets in.
+  - Password: `dana@toolbar.test` / `toolbar-dev-password`, the instance admin. `repose open 3000` is enough for this one.
+  - Transcription starts off; pick "Local whisper.cpp" in Settings > Server as Dana.
+- **Extension**: load the zip unpacked; it points at http://localhost:3000.
 
-   The stack runs with the development and whisper files (`docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.whisper.yml`, `docs/dev.md`). `dana@toolbar.test`, the first account, is the instance admin: Settings > Server shows where allowed domains, transcription and the rest are set. Allowed domains are pinned to `test` here. Transcription starts off, so for transcripts of new voice notes sign in as Dana once and pick "Local whisper.cpp" under Settings > Server, Transcription.
+  ```sh
+  repose cp toolbar:/home/dev/toolbar/dist/open-toolbar-extension-0.0.1-chrome.zip .
+  unzip open-toolbar-extension-0.0.1-chrome.zip -d open-toolbar-extension
+  ```
 
-2. **The extension.** Copy the release zip to your laptop and load it unpacked:
-
-   ```sh
-   repose cp toolbar:/home/dev/toolbar/dist/open-toolbar-extension-0.0.1-chrome.zip .
-   unzip open-toolbar-extension-0.0.1-chrome.zip -d open-toolbar-extension
-   ```
-
-   In Chrome, open `chrome://extensions`, turn on Developer mode, click Load unpacked and pick `open-toolbar-extension`. It points at http://localhost:3000, so keep the session attached while you use it.
-3. **Review Nuru.** Sign in from the popup as Amani (above), open https://116.nuru.sh/sw, open the popup and click Allow. Press Ctrl+Shift+. to wake the toolbar and `x` to start a trace.
-4. **The video and screenshots**, if your editor is not on the checkout: `repose cp -r toolbar:/home/dev/toolbar/docs/demo .`
-
-`git fetch repose` brings the commits, these files included.
+- **Nuru**: open https://116.nuru.sh/sw, Ctrl+Shift+. for the toolbar, `x` to start a trace.
+- **Media**: `repose cp -r toolbar:/home/dev/toolbar/docs/demo .`, or `git fetch repose`.
 
 ## How this was made
 

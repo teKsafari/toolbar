@@ -1,6 +1,6 @@
 # Developing open-toolbar
 
-How to run each part of the repo on this machine or a fresh one. The product is open-toolbar (D-083, formerly the working name Nib); the repo and package scope stay `toolbar`.
+The product is open-toolbar (D-083); the repo and package scope are `toolbar`.
 
 ## Layout
 
@@ -20,7 +20,9 @@ Internal packages ship TypeScript source (`exports` point at `src/*.ts`); Vite a
 
 ## Requirements
 
-Node 24, pnpm 11.27 (`corepack enable` picks it up from `packageManager`; where Node lives in a read-only store, as on NixOS, `corepack enable` fails: use `corepack pnpm@11.27.0 ...`, `npm i -g pnpm@11.27.0`, or a pnpm already on `PATH`), Docker with compose. For e2e: Xvfb, and openbox if you want the screen picker (on this VM: `nix profile add nixpkgs#xorg.xvfb nixpkgs#openbox`). For OCR in the feedback folder outside Docker: tesseract with English data (on NixOS `nixpkgs#tesseract` carries every language, about 1 GB; `tesseract.override { enableLanguages = [ "eng" ]; }` is small); without it `text/` is left out.
+- Node 24, pnpm 11.27 (`corepack enable`; on a read-only Node such as NixOS, `npm i -g pnpm@11.27.0`), Docker with compose.
+- e2e: Xvfb, openbox for the screen picker (`nix profile add nixpkgs#xorg.xvfb nixpkgs#openbox`).
+- OCR outside Docker: tesseract with English data; without it the folder has no `text/`.
 
 ## Ports
 
@@ -61,19 +63,17 @@ env -u OPENAI_API_KEY \
 curl -s localhost:3000/api/health  # {"ok":true,"checks":{"db":{"ok":true},"s3":{"ok":true},...}}
 ```
 
-Add `-f docker-compose.whisper.yml` (and `TRANSCRIBE_PROVIDER=local`, or pick "Local whisper.cpp" in Settings > Server) for transcripts; the first start downloads the whisper model. Use the same `-f` list for every later `docker compose` command on that stack (`ps`, `logs`, `down`), or Compose treats the services of the missing files as orphans.
+- Whisper: add `-f docker-compose.whisper.yml` and `TRANSCRIBE_PROVIDER=local`. Use the same `-f` list for every later command on the stack (`ps`, `logs`, `down`).
+- Dev SSO: the mock at `http://oidc.localhost:3311` signs any user name (the subject) with any claims, for example `{"email": "you@example.test", "email_verified": true, "name": "You"}`. `*.localhost` resolves to this machine for the browser and, through `host-gateway`, for the server container (D-094). Never deploy it.
+- `ALLOWED_EMAIL_DOMAINS=test` admits `*.test` and locks that field. On localhost without `ADMIN_EMAILS`, the first account is the instance admin.
+- `AUTH_DEV_PASSWORD=1`: any email with an 8+ character password; seeded accounts `dana@toolbar.test`, `sam@toolbar.test`, password `toolbar-dev-password`.
+- Paused features (docs/scope.md): `FEATURE_EMAIL`, `FEATURE_TRACKERS`, `FEATURE_SLACK`, `FEATURE_CLI`, `FEATURE_AI`, `FEATURE_ADMIN_EXTRAS`. `/api/health` lists the ones on; their e2e tests skip with "paused (docs/scope.md)" (`e2e/fixtures/features.ts`). Mail: `-f docker-compose.mail.yml` (D-171).
+- Compose runs with no `.env`; every variable has a dev default. Postgres, Garage, whisper and Mailpit bind `127.0.0.1`; the mock OIDC provider binds all interfaces for the host gateway. Off localhost, `scripts/gen-secrets.sh https://your.host` writes `.env` with random secrets.
+- `AUTH_RATE_LIMIT=off` disables the 3-per-10-s sign-in limit for e2e.
+- `OPENAI_API_KEY` reaches the server only from `.env` (`env_file`). Keep `env -u OPENAI_API_KEY` in front of `docker compose`, and never save `docker compose config` output where others can read it: it prints `.env` values (D-193).
+- Coolify variant: `docker-compose.coolify.yml` (`docs/configuration.md`, "Coolify"), whisper via `COMPOSE_PROFILES=whisper`.
 
-Open http://localhost:3000. Without the dev file the server offers no sign-in method: sign-in is one OIDC provider that you configure (`docs/configuration.md`, "Sign-in"; D-114). The login page then shows one "Sign in with Dev SSO" button. The mock's own page asks for a user name (it becomes the subject) and the ID token claims, for example `{"email": "you@example.test", "email_verified": true, "name": "You"}`; it signs whatever you give it, so it never belongs in a real deployment. Browsers resolve `*.localhost` to this machine and the server container reaches the same name through `host-gateway`, so both see one issuer (D-094). `ALLOWED_EMAIL_DOMAINS=test` admits every `*.test` address. On a real server the allowed domains are set in Settings > Server; the dev file passes the variable so the suites can pin it, which locks that field in the admin page. On localhost without `ADMIN_EMAILS`, the first account becomes the instance admin and sees Settings > Server.
-
-The dev-only password sign-in stays available with `AUTH_DEV_PASSWORD=1`: sign in with any email and a password of 8+ characters (the account is created on first sign-in, with a personal workspace). The seeded accounts (`dana@toolbar.test`, `sam@toolbar.test`, password `toolbar-dev-password`) need it.
-
-Paused features (docs/scope.md) stay hidden unless their flag is set to 1: `FEATURE_EMAIL`, `FEATURE_TRACKERS`, `FEATURE_SLACK`, `FEATURE_CLI`, `FEATURE_AI`, `FEATURE_ADMIN_EXTRAS`. `/api/health` lists the ones that are on (`features`), and e2e tests of a paused feature read it and skip with "paused (docs/scope.md)" while the flag is off (`e2e/fixtures/features.ts`). Mail needs `FEATURE_EMAIL=1` and `SMTP_URL`, which the default compose file does not pass; `docker-compose.mail.yml` adds both and Mailpit: add `-f docker-compose.mail.yml` to the command (D-171).
-
-Compose works with no `.env`: every variable has a dev default. Whisper is optional and sits in `docker-compose.whisper.yml` (`pnpm stack` and `scripts/e2e-all.sh` add it). Transcription is off until `TRANSCRIBE_PROVIDER` is set or an admin picks a provider in Settings > Server. Postgres, Garage, whisper and Mailpit (override file) publish their ports on `127.0.0.1` only; the mock OIDC provider stays on all interfaces because the server container reaches it through the host gateway. `docker-compose.coolify.yml` is the Coolify variant (`docs/configuration.md`, "Coolify"); there the whisper service is a profile, `COMPOSE_PROFILES=whisper`. For anything beyond localhost, run `scripts/gen-secrets.sh https://your.host` to write `.env` with random secrets (`.env.example` lists every variable). The server refuses to start on a non-localhost `PUBLIC_URL` with dev secrets. Sign-in rate limits (3 tries per 10 s per address) are on in the image; `AUTH_RATE_LIMIT=off` turns them off for an e2e run.
-
-The compose files pass `OPENAI_API_KEY` to the server only from `.env` (`env_file`), never from your shell; a key there locks the API key field in Settings > Server. Keep `env -u OPENAI_API_KEY` in front of `docker compose` anyway, so a later edit that interpolates it cannot pick up the shell's key, and never save `docker compose config` output to a file that others can read: it prints `.env` values in clear (D-193).
-
-`docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.whisper.yml down -v` wipes the database, the bucket and the whisper model.
+Wipe the database, bucket and whisper model: `docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.whisper.yml down -v`.
 
 ## Dev mode
 
@@ -86,9 +86,7 @@ pnpm dev:server                 # or one at a time
 pnpm dev:extension
 ```
 
-The server reads the repo root `.env` when present, and falls back to the same defaults as compose (`postgres://toolbar:toolbar@localhost:5432/toolbar`, Garage on `localhost:3900`). Migrations run at startup (`MIGRATE_ON_START=1`); the job worker runs in the same process (`WORKER=1`).
-
-Database schema changes: tables live in `apps/server/src/lib/server/db/schema/<area>.ts`, re-exported by `schema/index.ts`.
+The server reads the repo root `.env`, else the compose defaults (`postgres://toolbar:toolbar@localhost:5432/toolbar`, Garage on `localhost:3900`). Migrations and the job worker run in-process (`MIGRATE_ON_START=1`, `WORKER=1`). Schema: `apps/server/src/lib/server/db/schema/<area>.ts`, re-exported by `schema/index.ts`.
 
 ```sh
 pnpm --filter @toolbar/server db:migrate      # apply drizzle/ to DATABASE_URL
@@ -97,9 +95,7 @@ pnpm --filter @toolbar/server db:generate     # main branch only (merge step): w
 pnpm --filter @toolbar/server db:seed         # two users, a workspace, three captures with media
 ```
 
-Area worktrees run side by side on their own ports, databases and S3 prefixes: `scripts/area-setup.sh <area> --seed`, then see `docs/parallel.md`.
-
-Production-style server without Docker: `pnpm --filter @toolbar/server build && cd apps/server && node server.js`. Use `server.js`, not `node build` (D-023).
+Area worktrees: `scripts/area-setup.sh <area> --seed` (`docs/parallel.md`). Production-style server without Docker: `pnpm --filter @toolbar/server build && cd apps/server && node server.js`, never `node build` (D-023).
 
 ## Build, test, check
 
@@ -111,7 +107,7 @@ pnpm e2e           # test build of the extension, then the area suites (needs co
 scripts/e2e-all.sh # every e2e suite on a fresh, seeded compose stack (see E2E below)
 ```
 
-Transcription tests (`apps/server/test/transcribe*.test.ts`): the unit tests use recorded API answers and synthetic audio; the chunker and integration tests need ffmpeg and use the FLEURS clips in `apps/server/fixtures/transcribe/` (CC BY 4.0, `ATTRIBUTION.md`). One live test calls OpenAI's `gpt-transcribe` on both clips, about $0.002 a run, and runs only when asked:
+Transcription tests use recorded API answers; the chunker and integration tests need ffmpeg and the FLEURS clips in `apps/server/fixtures/transcribe/` (CC BY 4.0). The live test calls `gpt-transcribe` (about $0.002 a run):
 
 ```sh
 TRANSCRIBE_LIVE_TEST=1 pnpm --filter @toolbar/server exec vitest run test/transcribe.live.test.ts   # needs OPENAI_API_KEY or TRANSCRIBE_API_KEY
@@ -128,17 +124,9 @@ Builds:
 | `pnpm --filter @toolbar/extension build:test` | `apps/extension/.output/chrome-mv3-test` | open shadow root, `globalThis.__tb` in the worker |
 | `WXT_OUT_SUFFIX=-121 WXT_TEST_HOOKS=1 pnpm --filter @toolbar/extension exec wxt build` | `apps/extension/.output/chrome-mv3-test-121` | the test build in a folder of its own, for a run beside others (`E2E_EXT_BUILD=chrome-mv3-test-121`) |
 
-Release zips for Chrome (unpacked and Web Store) and Firefox: `scripts/release-extension.sh` writes them to `dist/` (`docs/extension-release.md`).
+Release zips: `scripts/release-extension.sh` (`docs/extension-release.md`). Branded builds: `WXT_APP_NAME=... WXT_APP_ICON=<svg or png>` (`docs/branding.md`). `node apps/extension/scripts/icons.ts` re-renders the packaged icons from `apps/extension/assets/icon.svg`.
 
-A build with your own name and icon: `WXT_APP_NAME=... WXT_APP_ICON=<svg or png>` in front of any of these (`docs/branding.md`). `node apps/extension/scripts/icons.ts` re-renders the packaged icons from `apps/extension/assets/icon.svg`.
-
-Load it unpacked:
-
-1. Build one of the above.
-2. Open `chrome://extensions`, turn on Developer mode, click "Load unpacked", pick the output folder.
-3. The id is always `laobpjhffglefallhhojihfdbdkoendk` (the manifest `key` is the Web Store item's public key, D-196). Pin the action from the puzzle menu.
-
-Or start a private Chromium with it, on its own display (never `:99`):
+Every build has the id `laobpjhffglefallhhojihfdbdkoendk` (the manifest `key` is the store item's public key, D-196). Load an output folder unpacked in `chrome://extensions`, or start a private Chromium on its own display (never `:99`; `--no-first-run` skips a blocking terms dialog):
 
 ```sh
 Xvfb :101 -screen 0 1440x900x24 & DISPLAY=:101 openbox &
@@ -147,15 +135,11 @@ DISPLAY=:101 ~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome --user-d
   --load-extension=$PWD/apps/extension/.output/chrome-mv3-dev http://localhost:5173
 ```
 
-`--no-first-run` matters: without it a fresh profile opens a modal terms-of-service dialog and Chromium loads nothing until someone clicks Accept. openbox takes its display from `DISPLAY` and rejects a `--display` flag.
+WXT's browser runner is off (`webExt.disabled`).
 
-Site access (D-123, D-126, D-200, D-202): a release build holds its server and `<all_urls>` as required host permissions, so Chrome grants every site at install and asks nothing later. The server's mode (`SITE_ACCESS`, Settings > Server) decides where the capture scripts run. In the default `all` mode they run everywhere but the server and the blocked sites, and the first capture on an origin makes its project on the server. In the strict `projects` mode a workspace admin adds each app under Settings, Projects (name, origins, masking preset); the scripts are registered for those origins only, the worker keeps no webRequest metadata for tabs on other pages, and on any other site the popup says the site is in no project. If the person turns site access off in Chrome, the popup asks for it again from a click. Test builds hold `<all_urls>` and ignore the mode unless storage key `tb:test-scope` is `release` (follow the server) or `projects` (force the strict mode).
+Site access (D-123, D-126, D-200, D-202): release builds hold the server and `<all_urls>` as required host permissions. `SITE_ACCESS` decides where the capture scripts run: `all` (everywhere but the server and blocked sites; the first capture on an origin makes its project) or `projects` (only project origins; the worker keeps no webRequest metadata for other tabs). Test builds hold `<all_urls>` and ignore the mode unless storage key `tb:test-scope` is `release` or `projects`.
 
-WXT's own browser runner is off (`webExt.disabled`), because this VM has no display for it and the shared browser belongs to another agent.
-
-How the pieces connect: the service worker registers `content-scripts/capture-main.js` (MAIN world) and `content-scripts/capture.js` (ISOLATED) at `document_start` for every http(s) site less the server and the blocked sites once the person allowed all sites (D-200), or in the strict mode for the origins of the signed-in user's projects that the person allowed (D-126); test builds: every site unless storage key `tb:test-scope` is `release` or `projects`. The MAIN script installs the page hooks from `@toolbar/capture` and relays events over a private `MessageChannel`; the isolated script forwards them to the worker on the `capture` port and, in the top frame, mounts `<toolbar-root>` with the Svelte UI in a shadow root.
-
-The manifest `key` is the Chrome Web Store item's public key, so every build has the store id. Google holds the private half; the repository needs no signing key (docs/extension-release.md).
+The worker registers `content-scripts/capture-main.js` (MAIN) and `content-scripts/capture.js` (ISOLATED) at `document_start` for the allowed origins. The MAIN script installs the `@toolbar/capture` hooks and relays events over a private `MessageChannel`; the isolated script forwards them to the worker on the `capture` port and, in the top frame, mounts `<toolbar-root>` in a shadow root.
 
 ## The injector
 
@@ -166,9 +150,9 @@ apps/injector/test/run.sh                    # compose test: builds the image, r
 apps/injector/test/coolify-like/run.sh       # the same behind traefik:v3.7 set up like Coolify's (D-201)
 ```
 
-`run.sh` reads the repo root `.env`. The server it talks to (default http://localhost:3306, `SERVER_URL`) needs `INJECTOR_SECRET` and the mock OIDC provider (the spec adds `http://localhost:3506` to a project of the reviewer); the injector container reaches it as `host.docker.internal`, which the dev server's Vite config allows. See `apps/injector/README.md`.
+`run.sh` reads the repo root `.env` and needs a server on `SERVER_URL` (default http://localhost:3306) with `INJECTOR_SECRET` and the mock OIDC provider; the container reaches it as `host.docker.internal`.
 
-`coolify-like/run.sh` needs a dev server on `SERVER_URL` (default http://localhost:3650) with `INJECTOR_SECRET` and the mock OIDC provider, and Xvfb: it renders the Traefik file with the pass value into `apps/injector/test/coolify-like/dynamic/` (git-ignored, with a self-signed certificate), builds the lab and injector images, starts the stack and runs `e2e/injector/coolify.spec.ts` headed on `E2E_DISPLAY` (default `:350`, started when free). The spec covers a visitor who never reaches the injector (its request log stays empty), onboarding from Settings, Projects, a comment and a trace, WebSockets and server-sent events through the loop, `x-review-skip`, the strict-CSP page from a copied review link, the review link's error pages, a killed injector (reviewers keep the app) and Stop reviewing. `KEEP=1` leaves the stack up; `docker compose -f apps/injector/test/coolify-like/docker-compose.yml down` stops it.
+`coolify-like/run.sh` needs a dev server on `SERVER_URL` (default http://localhost:3650) with `INJECTOR_SECRET` and the mock OIDC provider, and Xvfb. It renders the Traefik file into `apps/injector/test/coolify-like/dynamic/` (git-ignored, self-signed certificate), builds the lab and injector images and runs `e2e/injector/coolify.spec.ts` headed on `E2E_DISPLAY` (default `:350`). `KEEP=1` leaves the stack up; `docker compose -f apps/injector/test/coolify-like/docker-compose.yml down` stops it.
 
 ## E2E
 
@@ -187,14 +171,9 @@ AREA_DISPLAY=:121 RUNS=3 scripts/e2e-all.sh  # another display; three full runs,
 KEEP=1 scripts/e2e-all.sh                  # keep the running stack and its data
 ```
 
-The script does, in order:
+Steps: `down -v`; `up --build` with the dev and whisper files, the mock OIDC provider, `ALLOWED_EMAIL_DOMAINS=test`, `AUTH_DEV_PASSWORD=1`, `AUTH_RATE_LIMIT=off`, `TRANSCRIBE_PROVIDER=local`; `db:seed` (its token becomes `TOOLBAR_E2E_TOKEN`); build the release and test extensions and the CLI; area suites, then flows. `MAIL=1` adds `docker-compose.mail.yml`; `FEATURES="FEATURE_AI=1 ..."` turns on paused features. Logs: `e2e/runs/area-N.log`, `e2e/runs/flows-N.log`; reports: `e2e/playwright-report`, `e2e/playwright-report-flows`; flow screenshots: `e2e/flows-shots/`.
 
-1. `docker compose ... down -v`, then `docker compose -f docker-compose.yml -f docker-compose.whisper.yml -f docker-compose.dev.yml up --build -d` with the mock OIDC provider configured (`OIDC_ISSUER=http://oidc.localhost:3311/toolbar`, `OIDC_CLIENT_ID=toolbar`, `OIDC_CLIENT_SECRET=dev`), `ALLOWED_EMAIL_DOMAINS=test`, `AUTH_DEV_PASSWORD=1` (for the seeded accounts), `AUTH_RATE_LIMIT=off` and `TRANSCRIBE_PROVIDER=local`, and waits for `/api/health`. Rate limits are off because the suites sign in many test accounts from one address, and Better Auth allows 3 sign-ins per 10 s per address in production. `MAIL=1` adds the override `docker-compose.mail.yml` (Mailpit, `FEATURE_EMAIL=1`); `FEATURES="FEATURE_AI=1 ..."` turns on other paused features, whose tests otherwise skip.
-2. `pnpm --filter @toolbar/server db:seed` against the compose database (the server's defaults point at it). The seed prints a personal token; the script passes it as `TOOLBAR_E2E_TOKEN`, so `agent/cli-create.spec.ts` runs instead of skipping.
-3. Builds the release extension, the test extension and the CLI (`packages/cli/dist/open-toolbar.mjs`).
-4. Runs the area suites, then the flows. With `RUNS=n` it repeats steps 1, 2 and 4 n times. Logs go to `e2e/runs/area-N.log` and `e2e/runs/flows-N.log`; HTML reports to `e2e/playwright-report` and `e2e/playwright-report-flows`; flow screenshots to `e2e/flows-shots/`.
-
-It needs the lab (`systemctl --user status toolbar-lab`, on :5173 and :5174), Xvfb, openbox, xdotool, xclip, ImageMagick (`import`) and ffmpeg.
+Needs the lab (`toolbar-lab` user service, :5173 and :5174), Xvfb, openbox, xdotool, xclip, ImageMagick and ffmpeg.
 
 ### One suite or one spec
 

@@ -1,163 +1,85 @@
 # open-toolbar
 
-Rough software gets better when the people trying it can say exactly what went wrong. open-toolbar records that feedback in full: a session recording, DOM screenshots, annotations on the page, voice notes, and the console and network traces underneath. Your coding agent reads all of it over MCP, an HTTP API or signed webhooks. Point the agent at many pieces of feedback at once and it can work out what the product is meant to be, and write that down for you.
+Self-hosted feedback capture for web apps. Reviewers record session replays, DOM screenshots, page annotations, voice notes, and the console and network traces underneath. Your coding agent reads all of it over MCP, an HTTP API or signed webhooks, one piece of feedback at a time or many at once to work out what the product is meant to be and write it down.
 
-Open source under the MIT license, and self-hosted. Nobody sells it: there are no plans, seats or paid tiers, and it sends no notifications.
+MIT licensed. No plans, seats, paid tiers or notifications.
 
 ![The reviewer toolbar on Nuru, with a highlighted line of output and a comment being typed](docs/demo/03-highlight-comment.png)
 
-`DEMO.md` has screenshots and a two-and-a-half-minute video: a reviewer traces a lesson on Nuru, then Claude Code fixes the bug from the feedback folder.
+`DEMO.md` has screenshots and a 2:44 video: a reviewer traces a lesson on Nuru, then Claude Code fixes the bug from the feedback folder.
 
 ## Features
 
-- **Annotate the page.** Comment on an element, highlight text, draw a rectangle, an arrow or freehand, or take a screenshot of one element and write on it. Each note carries a locator packet: route and title, candidate route files (SvelteKit and Next.js), visible text, role, ids, classes, nearest heading and the crop.
-- **Voice notes.** Attach one to a comment or to the whole trace. The server transcribes it to WebVTT.
-- **Comments without a trace.** Each comment still brings the console errors and failed requests of the last 60 seconds.
-- **Traces.** Start trace and Stop trace record one tab as interaction spans. A span starts at a reviewer action, collects the requests, console entries, DOM changes and screenshots that follow, and ends with an outcome: `changed`, `error`, `dead`, `stuck` or `silent`. Keyframes come on route changes, annotations and layout changes. SvelteKit data loads and form actions and Next.js RSC requests get their own names.
-- **Screenshots and recordings.** Screenshot, tab or screen recording, instant replay of the last minutes, and recording links for people without the extension.
-- **A viewer on the server.** Replay, notes, console, network, actions and an Agent tab per capture. Share links last 14 days and can be revoked.
-- **Hand-off to agents.** One folder per piece of feedback, written for an agent to read. See [Hand a recording to an agent](#hand-a-recording-to-an-agent).
+- **Annotations**: comment on an element, highlight text, draw, or screenshot one element and mark it up. Each note carries a locator: route, candidate route files (SvelteKit, Next.js), visible text, role, ids, classes, nearest heading and a crop.
+- **Voice notes**, per comment or per trace, transcribed to WebVTT on the server.
+- **Traces**: one tab recorded as interaction spans, each ending in `changed`, `error`, `dead`, `stuck` or `silent`, with keyframes on route changes, annotations and layout shifts. Comments outside a trace still carry the last 60 seconds of console errors and failed requests.
+- **Recordings**: screenshot, tab or screen video, instant replay, and recording links for people without the extension.
+- **Viewer**: replay, notes, console, network, actions and an Agent tab per capture. Share links expire after 14 days and can be revoked.
+- **Agent hand-off**: one folder per piece of feedback, or a bulk export with an index.
 
-## Quick start with Docker Compose
+## Quick start
 
-You need Docker with Compose and an OIDC provider (see [Sign-in](#sign-in)).
+Requires Docker Compose and an OIDC provider.
 
 ```sh
 git clone <this repository> open-toolbar && cd open-toolbar
-scripts/gen-secrets.sh https://feedback.example.com   # writes .env with PUBLIC_URL and random secrets
+scripts/gen-secrets.sh https://feedback.example.com   # writes .env: PUBLIC_URL and random secrets
 $EDITOR .env                                          # OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, ADMIN_EMAILS
 docker compose up -d --build                          # server on :3000, Postgres, Garage S3
-curl -s localhost:3000/api/health                     # {"ok":true,...}
 ```
 
-After the first sign-in with an `ADMIN_EMAILS` address, open Settings > Server and set your allowed email domains and a transcription provider.
+Required values: `PUBLIC_URL`, `BETTER_AUTH_SECRET`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `ADMIN_EMAILS`. Register `<PUBLIC_URL>/api/auth/callback/oidc` with the provider and put a TLS proxy in front of port 3000. The server refuses to start on a public URL with dev secrets.
 
-For local transcription with whisper.cpp, add its compose file: `docker compose -f docker-compose.yml -f docker-compose.whisper.yml up -d --build`, then pick "Local whisper.cpp" in Settings > Server.
-
-Put a TLS proxy (Caddy, Traefik, nginx) in front of port 3000 and point `PUBLIC_URL` at the https address. The server refuses to start on a public URL while it still has the dev secrets.
+Allowed email domains, transcription, branding and limits live in Settings > Server after the first admin sign-in. Until a domain is added, only `ADMIN_EMAILS` can sign in. Local transcription: add `-f docker-compose.whisper.yml` to the compose command.
 
 ## Coolify
 
-Deploy `docker-compose.coolify.yml` from this repository: + New, this Git repository, Build strategy "Compose", Docker Compose Location `/docker-compose.coolify.yml`. Coolify generates every secret, the Postgres user included, and asks for four values before the first deploy: `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` and `ADMIN_EMAILS`. Set the server's domain as `https://feedback.example.com:3000` and register `https://feedback.example.com/api/auth/callback/oidc` with your provider. No service publishes a host port; Coolify's proxy routes the domain. After the first sign-in, set allowed domains and transcription in Settings > Server. For local transcription, add `COMPOSE_PROFILES=whisper` under Environment Variables.
+Deploy `docker-compose.coolify.yml` as a Docker Compose resource. Coolify generates every secret and asks for four values: `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `ADMIN_EMAILS`. Set the server's domain as `https://feedback.example.com:3000`; no service publishes a host port. `COMPOSE_PROFILES=whisper` adds local transcription.
 
-## Sign-in
+## Extension
 
-Sign-in goes through one generic OIDC provider that you configure with `OIDC_ISSUER`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`. Any provider with a discovery document works: Keycloak, Authentik, Okta, Microsoft Entra ID, GitLab and others. `ADMIN_EMAILS` names the instance admins. The allowed email domains, set in Settings > Server, decide who else gets in, and removing a domain later cuts off its sessions and tokens at their next request. On a public URL, until an admin has signed in, only `ADMIN_EMAILS` addresses can sign in.
+Chrome Web Store item `laobpjhffglefallhhojihfdbdkoendk` (unlisted). `scripts/release-extension.sh` builds the same id as an unpacked zip in `dist/`; set `WXT_SERVER_URL` at build time to preconfigure the server. Managed policy keys: `serverUrl` (string) and `lockServerUrl` (boolean). Release, force-install and Firefox: [docs/extension-release.md](docs/extension-release.md).
 
-Google Workspace is a standard OIDC provider, so it needs no special code: use the issuer `https://accounts.google.com`, create an OAuth client of type "Web application" in Google Cloud, and after your first sign-in add your Workspace domain under Settings > Server, Sign-in. The server also checks Google's `hd` claim when it is present. `docs/configuration.md`, "Google Workspace", has the steps.
+The extension holds all-sites access as a required permission. Settings > Server, Site access (`SITE_ACCESS`) picks where it captures: `all` (default, one project per captured origin, mergeable) or `projects` (only origins listed in projects). Ctrl+Shift+. opens the toolbar; `c` comment, `t` comment on selection, `v` voice note, `x` start or stop a trace.
 
-Email and password accounts stay off. They exist only for development and tests, behind `AUTH_DEV_PASSWORD=1`.
+## Agent access
 
-## Install the extension
+Create a token under Settings > API tokens and export `TOOLBAR_SERVER` and `TOOLBAR_TOKEN`.
 
-`scripts/release-extension.sh` writes versioned zips to `dist/`. Build with `WXT_SERVER_URL=https://feedback.example.com` so a fresh install already points at your server.
+- **MCP**: `$TOOLBAR_SERVER/mcp`, OAuth or token. `claude mcp add --transport http open-toolbar $TOOLBAR_SERVER/mcp`. Tools: `get_feedback_folder`, `get_feedback_file`, `resolve_feedback`, `list_feedback`, `get_feedback_index`.
+- **One capture**: `curl -fsSL -H "Authorization: Bearer $TOOLBAR_TOKEN" "$TOOLBAR_SERVER/api/v1/recordings/<id>/folder" | tar xz` writes `.feedback/<id>/`, with `README.md` as the entry point. A share link fetched as Markdown starts with this command.
+- **Bulk export**: `curl -fsSL -H "Authorization: Bearer $TOOLBAR_TOKEN" "$TOOLBAR_SERVER/api/v1/feedback/export" | tar xz` writes `.feedback/INDEX.md` and one folder per capture. Filters: `project`, `status`, `since`, `creator` and others.
+- **Agent Skill**: `curl -fsSL --create-dirs "$TOOLBAR_SERVER/api/v1/skill" -o .claude/skills/open-toolbar-feedback/SKILL.md` (Claude Code, opencode) or `.agents/skills/open-toolbar-feedback/SKILL.md` (Codex, opencode). It pulls, fixes and resolves one capture, or turns the bulk export into a product brief.
+- **Webhooks**: Settings > Webhooks sends signed `feedback.created` and `feedback.resolved` events.
 
-- **Release zip, unpacked.** Unzip `dist/open-toolbar-extension-<version>-chrome.zip`, open `chrome://extensions`, turn on Developer mode, click Load unpacked and pick the folder. The manifest key pins the id `laobpjhffglefallhhojihfdbdkoendk`.
-- **Unlisted Chrome Web Store item.** Upload `dist/open-toolbar-extension-<version>-chrome-webstore.zip` as an unlisted item and send testers its store link. The item gets its own id; add it to `EXTENSION_IDS` on the server. `docs/extension-release.md` walks through the listing and the review.
-- **Firefox.** The zip builds and lints, and the server accepts its sign-in. Video and the screenshot editor are Chrome-only, and the add-on is not signed yet (`docs/extension-release.md`, "Firefox").
+Results from Claude Code, Codex and opencode on real bugs: `docs/agent-handoff-results.md`.
 
-### Site access
+## Privacy
 
-Chrome grants the extension access to all sites when you install it (D-202), so there is no prompt after sign-in, and a copy your Google Workspace admin force-installs needs none at all (`docs/extension-release.md`, "Force-install for your organisation"). Where it records depends on Settings > Server, Capture defaults, Site access (`SITE_ACCESS`, D-200):
-
-- **All sites (default).** The extension runs everywhere except your server and your blocked sites. The first capture on a site makes a project for it (named after the host, for example `localhost:5173`), and the dashboard's sidebar groups captures by project. An admin merges projects in Settings > Projects or on a project's page, so `nuru.sh`, `staging.nuru.sh` and `116.nuru.sh` become one project, or adds a domain such as `*.nuru.sh` that covers the bare domain and every subdomain over https. An exact origin wins over a domain. To turn the access off, use Chrome's extension details, Site access; the popup then offers to allow it again.
-- **Project origins only.** The strict mode. A workspace admin lists each app under Settings > Projects with its origins and a masking preset. The extension runs its capture scripts on those origins and records nowhere else, though Chrome grants it every site; the popup says so on other sites. The server refuses captures from other origins and makes no project by itself.
-
-If you limit the extension's site access in Chrome, Chrome lets it take screenshots of a tab only after you have opened its popup there (or pressed Ctrl+Shift+Y); the toolbar tells you when that is missing.
-
-On a page, Ctrl+Shift+. wakes the reviewer toolbar. Its keys: `c` comment, `t` comment on the selected text, `v` voice note, `x` start or stop a trace.
-
-## The injector, for reviewers without the extension
-
-`apps/injector` is a small Go proxy that adds the toolbar to an app's HTML for signed-in reviewers only, with no change to the app and no extension. One Traefik router sends it only the requests that carry the reviewer cookie, plus `/__toolbar/`, for any host; it passes them back into Traefik, and every other visitor goes straight to the app. It streams the HTML and changes only the `<head>`, reuses the page's CSP nonce, honours `X-Review-Skip` for automated tests, and passes the response through unchanged on any error. Reviewers start from a review link that Settings, Projects shows for each origin of a project. It takes no screenshots, since a page cannot capture its own pixels; the DOM replay covers what the page showed. Setup: `docs/injector-on-coolify.md`; details in `apps/injector/README.md`.
-
-## Hand a recording to an agent
-
-Create a personal token under Settings > API tokens and give your agent two variables, `TOOLBAR_SERVER` and `TOOLBAR_TOKEN`.
-
-**Share link.** Copy a capture's share link and tell the agent "Fix the problem reported in <share link>". Fetched as Markdown, the link answers with the pull command on its first line, so an agent with the skill (below) needs nothing else.
-
-**One folder, with curl.**
-
-```sh
-curl -fsSL -H "Authorization: Bearer $TOOLBAR_TOKEN" "$TOOLBAR_SERVER/api/v1/recordings/<id>/folder" | tar xz
-```
-
-You get `.feedback/<id>/`: `README.md` (who, which app and deploy, the reviewer's words, the actions that had no effect, a timeline that names the image for each moment), `feedback.json`, `spans.jsonl`, `annotations/` (crops and locators), `keyframes/`, `outline/`, `text/` (OCR of canvas regions), `voice/`, `console.jsonl`, `network.jsonl` (bodies up to about 256 KB, redacted) and `raw/` (the rrweb recording and a HAR). Every captured string in README.md sits in a fenced block with its source and author, and the agent is told to treat it as data.
-
-**MCP.** The server is a remote MCP server at `/mcp` with OAuth sign-in in the browser; in Claude Code, `claude mcp add --transport http open-toolbar $TOOLBAR_SERVER/mcp`. Settings > MCP has the setup for other agents. Tools include `get_feedback_folder`, `get_feedback_file`, `resolve_feedback`, `list_feedback` and `get_feedback_index`.
-
-**Bulk export, to learn from many.**
-
-```sh
-curl -fsSL -H "Authorization: Bearer $TOOLBAR_TOKEN" "$TOOLBAR_SERVER/api/v1/feedback/export" | tar xz
-```
-
-This writes `.feedback/INDEX.md` beside one folder per capture. INDEX.md lists every capture with its route, outcome counts and the reviewer's summary, then the routes with the most problems, the errors and failing requests that repeat, and the words reviewers use. Filter with `project`, `status`, `since`, `creator` and others (`docs/configuration.md`, "Agent hand-off").
-
-**The Agent Skill.** Install it in the repository you want fixed. It tells Claude Code, Codex and opencode to pull the folder, read README.md first, open images only when the timeline points at them, and mark the feedback resolved when the fix is in. Its second mode reads the bulk export and writes a product brief.
-
-```sh
-# Claude Code (opencode reads this folder too)
-mkdir -p .claude/skills/open-toolbar-feedback
-curl -fsSL "$TOOLBAR_SERVER/api/v1/skill" -o .claude/skills/open-toolbar-feedback/SKILL.md
-# Codex and opencode
-mkdir -p .agents/skills/open-toolbar-feedback
-curl -fsSL "$TOOLBAR_SERVER/api/v1/skill" -o .agents/skills/open-toolbar-feedback/SKILL.md
-```
-
-**Webhooks.** Settings > Webhooks sends signed `feedback.created` events (with the folder URL and pull command) and `feedback.resolved` events (with the agent's note and commit).
-
-In tests on real bugs, Claude Code, Codex and opencode each found the cause from the folder alone: `docs/agent-handoff-results.md`.
+- The extension redacts before upload: auth, cookie and key-like headers, password and token fields, JWTs, email addresses and card numbers.
+- Each project has a masking preset: **Staging, own team** (text unmasked, bodies for the app's own API) or **Production** (text and inputs masked, media blocked, bodies only for allowlisted URLs).
+- Hosted transcription sends only microphone audio to the provider. `local` (whisper.cpp) sends nothing.
+- Share links carry a 128-bit token, send `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex`, and expose a summary only. The full folder needs a workspace member's token.
 
 ## Configuration
 
-Six values make a working server: `PUBLIC_URL`, `BETTER_AUTH_SECRET`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` and `ADMIN_EMAILS`. An instance admin sets the rest in Settings > Server while the server runs: allowed email domains, the sign-in button name, transcription, capture defaults, share link lifetime and limits. A workspace admin picks the masking preset and trace step window of new projects. Each of those still has a variable; when set, it wins and locks its field in the admin page. `docs/configuration.md` lists every variable, where it lives, its default and when to change it.
+[docs/configuration.md](docs/configuration.md) lists every variable with its default and where it lives. Instance settings set by variable lock the matching Settings > Server field. Other docs:
 
-## Branding
-
-Set the instance's name, logo and accent colour with `APP_NAME`, `APP_LOGO_URL` and `APP_ACCENT`, or in Settings > Server. Your brand shows on the sign-in page, share pages, the dashboard and the signed-in extension. `WXT_APP_NAME` and `WXT_APP_ICON` build an extension with your name and icon. Details: `docs/branding.md`.
-
-## Transcription
-
-Voice notes become WebVTT transcripts on your server. Transcription is off until an instance admin picks a provider in Settings > Server, Transcription (or pins one with `TRANSCRIBE_PROVIDER`), and Test connection checks it:
-
-- `local`: whisper.cpp, started by `docker-compose.whisper.yml`. No key, no cost, and no audio leaves your server. Good for English; its Swahili is unreadable.
-- `openai`: OpenAI's `gpt-transcribe`, or any OpenAI-compatible endpoint (`TRANSCRIBE_BASE_URL`, for example Groq). Paste the key in Settings > Server, where it is stored encrypted, or set `TRANSCRIBE_API_KEY`. Far better on Swahili and mixed Swahili and English, and faster than whisper.cpp on a CPU.
-- `none` (default): no transcripts.
-
-Limits of the hosted provider: OpenAI takes at most 25 MB per request, so the server cuts the voice track at pauses into chunks of 30 s or less, and recording length is bounded only by the longest-audio limit (60 minutes). `gpt-transcribe` costs $0.0045 a minute: a five-minute note is about $0.02, an hour about $0.28. Settings > Server, Limits holds both that limit and an optional monthly cap on hosted minutes. Only the microphone audio goes to the provider: no video, screenshots, console, network data or names.
-
-## Privacy and masking
-
-- Redaction runs in the extension's isolated world before anything leaves the page: `Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key` and headers matching `token|secret|key` go, as do password and token fields; JWTs, email addresses and card numbers are scrubbed.
-- Each project picks a masking preset. **Staging, own team** keeps text unmasked and keeps bodies for the app's own API. **Production** masks all text and inputs, blocks media, and keeps bodies only for allowlisted URLs. The preset is written into each feedback folder's header.
-- Share links use a 128-bit token in the path, expire after 14 days (Settings > Server, Sharing and export), can be revoked, and send `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex`. A share link shows a summary; the full folder needs a personal token of a workspace member.
-- The extension holds no client secret. It signs in through `chrome.identity.launchWebAuthFlow` against your server, and every record stores who left it: issuer, subject, email and name.
-
-## Paused
-
-These stay in the code behind flags that default to off, with their UI hidden: GitHub and GitLab issue integrations (`FEATURE_TRACKERS`), Slack (`FEATURE_SLACK`), the command-line tool (`FEATURE_CLI`), notification and invite mail (`FEATURE_EMAIL`), AI titles, steps and chapters (`FEATURE_AI`), data retention and audit logs (`FEATURE_ADMIN_EXTRAS`), and social, magic-link and password sign-in. `docs/scope.md` explains why.
+- `docs/branding.md`: name, logo, accent, branded extension builds
+- `docs/extension-release.md`: zips, store item, managed policy, Firefox
+- `docs/injector-on-coolify.md`: the optional injector, for reviewers without the extension
+- `docs/scope.md`: what is in scope and what is paused (trackers, Slack, CLI, mail, AI text)
+- `docs/dev.md`: layout, ports, dev stack, tests
+- `docs/architecture.md`, `docs/decisions.md`: design and decision log
 
 ## Development
 
-`docs/dev.md` covers the layout, ports, the mock OIDC provider of `docker-compose.dev.yml`, dev mode with hot reload, builds, unit tests and the e2e suites. Short version:
-
 ```sh
 pnpm install
-pnpm stack        # Postgres, Garage, whisper and the mock OIDC provider in Docker (dev and whisper files)
-pnpm dev          # server on :3000 and the extension watch build
-pnpm -r test      # unit tests
+pnpm stack        # Postgres, Garage, whisper, mock OIDC in Docker
+pnpm dev          # server on :3000, extension watch build
+pnpm -r test
 ```
-
-More docs:
-
-- `docs/configuration.md`: every environment variable, the basic deployment, Coolify
-- `docs/extension-release.md`: extension zips, the Chrome Web Store item and its id, Firefox
-- `docs/branding.md`: name, logo, accent colour and the branded extension
-- `docs/agent-handoff-results.md`: how three agents did with real feedback folders
-- `docs/architecture.md` and `docs/decisions.md`: how it is built and why
-- `docs/status.md`, `PLAN.md` and `PROGRESS.md`: what is built and where work stands
 
 ## License
 
