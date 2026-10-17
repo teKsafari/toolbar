@@ -1,7 +1,9 @@
 // Agent names and marks on comments written for a person (D-207): the MCP client name cleaned
-// and normalised, a monogram per agent, and mark colours that pass contrast in light and dark.
+// and normalised, a product logo per known agent (D-208), a monogram for any other, and mark
+// colours that pass contrast in light and dark.
 import { describe, expect, it } from 'vitest';
-import { agentIdentity, agentName, authorLabel, cleanClientName, contrast, markColors } from '../src/lib/components/agent/agent-name.ts';
+import { AGENT_LOGOS } from '../src/lib/components/agent/agent-logos.ts';
+import { agentIdentity, agentName, authorLabel, cleanClientName, contrast, LOGO_MIN_CONTRAST, LOGO_TILE, logoColors, markColors } from '../src/lib/components/agent/agent-name.ts';
 
 describe('agent names', () => {
   it('strips what the MCP client appends', () => {
@@ -78,5 +80,47 @@ describe('mark colours', () => {
       expect(contrast(c.light.bg, LIGHT_SURFACE), raw).toBeLessThan(1.4);
       expect(contrast(c.dark.bg, DARK_SURFACE), raw).toBeLessThan(1.8);
     }
+  });
+});
+
+describe('logos (D-208)', () => {
+  it.each([
+    ['Claude Code (open-toolbar)', 'claude'],
+    ['claude-ai', 'claude'],
+    ['codex-mcp-client', 'openai'],
+    ['opencode', 'opencode'],
+    ['Cursor', 'cursor'],
+    ['vscode', 'vscode'],
+    ['gemini-cli-mcp-client', 'gemini'],
+    ['Windsurf', 'windsurf'],
+  ])('%s shows the %s logo', (raw, logo) => {
+    expect(agentIdentity(raw).logo).toBe(logo);
+    expect(AGENT_LOGOS[logo as keyof typeof AGENT_LOGOS].path.length).toBeGreaterThan(20);
+  });
+
+  it('unknown agents and the server labels keep the monogram', () => {
+    for (const raw of ['Zed (open-toolbar)', 'Acme Review Bot', 'an agent', 'API', null]) {
+      const id = agentIdentity(raw);
+      expect(id.logo, String(raw)).toBeUndefined();
+      expect(id.monogram.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('every logo keeps 3:1 against its tile in light and dark', () => {
+    for (const key of Object.keys(AGENT_LOGOS) as (keyof typeof AGENT_LOGOS)[]) {
+      const c = logoColors(key);
+      expect(contrast(c.light.ink, c.light.tile), `light ${key}`).toBeGreaterThanOrEqual(LOGO_MIN_CONTRAST);
+      expect(contrast(c.dark.ink, c.dark.tile), `dark ${key}`).toBeGreaterThanOrEqual(LOGO_MIN_CONTRAST);
+    }
+  });
+
+  it('keeps the brand colour where it passes and goes monochrome where it fails', () => {
+    expect(logoColors('claude').light).toMatchObject({ ink: '#D97757', brand: true });
+    expect(logoColors('claude').dark).toMatchObject({ ink: '#D97757', brand: true });
+    expect(logoColors('vscode').dark.brand).toBe(true);
+    expect(logoColors('gemini').light.brand).toBe(true);
+    // black brands disappear on the dark tile: monochrome there
+    for (const key of ['openai', 'cursor', 'windsurf', 'opencode'] as const) expect(logoColors(key).dark.brand, key).toBe(false);
+    expect(LOGO_TILE.light).toBe('#ffffff');
   });
 });

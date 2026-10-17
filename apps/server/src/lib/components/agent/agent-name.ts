@@ -1,7 +1,8 @@
 // Who wrote something on a person's behalf (D-207): the agent's display name, cleaned from the MCP
 // client name (Claude Code registers as "Claude Code (open-toolbar)", Codex as "codex-mcp-client"),
-// a two-letter monogram and a muted hue for its mark. Our own monograms, no third-party logos.
-// Plain functions, so the unit tests need no component.
+// the product's logo for a known agent (D-208, agent-logos.ts), and for any other agent a two-letter
+// monogram on a muted hue. Plain functions, so the unit tests need no component.
+import { AGENT_LOGOS, type AgentLogoKey } from './agent-logos.ts';
 
 export interface AgentIdentity {
   /** display name: "Claude Code", or the cleaned raw client name */
@@ -14,6 +15,8 @@ export interface AgentIdentity {
   tint: 0 | 1;
   /** a known client (not a fallback) */
   known: boolean;
+  /** the product's logo (known agents only); without one the mark draws the monogram */
+  logo?: AgentLogoKey;
 }
 
 interface Known {
@@ -22,18 +25,19 @@ interface Known {
   monogram: string;
   hue: number;
   tint?: 0 | 1;
+  logo: AgentLogoKey;
 }
 
 // Order matters: "cursor-vscode" is Cursor, "claude-code" before plain "claude".
 const KNOWN: Known[] = [
-  { test: /claude[\s_-]*code/, name: 'Claude Code', monogram: 'CC', hue: 22 },
-  { test: /\bcodex\b|codex[\s_-]*(mcp|cli|client)|^openai[\s_-]*codex/, name: 'Codex', monogram: 'Cx', hue: 145 },
-  { test: /\bopen[\s_-]?code\b/, name: 'opencode', monogram: 'oc', hue: 250 },
-  { test: /\bcursor\b/, name: 'Cursor', monogram: 'Cu', hue: 0, tint: 0 },
-  { test: /\bwindsurf\b|\bcodeium\b/, name: 'Windsurf', monogram: 'Ws', hue: 188 },
-  { test: /\bgemini\b/, name: 'Gemini CLI', monogram: 'Ge', hue: 280 },
-  { test: /\bvs[\s_-]?code\b|visual[\s_-]*studio[\s_-]*code/, name: 'VS Code', monogram: 'VS', hue: 210 },
-  { test: /^claude([\s_-]*(ai|desktop))?$/, name: 'Claude', monogram: 'Cl', hue: 22 },
+  { test: /claude[\s_-]*code/, name: 'Claude Code', monogram: 'CC', hue: 22, logo: 'claude' },
+  { test: /\bcodex\b|codex[\s_-]*(mcp|cli|client)|^openai[\s_-]*codex/, name: 'Codex', monogram: 'Cx', hue: 145, logo: 'openai' },
+  { test: /\bopen[\s_-]?code\b/, name: 'opencode', monogram: 'oc', hue: 250, logo: 'opencode' },
+  { test: /\bcursor\b/, name: 'Cursor', monogram: 'Cu', hue: 0, tint: 0, logo: 'cursor' },
+  { test: /\bwindsurf\b|\bcodeium\b/, name: 'Windsurf', monogram: 'Ws', hue: 188, logo: 'windsurf' },
+  { test: /\bgemini\b/, name: 'Gemini CLI', monogram: 'Ge', hue: 280, logo: 'gemini' },
+  { test: /\bvs[\s_-]?code\b|visual[\s_-]*studio[\s_-]*code/, name: 'VS Code', monogram: 'VS', hue: 210, logo: 'vscode' },
+  { test: /^claude([\s_-]*(ai|desktop))?$/, name: 'Claude', monogram: 'Cl', hue: 22, logo: 'claude' },
 ];
 
 // Labels the server writes when no client name is known (mcp/tools.ts, handoff/resolve.ts).
@@ -78,7 +82,7 @@ export function agentIdentity(raw: string | null | undefined): AgentIdentity {
   const key = cleaned.toLowerCase();
   const generic = GENERIC[key] ?? (key ? null : GENERIC['an agent']!);
   if (generic) return { ...generic, hue: 0, tint: 0, known: false };
-  for (const k of KNOWN) if (k.test.test(key)) return { name: k.name, monogram: k.monogram, hue: k.hue, tint: k.tint ?? 1, known: true };
+  for (const k of KNOWN) if (k.test.test(key)) return { name: k.name, monogram: k.monogram, hue: k.hue, tint: k.tint ?? 1, known: true, logo: k.logo };
   return { name: cleaned, monogram: monogramOf(cleaned), hue: hashHue(key), tint: 1, known: false };
 }
 
@@ -108,6 +112,34 @@ export function markColors(id: Pick<AgentIdentity, 'hue' | 'tint'>): { light: Ma
     light: { bg: hsl(id.hue, 40 * s, 91), fg: hsl(id.hue, 45 * s, 28) },
     dark: { bg: hsl(id.hue, 22 * s, 21), fg: hsl(id.hue, 50 * s, 82) },
   };
+}
+
+// ---------- colours of a logo mark ----------
+
+/** The neutral tile a logo sits on, and the monochrome ink used where a brand colour fails. */
+export const LOGO_TILE = { light: '#ffffff', dark: '#1f1f1f' } as const;
+export const LOGO_MONO = { light: '#111827', dark: '#e6e6e6' } as const;
+/** WCAG 1.4.11: a graphic needed to understand the content keeps 3:1 against what is next to it. */
+export const LOGO_MIN_CONTRAST = 3;
+
+export interface LogoColors {
+  tile: string;
+  ink: string;
+  /** the brand colour is kept (else the monochrome ink) */
+  brand: boolean;
+}
+
+/**
+ * Ink and tile of a logo per theme: the brand colour where it keeps 3:1 against the tile, else
+ * the monochrome ink (OpenAI, Cursor, Windsurf and opencode are black brands, so monochrome).
+ */
+export function logoColors(key: AgentLogoKey): { light: LogoColors; dark: LogoColors } {
+  const hex = AGENT_LOGOS[key].hex;
+  const pick = (t: 'light' | 'dark'): LogoColors => {
+    const brand = contrast(hex, LOGO_TILE[t]) >= LOGO_MIN_CONTRAST;
+    return { tile: LOGO_TILE[t], ink: brand ? hex : LOGO_MONO[t], brand };
+  };
+  return { light: pick('light'), dark: pick('dark') };
 }
 
 /** Parse "hsl(h s% l%)" to sRGB 0 to 255, for the contrast tests. */

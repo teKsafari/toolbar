@@ -1,8 +1,11 @@
 <script lang="ts">
-  // An agent's mark (D-207): our own two-letter monogram in a rounded square, the shape GitHub's
-  // Primer gives apps and bots so they never read as a person (people stay round). A muted hue
-  // per agent; text passes 4.5:1 on the fill in light and dark (agent-name.ts, unit-tested).
-  import { agentIdentity, markColors } from './agent-name.ts';
+  // An agent's mark (D-207, D-208): a rounded square, the shape GitHub's Primer gives apps and
+  // bots so they never read as a person (people stay round). A known agent shows its product's
+  // logo on a neutral tile, in its brand colour where that keeps 3:1 against the tile, else in
+  // monochrome (agent-name.ts, unit-tested). Any other agent keeps a two-letter monogram on a
+  // muted hue whose text passes 4.5:1 on the fill.
+  import { AGENT_LOGOS } from './agent-logos.ts';
+  import { agentIdentity, logoColors, markColors } from './agent-name.ts';
 
   interface Props {
     /** the raw client name, as stored */
@@ -15,12 +18,18 @@
   }
   let { agent, size = 24, decorative = false, stacked = false }: Props = $props();
   const id = $derived(agentIdentity(agent));
-  const c = $derived(markColors(id));
+  const logo = $derived(id.logo ? AGENT_LOGOS[id.logo] : null);
+  const c = $derived.by(() => {
+    if (!id.logo) return markColors(id);
+    const l = logoColors(id.logo);
+    return { light: { bg: l.light.tile, fg: l.light.ink }, dark: { bg: l.dark.tile, fg: l.dark.ink } };
+  });
 </script>
 
 <span
   class="am"
   class:stacked
+  class:logo={!!logo}
   style:--s="{size}px"
   style:--bg-l={c.light.bg}
   style:--fg-l={c.light.fg}
@@ -31,7 +40,9 @@
   aria-label={decorative ? undefined : id.name}
   title={decorative ? undefined : id.name}
   data-testid="agent-mark"
-  data-agent={id.name}>{id.monogram}</span>
+  data-agent={id.name}
+  data-logo={id.logo}
+  >{#if logo}<svg viewBox="0 0 {logo.box} {logo.box}" aria-hidden="true" focusable="false" data-testid="agent-logo"><title>{logo.title}</title><path d={logo.path} fill="currentColor" /></svg>{:else}{id.monogram}{/if}</span>
 
 <style>
   .am {
@@ -47,6 +58,12 @@
   }
   /* the letters move into the free top-left area, clear of the person's avatar */
   .am.stacked { place-items: start; padding: calc(var(--s) * 0.14) 0 0 calc(var(--s) * 0.12); font-size: calc(var(--s) * 0.36); }
+  /* a logo: centred at 62 % of the side; stacked, 56 % in the top-left, where the person's avatar
+     at the bottom-right corner leaves it whole (its ring stops short of the logo's box) */
+  .am svg { display: block; width: calc(var(--s) * 0.62); height: calc(var(--s) * 0.62); }
+  .am.logo { box-shadow: inset 0 0 0 1px var(--nb-border); }
+  .am.logo.stacked { padding: calc(var(--s) * 0.09); }
+  .am.logo.stacked svg { width: calc(var(--s) * 0.56); height: calc(var(--s) * 0.56); }
   :global([data-theme='dark']) .am { --bg: var(--bg-d); --fg: var(--fg-d); }
   @media (prefers-color-scheme: dark) {
     :global(:root:not([data-theme='light'])) .am { --bg: var(--bg-d); --fg: var(--fg-d); }

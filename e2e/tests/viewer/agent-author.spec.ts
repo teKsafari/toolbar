@@ -1,8 +1,8 @@
 // An agent writing for a person (owner, D-207). Dana connects an MCP client that registers as
 // "Claude Code (open-toolbar)", the way Claude Code names itself; it comments, replies and resolves
-// the feedback through MCP. The capture page draws each of those as the agent's square mark with
-// Dana's avatar small at its bottom-right corner, and the name line reads "Dana Reviewer via
-// Claude Code". Dana's own comments keep the round avatar alone. The Agent tab lists the agent
+// the feedback through MCP. The capture page draws each of those as the agent's square mark (the
+// Claude logo, D-208) with Dana's avatar small at its bottom-right corner, and the name line reads
+// "Dana Reviewer via Claude Code". Dana's own comments keep the round avatar alone. The Agent tab lists the agent
 // the same way.
 import { createHash, randomBytes } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
@@ -79,7 +79,12 @@ test('an agent comment, reply and resolution show the stacked author and "via Cl
   await expect(stack).toHaveAttribute('role', 'img');
   const mark = stack.getByTestId('agent-mark');
   await expect(mark).toHaveAttribute('data-agent', 'Claude Code');
-  await expect(mark).toHaveText('CC');
+  // Claude Code shows the Claude logo (D-208): an svg titled "Claude", no monogram
+  const logo = mark.locator('svg');
+  await expect(logo).toHaveCount(1);
+  await expect(logo.locator('title')).toHaveText('Claude');
+  await expect(mark).toHaveAttribute('data-logo', 'claude');
+  await expect(mark).not.toContainText('CC');
   const m = (await mark.boundingBox())!;
   const p = (await stack.getByTestId('author-person').boundingBox())!;
   expect(m.width).toBe(28);
@@ -89,6 +94,12 @@ test('an agent comment, reply and resolution show the stacked author and "via Cl
   expect(p.y).toBeGreaterThan(m.y + m.height / 2);
   expect(p.x).toBeLessThan(m.x + m.width);
   expect(p.x + p.width).toBeGreaterThan(m.x + m.width);
+  // the person's avatar (with its 2 px ring) stays clear of the logo's box
+  const l = (await logo.boundingBox())!;
+  const cx = p.x + p.width / 2;
+  const cy = p.y + p.height / 2;
+  const nearest = Math.hypot(cx - Math.min(cx, l.x + l.width), cy - Math.min(cy, l.y + l.height));
+  expect(nearest, 'the avatar does not cover the logo').toBeGreaterThan(p.width / 2 + 2);
   const radius = await mark.evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius));
   expect(radius, 'the mark is a rounded square, not a circle').toBeLessThan(10);
 
@@ -121,9 +132,8 @@ test('an agent comment, reply and resolution show the stacked author and "via Cl
   await expect(item.getByTestId('author-stack')).toHaveAttribute('aria-label', 'Dana Reviewer via Claude Code');
   await expect(item).toContainText('Dana Reviewer via Claude Code');
 
-  // dark: the mark keeps its contrast (text on fill)
-  await page.emulateMedia({ colorScheme: 'dark' });
-  const ratio = await mark.evaluate((el) => {
+  // light and dark: the logo keeps 3:1 against its tile (WCAG 1.4.11)
+  const logoRatio = () => mark.evaluate((el) => {
     const parse = (c: string) => (c.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
     const lum = (rgb: number[]) => {
       const [r, g, b] = rgb.map((v) => {
@@ -136,7 +146,9 @@ test('an agent comment, reply and resolution show the stacked author and "via Cl
     const [a, b] = [lum(parse(cs.color)), lum(parse(cs.backgroundColor))].sort((x, y) => y - x);
     return (a! + 0.05) / (b! + 0.05);
   });
-  expect(ratio).toBeGreaterThanOrEqual(4.5);
+  expect(await logoRatio(), 'light').toBeGreaterThanOrEqual(3);
+  await page.emulateMedia({ colorScheme: 'dark' });
+  expect(await logoRatio(), 'dark').toBeGreaterThanOrEqual(3);
 
   // at 390 px the name line wraps inside the row, no side scroll
   await page.emulateMedia({ colorScheme: 'light' });
