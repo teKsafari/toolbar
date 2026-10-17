@@ -62,7 +62,8 @@ Voice notes are transcribed on the server behind the `Transcriber` interface. Tw
 - The basic deployment needs only the required values: public URL, auth secret, OIDC issuer, client ID and secret, allowed email domains. Everything else has a working default.
 - `docs/configuration.md` documents every variable in depth: purpose, default, example, when to change it.
 
-## Site access (owner, 2026-10-16)
+## Site access (owner, 2026-10-17)
 
-- Default: one Chrome prompt for all sites at sign-in; every origin you capture becomes a project by itself. Merge hostnames or domains into one project (for example nuru.sh, staging.nuru.sh and 116.nuru.sh).
-- Opt-in strict mode (admin setting): capture only on the origins listed in projects, each approved in Chrome.
+- The extension runs only on sites listed in projects. Clicking its icon on another site offers one line to add that host to a project.
+- The toolbar has a close button; it stays closed on that site until the extension icon is clicked.
+- The all-sites mode with automatic projects stays available as an admin setting, off by default.
