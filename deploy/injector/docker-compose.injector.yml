@@ -24,6 +24,9 @@ services:
       # Coolify's proxy, over https: its routers redirect http to https. The certificate it shows
       # for each app is the app's Let's Encrypt one, which verifies against the system roots.
       INJECTOR_LOOPBACK: https://coolify-proxy:443
+      # 1 when the proxy has no publicly trusted certificate for your apps (for example behind a
+      # Cloudflare tunnel with Traefik's default certificate); the hop stays inside the coolify network
+      INJECTOR_LOOPBACK_INSECURE: ${INJECTOR_LOOPBACK_INSECURE:-0}
     expose:
       - '8080'
     networks:
