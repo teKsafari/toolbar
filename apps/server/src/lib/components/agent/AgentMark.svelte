@@ -15,8 +15,10 @@
     decorative?: boolean;
     /** a person's avatar covers the bottom-right corner: draw the letters toward the top-left */
     stacked?: boolean;
+    /** a small round badge on a person's avatar (D-209) */
+    badge?: boolean;
   }
-  let { agent, size = 24, decorative = false, stacked = false }: Props = $props();
+  let { agent, size = 24, decorative = false, stacked = false, badge = false }: Props = $props();
   const id = $derived(agentIdentity(agent));
   const logo = $derived(id.logo ? AGENT_LOGOS[id.logo] : null);
   const c = $derived.by(() => {
@@ -29,6 +31,7 @@
 <span
   class="am"
   class:stacked
+  class:badge
   class:logo={!!logo}
   style:--s="{size}px"
   style:--bg-l={c.light.bg}
@@ -64,6 +67,9 @@
   .am.logo { box-shadow: inset 0 0 0 1px var(--nb-border); }
   .am.logo.stacked { padding: calc(var(--s) * 0.09); }
   .am.logo.stacked svg { width: calc(var(--s) * 0.56); height: calc(var(--s) * 0.56); }
+  /* badge: a disc, the logo centred and large enough to read at 14 to 18 px */
+  .am.badge { border-radius: 50%; padding: 0; font-size: calc(var(--s) * 0.42); }
+  .am.badge svg { width: calc(var(--s) * 0.72); height: calc(var(--s) * 0.72); }
   :global([data-theme='dark']) .am { --bg: var(--bg-d); --fg: var(--fg-d); }
   @media (prefers-color-scheme: dark) {
     :global(:root:not([data-theme='light'])) .am { --bg: var(--bg-d); --fg: var(--fg-d); }

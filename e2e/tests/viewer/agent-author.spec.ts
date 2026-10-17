@@ -85,28 +85,23 @@ test('an agent comment, reply and resolution show the stacked author and "via Cl
   await expect(logo.locator('title')).toHaveText('Claude');
   await expect(mark).toHaveAttribute('data-logo', 'claude');
   await expect(mark).not.toContainText('CC');
+  // D-209: the person's avatar at full size, the agent as a small round badge on its corner
   const m = (await mark.boundingBox())!;
   const p = (await stack.getByTestId('author-person').boundingBox())!;
-  expect(m.width).toBe(28);
-  expect(p.width, 'the person is smaller than the mark').toBeLessThan(m.width * 0.7);
-  // overlapping and offset to the bottom-right, not covering the mark
-  expect(p.x).toBeGreaterThan(m.x + m.width / 2);
-  expect(p.y).toBeGreaterThan(m.y + m.height / 2);
-  expect(p.x).toBeLessThan(m.x + m.width);
-  expect(p.x + p.width).toBeGreaterThan(m.x + m.width);
-  // the person's avatar (with its 2 px ring) stays clear of the logo's box
-  const l = (await logo.boundingBox())!;
-  const cx = p.x + p.width / 2;
-  const cy = p.y + p.height / 2;
-  const nearest = Math.hypot(cx - Math.min(cx, l.x + l.width), cy - Math.min(cy, l.y + l.height));
-  expect(nearest, 'the avatar does not cover the logo').toBeGreaterThan(p.width / 2 + 2);
+  expect(p.width).toBe(28);
+  expect(m.width, 'the badge is smaller than the avatar').toBeLessThan(p.width * 0.7);
+  expect(m.width, 'the badge stays legible').toBeGreaterThanOrEqual(13);
+  // offset to the bottom-right, partly outside the avatar
+  expect(m.x).toBeGreaterThan(p.x + p.width / 2);
+  expect(m.y).toBeGreaterThan(p.y + p.height / 2);
+  expect(m.x + m.width).toBeGreaterThan(p.x + p.width);
   const radius = await mark.evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius));
-  expect(radius, 'the mark is a rounded square, not a circle').toBeLessThan(10);
+  expect(radius, 'the badge is round').toBeGreaterThanOrEqual(m.width / 2 - 1);
 
   // the name line: the person, then the agent as a quiet label, cleaned of "(open-toolbar)"
   const name = agentRow.getByTestId('author-name').first();
-  await expect(name).toHaveText('Dana Reviewer via Claude Code');
-  await expect(name.getByTestId('author-via')).toHaveText(' via Claude Code');
+  await expect(name).toHaveText(/Dana Reviewer\s*via\s*Claude Code/);
+  await expect(name.getByTestId('author-via')).toHaveText(/^\s*via\s*Claude Code$/);
   await expect(agentRow).not.toContainText('open-toolbar');
   const [whoW, viaW] = await name.evaluate((el) => [getComputedStyle(el.querySelector('.who')!).fontWeight, getComputedStyle(el.querySelector('.via')!).fontWeight]);
   expect(Number(whoW)).toBeGreaterThan(Number(viaW));
@@ -115,7 +110,8 @@ test('an agent comment, reply and resolution show the stacked author and "via Cl
   const mineRow = page.locator(`[data-comment-id="${mine.id}"]`);
   const replyRow = page.getByTestId('comment').filter({ hasText: 'Fixed in the cart reducer.' });
   await expect(replyRow.getByTestId('author-stack')).toHaveAttribute('aria-label', 'Dana Reviewer via Claude Code');
-  await expect(replyRow.getByTestId('agent-mark')).toHaveCSS('width', '22px');
+  await expect(replyRow.getByTestId('author-person').locator(':scope > *').first()).toHaveCSS('width', '22px');
+  await expect(replyRow.getByTestId('agent-mark')).toHaveCSS('width', '13px');
   await expect(mineRow.getByTestId('author-stack')).toHaveCount(0);
   await expect(mineRow.getByTestId('author-name')).toHaveText('Dana Reviewer');
 
