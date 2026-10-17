@@ -10,7 +10,7 @@ import { traceOpenMsOf } from '@toolbar/shared/projects';
 import { fetchJsonMaybeGzip, setShareToken } from './api.ts';
 import { loadPrefs, savePrefs, type ViewerPrefs } from './prefs.ts';
 import type { ViewerData } from './types.ts';
-import { activeTab, countsFromIndex, isLean, noteWindow, tabVisible, type NoteWindow, type TabCounts } from './layout.ts';
+import { activeTab, countsFromIndex, initialTab, noteWindow, tabVisible, type NoteWindow, type TabCounts } from './layout.ts';
 import type { FeedbackItem } from '@toolbar/shared/areas/reviewer';
 
 export type TabId = 'info' | 'console' | 'network' | 'actions' | 'agent';
@@ -83,8 +83,6 @@ export class Viewer {
   visibleTabs = $derived(TABS.filter((t) => tabVisible(t.id, this.tabCounts)));
   /** The tab on screen: the chosen one, or the first visible one when the chosen one is hidden. */
   shownTab: TabId = $derived(activeTab(this.tab, this.tabCounts));
-  /** Nothing for the dev tools and no video, replay or trace: pane collapsed, facts in a strip (D-206). */
-  lean = $derived(isLean(this.detail, this.tabCounts));
   /** A feedback note's context chip was clicked: console and network show its window (D-206). */
   noteSel: { item: Pick<FeedbackItem, 'n' | 't' | 'context'>; show: NoteWindow['show']; k: number } | null = $state(null);
   /** derived, so entries match once the events file is in even when the chip was clicked before */
@@ -108,9 +106,10 @@ export class Viewer {
     this.threads = data.threads;
     this.folders = data.folders;
     setShareToken(data.shareToken);
-    this.tab = this.prefs.lastTab;
-    // a lean capture starts with the pane collapsed, whatever the last capture did (D-206)
-    this.devtoolsOpen = data.devtools && this.prefs.devtoolsOpen && !isLean(data.detail, countsFromIndex(data.detail));
+    // nothing for console, network or actions: the pane opens on Info (D-207); the pane is never
+    // collapsed for the person, only by their own Hide (J-091)
+    this.tab = initialTab(this.prefs.lastTab, countsFromIndex(data.detail));
+    this.devtoolsOpen = data.devtools && this.prefs.devtoolsOpen;
     this.highlightComment = data.highlight;
     this.duration = data.detail.media.video?.durationMs ?? data.detail.durationMs ?? 0;
   }
@@ -163,8 +162,7 @@ export class Viewer {
 
   toggleDevtools(open = !this.devtoolsOpen) {
     this.devtoolsOpen = open;
-    // opening the pane on a lean capture says nothing about the next capture
-    if (!this.lean) this.setPref({ devtoolsOpen: open });
+    this.setPref({ devtoolsOpen: open });
   }
 
   /**

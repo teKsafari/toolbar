@@ -5,8 +5,12 @@
   // button. Mounted by the viewer area through AgentSlot.svelte (props: detail, shareToken).
   import { Button, Icon, toasts } from '@toolbar/ui';
   import type { AgentBrief } from '@toolbar/shared/api';
-  import { fetchBrief } from './brief.ts';
+  import { fetchBrief, fetchConnected, type ConnectedAgent } from './brief.ts';
   import CopyForAi from './CopyForAi.svelte';
+  import AuthorAvatar from './AuthorAvatar.svelte';
+  import AuthorName from './AuthorName.svelte';
+  import { ago } from '../auth/time.ts';
+  import { useViewer } from '../viewer/viewer.svelte.ts';
 
   interface Props {
     detail: unknown;
@@ -26,12 +30,19 @@
   let err = $state<string | null>(null);
   let copied = $state<string | null>(null);
   let showSetup = $state(false);
+  /** the person's connected agents, drawn as "agent for you" like their comments (D-207) */
+  let agents = $state<ConnectedAgent[]>([]);
+  const me = useViewer()?.data.me ?? null;
 
   $effect(() => {
     if (!captureId) return;
     let alive = true;
     fetchBrief(captureId, shareToken)
-      .then((b) => alive && (brief = b))
+      .then((b) => {
+        if (!alive) return;
+        brief = b;
+        if (b.connected && me && !shareToken) void fetchConnected().then((a) => alive && (agents = a));
+      })
       .catch((e: Error) => alive && (err = e.message));
     return () => {
       alive = false;
@@ -69,6 +80,17 @@
       </div>
     </section>
   {:else}
+    {#if agents.length && me}
+      <ul class="agents" aria-label="Connected agents" data-testid="agent-connected">
+        {#each agents as a (a.id)}
+          <li data-testid="agent-connected-item">
+            <AuthorAvatar name={me.name} image={me.image} agent={a.name} size={24} />
+            <span class="aname"><AuthorName name={me.name} agent={a.name} /></span>
+            <span class="aused">{a.lastUsedAt ? `used ${ago(a.lastUsedAt)}` : 'not used yet'}</span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
     <div class="chips" role="tablist" aria-label="Prompt presets">
       {#each PRESETS as p (p.id)}
         <button type="button" role="tab" aria-selected={preset === p.id} class:on={preset === p.id} onclick={() => (preset = p.id)} data-testid="preset-{p.id}">{p.label}</button>
@@ -111,6 +133,10 @@
   .chips button:hover { background: var(--nb-surface-sunken); color: var(--nb-text); }
   .chips button.on { background: var(--nb-surface); border-color: var(--nb-border-strong); color: var(--nb-text); box-shadow: var(--nb-shadow-sm); }
   .chips button:focus-visible { outline: 2px solid var(--nb-focus); }
+  .agents { --ring: var(--nb-surface); list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .agents li { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .aname { flex: 1; min-width: 0; display: flex; font-size: var(--nb-text-md); }
+  .aused { flex: none; color: var(--nb-text-faint); font-size: var(--nb-text-sm); }
   .more { display: grid; gap: var(--nb-space-1); border-top: 1px solid var(--nb-border); padding-top: var(--nb-space-3); }
   code { font-family: var(--nb-font-mono); font-size: var(--nb-text-sm); background: var(--nb-surface-sunken); padding: 1px 4px; border-radius: 4px; word-break: break-all; }
 </style>

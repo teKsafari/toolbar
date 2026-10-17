@@ -6,6 +6,8 @@
   import { Button, Icon, toasts } from '@toolbar/ui';
   import type { AgentSetup } from '@toolbar/shared/areas/agent';
   import { ago } from '#lib/components/auth/time.ts';
+  import AgentMark from '#lib/components/agent/AgentMark.svelte';
+  import { agentName } from '#lib/components/agent/agent-name.ts';
 
   let { data, form } = $props();
   let dialog: HTMLDialogElement | undefined = $state();
@@ -14,8 +16,6 @@
   let removing = $state<{ id: string; name: string } | null>(null);
   let menuFor = $state<string | null>(null);
   let copied = $state(false);
-
-  const initials: Record<string, string> = { 'claude-code': 'CC', cursor: 'Cu', codex: 'Cx', vscode: 'VS', other: '+' };
 
   function show(s: AgentSetup) {
     open = s;
@@ -53,7 +53,7 @@
   {#each data.setups as s (s.id)}
     <li>
       <button type="button" class="card" onclick={() => show(s)} data-testid="agent-card-{s.id}">
-        <span class="logo" aria-hidden="true">{initials[s.id]}</span>
+        {#if s.id === 'other'}<span class="logo" aria-hidden="true">+</span>{:else}<AgentMark agent={s.id} size={32} decorative />{/if}
         <span class="name" data-testid="agent-card-name">{s.id === 'other' ? 'Other agent' : s.name}</span>
         <span class="chev" aria-hidden="true"><Icon name="chevron-right" size={16} /></span>
       </button>
@@ -66,8 +66,9 @@
   <ul class="list" data-testid="mcp-clients">
     {#each data.clients as c (c.id)}
       <li data-testid="mcp-client">
+        <AgentMark agent={c.name} size={28} decorative />
         <span class="col">
-          <span class="cname">{c.name}</span>
+          <span class="cname" title={c.name}>{agentName(c.name)}</span>
           <span class="meta">{c.workspaceName} · {c.scopes.includes('captures:write') ? 'read, comment and organise' : 'read only'} · connected {ago(c.createdAt)} · {c.lastUsedAt ? `used ${ago(c.lastUsedAt)}` : 'not used yet'}</span>
         </span>
         <span class="menu">

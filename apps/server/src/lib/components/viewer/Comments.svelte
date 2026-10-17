@@ -6,7 +6,7 @@
   import type { Comment, CommentThread } from '@toolbar/shared/api';
   import CommentItem from './CommentItem.svelte';
   import Composer from './Composer.svelte';
-  import Avatar from './Avatar.svelte';
+  import AuthorAvatar from '../agent/AuthorAvatar.svelte';
   import VIcon from './VIcon.svelte';
   import { call, urlOf } from './api.ts';
   import { useViewer } from './viewer.svelte.ts';
@@ -136,7 +136,7 @@
 <div class="dock">
   {#if fresh.length}
     <button type="button" class="jump" onclick={jump} data-testid="jump-pill">
-      {#each fresh.slice(0, 3) as c (c.id)}<Avatar name={c.displayName} size={18} />{/each}
+      {#each fresh.slice(0, 3) as c (c.id)}<AuthorAvatar name={c.displayName} image={c.author?.image} agent={c.viaAgent} size={18} />{/each}
       {fresh.length} new comment{fresh.length > 1 ? 's' : ''}<VIcon name="chevron-down" size={12} />
     </button>
   {/if}
@@ -155,7 +155,7 @@
   .toggle:focus-visible { outline: 2px solid var(--nb-focus); border-radius: 4px; }
   .dock { position: sticky; bottom: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0 12px; background: linear-gradient(transparent, var(--nb-bg) 30%); }
   .dock > :global(.composer) { align-self: stretch; }
-  .jump { all: unset; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px 0 6px; border-radius: 999px; background: var(--nb-chrome); color: var(--nb-on-chrome); font-size: var(--nb-text-md); font-weight: var(--nb-weight-medium); cursor: pointer; box-shadow: var(--nb-shadow-lg); }
+  .jump { --ring: var(--nb-chrome); all: unset; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px 0 6px; border-radius: 999px; background: var(--nb-chrome); color: var(--nb-on-chrome); font-size: var(--nb-text-md); font-weight: var(--nb-weight-medium); cursor: pointer; box-shadow: var(--nb-shadow-lg); }
   /* keyboard focus for the controls above that `all: unset` strips of the browser ring (D-178) */
   .jump:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; border-radius: 2px; }
 </style>

@@ -363,7 +363,6 @@ test('J-206 recording-link capture without logs: only Info and Agent (D-206)', a
   await expect(tabs).toHaveText(['Info', 'Agent']);
   await expect(page.getByTestId('tab-info')).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('info-tab')).toContainText('http://localhost:5173/checkout');
-  // a video keeps the two columns (D-206): no info strip
+  // the pane stays (D-207)
   await expect(page.getByTestId('right-panel')).toBeVisible();
-  await expect(page.getByTestId('info-strip')).toHaveCount(0);
 });

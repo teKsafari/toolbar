@@ -1,6 +1,6 @@
-// How the capture page adapts to what a capture holds (D-206): which dev tools tabs have entries,
-// whether the capture is "lean" (nothing for the dev tools pane, so the pane starts collapsed and
-// the page facts move into a strip at the top), and the window of one feedback note's context.
+// How the capture page adapts to what a capture holds (D-206, D-207): which dev tools tabs have
+// entries, the tab the pane opens on, and the window of one feedback note's context. The pane
+// itself always stays.
 // Plain functions, so the unit tests need no component.
 import type { CaptureEvent } from '@toolbar/shared';
 import type { CaptureDetail } from '@toolbar/shared/api';
@@ -33,26 +33,14 @@ export function activeTab<T extends string>(chosen: T, counts: TabCounts): T | D
 }
 
 /**
- * A capture with no video, DOM replay or trace and nothing for the console, network or actions
- * tabs: typically a comment-only feedback. Its page starts with the pane collapsed.
+ * Nothing for the console, network or actions tabs (typically a comment-only feedback): the pane
+ * stays and opens on Info (D-207, which replaced the collapsed pane and info strip of D-206).
  */
-export function isLean(detail: Pick<CaptureDetail, 'kind' | 'media'>, counts: TabCounts): boolean {
-  if (detail.media.video || detail.media.rrwebUrls.length) return false;
-  if (detail.kind === 'trace' || detail.kind === 'replay' || detail.kind === 'video' || detail.kind === 'screen') return false;
-  return counts.console + counts.network + counts.actions === 0;
-}
+export const noPanelData = (counts: TabCounts) => counts.console + counts.network + counts.actions === 0;
 
-/** The facts of the info strip: page URL, browser, OS and viewport, each only when known. */
-export function stripFacts(detail: Pick<CaptureDetail, 'pageUrl' | 'env'>): { label: string; value: string; href?: string }[] {
-  const env = detail.env;
-  const url = detail.pageUrl ?? env?.url ?? null;
-  const out: { label: string; value: string; href?: string }[] = [];
-  if (url) out.push({ label: 'URL', value: url, ...(/^https?:\/\//.test(url) ? { href: url } : {}) });
-  if (env?.browser) out.push({ label: 'Browser', value: `${env.browser.name} ${env.browser.version}`.trim() });
-  const os = env?.os ? `${env.os.name}${env.os.version ? ` ${env.os.version}` : ''}` : (env?.platform ?? null);
-  if (os) out.push({ label: 'OS', value: os });
-  if (env?.viewport) out.push({ label: 'Viewport', value: `${env.viewport.w} x ${env.viewport.h}` });
-  return out;
+/** The tab the pane opens on: Info when no data tab has entries, else the last tab the person used. */
+export function initialTab<T extends string>(last: T, counts: TabCounts): T | 'info' {
+  return noPanelData(counts) ? 'info' : last;
 }
 
 /** The window one feedback note's context was read from, and the events it attached. */

@@ -1,7 +1,7 @@
-// The capture page adapts to what the capture holds (owner, D-206): a comment-only feedback starts
-// with the dev tools pane collapsed and its page facts in a strip; each note shows chips for the
-// errors and failed requests it attached, which open Console or Network on the note's window;
-// tabs with no entries are hidden. Captures with data keep today's layout.
+// The capture page adapts to what the capture holds (owner, D-206, D-207): the dev tools pane always
+// stays, and a comment-only feedback opens it on Info with only Info and Agent; each note shows chips
+// for the errors and failed requests it attached, which open Console or Network on the note's
+// window; tabs with no entries are hidden.
 import { expect, test, type Page } from '@playwright/test';
 import { captureUrl, IDS, open, ready, reseed, shareUrl, signIn } from './helpers.ts';
 
@@ -14,62 +14,55 @@ test.describe('member', () => {
     await signIn(context);
   });
 
-  test('comment-only feedback: pane collapsed, facts in a strip, the list takes the width; the toggle opens Info and Agent only', async ({ page }) => {
+  test('comment-only feedback: the pane stays, opens on Info, and shows Info and Agent only; no info strip', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
+    // the last tab used was Network: a capture with nothing for it still opens on Info
+    await open(page, captureUrl(IDS.feedbackCtx));
+    await ready(page);
+    await page.getByTestId('tab-network').click();
     await open(page, captureUrl(IDS.feedback));
     await ready(page);
-    const strip = page.getByTestId('info-strip');
-    await expect(strip).toBeVisible();
-    for (const t of ['http://localhost:5173/', 'Chrome 141.0.7390.54', 'Linux', '1280 x 720']) await expect(strip).toContainText(t);
-    await expect(page.getByTestId('right-panel')).toHaveCount(0);
-    await expect(page.getByTestId('feedback-item')).toHaveCount(3);
-    // no chips on notes that attached nothing
-    await expect(page.getByTestId('feedback-context')).toHaveCount(0);
-    const list = (await page.getByTestId('feedback-list').boundingBox())!;
-    expect(list.width, 'the feedback list uses the freed width').toBeGreaterThan(900);
-    // the strip sits between the header and the list, one line high
-    const s = (await strip.boundingBox())!;
-    expect(s.height).toBeLessThanOrEqual(40);
-    expect(s.y + s.height).toBeLessThanOrEqual(list.y);
-
-    // the pane still opens, with only the tabs that have something
-    await page.getByTestId('show-devtools').click();
+    await expect(page.getByTestId('info-strip')).toHaveCount(0);
     await expect(page.getByTestId('right-panel')).toBeVisible();
     await expect(tabs(page)).toHaveText(['Info', 'Agent']);
     await expect(page.getByTestId('tab-info')).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByTestId('info-tab')).toContainText('http://localhost:5173/');
+    for (const t of ['http://localhost:5173/', 'Chrome 141.0.7390.54', 'Linux']) await expect(page.getByTestId('info-tab')).toContainText(t);
+    await expect(page.getByTestId('feedback-item')).toHaveCount(3);
+    // no chips on notes that attached nothing
+    await expect(page.getByTestId('feedback-context')).toHaveCount(0);
+    // two columns: the list on the left, the pane on the right
+    const list = (await page.getByTestId('feedback-list').boundingBox())!;
+    const pane = (await page.getByTestId('right-panel').boundingBox())!;
+    expect(list.x + list.width).toBeLessThanOrEqual(pane.x);
+    expect(pane.width).toBeGreaterThan(300);
+
     // keyboard: Tab reaches the tabs, Enter switches
     await page.getByTestId('tab-info').focus();
     await page.keyboard.press('Tab');
     await expect(page.getByTestId('tab-agent')).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.getByTestId('tab-agent')).toHaveAttribute('aria-selected', 'true');
-    await page.getByTestId('tab-info').click();
-    await page.getByTestId('show-devtools').click();
-    await expect(page.getByTestId('right-panel')).toHaveCount(0);
+    await expect(page.getByTestId('agent-tab')).toBeVisible();
 
-    // opening it here leaves other captures alone: a video keeps two columns and no strip
-    await page.getByTestId('show-devtools').click();
+    // a video keeps every tab with entries
     await open(page, captureUrl(IDS.video));
     await expect(page.getByTestId('right-panel')).toBeVisible();
-    await expect(page.getByTestId('info-strip')).toHaveCount(0);
     await expect(tabs(page)).toHaveText(['Info', 'Console', 'Network', 'Actions', 'Agent']);
-    // and the lean capture starts collapsed again
+    // and the comment-only capture opens on Info again, with the pane
     await open(page, captureUrl(IDS.feedback));
-    await expect(page.getByTestId('right-panel')).toHaveCount(0);
+    await expect(page.getByTestId('right-panel')).toBeVisible();
+    await expect(page.getByTestId('tab-info')).toHaveAttribute('aria-selected', 'true');
   });
 
   test('a replay and a feedback with logs keep the two columns; empty tabs are hidden', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await open(page, captureUrl(IDS.replay));
     await ready(page);
-    await expect(page.getByTestId('info-strip')).toHaveCount(0);
     await expect(page.getByTestId('right-panel')).toBeVisible();
     await expect(tabs(page)).toHaveText(['Info', 'Console', 'Actions', 'Agent']);
 
     await open(page, captureUrl(IDS.feedbackCtx));
     await ready(page);
-    await expect(page.getByTestId('info-strip')).toHaveCount(0);
     await expect(page.getByTestId('right-panel')).toBeVisible();
     await expect(tabs(page)).toHaveText(['Info', 'Console', 'Network', 'Agent']);
     await expect(page.getByTestId('tab-actions')).toHaveCount(0);
@@ -114,10 +107,15 @@ test.describe('member', () => {
     await expect(page.getByTestId('console-list').locator('[data-picked]')).toHaveCount(0);
   });
 
-  test('at 390 px a chip switches to the dev tools view; the strip wraps without a side scroll', async ({ page }) => {
+  test('at 390 px the Dev tools view of a comment-only feedback shows Info; a chip switches to the dev tools view', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await open(page, captureUrl(IDS.feedback));
-    await expect(page.getByTestId('info-strip')).toBeVisible();
+    await expect(page.getByTestId('info-strip')).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await page.getByTestId('narrow-devtools').click();
+    await expect(page.getByTestId('right-panel')).toBeVisible();
+    await expect(page.getByTestId('tab-info')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('info-tab')).toContainText('http://localhost:5173/');
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
     await open(page, captureUrl(IDS.feedbackCtx));
     await ready(page);
@@ -134,8 +132,9 @@ test('the share page adapts the same way, and its chips open the pane', async ({
   const anon = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await anon.newPage();
   await open(page, shareUrl(IDS.feedback));
-  await expect(page.getByTestId('info-strip')).toBeVisible();
-  await expect(page.getByTestId('right-panel')).toHaveCount(0);
+  await expect(page.getByTestId('info-strip')).toHaveCount(0);
+  await expect(page.getByTestId('right-panel')).toBeVisible();
+  await expect(page.getByTestId('tab-info')).toHaveAttribute('aria-selected', 'true');
   await open(page, shareUrl(IDS.feedbackCtx));
   await ready(page);
   await page.getByTestId('feedback-chip-errors').click();

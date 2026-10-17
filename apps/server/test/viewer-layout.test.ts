@@ -1,12 +1,12 @@
-// The capture page adapts to what a capture holds (D-206): hidden empty tabs, the lean layout of a
-// comment-only feedback, the info strip's facts, and a note's context window.
+// The capture page adapts to what a capture holds (D-206, D-207): hidden empty tabs, the tab the
+// always-present pane opens on, and a note's context window.
 import { describe, expect, it } from 'vitest';
 import { buildTimeMap, computeEventIndex, deriveActions, deriveConsole, deriveNetwork } from '@toolbar/shared/derive';
 import type { CaptureEvent } from '@toolbar/shared';
 import type { CaptureDetail } from '@toolbar/shared/api';
 import { contextFromEvents } from '@toolbar/shared/areas/reviewer';
-import { activeTab, countsFromIndex, inWindow, isLean, noteWindow, stripFacts, tabVisible, type TabCounts } from '../src/lib/components/viewer/layout.ts';
-import { fixtureEnv, FIXTURE_T0, LAB, tabVideoEvents } from '../fixtures/events.ts';
+import { activeTab, countsFromIndex, initialTab, inWindow, noPanelData, noteWindow, tabVisible, type TabCounts } from '../src/lib/components/viewer/layout.ts';
+import { FIXTURE_T0, LAB, tabVideoEvents } from '../fixtures/events.ts';
 
 const media = (over: Partial<CaptureDetail['media']> = {}) => ({ video: null, screenshot: null, fullScreenshot: null, thumbUrl: null, rrwebUrls: [], eventsUrl: null, ...over }) as unknown as CaptureDetail['media'];
 const detailOf = (events: CaptureEvent[], kind: CaptureDetail['kind'], m = media()) => {
@@ -33,13 +33,15 @@ function feedbackEvents(t0: number) {
 }
 
 describe('tabs with entries (D-206)', () => {
-  it('a comment-only feedback has no data tab and is lean', () => {
+  it('a comment-only feedback has no data tab: the pane opens on Info whatever tab was used last', () => {
     const d = detailOf([], 'feedback');
     const counts = countsFromIndex(d);
     expect(counts).toEqual({ console: 0, network: 0, actions: 0 });
     expect(['info', 'console', 'network', 'actions', 'agent'].filter((t) => tabVisible(t, counts))).toEqual(['info', 'agent']);
     expect(activeTab('console', counts)).toBe('info');
-    expect(isLean(d, counts)).toBe(true);
+    expect(noPanelData(counts)).toBe(true);
+    expect(initialTab('agent', counts)).toBe('info');
+    expect(initialTab('network', counts)).toBe('info');
   });
 
   it('a tab video keeps every tab, and the index agrees with the rows', () => {
@@ -50,10 +52,11 @@ describe('tabs with entries (D-206)', () => {
     for (const t of ['console', 'network', 'actions'] as const) expect(fromIndex[t] > 0, t).toBe(fromRows[t] > 0);
     expect(['info', 'console', 'network', 'actions', 'agent'].every((t) => tabVisible(t, fromRows))).toBe(true);
     expect(activeTab('network', fromRows)).toBe('network');
-    expect(isLean(d, fromRows)).toBe(false);
+    expect(noPanelData(fromIndex)).toBe(false);
+    expect(initialTab('agent', fromIndex)).toBe('agent');
   });
 
-  it('a feedback with attached entries shows console and network, hides actions, and is not lean', () => {
+  it('a feedback with attached entries shows console and network, hides actions, and keeps the last tab', () => {
     const events = feedbackEvents(FIXTURE_T0);
     const d = detailOf(events, 'feedback');
     const counts = rowsCounts(events);
@@ -62,26 +65,8 @@ describe('tabs with entries (D-206)', () => {
     expect(counts.actions).toBe(0);
     expect(tabVisible('actions', counts)).toBe(false);
     expect(activeTab('actions', counts)).toBe('console');
-    expect(isLean(d, countsFromIndex(d))).toBe(false);
-  });
-
-  it('a video, replay or trace is never lean, even without logs', () => {
-    const none = { console: 0, network: 0, actions: 0 };
-    expect(isLean(detailOf([], 'video', media({ video: { url: 'v' } as never })), none)).toBe(false);
-    expect(isLean(detailOf([], 'replay', media({ rrwebUrls: ['r'] })), none)).toBe(false);
-    expect(isLean(detailOf([], 'trace'), none)).toBe(false);
-    expect(isLean(detailOf([], 'screenshot'), none)).toBe(true);
-  });
-});
-
-describe('info strip (D-206)', () => {
-  it('names URL, browser, OS and viewport, and links http pages', () => {
-    const env = fixtureEnv(`${LAB}/checkout`, 'Checkout');
-    const facts = stripFacts({ pageUrl: `${LAB}/checkout`, env } as Pick<CaptureDetail, 'pageUrl' | 'env'>);
-    expect(facts.map((f) => f.label)).toEqual(['URL', 'Browser', 'OS', 'Viewport']);
-    expect(facts[0]).toMatchObject({ value: `${LAB}/checkout`, href: `${LAB}/checkout` });
-    expect(facts[3]!.value).toMatch(/^\d+ x \d+$/);
-    expect(stripFacts({ pageUrl: null, env: null } as Pick<CaptureDetail, 'pageUrl' | 'env'>)).toEqual([]);
+    expect(noPanelData(countsFromIndex(d))).toBe(false);
+    expect(initialTab('console', countsFromIndex(d))).toBe('console');
   });
 });
 

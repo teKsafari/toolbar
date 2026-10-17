@@ -6,7 +6,8 @@
   import { REACTION_KEYS, type Comment, type CommentThread, type ReactionKey } from '@toolbar/shared/api';
   import { fmtClock, renderMarkdown, reactionGlyphs } from '@toolbar/ui/viewer';
   import VIcon from './VIcon.svelte';
-  import Avatar from './Avatar.svelte';
+  import AuthorAvatar from '../agent/AuthorAvatar.svelte';
+  import AuthorName from '../agent/AuthorName.svelte';
   import Dropdown from './Dropdown.svelte';
   import Menu from './Menu.svelte';
   import Modal from './Modal.svelte';
@@ -98,10 +99,10 @@
 </script>
 
 <article id="comment-{c.id}" class="cm" class:reply class:hl={v.highlightComment === c.id} class:resolved={!!c.resolvedAt} data-testid="comment" data-comment-id={c.id}>
-  <Avatar name={c.displayName} image={c.author?.image} size={reply ? 22 : 28} />
+  <AuthorAvatar name={c.displayName} image={c.author?.image} agent={c.viaAgent} size={reply ? 22 : 28} />
   <div class="main">
     <div class="head">
-      <span class="name">{c.displayName}</span>{#if c.viaAgent}<span class="via" title="Written by {c.viaAgent} for {c.displayName}" data-testid="comment-via">via {c.viaAgent}</span>{/if}
+      <span class="name"><AuthorName name={c.displayName} agent={c.viaAgent} /></span>
       {#if c.anonymous}<span class="tag">anonymous</span>{/if}
       {#if c.tMs !== null}<button type="button" class="tchip" onclick={seekHere} title="Play from here" data-testid="comment-time">{fmtClock(c.tMs)}</button>{/if}
       <span class="when" title={new Date(c.createdAt).toLocaleString()}>{relTime(c.createdAt)}</span>
@@ -191,15 +192,15 @@
 {/if}
 
 <style>
-  .via { margin-left: 6px; padding: 0 7px; border-radius: 999px; background: var(--nb-surface-sunken); color: var(--nb-text-muted); font-size: var(--nb-text-xs); font-weight: 500; white-space: nowrap; }
-  .cm { position: relative; display: flex; gap: 10px; padding: 10px 10px; border-radius: var(--nb-radius-md); transition: background-color var(--nb-dur-med) var(--nb-ease-out); }
-  .cm:hover { background: var(--nb-surface-2); }
+  /* --ring: the row's background, for the ring around a person's avatar over an agent mark (D-207) */
+  .cm { --ring: var(--nb-bg); position: relative; display: flex; gap: 10px; padding: 10px 10px; border-radius: var(--nb-radius-md); transition: background-color var(--nb-dur-med) var(--nb-ease-out); }
+  .cm:hover { --ring: var(--nb-surface-2); background: var(--nb-surface-2); }
   .cm.reply { padding: 6px 10px 6px 48px; }
-  .cm.hl { background: var(--nb-capture-tint); }
+  .cm.hl { --ring: var(--nb-capture-tint); background: var(--nb-capture-tint); }
   .cm.resolved .body { color: var(--nb-text-muted); }
   .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   .head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: var(--nb-text-md); }
-  .name { font-weight: 600; letter-spacing: var(--nb-tracking-ui); }
+  .name { min-width: 0; display: inline-flex; letter-spacing: var(--nb-tracking-ui); }
   .tag { font-size: var(--nb-text-xs); color: var(--nb-text-faint); }
   .tchip { all: unset; padding: 0 6px; height: 18px; line-height: 18px; border-radius: var(--nb-radius-pill); border: 1px solid var(--nb-border-strong); background: var(--nb-surface); color: var(--nb-text); font: 500 var(--nb-text-xs) var(--nb-font-mono); font-variant-numeric: tabular-nums; cursor: pointer; transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out); }
   .tchip:hover { background: var(--nb-accent); border-color: var(--nb-accent); color: var(--nb-on-accent); }

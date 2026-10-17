@@ -1,9 +1,8 @@
 <script lang="ts">
   // The capture page (J-090): header; left column with media, title, description, creator and
   // comments; right dev tools panel (about 38%) behind a draggable splitter; the panel hides
-  // (J-091) and at phone width the page is one column with a toggle between the two (J-115). A
-  // lean capture (nothing for the dev tools, no video, replay or trace; D-206) starts with the
-  // pane collapsed and shows URL, browser, OS and viewport in a thin strip under the header.
+  // (J-091) and at phone width the page is one column with a toggle between the two (J-115). The
+  // panel stays for a capture with nothing for its data tabs; it opens on Info (D-207).
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   const brandName = $derived(page.data.brand?.name ?? 'open-toolbar');
@@ -18,7 +17,6 @@
   import DevTools from './DevTools.svelte';
   import VIcon from './VIcon.svelte';
   import FeedbackList from '../feedback/FeedbackList.svelte';
-  import { stripFacts } from './layout.ts';
   import { provideViewer, Viewer } from './viewer.svelte.ts';
   import type { CaptureDetail } from '@toolbar/shared/api';
   import type { ViewerData } from './types.ts';
@@ -34,8 +32,6 @@
   let dragging = $state(false);
   let hydrated = $state(false);
   const showDev = $derived(data.devtools && v.devtoolsOpen);
-  const strip = $derived(data.devtools && v.lean);
-  const facts = $derived(strip ? stripFacts(v.detail) : []);
 
   onMount(() => {
     hydrated = true;
@@ -99,16 +95,6 @@
       <button type="button" role="tab" aria-selected={v.narrowView === 'devtools'} class:on={v.narrowView === 'devtools'} onclick={() => { v.narrowView = 'devtools'; if (!v.devtoolsOpen) v.toggleDevtools(true); }} data-testid="narrow-devtools">Dev tools</button>
     </div>
   {/if}
-  {#if strip}
-    <div class="strip" data-testid="info-strip">
-      <dl>
-        {#each facts as f (f.label)}
-          <div class="fact" class:url={f.label === 'URL'}><dt>{f.label}</dt><dd>{#if f.href}<a href={f.href} target="_blank" rel="noopener noreferrer" title={f.value}>{f.value}</a>{:else}{f.value}{/if}</dd></div>
-        {/each}
-      </dl>
-      <button type="button" class="striptoggle" class:on={v.devtoolsOpen} aria-pressed={v.devtoolsOpen} onclick={() => v.toggleDevtools()} aria-label={v.devtoolsOpen ? 'Hide dev tools' : 'Show dev tools'} title={v.devtoolsOpen ? 'Hide dev tools' : 'Show dev tools'} data-testid="show-devtools"><VIcon name="panel-right" size={14} /><span>Dev tools</span></button>
-    </div>
-  {/if}
   <main class="layout" class:solo={!showDev} class:show-dev-narrow={v.narrowView === 'devtools' && showDev} bind:this={main} style:--right="{rightPct}%" onpointermove={onDrag} onpointerup={endDrag}>
     <div class="left" bind:this={left}>
       <div class="leftin">
@@ -139,7 +125,7 @@
       <div class="splitter" role="separator" aria-orientation="vertical" aria-label="Resize dev tools" aria-valuenow={Math.round(rightPct)} tabindex="0" onpointerdown={startDrag} onkeydown={splitKey} data-testid="splitter"></div>
       <aside class="right" data-testid="right-panel"><DevTools /></aside>
     {/if}
-    {#if data.devtools && !v.devtoolsOpen && !strip}
+    {#if data.devtools && !v.devtoolsOpen}
       <button type="button" class="showdev" onclick={() => v.toggleDevtools(true)} aria-label="Show dev tools" title="Show dev tools" data-testid="show-devtools"><VIcon name="panel-right" size={16} /><span>Dev tools</span></button>
     {/if}
   </main>
@@ -162,19 +148,6 @@
   .showdev:hover { border-color: color-mix(in srgb, var(--nb-text-faint) 60%, var(--nb-border-strong)); }
   .showdev:focus-visible { outline: 2px solid var(--nb-focus); }
   .narrowbar { display: none; }
-  /* the lean page's facts (D-206): one quiet line of mono labels and values, the pane toggle at its end */
-  .strip { flex: none; display: flex; align-items: center; gap: 12px; min-height: 36px; padding: 4px 16px; border-bottom: 1px solid var(--nb-border); background: var(--nb-surface); }
-  .strip dl { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 20px; margin: 0; }
-  .fact { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
-  .fact.url { flex: 0 1 auto; max-width: min(560px, 100%); }
-  .fact dt { flex: none; font: 10px/16px var(--nb-font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--nb-text-faint); }
-  .fact dd { margin: 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--nb-text-sm); color: var(--nb-text-body); }
-  .fact a { color: inherit; text-decoration: none; }
-  .fact a:hover { color: var(--nb-text); text-decoration: underline; }
-  .fact a:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; border-radius: 2px; }
-  .striptoggle { all: unset; flex: none; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: var(--nb-radius-sm); color: var(--nb-text-muted); font-size: var(--nb-text-sm); font-weight: var(--nb-weight-medium); cursor: pointer; transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out); }
-  .striptoggle:hover, .striptoggle.on { background: var(--nb-surface-sunken); color: var(--nb-text); }
-  .striptoggle:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 1px; }
   @media (max-width: 720px) {
     .page { height: auto; min-height: 100dvh; }
     /* a capsule segmented toggle (language section 10) */
@@ -185,10 +158,7 @@
     .left { overflow: visible; padding: 0; }
     .leftin { padding: 0 0 0; gap: 10px; }
     .leftin > :global(:not(.media)) { padding-left: 12px; padding-right: 12px; }
-    .splitter, .showdev, .striptoggle { display: none; }
-    .strip { padding: 6px 12px; }
-    .strip dl { gap: 2px 14px; }
-    .fact.url { flex-basis: 100%; }
+    .splitter, .showdev { display: none; }
     .right { display: none; height: calc(100dvh - 93px); padding: 0; }
     .show-dev-narrow .left { display: none; }
     .show-dev-narrow .right { display: block; }

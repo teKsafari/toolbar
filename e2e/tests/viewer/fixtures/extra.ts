@@ -2,7 +2,7 @@
 //   d1 no requests and no user events (J-231)       d2 recording-link capture without logs (J-206)
 //   d3 desktop recording across two tabs (J-224)   d4 instant replay with a DOM recording (J-100, J-229)
 //   d5 console rows with object, array, Date and Map arguments and call-site stacks (J-055, J-056)
-//   d6 comment-only reviewer feedback: three notes, no logs (D-206, the lean page)
+//   d6 comment-only reviewer feedback: three notes, no logs (D-206, D-207: the pane opens on Info)
 //   d7 reviewer feedback whose second note attached an error and a failed request (D-206 chips)
 // Run after the seed: node e2e/tests/viewer/fixtures/extra.ts (reads the worktree .env).
 import { gzipSync } from 'node:zlib';

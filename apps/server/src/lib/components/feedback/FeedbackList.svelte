@@ -6,7 +6,11 @@
   // with its entries selected (D-206).
   import { onMount } from 'svelte';
   import type { FeedbackItem } from '@toolbar/shared/areas/reviewer';
+  import type { Resolution } from '@toolbar/shared/api';
   import { call } from '../viewer/api.ts';
+  import { relTime } from '../viewer/time.ts';
+  import AuthorAvatar from '../agent/AuthorAvatar.svelte';
+  import AuthorName from '../agent/AuthorName.svelte';
   import VIcon from '../viewer/VIcon.svelte';
   import { useViewer } from '../viewer/viewer.svelte.ts';
 
@@ -22,6 +26,11 @@
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
   let items: FeedbackItem[] = $state([]);
+  /** who resolved the feedback, and through which agent (members only; D-207) */
+  let resolution = $state<Resolution | null>(null);
+  /** "browser" is the person themself; anything else names the agent or "API" */
+  const resolvedVia = $derived(resolution?.via && resolution.via !== 'browser' ? resolution.via : null);
+  const resolverName = $derived(resolution?.resolvedBy?.name ?? resolution?.resolvedBy?.email ?? 'Someone');
   let loaded = $state(false);
   let open: string | null = $state(null);
 
@@ -45,8 +54,19 @@
     loaded = true;
   }
 
+  async function loadResolution() {
+    if (v?.data.mode !== 'member' || !v.data.me) return;
+    try {
+      const r = await call<Resolution>('handoff.resolution', { id: recordingId });
+      resolution = r.resolved ? r : null;
+    } catch {
+      resolution = null;
+    }
+  }
+
   onMount(() => {
     void load();
+    void loadResolution();
     // transcripts arrive after the submit: look again while one is still running
     const timer = setInterval(() => {
       if (items.some((i) => i.transcript && (i.transcript.status === 'pending' || i.transcript.status === 'running'))) void load();
@@ -71,6 +91,13 @@
       <h2>Feedback</h2>
       <span class="count">{items.length}</span>
     </header>
+    {#if resolution?.resolvedAt}
+      <p class="hist" data-testid="feedback-resolution">
+        <AuthorAvatar name={resolverName} agent={resolvedVia} size={20} />
+        <span class="htext">Resolved by <AuthorName name={resolverName} agent={resolvedVia} /> <span class="when" title={new Date(resolution.resolvedAt).toLocaleString()}>{relTime(resolution.resolvedAt)}</span>{#if resolution.commit}<code class="commit">{resolution.commit.slice(0, 12)}</code>{/if}</span>
+      </p>
+      {#if resolution.note}<p class="rnote">{resolution.note}</p>{/if}
+    {/if}
     {#if !items.length}
       <p class="empty">No feedback items in this capture.</p>
     {/if}
@@ -136,6 +163,13 @@
   header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
   h2 { font-size: var(--nb-text-base); font-weight: 600; letter-spacing: var(--nb-tracking-ui); margin: 0; }
   .count { font: var(--nb-text-xs) / 18px var(--nb-font-mono); font-variant-numeric: tabular-nums; color: var(--nb-text-muted); background: var(--nb-surface-sunken); border-radius: var(--nb-radius-pill); padding: 0 8px; }
+  /* a history line (D-207): who resolved it, through which agent, and when */
+  .hist { --ring: var(--nb-surface); display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: var(--nb-text-sm); color: var(--nb-text-muted); min-width: 0; }
+  .htext { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
+  .htext :global(.who) { color: var(--nb-text); }
+  .when { color: var(--nb-text-faint); }
+  .commit { font: 11px var(--nb-font-mono); color: var(--nb-text-muted); }
+  .rnote { margin: -4px 0 8px 28px; font-size: var(--nb-text-md); color: var(--nb-text-body); white-space: pre-wrap; }
   .empty { color: var(--nb-text-muted); font-size: var(--nb-text-md); margin: 0; }
   ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
   .item { border-top: 1px solid var(--nb-border); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
