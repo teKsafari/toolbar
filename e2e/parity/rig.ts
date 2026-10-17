@@ -450,6 +450,8 @@ export async function allowLab(context: BrowserContext, lab: Page, popup: Page):
   await closePopup(popup);
   let p = await clickIcon(context, lab);
   const card = p.getByTestId('site-access');
+  // D-205: the add row shows until the popup's fresh project list names the lab's project
+  await expect(p.locator('[data-testid="site-access"][data-state="not-in-project"]')).toHaveCount(0, { timeout: 20_000 });
   if (!(await card.count())) return p;
   // D-200: a server in `all` mode asks once for every site; the strict mode for the project origins
   await expect(card).toHaveAttribute('data-state', /^(needs-grant|needs-all-sites)$/, { timeout: 20_000 });

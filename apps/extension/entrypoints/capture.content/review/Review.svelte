@@ -93,7 +93,8 @@
     if (blocked) return;
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.shiftKey && (e.key === '.' || e.key === '>' || e.code === 'Period')) {
-      if (r.awake) r.sleep();
+      if (r.closed) void r.reopen().then(() => r.wake());
+      else if (r.awake) r.sleep();
       else r.wake();
       return stop(e);
     }
@@ -107,7 +108,7 @@
       else if (e.key === 'Escape') r.typeaheadEnd = 'cancel';
       return stop(e);
     }
-    if (!r.awake || typingIn(e) || mod || e.altKey) return;
+    if (!r.awake || r.closed || typingIn(e) || mod || e.altKey) return;
     if (e.key === 'Escape') {
       r.back();
       return stop(e);
@@ -199,7 +200,8 @@
 {/snippet}
 
 <span bind:this={anchor} hidden></span>
-{#if !blocked}
+<!-- D-205: closed on this origin (the pill's X): nothing of the toolbar shows until the extension icon is clicked -->
+{#if !blocked && !r.closed}
   <!-- drawings and text highlights, each drawn at its offset from its element (track.ts, D-204) -->
   {#if (showPins && here.length) || r.drawing || r.draft?.shapes.length || r.draft?.marks?.length}
     <svg class="layer" data-testid="review-layer" aria-hidden="true">

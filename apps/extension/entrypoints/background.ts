@@ -16,6 +16,7 @@ import { registerDashboard } from '../lib/bg/dashboard';
 import { registerTrace } from '../lib/bg/trace';
 import { registerLocator } from '../lib/bg/locator';
 import { registerReview } from '../lib/bg/review';
+import { registerSites } from '../lib/bg/sites';
 
 export default defineBackground(() => {
   registerBrand();
@@ -27,6 +28,8 @@ export default defineBackground(() => {
 
   // D-126: capture scripts run on the granted project origins only (lib/scope.ts)
   registerScope();
+  // D-205: add a site from the extension icon, remove it, show a closed toolbar again
+  registerSites();
   const ready = syncRegistration().catch((e: unknown) => {
     console.error('[toolbar] content script registration failed', e);
     throw e;

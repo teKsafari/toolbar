@@ -165,6 +165,21 @@ export const HELP_LINKS = {
   issues: 'https://github.com/Heracraft/toolbar/issues/new',
 } as const;
 
+/**
+ * D-205: origins where the person closed the toolbar (the pill's X), as `{ [origin]: closedAt }`
+ * in chrome.storage.local. The launcher and the pill stay hidden there, across reloads and tabs,
+ * until the extension icon is clicked on that origin.
+ */
+export const TOOLBAR_CLOSED_KEY = 'tb:toolbar-closed';
+
+/** D-205: the project a site was last added to or captured in; the popup's add row preselects it. */
+export const RECENT_PROJECT_KEY = 'tb:recent-project';
+
+/** Whether the toolbar is closed on `origin`, from the stored map. */
+export function toolbarClosedOn(map: unknown, origin: string | null | undefined): boolean {
+  return !!origin && !!map && typeof map === 'object' && !!(map as Record<string, unknown>)[origin];
+}
+
 /** Chrome's shortcut editor (J-184). */
 export const SHORTCUTS_URL = 'chrome://extensions/shortcuts';
 

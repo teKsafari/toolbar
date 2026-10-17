@@ -209,8 +209,17 @@
       <button type="button" class="send" disabled={!r.items.length || r.busy} aria-label="Send {r.items.length} notes" title={r.trace ? 'Add the notes to the trace' : 'Send the notes'} data-testid="review-send" onclick={() => void r.submit()}>
         <Icon name="send" size={15} />{r.items.length || ''}
       </button>
-      <button type="button" class="ib" aria-label="Close (Esc)" title="Close (Esc)" data-testid="review-close" onclick={() => r.sleep()}><Icon name="close" size={17} /></button>
+      <button type="button" class="ib" aria-label="Collapse (Esc)" title="Collapse (Esc)" data-testid="review-close" onclick={() => r.sleep()}><Icon name="chevron-down" size={17} /></button>
+      <!-- D-205: closes the toolbar on this site until the extension icon is clicked here -->
+      <button type="button" class="ib" aria-label="Close on this site" title="Close on this site" data-testid="review-close-site" onclick={() => void r.close()}><Icon name="close" size={17} /></button>
     </div>
+    {#if r.confirmClose}
+      <div class="confirm" use:fitIn role="alertdialog" aria-label={r.trace ? 'Stop trace?' : 'Stop voice note?'} data-nb-interactive data-testid="review-close-confirm">
+        <span>{r.trace ? 'Stop trace?' : 'Stop voice note?'}</span>
+        <button type="button" class="send" data-testid="review-close-stop" onclick={() => void r.close(true)}>Stop</button>
+        <button type="button" class="ib" data-testid="review-close-keep" onclick={() => void r.close(false)}>Keep</button>
+      </div>
+    {/if}
   {/if}
 </div>
 
@@ -237,6 +246,10 @@
   .shots-note { pointer-events: auto; position: absolute; right: 0; bottom: calc(100% + 8px); margin: 0; max-width: min(340px, calc(100vw - 40px)); box-sizing: border-box; padding: 8px 12px; border-radius: 12px; display: flex; gap: 8px; align-items: flex-start; background: var(--nb-chrome); color: var(--nb-on-chrome); box-shadow: inset 0 0 0 1px var(--nb-chrome-border), var(--nb-shadow-lg); font: var(--nb-weight-medium) 12px/1.4 var(--nb-font-sans); }
   .dock.left .shots-note { right: auto; left: 0; }
   .dock.top .shots-note { bottom: auto; top: calc(100% + 8px); }
+  /* D-205: the X's question while a trace or voice note runs, one line above the pill */
+  .confirm { pointer-events: auto; position: absolute; right: 0; bottom: calc(100% + 8px); display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 12px; border-radius: 22px; background: var(--nb-chrome); color: var(--nb-on-chrome); box-shadow: inset 0 0 0 1px var(--nb-chrome-border), var(--nb-shadow-lg); font: var(--nb-weight-medium) 12px/1 var(--nb-font-sans); white-space: nowrap; }
+  .dock.left .confirm { right: auto; left: 0; }
+  .dock.top .confirm { bottom: auto; top: calc(100% + 8px); }
   /* phone width (390 px): the pill wraps onto two rows, so Send and Close stay on screen (D-185) */
   @media (max-width: 520px) {
     .pill { flex-wrap: wrap; justify-content: center; height: auto; padding: 6px; row-gap: 4px; max-width: calc(100vw - 24px); overflow: visible; }

@@ -33,6 +33,8 @@ export interface ProjectScope {
    * (PLAN "What a trace is", D-166).
    */
   traceOpenMs: number;
+  /** extension bootstrap (D-204): the origins of this project the signed-in user added from the extension */
+  mine?: string[];
 }
 
 /** The span window for open requests (D-166): 10 s by default; code runs can take longer. */
@@ -156,9 +158,9 @@ export function projectForUrl<P extends Pick<ProjectScope, 'origins'>>(projects:
 }
 
 /**
- * Site access (D-200). `all`: the extension asks Chrome once for every site, and the first capture
- * on an origin makes a project for it. `projects`: the strict mode of D-126, capture only on the
- * origins of projects, each approved in Chrome.
+ * Site access (D-200, D-203). `projects` (default): the extension runs on the origins of projects
+ * only, and a member adds a site from the extension icon. `all` (an admin's opt-in): it runs on
+ * every site, and the first capture on an origin makes a project for it.
  */
 export const SITE_ACCESS_MODES = ['all', 'projects'] as const;
 export type SiteAccessMode = (typeof SITE_ACCESS_MODES)[number];

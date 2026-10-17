@@ -50,6 +50,7 @@ import { COUNTDOWN_FROM, DEFAULT_REPLAY_BLOCKED_SITES, isReplayBlocked, isRestri
 import type { Rect } from '@toolbar/shared/events';
 import { TEST_HOOKS } from '../flags';
 import { ensureContent } from '../registration';
+import { siteFacts } from './sites';
 import { ALL_SITE_PATTERNS, outOfScope, presetFor, scope } from '../scope';
 import { matchPatternOf } from '@toolbar/shared/projects';
 
@@ -430,6 +431,7 @@ async function siteAccess(url: string | null): Promise<SiteAccess> {
   const p = presetFor(sc, url).project;
   const reason = outOfScope(sc, url);
   return {
+    ...(await siteFacts(sc, url)),
     project: p ? { id: p.id, name: p.name, maskingPreset: p.maskingPreset } : null,
     allowed: reason === null,
     mode: sc.mode,
@@ -673,7 +675,7 @@ const handlers: Handlers = {
             ? 'This site is on your blocked sites list, so the extension does not run here.'
             : p
               ? `Allow access to ${p.name} first: open the extension menu and click Allow.`
-              : 'This site is not in any of your projects. A workspace admin can add it under Settings, Projects.',
+              : 'This site is in no project. Click the extension icon to add it.',
       );
     }
     // a tab opened before install or update has no in-page UI yet

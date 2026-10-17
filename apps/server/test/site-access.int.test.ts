@@ -1,8 +1,11 @@
-// Site access (D-200) against a throwaway Postgres database: in the default `all` mode the first
+// Site access (D-200, D-203, D-205) against a throwaway Postgres database. The default is now
+// `projects` (D-203); the `all` cases set SITE_ACCESS=all. In `all` mode the first
 // capture on an origin makes its project (once, even under concurrent first captures), captures
 // are grouped by project, an admin merges projects (origins and captures move), the shared origin
 // helper for the injector follows the precedence rules, and the strict mode (SITE_ACCESS=projects)
-// refuses an unlisted origin and makes nothing. Route handlers are called directly with the
+// refuses an unlisted origin and makes nothing, and members add a site from the extension (D-205):
+// to a project or a new one, unless the workspace lets only admins; admins or the person who added
+// it remove it. Route handlers are called directly with the
 // locals the hooks would set. Skips when Postgres is down.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import postgres from 'postgres';
@@ -35,6 +38,8 @@ describe.skipIf(!reachable)('site access (integration, D-200)', () => {
     access: typeof import('../src/lib/server/projects/access.ts');
     list: typeof import('../src/routes/api/v1/workspaces/[workspaceId]/projects/+server.ts');
     merge: typeof import('../src/routes/api/v1/projects/[id]/merge/+server.ts');
+    addSite: typeof import('../src/routes/api/v1/workspaces/[workspaceId]/sites/+server.ts');
+    removeSite: typeof import('../src/routes/api/v1/projects/[id]/sites/+server.ts');
     rec: typeof import('../src/routes/api/v1/recordings/+server.ts');
     orm: typeof import('drizzle-orm');
   };
@@ -94,6 +99,8 @@ describe.skipIf(!reachable)('site access (integration, D-200)', () => {
       access: await import('../src/lib/server/projects/access.ts'),
       list: await import('../src/routes/api/v1/workspaces/[workspaceId]/projects/+server.ts'),
       merge: await import('../src/routes/api/v1/projects/[id]/merge/+server.ts'),
+      addSite: await import('../src/routes/api/v1/workspaces/[workspaceId]/sites/+server.ts'),
+      removeSite: await import('../src/routes/api/v1/projects/[id]/sites/+server.ts'),
       rec: await import('../src/routes/api/v1/recordings/+server.ts'),
       orm: await import('drizzle-orm'),
     };
@@ -114,7 +121,9 @@ describe.skipIf(!reachable)('site access (integration, D-200)', () => {
     await admin?.end();
   });
 
-  it('defaults to all sites', () => {
+  it('defaults to project sites only (D-203); an admin opts in to all sites', () => {
+    expect(m.access.siteAccessMode()).toBe('projects');
+    process.env.SITE_ACCESS = 'all';
     expect(m.access.siteAccessMode()).toBe('all');
   });
 
@@ -240,7 +249,8 @@ describe.skipIf(!reachable)('site access (integration, D-200)', () => {
 
   it('the extension bootstrap carries the mode and each workspace’s new-project defaults', async () => {
     const b = await m.boot.extBootstrap(m.db, { id: maker.id, name: maker.name, email: maker.email, image: null }, { serverVersion: 'test' });
-    expect(b.siteAccess).toEqual({ mode: 'all', defaults: [{ workspaceId: ws, maskingPreset: 'production', traceOpenMs: 20_000 }] });
+    // a creator may add sites unless the workspace lets only admins (D-205)
+    expect(b.siteAccess).toEqual({ mode: 'all', defaults: [{ workspaceId: ws, maskingPreset: 'production', traceOpenMs: 20_000 }], canAdd: [ws] });
   });
 
   it('strict mode: an unlisted origin is refused and no project is made; listed origins pass', async () => {
@@ -258,7 +268,69 @@ describe.skipIf(!reachable)('site access (integration, D-200)', () => {
       const b = await m.boot.extBootstrap(m.db, { id: maker.id, name: maker.name, email: maker.email, image: null }, { serverVersion: 'test' });
       expect(b.siteAccess?.mode).toBe('projects');
     } finally {
-      delete process.env.SITE_ACCESS;
+      process.env.SITE_ACCESS = 'all';
     }
+  });
+
+  describe('sites from the extension (D-205)', () => {
+    const add = (u: U, w: string, json: unknown) =>
+      m.addSite.POST(ev(u, { method: 'POST', url: `http://localhost:3000/api/v1/workspaces/${w}/sites`, json, params: { workspaceId: w } }) as never);
+    const remove = (u: U, projectId: string, origin: string) =>
+      m.removeSite.DELETE(ev(u, { method: 'DELETE', url: `http://localhost:3000/api/v1/projects/${projectId}/sites?origin=${encodeURIComponent(origin)}`, params: { id: projectId } }) as never);
+
+    it('a member adds a site to a new project named after the host, and to an existing one; the bootstrap marks them as theirs', async () => {
+      delete process.env.SITE_ACCESS;
+      const made = await add(maker, ws, { origin: 'https://fresh.example.test/some/page?q=1' });
+      expect(made.status).toBe(200);
+      const a = (await made.json()) as { project: { id: string; name: string; origins: string[] }; created: boolean };
+      expect(a).toMatchObject({ created: true, project: { name: 'fresh.example.test', origins: ['https://fresh.example.test'] } });
+      // again: the same project, nothing new
+      expect(((await (await add(maker, ws, { origin: 'https://fresh.example.test' })).json()) as { created: boolean; project: { id: string } })).toMatchObject({ created: false, project: { id: a.project.id } });
+      const into = (await (await add(maker, ws, { origin: 'http://second.example.test:8080/', projectId: a.project.id })).json()) as { project: { origins: string[] } };
+      expect(into.project.origins).toEqual(['https://fresh.example.test', 'http://second.example.test:8080']);
+      const b = await m.boot.extBootstrap(m.db, { id: maker.id, name: maker.name, email: maker.email, image: null }, { serverVersion: 'test' });
+      expect(b.projects?.find((p) => p.id === a.project.id)?.mine?.sort()).toEqual(['http://second.example.test:8080', 'https://fresh.example.test']);
+      expect(b.projects?.find((p) => p.id !== a.project.id)?.mine).toBeUndefined();
+      // the projects mode then captures there
+      expect((await capture(maker, 'http://second.example.test:8080/x')).status).toBe(201);
+    });
+
+    it('refuses the server, non-web pages, another workspace and an unknown project', async () => {
+      expect((await add(maker, ws, { origin: `${(await import('../src/lib/server/env.ts')).env.publicUrl}/c/1` })).status).toBe(422);
+      expect((await add(maker, ws, { origin: 'chrome://extensions' })).status).toBe(422);
+      expect((await add(maker, ws2, { origin: 'https://x.test' })).status).toBe(404);
+      expect((await add(maker, ws, { origin: 'https://x.test', projectId: uuidv7() })).status).toBe(404);
+    });
+
+    it('only admins add sites when the workspace says so', async () => {
+      await m.ws.patchSettings(m.db, ws, { restrictSiteAdds: true });
+      try {
+        const denied = await add(maker, ws, { origin: 'https://denied.test' });
+        expect(denied.status).toBe(403);
+        const b = await m.boot.extBootstrap(m.db, { id: maker.id, name: maker.name, email: maker.email, image: null }, { serverVersion: 'test' });
+        expect(b.siteAccess?.canAdd).toEqual([]);
+        expect((await add(owner, ws, { origin: 'https://allowed.test' })).status).toBe(200);
+      } finally {
+        await m.ws.patchSettings(m.db, ws, { restrictSiteAdds: false });
+      }
+    });
+
+    it('remove: the person who added it or an admin; the last origin takes the project, its captures stay', async () => {
+      const p = (await (await add(maker, ws, { origin: 'https://gone.test' })).json()) as { project: { id: string } };
+      await add(owner, ws, { origin: 'https://admins.test', projectId: p.project.id });
+      const rec = await capture(maker, 'https://gone.test/a');
+      expect(rec.status).toBe(201);
+      const recId = ((await rec.json()) as { id: string }).id;
+      // the maker did not add admins.test and is no admin
+      expect((await remove(maker, p.project.id, 'https://admins.test')).status).toBe(403);
+      // another workspace's member sees no such project
+      expect((await remove(other, p.project.id, 'https://gone.test')).status).toBe(404);
+      const left = (await (await remove(maker, p.project.id, 'https://gone.test/')).json()) as { project: { origins: string[] } | null };
+      expect(left.project?.origins).toEqual(['https://admins.test']);
+      const gone = (await (await remove(owner, p.project.id, 'https://admins.test')).json()) as { project: null };
+      expect(gone.project).toBeNull();
+      expect((await projectsOf(ws)).some((x) => x.id === p.project.id)).toBe(false);
+      expect((await recordingOf(recId)).projectId).toBeNull();
+    });
   });
 });

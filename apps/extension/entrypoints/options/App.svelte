@@ -93,12 +93,12 @@
     <section class="card" data-site-access={mode} data-all-sites={allSites}>
       <h2>Site access</h2>
       {#if mode === 'all' && allSites}
-        <p class="hint" data-site-status>The extension records on all sites except your server and your blocked sites. Each site you capture on becomes a project on your server. To turn it off, open the browser's extension details, Site access.</p>
+        <p class="hint" data-site-status>All sites except your server and your blocked sites.</p>
       {:else if mode === 'all'}
-        <p class="hint" data-site-status>Site access is turned off in your browser, so nothing is recorded. Allow it again here.</p>
+        <p class="hint" data-site-status>Site access is off in your browser.</p>
         <Button variant="primary" onclick={allowAll} data-allow-all>Allow access to all sites</Button>
       {:else}
-        <p class="hint" data-site-status>Your server is in strict mode: the extension records on its projects' sites only. The browser grants it every site, but it runs its capture scripts on the project sites and records nothing elsewhere.</p>
+        <p class="hint" data-site-status>Project sites only. Click the extension icon on a site to add it.</p>
       {/if}
       {#if accessError}<p class="err" role="alert">{accessError}</p>{/if}
     </section>

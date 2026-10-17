@@ -3,6 +3,7 @@ import { db } from '#lib/server/db/index.ts';
 import { listProjects, projectDefaults, projectDto } from '#lib/server/projects.ts';
 import { siteAccessMode } from '#lib/server/projects/access.ts';
 import { reviewLinksOf } from '#lib/server/review/index.ts';
+import { getSettings } from '#lib/server/auth/workspaces.ts';
 
 // D-123: every member sees the workspace's projects; admins change them and merge them (D-200).
 export const load = async ({ parent }) => {
@@ -17,7 +18,9 @@ export const load = async ({ parent }) => {
     admin: activeWorkspace?.role === 'admin',
     /** Review links (D-201) by project id; null with the injector off */
     reviewLinks: reviewLinksOf(projects),
-    /** D-200: all sites with a project per origin, or the strict project-origins mode */
+    /** D-200, D-203: project sites only (default), or all sites with a project per origin */
     siteAccess: siteAccessMode(),
+    /** D-205: only admins add sites from the extension */
+    restrictSiteAdds: (await getSettings(db, activeWorkspaceId))?.restrictSiteAdds ?? false,
   };
 };

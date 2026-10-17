@@ -347,16 +347,17 @@ export const extBootstrapSchema = z.object({
    */
   projects: z.array(projectScopeSchema).optional(),
   /**
-   * Site access (D-200). `all`: the extension asks once for every site and registers its capture
-   * scripts everywhere but the server itself; a new origin's capture uses `defaults` of its
-   * workspace (the project the server then makes starts with them). `projects`: the strict mode
-   * of D-126. Absent: `projects`.
+   * Site access (D-200, D-203). `projects` (default): the capture scripts run on project origins
+   * only. `all`: everywhere but the server itself; a new origin's capture uses `defaults` of its
+   * workspace (the project the server then makes starts with them). Absent: `projects`.
    */
   siteAccess: z
     .object({
       mode: z.enum(SITE_ACCESS_MODES),
       /** masking preset and trace step window a new project of each workspace starts with */
       defaults: z.array(z.object({ workspaceId: idSchema, maskingPreset: z.enum(PROJECT_PRESETS), traceOpenMs: z.number().int() })),
+      /** D-205: workspaces where this user may add a site from the extension (admins, or every member unless "Only admins add sites") */
+      canAdd: z.array(idSchema).optional(),
     })
     .optional(),
 });

@@ -61,7 +61,9 @@ export const projectSchema = z.object({
 export type Project = z.infer<typeof projectSchema>;
 
 /** What the extension keeps of each project (bootstrap). */
-export const projectScopeSchema = projectSchema.pick({ id: true, workspaceId: true, name: true, origins: true, maskingPreset: true, bodyAllowlist: true, traceOpenMs: true });
+export const projectScopeSchema = projectSchema
+  .pick({ id: true, workspaceId: true, name: true, origins: true, maskingPreset: true, bodyAllowlist: true, traceOpenMs: true })
+  .extend({ mine: z.array(z.string()).optional() });
 
 const workspaceParams = z.object({ workspaceId: idSchema });
 
@@ -163,4 +165,44 @@ export const mergeProjects = defineRoute({
   summary: 'Merge another project of the same workspace into this one: its origins and captures move here and it is removed.',
 });
 
-export const projectRoutes = [listProjects, createProject, updateProject, deleteProject, mergeProjects] as const;
+export const addSiteBodySchema = z.object({
+  /** a page URL or origin; the exact origin is added */
+  origin: z.string().max(2000),
+  /** the project to add it to; left out: a new project named after the host */
+  projectId: idSchema.optional(),
+});
+
+export const addSite = defineRoute({
+  name: 'sites.add',
+  method: 'POST',
+  path: api('/workspaces/:workspaceId/sites'),
+  auth: 'member',
+  role: 'viewer',
+  scope: 'write',
+  params: workspaceParams,
+  body: addSiteBodySchema,
+  response: z.object({ project: projectSchema, created: z.boolean() }),
+  status: 200,
+  errors: ['not_found', 'forbidden', 'invalid_body'],
+  area: 'dashboard',
+  tasks: ['D-205'],
+  summary: 'Add a site to a project, or to a new project named after its host. Any member, unless the workspace lets only admins add sites.',
+});
+
+export const removeSite = defineRoute({
+  name: 'sites.remove',
+  method: 'DELETE',
+  path: api('/projects/:id/sites'),
+  auth: 'member',
+  role: 'viewer',
+  scope: 'write',
+  params: z.object({ id: idSchema }),
+  query: z.object({ origin: z.string().max(2000) }),
+  response: z.object({ project: projectSchema.nullable() }),
+  errors: ['not_found', 'forbidden', 'invalid_body'],
+  area: 'dashboard',
+  tasks: ['D-205'],
+  summary: 'Remove one origin from a project: workspace admins, or the member who added it. The last origin removes the project; its captures stay.',
+});
+
+export const projectRoutes = [listProjects, createProject, updateProject, deleteProject, mergeProjects, addSite, removeSite] as const;

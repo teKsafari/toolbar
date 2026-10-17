@@ -7,6 +7,7 @@ import type { Rect, TargetRef } from '@toolbar/shared';
 import { DRAW_COLORS, type FeedbackAnchor, type FeedbackIntent, type FeedbackKind, type FeedbackSeverity, type FeedbackShape, type ShapeType } from '@toolbar/shared/areas/reviewer';
 import type { BgError, BgRequest, LocatorTarget, NewReviewItem, ReviewItem } from '@toolbar/shared/ext';
 import type { LocatorPacket } from '@toolbar/shared/locator';
+import { TOOLBAR_CLOSED_KEY, toolbarClosedOn } from '@toolbar/shared/areas/ext-ui';
 import { send, errorText } from '../ui/send';
 import { docPlacement, place, resolve } from './track';
 import { anchorOf, elementAt, frameAt, frameOf, labelOf, marksBox, pageInfo, painted, pageSelection, selectionElement, shapesBox, targetOf, visibleRect } from './page';
@@ -147,6 +148,10 @@ export class Review {
   dockH = $state(44);
   /** a composer Add or Enter is stopping the voice note before it saves (one click does both) */
   adding = $state(false);
+  /** D-205: the person closed the toolbar on this origin (the pill's X); the extension icon shows it again */
+  closed = $state(false);
+  /** D-205: the X found a running trace or voice note and asks "Stop trace?" */
+  confirmClose = $state(false);
   /** bumps on scroll, resize and a slow timer, so pins follow the page */
   tick = $state(0);
   now = $state(Date.now());
@@ -161,10 +166,63 @@ export class Review {
     } catch {
       /* storage unavailable */
     }
+    // D-205: closed on this origin, in any tab, until the extension icon is clicked here
+    try {
+      this.closed = toolbarClosedOn((await browser.storage.local.get(TOOLBAR_CLOSED_KEY))[TOOLBAR_CLOSED_KEY], location.origin);
+    } catch {
+      /* storage unavailable */
+    }
+    browser.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'local' || !changes[TOOLBAR_CLOSED_KEY]) return;
+      const closed = toolbarClosedOn(changes[TOOLBAR_CLOSED_KEY].newValue, location.origin);
+      if (closed && !this.closed) this.sleep();
+      this.closed = closed;
+    });
     await this.refresh();
     await this.refreshTrace();
     // a tab with unsent notes or a running trace wakes on load, so its pins stay on the page
-    if (this.items.length || this.trace) this.awake = true;
+    if ((this.items.length || this.trace) && !this.closed) this.awake = true;
+  }
+
+  /**
+   * The pill's X (D-205): hide the toolbar and the launcher on this origin, in every tab and after
+   * reloads. A running trace or voice note is never stopped silently: the first call asks, then
+   * `stop` true stops both, false keeps the trace running (a voice note is saved either way).
+   */
+  async close(stop?: boolean) {
+    if (stop === undefined && (this.trace || this.voice)) {
+      this.confirmClose = true;
+      return;
+    }
+    this.confirmClose = false;
+    if (this.voice) await this.stopVoice();
+    if (stop && this.trace) {
+      await this.toggleTrace();
+      if (this.trace) return; // the notes or the trace did not go: stay open
+    }
+    this.sleep();
+    this.closed = true;
+    const origin = location.origin;
+    try {
+      const all = { ...((await browser.storage.local.get(TOOLBAR_CLOSED_KEY))[TOOLBAR_CLOSED_KEY] as Record<string, number> | undefined) };
+      all[origin] = Date.now();
+      await browser.storage.local.set({ [TOOLBAR_CLOSED_KEY]: all });
+    } catch {
+      /* storage unavailable: closed on this page only */
+    }
+  }
+
+  /** Ctrl or Cmd+Shift+. on a closed origin: the person asked for the toolbar, so it is open again there. */
+  async reopen() {
+    this.closed = false;
+    const origin = location.origin;
+    try {
+      const all = { ...((await browser.storage.local.get(TOOLBAR_CLOSED_KEY))[TOOLBAR_CLOSED_KEY] as Record<string, number> | undefined) };
+      delete all[origin];
+      await browser.storage.local.set({ [TOOLBAR_CLOSED_KEY]: all });
+    } catch {
+      /* storage unavailable */
+    }
   }
 
   async refresh() {
@@ -199,6 +257,7 @@ export class Review {
   }
 
   sleep() {
+    this.confirmClose = false;
     if (this.voice) void this.cancelVoice();
     this.tool = null;
     this.draft = null;

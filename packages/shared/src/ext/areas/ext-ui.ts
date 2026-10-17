@@ -42,6 +42,29 @@ export interface SiteAccess {
   allSites: boolean;
   /** `all` mode: the match patterns to ask Chrome for once */
   allSitePatterns: string[];
+  /** the page's exact origin; null for anything but http(s) */
+  origin: string | null;
+  /**
+   * D-205, `projects` mode on a page outside the projects: what the popup's add row offers. Null
+   * where nothing is added (signed out, the server's own pages, restricted pages, `all` mode).
+   */
+  add: SiteAdd | null;
+  /** D-205: the person may remove this page's origin from its project (admin, or they added it) */
+  removable: boolean;
+  /** D-205: the toolbar is closed on this origin (the pill's X) */
+  closed: boolean;
+}
+
+/** D-205: the popup's add row on a site outside the projects. */
+export interface SiteAdd {
+  /** projects the person may add the site to; the most recently used first */
+  projects: { id: string; name: string; workspaceId: string; workspaceName: string }[];
+  /** preselected: the most recently used project, else null (a new project) */
+  recentProjectId: string | null;
+  /** where "New project" goes: the active workspace when the person may add sites there, else null */
+  newProjectWorkspaceId: string | null;
+  /** the person may add sites in none of their workspaces ("Only admins add sites") */
+  denied: boolean;
 }
 
 /** Extra service-worker requests: `'name': { req: {...}; res: {...} }`. */
@@ -58,6 +81,12 @@ export interface ExtUiBgRequests {
   'recording.tool': { req: { tool: 'pen' | 'blur' | null }; res: {} };
   /** reset the extension to defaults (J-176): settings, drafts index, session */
   'ext.reset': { req: {}; res: {} };
+  /** D-205: add the tab's origin to a project (null: a new one), register the scripts there and inject them now */
+  'site.add': { req: { tabId: number; projectId: string | null }; res: { projectId: string; projectName: string } };
+  /** D-205: remove the tab's origin from its project */
+  'site.remove': { req: { tabId: number }; res: {} };
+  /** D-205: show the toolbar again on the tab's origin (the extension icon was clicked there) */
+  'toolbar.show': { req: { tabId: number }; res: {} };
 }
 
 /** Extra sw -> content commands (a union member with a unique `type`). */

@@ -1,0 +1,1 @@
+ALTER TABLE "project" ADD COLUMN "origin_added_by" jsonb DEFAULT '{}'::jsonb NOT NULL;

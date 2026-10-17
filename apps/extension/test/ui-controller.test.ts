@@ -135,7 +135,7 @@ describe('ui controller', () => {
     const other = await fakeBrowser.tabs.create({ url: 'http://localhost:5174/', active: true });
     const r = await send({ type: 'capture', mode: 'screenshot', tabId: other.id });
     expect(r).toMatchObject({ ok: false, error: 'permission_denied' });
-    expect(String(r.message)).toMatch(/not in any of your projects/);
+    expect(String(r.message)).toMatch(/in no project/);
     const ctx = await send({ type: 'ui.context', tabId: other.id });
     expect(ctx).toMatchObject({ ok: true, context: { site: { project: null, allowed: false, projectCount: 1, allSites: false } } });
     const inside = await send({ type: 'ui.context', tabId });

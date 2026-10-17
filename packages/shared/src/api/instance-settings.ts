@@ -164,10 +164,10 @@ export const INSTANCE_FIELDS: readonly InstanceFieldSpec[] = [
   {
     key: 'siteAccess', section: 'capture', kind: 'enum', label: 'Site access', env: ['SITE_ACCESS'],
     options: [
-      { value: 'all', label: 'All sites: one Chrome prompt, each new origin becomes a project' },
-      { value: 'projects', label: 'Project origins only: each listed origin approved in Chrome' },
+      { value: 'projects', label: 'Project sites only' },
+      { value: 'all', label: 'All sites: each new origin becomes a project' },
     ],
-    hint: 'All sites is the default. Project origins only is the strict mode: the extension captures on the origins listed under Settings, Projects and nowhere else, and no project is made automatically.',
+    hint: 'Project sites only is the default: the extension runs on the origins listed in projects, and people add a site from the extension icon. All sites runs it everywhere but this server and blocked sites, and the first capture on an origin makes its project.',
   },
   {
     key: 'defaultMaskingPreset', section: 'capture', kind: 'enum', label: 'Masking preset for new projects', env: [],

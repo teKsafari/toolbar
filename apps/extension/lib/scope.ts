@@ -3,11 +3,12 @@
 // admin's force-install needs no prompt. That access is not where the extension runs: the server's
 // bootstrap names the site access mode, and this module decides.
 //
-// - `all` (default, D-200): the capture scripts are registered everywhere but the server itself
-//   and the domains on the blocked-sites list (J-012). A page with no project yet uses its
+// - `projects` (default, D-126, D-203): the scripts are registered for the project origins only,
+//   and the worker records no webRequest metadata for a tab on any other page
+//   (lib/capture/service.ts). The popup adds a site to a project (lib/bg/sites.ts, D-205).
+// - `all` (an admin's opt-in, D-200): the capture scripts are registered everywhere but the server
+//   itself and the domains on the blocked-sites list (J-012). A page with no project yet uses its
 //   workspace's new-project defaults; the server makes the project at the first capture.
-// - `projects` (strict, D-126): the scripts are registered for the project origins only, and the
-//   worker records no webRequest metadata for a tab on any other page (lib/capture/service.ts).
 //
 // The person can still turn site access off in the browser (Chrome's Site access, Firefox's
 // Permissions tab). Then `allSites` is false, the popup asks again from a click, and in the strict

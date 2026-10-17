@@ -439,7 +439,7 @@ export async function connectExtension(context: BrowserContext, email: string, o
   await expect(popup.getByTestId('signed-in')).toContainText(email, { timeout: 30_000 });
   if (opts.allowLab === false) return { lab, popup };
   // D-202: every site is granted at install. Add the lab as a project (so captures carry the name
-  // Lab in both modes, and the strict mode records there), then wait for the popup to allow it.
+  // Lab in both modes, and the default project sites mode records there), then wait for the popup to allow it.
   await addProject(context, [LAB_URL]);
   await popup.close();
   const again = await openPopup(context, lab);
@@ -513,7 +513,9 @@ export async function setSiteAccess(context: BrowserContext, mode: 'all' | 'proj
  */
 export async function allowFromPopup(context: BrowserContext, popup: Page) {
   const card = popup.getByTestId('site-access');
-  const ready = popup.getByTestId('site-all-sites').or(popup.getByTestId('site-strict')).or(popup.getByTestId('site-project'));
+  // D-205: the add row shows until the popup's fresh project list names the lab's project
+  await expect(popup.locator('[data-testid="site-access"][data-state="not-in-project"]')).toHaveCount(0, { timeout: 20_000 });
+  const ready = popup.getByTestId('site-all-sites').or(popup.getByTestId('site-project'));
   await expect(card.or(ready).first()).toBeVisible({ timeout: 15_000 });
   if (await card.count()) {
     await expect(card).toHaveAttribute('data-state', /^(needs-grant|needs-all-sites)$/, { timeout: 15_000 });

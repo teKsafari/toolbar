@@ -40,7 +40,7 @@ Deploy `docker-compose.coolify.yml` as a Docker Compose resource. Coolify genera
 
 Chrome Web Store item `laobpjhffglefallhhojihfdbdkoendk` (unlisted). `scripts/release-extension.sh` builds the same id as an unpacked zip in `dist/`; set `WXT_SERVER_URL` at build time to preconfigure the server. Managed policy keys: `serverUrl` (string) and `lockServerUrl` (boolean). Release, force-install and Firefox: [docs/extension-release.md](docs/extension-release.md).
 
-The extension holds all-sites access as a required permission. Settings > Server, Site access (`SITE_ACCESS`) picks where it captures: `all` (default, one project per captured origin, mergeable) or `projects` (only origins listed in projects). Ctrl+Shift+. opens the toolbar; `c` comment, `t` comment on selection, `v` voice note, `x` start or stop a trace.
+The extension holds all-sites access as a required permission but runs only on origins listed in projects (`SITE_ACCESS=projects`, the default). Click its icon on another site to add it to a project. `SITE_ACCESS=all` runs it everywhere, one project per captured origin. The toolbar's X hides it on a site until you click the icon there. Ctrl+Shift+. opens the toolbar; `c` comment, `t` comment on selection, `v` voice note, `x` start or stop a trace.
 
 ## Agent access
 

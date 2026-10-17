@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Locator, Page, Worker } from '@playwright/test';
 import type { LocatorPacket } from '@toolbar/shared/locator';
-import { LAB_URL, SERVER_URL, expect, test } from '../../fixtures/extension.ts';
+import { EXT_ID, LAB_URL, SERVER_URL, expect, test } from '../../fixtures/extension.ts';
 import { signInOidc } from '../../fixtures/oidc.ts';
 
 /** The vite dev server of the lab (`npx vite dev --port 5184` in lab/), for __svelte_meta. */
@@ -477,6 +477,76 @@ test('Start trace and Stop trace from the pill: notes made during the trace go o
       return r.ok() ? ((await r.json()).items as { action: { type: string } }[]).filter((s) => s.action.type === 'annotation').length : -1;
     }, { timeout: 30_000 })
     .toBe(1);
+});
+
+test('the X closes the toolbar on this site, across reloads and tabs, until the extension icon is clicked; a running trace asks first (D-205)', async ({ context, sw }) => {
+  const page = await context.newPage();
+  await signIn(page, sw);
+  const url = `${LAB_URL}/?close-site=${Date.now()}`;
+  const gone = async (p: Page) => {
+    await p.waitForTimeout(800);
+    await expect(ui(p, 'review-launcher')).toHaveCount(0);
+    await expect(ui(p, 'review-pill')).toHaveCount(0);
+  };
+  try {
+    await page.goto(url);
+    await page.bringToFront();
+    await expect(ui(page, 'review-launcher').or(ui(page, 'review-pill'))).toBeVisible({ timeout: 15_000 });
+    await wake(page);
+    // Esc and the chevron only collapse it to the launcher
+    await ui(page, 'review-close').click();
+    await expect(ui(page, 'review-launcher')).toBeVisible();
+    await wake(page);
+
+    const start = ui(page, 'review-trace-start');
+    const tracing = !(await start.isDisabled());
+    if (tracing) {
+      await start.click();
+      await expect(ui(page, 'review-trace-time')).toBeVisible({ timeout: 20_000 });
+      // never stopped silently: the X asks inline, and nothing closes until an answer
+      await ui(page, 'review-close-site').click();
+      await expect(ui(page, 'review-close-confirm')).toContainText('Stop trace?');
+      await expect(ui(page, 'review-pill')).toBeVisible();
+      await ui(page, 'review-close-keep').click();
+    } else {
+      await ui(page, 'review-close-site').click();
+    }
+    await gone(page);
+    expect(await sw.evaluate(async (o) => Object.keys((await chrome.storage.local.get('tb:toolbar-closed'))['tb:toolbar-closed'] ?? {}).includes(o), new URL(LAB_URL).origin)).toBe(true);
+    // closed after a reload and in another tab of the origin; captures keep working there
+    await page.reload();
+    await gone(page);
+    const second = await context.newPage();
+    await second.goto(`${LAB_URL}/form`);
+    await gone(second);
+    await second.close();
+
+    // the extension icon on this site (the popup over this tab) shows it again
+    const tabId = await sw.evaluate(async (u) => (await chrome.tabs.query({})).find((t: { url?: string }) => t.url === u)?.id, url);
+    const popup = await context.newPage();
+    await popup.goto(`chrome-extension://${EXT_ID}/popup.html?tabId=${tabId}`);
+    await expect(popup.locator('[data-popup][data-loading="false"]')).toBeVisible();
+    await page.bringToFront();
+    await expect(ui(page, 'review-launcher').or(ui(page, 'review-pill'))).toBeVisible({ timeout: 15_000 });
+    await popup.close();
+    if (tracing) {
+      // Keep left the trace running; the X's Stop ends it and closes the toolbar
+      await wake(page);
+      await expect(ui(page, 'review-trace-time')).toBeVisible();
+      await ui(page, 'review-close-site').click();
+      await ui(page, 'review-close-stop').click();
+      await gone(page);
+      const tab = await context.newPage();
+      await tab.goto(`chrome-extension://${EXT_ID}/popup.html?tabId=${tabId}`);
+      await page.bringToFront();
+      await wake(page);
+      await expect(ui(page, 'review-trace-start')).toBeVisible({ timeout: 30_000 });
+      await tab.close();
+    }
+  } finally {
+    await sw.evaluate(() => chrome.storage.local.remove('tb:toolbar-closed'));
+    await page.close();
+  }
 });
 
 test('the reviewer toolbar steps aside while screenshot mode owns the page, and comes back after', async ({ context, sw }) => {

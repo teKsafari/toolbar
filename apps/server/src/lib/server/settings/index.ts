@@ -143,8 +143,8 @@ export function defaultOf<K extends InstanceKey>(key: K): Values[K] {
     transcribeChunkSeconds: () => 30,
     transcribeConcurrency: () => 4,
     maxRecordingMin: () => null,
-    // D-200: one Chrome prompt for every site, a project per captured origin
-    siteAccess: () => 'all',
+    // D-203: project origins only; `all` (D-200) is an admin's opt-in
+    siteAccess: () => 'projects',
     defaultMaskingPreset: () => 'staging',
     defaultTraceOpenMs: () => TRACE_OPEN_MS.default,
     shareLinkDays: () => 14,

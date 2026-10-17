@@ -137,7 +137,7 @@ DISPLAY=:101 ~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome --user-d
 
 WXT's browser runner is off (`webExt.disabled`).
 
-Site access (D-123, D-126, D-200, D-202): release builds hold the server and `<all_urls>` as required host permissions. `SITE_ACCESS` decides where the capture scripts run: `all` (everywhere but the server and blocked sites; the first capture on an origin makes its project) or `projects` (only project origins; the worker keeps no webRequest metadata for other tabs). Test builds hold `<all_urls>` and ignore the mode unless storage key `tb:test-scope` is `release` or `projects`.
+Site access (D-123, D-126, D-200, D-202, D-203, D-205): release builds hold the server and `<all_urls>` as required host permissions. `SITE_ACCESS` decides where the capture scripts run: `projects` (default: only project origins; the worker keeps no webRequest metadata for other tabs; the popup's add row puts a site in a project and injects the scripts, `lib/bg/sites.ts`) or `all` (everywhere but the server and blocked sites; the first capture on an origin makes its project). The pill's X stores the origin in `tb:toolbar-closed` until the popup opens there. Test builds hold `<all_urls>` and ignore the mode unless storage key `tb:test-scope` is `release` or `projects`.
 
 The worker registers `content-scripts/capture-main.js` (MAIN) and `content-scripts/capture.js` (ISOLATED) at `document_start` for the allowed origins. The MAIN script installs the `@toolbar/capture` hooks and relays events over a private `MessageChannel`; the isolated script forwards them to the worker on the `capture` port and, in the top frame, mounts `<toolbar-root>` in a shadow root.
 
@@ -161,7 +161,7 @@ Two Playwright suites in `e2e/`, both headed Chromium on a private Xvfb display 
 | Suite | Specs | Extension build | Config | Default display |
 |---|---|---|---|---|
 | Area suites | `e2e/tests/**` (one folder per area, about 230 tests) | test build `chrome-mv3-test` (open shadow root, `globalThis.__tb`) | `playwright.config.ts` | `:101` |
-| User journeys | `e2e/flows/*.spec.ts`, flows A to O of `docs/jam/flows.md`, P (branding), Q (zero integration in the strict site access mode, D-126, D-202), S (site access: all sites from install with no prompt, a project per origin, merge, strict mode; D-200, D-202), R (reviewer keys in the release build) and P2 (the owner's Part 2 scenario, D-163) | release build `chrome-mv3` | `playwright.flows.config.ts` | `:120` |
+| User journeys | `e2e/flows/*.spec.ts`, flows A to O of `docs/jam/flows.md`, P (branding), Q (zero integration in the project sites mode, D-126, D-202), S (site access: add a site from the icon, the toolbar without a reload, close and reopen, a second origin stays clean; S2 the all sites mode with merge; D-202, D-203, D-205), R (reviewer keys in the release build) and P2 (the owner's Part 2 scenario, D-163) | release build `chrome-mv3` | `playwright.flows.config.ts` | `:120` |
 
 ### Everything, from a clean database
 

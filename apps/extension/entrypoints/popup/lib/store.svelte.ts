@@ -145,6 +145,11 @@ class PopupStore {
       this.replay = sess.replay;
     }
     if (ctx.ok) this.context = ctx.context;
+    // D-205: a click on the extension icon shows a toolbar closed on this site again
+    if (ctx.ok && ctx.context.site.closed && this.tabId != null) {
+      void send('toolbar.show', { tabId: this.tabId });
+      this.context = { ...ctx.context, site: { ...ctx.context.site, closed: false } };
+    }
     // neither answer: the service worker is not running (or failed to start)
     if (!sess.ok && !ctx.ok) {
       this.workerDown = true;

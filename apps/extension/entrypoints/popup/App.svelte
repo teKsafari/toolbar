@@ -103,13 +103,9 @@
         {site.project.name} · {site.project.maskingPreset === 'production' ? 'Production masking' : 'Staging masking'}
       </p>
     {/if}
-    <!-- D-202: the extension holds every site from install; this line says where it records -->
+    <!-- D-202, D-203: `all` mode records everywhere; say so in one line -->
     {#if site?.mode === 'all' && site.allSites}
-      <p class="project" data-testid="site-all-sites" title="Chrome's extension details, Site access, turns it off">
-        Records on all sites except your server and your blocked sites.
-      </p>
-    {:else if site?.mode === 'projects' && site.allowed}
-      <p class="project" data-testid="site-strict">Strict mode: records on your projects' sites only.</p>
+      <p class="project" data-testid="site-all-sites">All sites</p>
     {/if}
   {/if}
 </main>

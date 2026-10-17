@@ -1,9 +1,9 @@
-// Flow Q: zero integration in the strict site access mode (PLAN "Zero integration", D-123 to
-// D-127; SITE_ACCESS=projects, D-200, which the flow switches on for its run through the admin
-// API and resets after), with the release build in a browser of its own. The extension installs
-// with every site granted (D-202), yet in the strict mode it records on project origins only. A
-// new reviewer signs in, sees that the lab is in no project, an admin adds it under Settings >
-// Projects, and the popup over the lab then says the strict mode with no prompt. From then on the
+// Flow Q: zero integration in the project sites mode (PLAN "Zero integration", D-123 to D-127;
+// SITE_ACCESS=projects, the default since D-203, which the flow also stores for its run through
+// the admin API and resets after), with the release build in a browser of its own. The extension
+// installs with every site granted (D-202), yet it records on project origins only. A new
+// reviewer signs in, sees the add row over the lab (D-205), an admin adds it under Settings >
+// Projects instead, and the popup over the lab then names the project with no prompt. From then on the
 // lab is captured and a second origin serving the same page is not, and a capture of the lab
 // carries its project and masking preset.
 import { LAB_URL, SERVER, api, captureOf, chord, connectExtension, createFromEditor, editorFrame, expect, hydrated, labPage, launchExtension, newEmail, openPopup, saveShot, setSiteAccess, test, withPrivateDisplay } from './fixture.ts';
@@ -12,11 +12,11 @@ import { LAB_URL, SERVER, api, captureOf, chord, connectExtension, createFromEdi
 const OTHER = LAB_URL.replace('localhost', '127.0.0.1');
 const BOOT = 'toolbar.capture.main';
 
-test('Q: every site granted at install, the strict mode captures on the project origin only, with no prompt', async () => {
+test('Q: every site granted at install, the project sites mode captures on the project origin only, with no prompt', async () => {
   test.setTimeout(240_000);
   await withPrivateDisplay(async (display) => {
     const b = await launchExtension({ display, cdpPort: Number(process.env.FLOWS_CDP_PORT ?? 9341) + 30 });
-    // D-200: this is the strict mode, an admin setting; the default `all` mode is flow S
+    // D-203: the default mode, stored so an earlier flow's leftover cannot change it
     const strict = await setSiteAccess(b.context, 'projects');
     try {
       test.skip(!strict, 'needs the strict site access mode: an instance admin (seeded dana@toolbar.test with AUTH_DEV_PASSWORD=1) to switch it, and SITE_ACCESS unset');
@@ -34,6 +34,7 @@ test('Q: every site granted at install, the strict mode captures on the project 
       // a domain of its own: the admin step needs this account to own its workspace (D-169)
       const { lab, popup } = await connectExtension(b.context, newEmail('zero', 'zero'), { allowLab: false });
       await expect(popup.getByTestId('site-access')).toHaveAttribute('data-state', 'not-in-project');
+      await expect(popup.getByTestId('site-add-row')).toBeVisible();
       await popup.close();
       const booted = (p: typeof lab) => p.evaluate((k) => !!(window as unknown as Record<symbol, unknown>)[Symbol.for(k)], BOOT);
       expect(await booted(lab)).toBe(false);
@@ -61,10 +62,10 @@ test('Q: every site granted at install, the strict mode captures on the project 
       await web.screenshot({ path: saveShot('q-projects') });
       await web.close();
 
-      // the popup over the lab: no prompt, it names the strict mode; the scripts cover the lab only
+      // the popup over the lab: no prompt, it names the project; the scripts cover the lab only
       await lab.bringToFront();
       const ask = await openPopup(b.context, lab);
-      await expect(ask.getByTestId('site-strict')).toBeVisible({ timeout: 20_000 });
+      await expect(ask.getByTestId('site-project')).toContainText('Lab', { timeout: 20_000 });
       await expect(ask.getByTestId('site-access')).toHaveCount(0);
       await ask.screenshot({ path: saveShot('q-strict-project') });
       if (!ask.isClosed()) await ask.close();
@@ -79,7 +80,7 @@ test('Q: every site granted at install, the strict mode captures on the project 
       expect(await booted(other)).toBe(false);
       const otherPopup = await openPopup(b.context, other);
       await expect(otherPopup.getByTestId('site-access')).toHaveAttribute('data-state', 'not-in-project');
-      await expect(otherPopup.getByTestId('site-strict-note')).toBeVisible();
+      await expect(otherPopup.getByTestId('site-add-host')).toHaveText(new URL(OTHER).host);
       await otherPopup.close();
       await other.close();
 

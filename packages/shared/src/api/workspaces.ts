@@ -36,6 +36,8 @@ export const workspaceSettingsSchema = z.object({
   restrictInvites: z.boolean(),
   /** a viewer who creates a capture becomes creator (J-222) */
   autoApproveCreators: z.boolean(),
+  /** only admins add a site to a project from the extension (D-204); off: any member may */
+  restrictSiteAdds: z.boolean(),
   /** masking preset of new projects; null: the instance default (Settings > Server, D-194) */
   defaultMaskingPreset: z.enum(PROJECT_PRESETS).nullable(),
   /** trace step window of new projects in ms; null: the instance default (D-166, D-194) */

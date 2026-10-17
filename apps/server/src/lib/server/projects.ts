@@ -43,7 +43,13 @@ export async function listProjects(db: Db, workspaceId: string): Promise<Row[]> 
 export async function projectsOfUser(db: Db, userId: string): Promise<ProjectScope[]> {
   const ws = db.select({ id: member.organizationId }).from(member).where(eq(member.userId, userId));
   const rows = await db.select().from(project).where(inArray(project.organizationId, ws)).orderBy(asc(project.createdAt));
-  return rows.map(scopeOf);
+  // D-205: the origins this user added from the extension, which they may remove
+  return rows.map((r) => {
+    const mine = Object.entries(r.originAddedBy ?? {})
+      .filter(([o, by]) => by === userId && r.origins.includes(o))
+      .map(([o]) => o);
+    return mine.length ? { ...scopeOf(r), mine } : scopeOf(r);
+  });
 }
 
 export async function projectById(db: Db, id: string): Promise<Row> {

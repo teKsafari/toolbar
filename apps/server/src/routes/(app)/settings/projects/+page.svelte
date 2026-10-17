@@ -11,6 +11,8 @@
   import Confirm from '#lib/components/dashboard/Confirm.svelte';
   import ReviewLinks from '#lib/components/dashboard/ReviewLinks.svelte';
   import MergeProjects from '#lib/components/dashboard/MergeProjects.svelte';
+  import Field from '#lib/components/dashboard/Field.svelte';
+  import Switch from '#lib/components/dashboard/Switch.svelte';
   import { api, errMsg } from '#lib/components/dashboard/api.ts';
 
   let { data } = $props();
@@ -70,6 +72,15 @@
     }
   }
 
+  async function setRestrict(v: boolean) {
+    try {
+      await api('workspaces.update', { params: { workspaceId: data.workspaceId }, body: { restrictSiteAdds: v } });
+      await invalidateAll();
+    } catch (x) {
+      toasts.error(errMsg(x));
+    }
+  }
+
   async function del(p: Project) {
     await api('projects.delete', { params: { id: p.id } });
     toasts.success('Project removed');
@@ -85,9 +96,9 @@
 </div>
 <p class="muted lead" data-testid="projects-lead" data-mode={data.siteAccess}>
   {#if data.siteAccess === 'all'}
-    A project is a web app your team reviews. The extension has access to all sites, and the first capture on a new origin makes a project for it. Merge projects to group the hostnames and domains of one app, such as <code>nuru.sh</code>, <code>staging.nuru.sh</code> and <code>*.nuru.sh</code>.
+    A project is a web app your team reviews. The extension runs on all sites, and the first capture on a new origin makes a project for it. Merge projects to group the hostnames and domains of one app, such as <code>nuru.sh</code>, <code>staging.nuru.sh</code> and <code>*.nuru.sh</code>.
   {:else}
-    A project is a web app your team reviews. This server captures on project origins only: the extension asks each reviewer for access to the project’s origins after sign-in, and records nothing on any other site. Captures from other origins are refused.
+    A project is a web app your team reviews. The extension runs on project origins only. To add a site, open it and click the extension icon.
   {/if}
 </p>
 {#if data.reviewLinks}
@@ -98,7 +109,7 @@
 
 <Section title="Projects in this workspace" testid="projects-section">
   {#if !data.projects.length}
-    <p class="muted" data-testid="projects-empty">No projects yet. {data.admin ? 'Add one with the origins of the app you want feedback on.' : 'Ask a workspace admin to add the app you review.'}</p>
+    <p class="muted" data-testid="projects-empty">No projects yet. Open a site and click the extension icon to add it.</p>
   {/if}
   {#each data.projects as p (p.id)}
     <div class="proj" data-testid="project-row" data-id={p.id}>
@@ -129,6 +140,12 @@
       {/if}
     </div>
   {/each}
+</Section>
+
+<Section title="Adding sites" testid="site-adds-section">
+  <Field label="Only admins add sites" hint="Off: any member adds a site from the extension icon.">
+    <Switch label="Only admins add sites" disabled={!data.admin} checked={data.restrictSiteAdds} onchange={(v) => void setRestrict(v)} testid="restrict-site-adds" />
+  </Field>
 </Section>
 
 <Section title="Masking presets" description="Applied in the reviewer’s browser before anything is uploaded. Secrets are removed under both.">

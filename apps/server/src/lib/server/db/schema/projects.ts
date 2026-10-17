@@ -1,7 +1,7 @@
 // Projects (Part 2 "Zero integration" and "Privacy", D-123): the origins the extension may run
 // on in a workspace and the masking preset it applies there. Architecture section 6 names the table.
 import { sql } from 'drizzle-orm';
-import { index, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { index, integer, jsonb, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 import { id, created, updated } from './columns.ts';
 import { user, organization } from './auth.ts';
 
@@ -21,6 +21,8 @@ export const project = pgTable(
     /** traces: span window for open requests in ms (D-166) */
     traceOpenMs: integer('trace_open_ms').notNull().default(10_000),
     createdBy: uuid('created_by').references(() => user.id, { onDelete: 'set null' }),
+    /** D-205: origin -> id of the member who added it from the extension (they may remove it) */
+    originAddedBy: jsonb('origin_added_by').$type<Record<string, string>>().notNull().default({}),
     createdAt: created(),
     updatedAt: updated(),
   },

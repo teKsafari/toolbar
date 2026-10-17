@@ -52,7 +52,7 @@ D-194. **Required**: boots the server. **Wiring**: filled in by compose or Cooli
 | `TRANSCRIBE_PROVIDER`, `TRANSCRIBE_API_KEY`, `OPENAI_API_KEY`, `TRANSCRIBE_MODEL`, `TRANSCRIBE_BASE_URL`, `TRANSCRIBE_LANGUAGE`, `TRANSCRIBE_TIMESTAMPS`, `TRANSCRIBE_CHUNK_SECONDS`, `TRANSCRIBE_CONCURRENCY` | Settings > Server, Transcription | Read per job, so an admin can switch provider, try it with Test connection and roll back without a deploy. The key is sealed at rest. |
 | `TRANSCRIBE_MAX_MINUTES`, `TRANSCRIBE_MONTHLY_MINUTES` | Settings > Server, Limits | Cost caps an admin tunes as usage grows. |
 | `MAX_RECORDING_MIN` | Settings > Server, Capture defaults | Read when the extension loads its bootstrap. |
-| `SITE_ACCESS` | Settings > Server, Capture defaults | Where the extension captures (D-200). Read per request and sent in the extension's bootstrap, so a switch reaches each extension within 10 minutes, or at a popup open once its copy is a minute old. |
+| `SITE_ACCESS` | Settings > Server, Capture defaults | Where the extension runs (D-200, D-203). Read per request and sent in the extension's bootstrap, so a switch reaches each extension within 10 minutes, or at a popup open once its copy is a minute old. |
 | (no variable) masking preset and trace step window for new projects | Settings > Server, Capture defaults, and Workspace | Instance defaults that each workspace admin can replace for their workspace. |
 | `SHARE_LINK_DAYS`, `EXPORT_MAX_MB`, `SUPPORT_RECORDING_LINK` | Settings > Server, Sharing and export | Policies read per request. |
 | (no variable) recording link uploads per address | Settings > Server, Limits | Abuse limit of the public recording links, read per request. |
@@ -81,7 +81,7 @@ Instance admins only (others get 404). Each section saves only changed fields; a
 |---|---|
 | Sign-in | The provider and its redirect URI, read-only from the environment, with Test discovery URL; allowed email domains, the button name, scopes |
 | Transcription | Provider (off, local whisper.cpp, an OpenAI-compatible endpoint), API key, model, endpoint, whisper.cpp URL, languages, timestamps, chunk length, parallel requests, with Test connection |
-| Capture defaults | Site access (all sites, or project origins only), masking preset and trace step window for new projects, longest recording |
+| Capture defaults | Site access (project sites only, or all sites), masking preset and trace step window for new projects, longest recording |
 | Sharing and export | Share link lifetime, export page size, the extension's "report a problem" link |
 | Limits | Longest audio transcribed, hosted transcription minutes per month, recording link uploads per address in 10 minutes |
 
@@ -98,12 +98,16 @@ Settings, General, New projects: the masking preset and trace step window for ne
 
 ### Site access
 
-Settings > Server, Capture defaults, Site access, or `SITE_ACCESS` (D-200).
+Settings > Server, Capture defaults, Site access, or `SITE_ACCESS` (D-200, D-203). All-sites access is a required permission in both modes (D-202); the mode decides where the capture scripts run.
 
 | Mode | The extension | The server |
 |---|---|---|
-| All sites (`all`, default) | Capture scripts run everywhere except this server and the reviewer's blocked sites. All-sites access is a required permission (D-202). | The first capture on an unknown origin makes a project named after the host, with the workspace's defaults. |
-| Project origins only (`projects`) | Capture scripts run on project origins only; no network metadata elsewhere (D-126). | Other origins get 403 `origin_not_allowed`. No automatic projects. |
+| Project sites only (`projects`, default) | Capture scripts, the toolbar and network metadata on project origins only (D-126). On another site the extension icon offers one row: the host, a project, Add. | Other origins get 403 `origin_not_allowed`. No automatic projects. |
+| All sites (`all`) | Capture scripts run everywhere except this server and the reviewer's blocked sites. | The first capture on an unknown origin makes a project named after the host, with the workspace's defaults. |
+
+A server that never stored the setting runs `projects`. One where an admin saved All sites keeps `all`.
+
+Any workspace member adds a site from the extension icon, to a project or to a new one named after the host (D-205). Settings > Projects, "Only admins add sites", restricts that to admins. "Remove this site" in the popup menu is for admins and the person who added it; the last origin takes its project with it, and its captures stay.
 
 Projects list exact origins (`http://localhost:5173`) and domains (`*.nuru.sh`: the domain and every subdomain, https only unless `http://*.nuru.sh` is listed). Exact beats domain; longer domain beats shorter. Merging two projects moves the second's origins and captures into the first.
 
@@ -126,7 +130,7 @@ Projects list exact origins (`http://localhost:5173`) and domains (`*.nuru.sh`: 
 | `MIGRATE_ON_START` | `1` | `0` | Applies migrations at start. `0` when you run `db:migrate` yourself. |
 | `MIGRATIONS_DIR` | `./drizzle` next to the server | `/app/drizzle` | Migration files, for a custom image layout. |
 | `MAX_RECORDING_MIN` | empty (no cap) | `15` | Settings > Server, Capture defaults. Longest recording in minutes. |
-| `SITE_ACCESS` | `all` | `projects` | Settings > Server, Capture defaults (D-200). `all`: capture anywhere but this server and blocked sites, one project per new origin. `projects`: capture only on project origins. See [Site access](#site-access). |
+| `SITE_ACCESS` | `projects` | `all` | Settings > Server, Capture defaults (D-200, D-203). `projects`: run only on project origins; members add sites from the extension icon. `all`: run anywhere but this server and blocked sites, one project per new origin. See [Site access](#site-access). |
 | `SUPPORT_RECORDING_LINK` | empty | `https://feedback.example.com/r/abc`, or `off` | Settings > Server, Sharing and export. Target of the extension's "report a problem". Empty: a recording link owned by the first account. `off` hides it. |
 | `NODE_ENV` | `production` in the image, `development` in `pnpm dev` | `production` | Production behaviour: sign-in rate limits, no response-shape checks. Leave it to the image. |
 

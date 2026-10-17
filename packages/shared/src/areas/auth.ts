@@ -13,6 +13,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: Omit<WorkspaceSettings, 'name' | 'logoU
   inviteLinkEnabled: true,
   restrictInvites: false,
   autoApproveCreators: true,
+  restrictSiteAdds: false,
   defaultMaskingPreset: null,
   defaultTraceOpenMs: null,
 };

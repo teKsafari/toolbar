@@ -39,6 +39,18 @@
       run: () => tab(store.bootstrap?.data.supportRecordingLink ?? HELP_LINKS.issues),
     },
     {
+      // D-205: admins, or the person who added this site
+      id: 'remove-site',
+      label: 'Remove this site',
+      icon: 'trash',
+      when: () => !!store.context?.site.removable && store.tabId != null,
+      run: () =>
+        void send('site.remove', { tabId: store.tabId! }).then((r) => {
+          if (!r.ok) store.error = r.message ?? 'Could not remove the site';
+          return store.load();
+        }),
+    },
+    {
       id: 'restart',
       label: 'Restart extension',
       icon: 'power',
