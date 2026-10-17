@@ -384,6 +384,37 @@ describe('reviewer toolbar voice notes (D-160)', () => {
   });
 });
 
+describe('reviewer drawings attached to an element (D-204)', () => {
+  it('writes the frame next to the shapes in aNN.shapes.json, in the same coordinates as the shapes and cropRect', async () => {
+    const base = await data();
+    const frame = { selector: 'main > section[data-testid="target"]', testId: 'target', box: { x: 40, y: 300, w: 300, h: 160 }, fit: true };
+    const d: FolderData = {
+      ...base,
+      annotations: [
+        {
+          id: 'draw1',
+          assetId: null,
+          t: T0 + 4000,
+          shapes: [{ type: 'rect', points: [[32, 292, 0.5], [348, 468, 0.5]], color: '#ff3b30', width: 3 }],
+          target: null,
+          locator: null,
+          comment: 'Too much space',
+          author: 'Dana',
+          createdAt: new Date(T0 + 4000),
+          item: { n: 1, kind: 'draw', quote: null, intent: 'fix', severity: 'important', status: 'pending', voiceText: null, context: null, page: null, cropRect: { x: 16, y: 276, w: 348, h: 208 }, frame },
+        },
+      ],
+    };
+    const f = await assembleFolder(d, (globalThis as { __io?: FolderIo }).__io!);
+    const sj = JSON.parse(String(f.files.find((x) => x.path === 'annotations/a01.shapes.json')!.data)) as { space: string; frame: typeof frame; cropRect: unknown; note: string; shapes: unknown[] };
+    expect(sj.space).toBe('page');
+    expect(sj.frame).toEqual(frame);
+    expect(sj.cropRect).toEqual({ x: 16, y: 276, w: 348, h: 208 });
+    expect(sj.note).toContain('frame.selector');
+    expect(sj.shapes).toHaveLength(1);
+  });
+});
+
 describe('canvas OCR keyframe (D-165)', () => {
   it('counts top-frame page changes only', () => {
     const navs = [

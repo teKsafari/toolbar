@@ -65,6 +65,8 @@ export interface AnnotationIn {
     context: unknown;
     page: unknown;
     cropRect: Rect | null;
+    /** the element the shapes follow on the live page and its box when they were drawn (D-204) */
+    frame?: { selector: string; testId?: string; elId?: string; box: Rect; fit?: boolean } | null;
   };
 }
 
@@ -372,12 +374,15 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
           image,
           space: pageSpace ? 'page' : 'image',
           note: a.item
-            ? 'Coordinates are document CSS pixels (from the top left of the page); cropRect is the part of the page the image shows.'
+            ? a.item.frame
+              ? 'Coordinates are document CSS pixels (from the top left of the page) at the moment of drawing; cropRect is the part of the page the image shows. frame is the element the shapes are attached to (find it with frame.selector) and its box at that moment, in the same coordinates: subtract frame.box.x and frame.box.y to get positions relative to the element, which hold after the page or a container scrolls.'
+              : 'Coordinates are document CSS pixels (from the top left of the page); cropRect is the part of the page the image shows.'
             : origin
               ? 'Coordinates are page CSS pixels (the locator rect is the origin of the crop).'
               : 'Coordinates are pixels of the annotation image before scaling to 1x; its place on the page is the locator rect.',
           imageScale: scale,
           ...(a.item ? { cropRect: a.item.cropRect } : {}),
+          ...(a.item?.frame ? { frame: a.item.frame } : {}),
           shapes: a.item ? a.shapes : shapesToPage(a.shapes, origin, origin ? scale : 1),
         },
         null,

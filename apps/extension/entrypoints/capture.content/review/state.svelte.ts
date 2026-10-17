@@ -8,7 +8,8 @@ import { DRAW_COLORS, type FeedbackAnchor, type FeedbackIntent, type FeedbackKin
 import type { BgError, BgRequest, LocatorTarget, NewReviewItem, ReviewItem } from '@toolbar/shared/ext';
 import type { LocatorPacket } from '@toolbar/shared/locator';
 import { send, errorText } from '../ui/send';
-import { anchorOf, elementAt, labelOf, pageInfo, painted, pageSelection, selectionElement, shapesBox, targetOf, visibleRect } from './page';
+import { docPlacement, place, resolve } from './track';
+import { anchorOf, elementAt, frameAt, frameOf, labelOf, marksBox, pageInfo, painted, pageSelection, selectionElement, shapesBox, targetOf, visibleRect } from './page';
 
 export type Tool = 'comment' | 'shot' | ShapeType;
 export type Corner = 'br' | 'bl' | 'tr' | 'tl';
@@ -331,6 +332,10 @@ export class Review {
       draft.target = targetOf(el) ?? undefined;
       draft.anchor = anchorOf(el, tip[0]! - scrollX, tip[1]! - scrollY);
     } else draft.anchor = { fx: 0.5, fy: 0.5, x: tip[0]!, y: tip[1]! };
+    // what the drawing stays on while the page scrolls, a container scrolls or the layout moves (D-204)
+    const s0 = shape.points[0]!;
+    const frame = frameAt(shape.type, { x: s0[0] - scrollX, y: s0[1] - scrollY }, { x: box.x - scrollX, y: box.y - scrollY, w: box.w, h: box.h });
+    if (frame) draft.anchor.frame = frame;
     const pad = 16;
     draft.locatorP = locate({ kind: 'area', rect: { x: box.x - scrollX, y: box.y - scrollY, w: box.w, h: box.h } });
     const rect = visibleRect({ left: box.x - scrollX, top: box.y - scrollY, width: box.w, height: box.h }, pad);
@@ -348,6 +353,8 @@ export class Review {
       return;
     }
     const el = selectionElement(s.range);
+    // the highlight follows the element that holds the text (D-204)
+    const frame = el ? frameOf(el) : null;
     const end = s.rects[s.rects.length - 1];
     const ax = end ? end.x + end.w - scrollX : s.box.right;
     const ay = end ? end.y + end.h / 2 - scrollY : s.box.bottom;
@@ -357,7 +364,7 @@ export class Review {
       text: s.text,
       marks: s.rects,
       target: el ? targetOf(el) : null,
-      anchor: anchorOf(el, ax, ay),
+      anchor: { ...anchorOf(el, ax, ay), ...(frame ? { frame } : {}) },
       box: { x: s.box.left, y: s.box.top, w: s.box.width, h: s.box.height },
     };
   }
@@ -445,24 +452,18 @@ export class Review {
     const d = this.draft;
     if (!d) return;
     let rect: Rect | null = null;
-    if (d.shapes.length) {
-      const b = shapesBox(d.shapes);
-      if (b) rect = visibleRect({ left: b.x - scrollX, top: b.y - scrollY, width: b.w, height: b.h }, 16);
-    } else if (d.marks?.length) {
-      const xs = d.marks.map((m) => m.x);
-      const ys = d.marks.map((m) => m.y);
-      const x = Math.min(...xs);
-      const y = Math.min(...ys);
-      const x2 = Math.max(...d.marks.map((m) => m.x + m.w));
-      const y2 = Math.max(...d.marks.map((m) => m.y + m.h));
-      rect = visibleRect({ left: x - scrollX, top: y - scrollY, width: x2 - x, height: y2 - y }, 8);
-    } else if (d.target) {
-      let el: Element | null = null;
-      try {
-        el = document.querySelector(d.target.selector);
-      } catch {
-        /* invalid selector */
-      }
+    // drawings and highlights are kept in the coordinates they were made in; their element may
+    // have moved since (a scrolled container), so the crop is taken where they are drawn now and
+    // its rect given back in their coordinates, for the folder's aNN.shapes.json (D-204)
+    const t = place(d).shapes ?? docPlacement();
+    const marked = d.shapes.length ? shapesBox(d.shapes) : d.marks?.length ? marksBox(d.marks) : null;
+    if (marked) {
+      rect = visibleRect({ left: marked.x * t.sx + t.dx, top: marked.y * t.sy + t.dy, width: marked.w * t.sx, height: marked.h * t.sy }, d.shapes.length ? 16 : 8);
+      if (!rect) return void toasts.show('Scroll the element into view first');
+      return void (await this.shoot(d, rect, { x: (rect.x - t.dx) / t.sx, y: (rect.y - t.dy) / t.sy, w: rect.w / t.sx, h: rect.h / t.sy }));
+    }
+    if (d.target) {
+      const el = resolve(d.target);
       if (el) rect = visibleRect(el.getBoundingClientRect());
     }
     if (!rect) return void toasts.show('Scroll the element into view first');

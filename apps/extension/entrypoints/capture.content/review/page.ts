@@ -3,8 +3,9 @@
 import { describeNode } from '@toolbar/capture';
 import { UI_HOST_TAG } from '@toolbar/shared/constants';
 import type { Rect, TargetRef } from '@toolbar/shared';
-import type { FeedbackAnchor, FeedbackPage, FeedbackShape } from '@toolbar/shared/areas/reviewer';
+import type { FeedbackAnchor, FeedbackFrame, FeedbackPage, FeedbackShape } from '@toolbar/shared/areas/reviewer';
 import type { ReviewItem } from '@toolbar/shared/ext';
+import { place, remember } from './track';
 
 /** The page element under a viewport point, never our own host, html or body. */
 export function elementAt(x: number, y: number): Element | null {
@@ -53,37 +54,77 @@ export function anchorOf(el: Element | null, clientX: number, clientY: number): 
   return { fx, fy, x: fixed ? clientX : clientX + scrollX, y: fixed ? clientY : clientY + scrollY, ...(fixed ? { fixed } : {}) };
 }
 
-function findTarget(t: TargetRef): Element | null {
-  try {
-    const el = document.querySelector(t.selector);
-    if (el) return el;
-  } catch {
-    /* not a valid selector here */
+/** The element and its ancestors up to (not including) body, crossing shadow roots. */
+function chain(el: Element | null): Element[] {
+  const out: Element[] = [];
+  for (let e = el; e && e !== document.body && e !== document.documentElement; ) {
+    if (e.localName !== UI_HOST_TAG) out.push(e);
+    const root = e.parentElement ? null : e.getRootNode();
+    e = e.parentElement ?? (root instanceof ShadowRoot ? root.host : null);
   }
-  if (t.testId) return document.querySelector(`[data-testid="${CSS.escape(t.testId)}"]`);
-  if (t.elId) return document.getElementById(t.elId);
-  return null;
+  return out;
 }
 
-/** Viewport point of an item's pin now, or null when it is off this page. */
+function overlap(a: Rect, b: DOMRect): number {
+  const w = Math.min(a.x + a.w, b.right) - Math.max(a.x, b.left);
+  const h = Math.min(a.y + a.h, b.bottom) - Math.max(a.y, b.top);
+  if (w <= 0 || h <= 0) return 0;
+  const i = w * h;
+  return i / (a.w * a.h + b.width * b.height - i);
+}
+
+/**
+ * The element a drawing is attached to (D-204), from its box in viewport coordinates. A rectangle
+ * or a ring drawn around an element (their boxes overlap by 60 % or more) fits that element and
+ * stretches with it; otherwise the drawing follows the element under its start point (an arrow's
+ * tail), or the smallest element that holds its box when it starts on the page background.
+ */
+export function frameAt(type: FeedbackShape['type'], start: { x: number; y: number }, box: Rect): FeedbackFrame | null {
+  const first = elementAt(start.x, start.y);
+  const centre = elementAt(box.x + box.w / 2, box.y + box.h / 2);
+  let el: Element | null = null;
+  let fit = false;
+  if (type !== 'arrow' && box.w > 0 && box.h > 0) {
+    let best = 0.6;
+    for (const e of new Set([...chain(centre), ...chain(first)])) {
+      const o = overlap(box, e.getBoundingClientRect());
+      if (o >= best) {
+        best = o;
+        el = e;
+        fit = true;
+      }
+    }
+  }
+  if (!el && first) el = first;
+  if (!el) {
+    const holds = chain(centre).find((e) => {
+      const r = e.getBoundingClientRect();
+      return r.left <= box.x + 2 && r.top <= box.y + 2 && r.right >= box.x + box.w - 2 && r.bottom >= box.y + box.h - 2;
+    });
+    el = holds ?? centre;
+  }
+  return el ? frameOf(el, fit) : null;
+}
+
+/** The frame of an element as it is now: how to find it again and its box in document coordinates. */
+export function frameOf(el: Element, fit = false): FeedbackFrame | null {
+  const t = targetOf(el);
+  if (!t) return null;
+  const r = el.getBoundingClientRect();
+  remember(t, el);
+  return {
+    selector: t.selector,
+    ...(t.testId ? { testId: t.testId } : {}),
+    ...(t.elId ? { elId: t.elId } : {}),
+    box: { x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height },
+    ...(fit ? { fit } : {}),
+  };
+}
+
+/** Viewport point of an item's pin now, or null when it is off this page or has none. */
 export function pinPoint(it: ReviewItem): { x: number; y: number } | null {
   if (!samePage(it.page.url)) return null;
-  // a drawing lives in page coordinates: its pin sits where it starts (arrow tail, rectangle
-  // corner), so it never covers what the drawing points at
-  const s = it.shapes[0];
-  if (it.kind === 'draw' && s) {
-    const [a, b] = [s.points[0]!, s.points[1] ?? s.points[0]!];
-    const x = s.type === 'rect' ? Math.min(a[0], b[0]) : a[0];
-    const y = s.type === 'rect' ? Math.min(a[1], b[1]) : a[1];
-    return { x: x - scrollX, y: y - scrollY };
-  }
-  if (it.target && it.anchor) {
-    const el = findTarget(it.target);
-    const r = el?.getBoundingClientRect();
-    if (r && (r.width || r.height)) return { x: r.left + it.anchor.fx * r.width, y: r.top + it.anchor.fy * r.height };
-  }
-  if (it.anchor) return it.anchor.fixed ? { x: it.anchor.x, y: it.anchor.y } : { x: it.anchor.x - scrollX, y: it.anchor.y - scrollY };
-  return null;
+  return place(it).pin;
 }
 
 /** Same document, ignoring the hash. */
@@ -126,6 +167,14 @@ export function shapesBox(shapes: FeedbackShape[]): Rect | null {
   const x = Math.min(...xs);
   const y = Math.min(...ys);
   return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}
+
+/** Bounding box of text highlight boxes, in document coordinates. */
+export function marksBox(marks: Rect[]): Rect | null {
+  if (!marks.length) return null;
+  const x = Math.min(...marks.map((m) => m.x));
+  const y = Math.min(...marks.map((m) => m.y));
+  return { x, y, w: Math.max(...marks.map((m) => m.x + m.w)) - x, h: Math.max(...marks.map((m) => m.y + m.h)) - y };
 }
 
 let ownRoot: ShadowRoot | null = null;

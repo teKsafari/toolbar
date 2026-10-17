@@ -123,6 +123,7 @@ export async function collectFolder(db: Db, rec: RecordingRow): Promise<FolderDa
           context: it.context,
           page: it.page,
           cropRect: it.cropRect,
+          frame: it.anchor?.frame ?? null,
         },
       })),
     ),

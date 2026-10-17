@@ -14,3 +14,4 @@ Run: `pnpm install && pnpm lab` (builds, then serves http://localhost:5173 and a
 | `/slow` | SvelteKit streamed load (late data after 3 s) |
 | `/items/[id]` | A route with a parameter and one button (`item-buy`), for source location (route file candidates) |
 | `/slow-raw` | Plain HTML streamed in 8 chunks over 4 s |
+| `/anchors.html?case=doc\|nested\|sticky\|transform` | Two cards for reviewer drawings (D-204): a scrolling document, an app shell whose `<main>` scrolls, a fixed header with a badge, a transformed wrapper; Shift adds a banner above the cards, Remove card deletes the first |

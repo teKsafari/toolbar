@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab · anchors</title>
+<!--
+  Drawings and pins must stay on the content they were drawn on (D-204). One page, four layouts,
+  picked with ?case=:
+    doc        the document scrolls (window.scrollY)
+    nested     an app shell: body is one screen high and <main> scrolls (Nuru, many dashboards)
+    sticky     a fixed header over a scrolling document, with a target inside the header
+    transform  the content sits in a translated and scaled wrapper inside a scrolling <main>
+  Buttons: shift inserts a banner above the content (a layout shift), remove deletes the first card.
+-->
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; font: 15px/1.4 system-ui, sans-serif; background: #111; color: #eee; }
+  header { height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: #1d1d1d; border-bottom: 1px solid #333; }
+  header button { font: inherit; }
+  .card { width: 300px; height: 160px; padding: 16px; border-radius: 12px; background: #262f3d; border: 1px solid #3d4b61; }
+  .card h3 { margin: 0 0 8px; }
+  .row { display: flex; gap: 40px; align-items: flex-start; }
+  .gap { height: 360px; }
+  .tail { height: 2400px; background: repeating-linear-gradient(#111 0 40px, #161616 40px 80px); }
+  .banner { height: 120px; background: #523; display: grid; place-items: center; }
+  .wrap { padding: 24px 40px; }
+
+  body.nested, body.transform { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  body.nested main, body.transform main { flex: 1; overflow-y: auto; overflow-x: hidden; }
+  body.transform .xf { transform: translate(30px, 10px) scale(0.9); transform-origin: 0 0; }
+  body.sticky header { position: fixed; top: 0; left: 0; right: 0; z-index: 2; }
+  body.sticky main { padding-top: 56px; }
+  #hdr-target { padding: 4px 10px; border-radius: 6px; background: #3a2f12; border: 1px solid #6b5520; }
+</style>
+</head>
+<body>
+<header>
+  <strong>Anchors</strong>
+  <span id="hdr-target" data-testid="hdr-target">Header badge</span>
+  <button type="button" data-testid="shift">Shift</button>
+  <button type="button" data-testid="remove">Remove card</button>
+</header>
+<main data-testid="main">
+  <div id="slot"></div>
+  <div class="xf">
+    <div class="wrap">
+      <div class="gap" style="height: 200px"></div>
+      <div class="row">
+        <section class="card" data-testid="target"><h3>Community Driven</h3><p>Built in the open by its users.</p></section>
+        <section class="card" data-testid="target2"><h3>Second card</h3><p>Arrows and strokes land here.</p></section>
+      </div>
+      <div class="tail"></div>
+    </div>
+  </div>
+</main>
+<script>
+  const c = new URLSearchParams(location.search).get('case') || 'doc';
+  document.body.className = c;
+  document.querySelector('[data-testid=shift]').onclick = () => {
+    const b = document.createElement('div');
+    b.className = 'banner';
+    b.textContent = 'A banner pushed the content down';
+    document.getElementById('slot').append(b);
+  };
+  document.querySelector('[data-testid=remove]').onclick = () => document.querySelector('[data-testid=target]')?.remove();
+</script>
+</body>
+</html>

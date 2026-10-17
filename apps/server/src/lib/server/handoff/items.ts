@@ -16,6 +16,8 @@ export interface ItemRow {
   shapes: Record<string, unknown>[];
   cropAssetId: string | null;
   cropRect: { x: number; y: number; w: number; h: number } | null;
+  /** where the pin sits; for drawings and highlights also the element their shapes follow (D-204) */
+  anchor: { frame?: { selector: string; testId?: string; elId?: string; box: { x: number; y: number; w: number; h: number }; fit?: boolean } } | null;
   voiceAssetId: string | null;
   transcriptStatus: string | null;
   transcriptText: string | null;
@@ -59,6 +61,7 @@ export async function feedbackItemsOf(db: Db, recordingId: string): Promise<Item
     shapes: json<Record<string, unknown>[]>(r.shapes) ?? [],
     cropAssetId: (r.crop_asset_id as string | null) ?? null,
     cropRect: json(r.crop_rect),
+    anchor: json(r.anchor),
     voiceAssetId: (r.voice_asset_id as string | null) ?? null,
     transcriptStatus: (r.transcript_status as string | null) ?? null,
     transcriptText: (r.transcript_text as string | null) ?? null,

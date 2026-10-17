@@ -72,6 +72,22 @@ export const feedbackPageSchema = z.object({
 });
 export type FeedbackPage = z.infer<typeof feedbackPageSchema>;
 
+/**
+ * The element a drawing (or a text highlight) is attached to (D-204): found again by its selector,
+ * test id or id, and its box when the note was made, in the same document coordinates as the
+ * shapes. The page draws the shapes at their offset from the element's box now, so they follow
+ * it through document scroll, a scrolling container, a resize or a layout shift. `fit`: the
+ * drawing frames this element (a rectangle around a card), so it also stretches with the box.
+ */
+export const feedbackFrameSchema = z.object({
+  selector: z.string().max(2000),
+  testId: z.string().max(500).optional(),
+  elId: z.string().max(500).optional(),
+  box: rectSchema,
+  fit: z.boolean().optional(),
+});
+export type FeedbackFrame = z.infer<typeof feedbackFrameSchema>;
+
 /** Where the pin sits: offset inside the element (0..1), and the document point as a fallback. */
 export const feedbackAnchorSchema = z.object({
   fx: z.number().min(0).max(1),
@@ -80,6 +96,8 @@ export const feedbackAnchorSchema = z.object({
   y: z.number(),
   /** the element is position: fixed or sticky; x and y are then viewport coordinates */
   fixed: z.boolean().optional(),
+  /** drawings and text highlights: the element their shapes or marks follow (D-204) */
+  frame: feedbackFrameSchema.optional(),
 });
 export type FeedbackAnchor = z.infer<typeof feedbackAnchorSchema>;
 

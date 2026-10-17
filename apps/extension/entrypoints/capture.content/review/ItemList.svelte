@@ -5,6 +5,7 @@
   import type { ReviewItem } from '@toolbar/shared/ext';
   import { review as r } from './state.svelte';
   import { pinPoint, samePage } from './page';
+  import { reveal } from './track';
   import { fitIn } from './viewport.svelte';
 
   const ICON: Record<ReviewItem['kind'], IconName> = { element: 'comment', text: 'text', draw: 'pen', shot: 'camera', voice: 'mic', note: 'comment' };
@@ -21,7 +22,8 @@
     if (!samePage(it.page.url)) return;
     let p = pinPoint(it);
     if (p && (p.y < 0 || p.y > innerHeight)) {
-      scrollBy({ top: p.y - innerHeight / 2 });
+      // the element's own scroll container (an app shell's <main>), else the document (D-204)
+      if (!reveal(it)) scrollBy({ top: p.y - innerHeight / 2 });
       p = pinPoint(it);
     }
     r.edit(it, p ? { x: p.x + 14, y: p.y } : { x: innerWidth / 2 - 160, y: innerHeight / 3 });

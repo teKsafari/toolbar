@@ -8,10 +8,10 @@
   import { onMount } from 'svelte';
   import { getStroke } from 'perfect-freehand';
   import { REVIEW_KEYS, type FeedbackShape } from '@toolbar/shared/areas/reviewer';
-  import type { ReviewItem } from '@toolbar/shared/ext';
   import { setGuard, swallowClicksFor } from '../ui/guard';
   import { review as r, type Tool } from './state.svelte';
-  import { pinPoint, samePage, setOwnRoot, typingIn } from './page';
+  import { samePage, setOwnRoot, typingIn } from './page';
+  import { docPlacement, place, setActive, startTracking, type Placed, type Placement } from './track';
   import Pill from './Pill.svelte';
   import Composer from './Composer.svelte';
   import ItemList from './ItemList.svelte';
@@ -30,8 +30,9 @@
     void r.init();
     const unwatch = viewport.watch();
     const bump = () => r.tick++;
-    addEventListener('scroll', bump, { passive: true, capture: true });
-    addEventListener('resize', bump, { passive: true });
+    // notes follow their elements: one redraw per animation frame after a scroll (document or
+    // any container), a resize, a tracked element's resize or a DOM change (D-204)
+    const untrack = startTracking(bump);
     const slow = setInterval(() => {
       r.now = Date.now();
       if (r.awake) bump();
@@ -48,8 +49,7 @@
     document.addEventListener('selectionchange', onSel);
     return () => {
       unwatch();
-      removeEventListener('scroll', bump, { capture: true });
-      removeEventListener('resize', bump);
+      untrack();
       clearInterval(slow);
       clearInterval(ctx);
       document.removeEventListener('selectionchange', onSel);
@@ -155,13 +155,30 @@
     void r.tick;
     return r.items.filter((it) => samePage(it.page.url));
   });
-  const pins = $derived.by(() => {
+  /** where each note on this page is now: its pin, and where its shapes or highlights go */
+  const placed = $derived.by(() => {
     void r.tick;
-    return here.map((it) => ({ it, p: pinPoint(it) })).filter((x): x is { it: ReviewItem; p: { x: number; y: number } } => !!x.p);
+    return new Map<string, Placed>(here.map((it) => [it.id, place(it)]));
   });
-  const scroll = $derived.by(() => {
+  const pins = $derived(
+    here.flatMap((it) => {
+      const p = placed.get(it.id);
+      return p?.pin ? [{ it, p: p.pin, detached: p.detached }] : [];
+    }),
+  );
+  /** the draft's drawing or highlight follows its element too, while the composer is open */
+  const draftAt = $derived.by(() => {
     void r.tick;
-    return { x: scrollX, y: scrollY };
+    const d = r.draft;
+    return d && !d.id && (d.shapes.length || d.marks?.length) ? (place(d).shapes ?? docPlacement()) : null;
+  });
+  const live = $derived.by(() => {
+    void r.tick;
+    return docPlacement();
+  });
+  const tf = (t: Placement) => `translate(${t.dx} ${t.dy}) scale(${t.sx} ${t.sy})`;
+  $effect(() => {
+    setActive(here.length > 0 || !!r.draft);
   });
   const showPins = $derived(r.awake && !blocked && !r.pinsHidden && !r.hiding);
   const drawingTool = $derived(r.tool === 'rect' || r.tool === 'arrow' || r.tool === 'freehand');
@@ -172,9 +189,9 @@
   {#if s.type === 'rect' && s.points.length > 1}
     {@const a = s.points[0]!}
     {@const b = s.points[1]!}
-    <rect x={Math.min(a[0], b[0])} y={Math.min(a[1], b[1])} width={Math.abs(b[0] - a[0])} height={Math.abs(b[1] - a[1])} fill="none" stroke={s.color} stroke-width={s.width} rx="2" data-shape="rect" data-live={live || undefined} />
+    <rect x={Math.min(a[0], b[0])} y={Math.min(a[1], b[1])} width={Math.abs(b[0] - a[0])} height={Math.abs(b[1] - a[1])} fill="none" stroke={s.color} stroke-width={s.width} vector-effect="non-scaling-stroke" rx="2" data-shape="rect" data-live={live || undefined} />
   {:else if s.type === 'arrow' && s.points.length > 1}
-    <line x1={s.points[0]![0]} y1={s.points[0]![1]} x2={s.points[1]![0]} y2={s.points[1]![1]} stroke={s.color} stroke-width={s.width} stroke-linecap="round" data-shape="arrow" data-live={live || undefined} />
+    <line x1={s.points[0]![0]} y1={s.points[0]![1]} x2={s.points[1]![0]} y2={s.points[1]![1]} stroke={s.color} stroke-width={s.width} stroke-linecap="round" vector-effect="non-scaling-stroke" data-shape="arrow" data-live={live || undefined} />
     <polygon points={arrowHead(s)} fill={s.color} />
   {:else if s.type === 'freehand'}
     <path d={freehandPath(s.points, s.width)} fill={s.color} data-shape="freehand" data-live={live || undefined} />
@@ -183,22 +200,27 @@
 
 <span bind:this={anchor} hidden></span>
 {#if !blocked}
-  <!-- drawings and text highlights, in document coordinates -->
+  <!-- drawings and text highlights, each drawn at its offset from its element (track.ts, D-204) -->
   {#if (showPins && here.length) || r.drawing || r.draft?.shapes.length || r.draft?.marks?.length}
     <svg class="layer" data-testid="review-layer" aria-hidden="true">
-      <g transform="translate({-scroll.x} {-scroll.y})">
-        {#if showPins}
-          {#each here as it (it.id)}
-            {#each it.marks ?? [] as m, i (i)}<rect class="mark" x={m.x} y={m.y} width={m.w} height={m.h} data-testid="review-mark" />{/each}
-            {#each it.shapes as s, i (i)}{@render shape(s)}{/each}
-          {/each}
-        {/if}
-        {#if r.draft && !r.draft.id}
+      {#if showPins}
+        {#each here as it (it.id)}
+          {@const t = placed.get(it.id)?.shapes}
+          {#if t}
+            <g transform={tf(t)} data-detached={t.detached || undefined}>
+              {#each it.marks ?? [] as m, i (i)}<rect class="mark" x={m.x} y={m.y} width={m.w} height={m.h} data-testid="review-mark" />{/each}
+              {#each it.shapes as s, i (i)}{@render shape(s)}{/each}
+            </g>
+          {/if}
+        {/each}
+      {/if}
+      {#if r.draft && !r.draft.id && draftAt}
+        <g transform={tf(draftAt)}>
           {#each r.draft.marks ?? [] as m, i (i)}<rect class="mark" x={m.x} y={m.y} width={m.w} height={m.h} />{/each}
           {#each r.draft.shapes as s, i (i)}{@render shape(s, true)}{/each}
-        {/if}
-        {#if r.drawing}{@render shape(r.drawing, true)}{/if}
-      </g>
+        </g>
+      {/if}
+      {#if r.drawing}<g transform={tf(live)}>{@render shape(r.drawing, true)}</g>{/if}
     </svg>
   {/if}
 
@@ -215,18 +237,20 @@
     {/if}
 
     {#if showPins}
-      {#each pins as { it, p } (it.id)}
+      {#each pins as { it, p, detached } (it.id)}
         <button
           type="button"
           class="pin"
           class:area={it.kind === 'draw' || it.kind === 'shot'}
           class:editing={r.draft?.id === it.id}
+          class:detached
           style:left="{p.x}px"
           style:top="{p.y}px"
           data-nb-interactive
           data-testid="review-pin"
           data-n={it.n}
-          aria-label="Note {it.n}: {it.comment || it.quote || it.kind}"
+          data-detached={detached || undefined}
+          aria-label="Note {it.n}: {it.comment || it.quote || it.kind}{detached ? ' (detached: its element is no longer on the page)' : ''}"
           onmouseenter={() => (hoverPin = it.id)}
           onmouseleave={() => (hoverPin = null)}
           onclick={() => r.edit(it, { x: p.x + 14, y: p.y })}>{it.n}</button>
@@ -234,6 +258,7 @@
           <div class="preview" use:fitIn style:left="{p.x + 16}px" style:top="{p.y + 12}px" data-testid="review-pin-preview">
             {#if it.quote}<q>{it.quote.slice(0, 80)}</q>{/if}
             <span>{it.comment || (it.voiceBlobId ? 'Voice note' : 'No comment')}</span>
+            {#if detached}<span class="detached-note">Detached: its element is no longer on the page</span>{/if}
           </div>
         {/if}
       {/each}
@@ -274,6 +299,10 @@
   .pin { all: unset; box-sizing: border-box; position: fixed; pointer-events: auto; cursor: pointer; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50% 50% 50% 2px; display: grid; place-items: center; background: var(--nb-accent); color: var(--nb-on-accent); font: var(--nb-weight-semibold) 11px/1 var(--nb-font-sans); font-variant-numeric: tabular-nums; box-shadow: 0 0 0 2px var(--nb-on-accent), var(--nb-shadow-md); transition: transform var(--nb-dur-fast) var(--nb-ease-out); }
   .pin.area { background: var(--nb-success); color: var(--nb-surface); box-shadow: 0 0 0 2px var(--nb-surface), var(--nb-shadow-md); }
   .pin:hover, .pin.editing { transform: scale(1.15); }
+  /* the element of the note is gone: the pin stays where it was, hollow and dashed */
+  .pin.detached { background: var(--nb-surface); color: var(--nb-text); box-shadow: 0 0 0 2px var(--nb-text-muted), var(--nb-shadow-md); outline: 1px dashed var(--nb-text-muted); outline-offset: 3px; }
+  g[data-detached] { opacity: 0.55; }
+  .detached-note { color: var(--nb-text-muted); }
   .pin:focus-visible { outline: 2px solid var(--nb-focus); outline-offset: 2px; }
   .preview { position: fixed; pointer-events: none; max-width: 240px; display: flex; flex-direction: column; gap: 2px; padding: 6px 9px; border-radius: var(--nb-radius-md); background: var(--nb-surface); color: var(--nb-text); border: 1px solid var(--nb-border); font: 12px/1.4 var(--nb-font-sans); box-shadow: var(--nb-shadow-lg); }
   .preview q { color: var(--nb-text-muted); font-style: italic; }
