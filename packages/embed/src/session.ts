@@ -100,6 +100,28 @@ function writeTrace(s: TraceState | null) {
   }
 }
 
+const STREAMS = ['events', 'rrweb'] as const;
+
+/**
+ * Moves trace `t` on with `change`, against the stored copy: two live pages of one trace (one
+ * back from the back-forward cache, one it navigated to) share its chunk numbers and byte counts
+ * through sessionStorage, so the stored counters are taken first and written back after. A trace
+ * another page stopped or replaced is not written back.
+ */
+function updateTrace<T>(t: TraceState, change: () => T): T {
+  const s = readTrace();
+  const same = s?.id === t.id;
+  if (same) {
+    for (const k of STREAMS) {
+      t.seq[k] = Math.max(t.seq[k], s.seq[k] ?? 0);
+      t.bytes[k] = Math.max(t.bytes[k], s.bytes[k] ?? 0);
+    }
+  }
+  const out = change();
+  if (same) writeTrace(t);
+  return out;
+}
+
 function readStash(id: string): Record<PageStream, unknown[]> | null {
   try {
     const raw = sessionStorage.getItem(PENDING_KEY);
@@ -188,10 +210,38 @@ export class PageSession implements Transport {
       this.attach();
     }
     addEventListener('pagehide', () => this.flushTrace(true));
-    // back from the back-forward cache: the rows this page stashed as it went are still its own
     addEventListener('pageshow', (e) => {
-      if ((e as PageTransitionEvent).persisted && this.trace) this.unstash();
+      if ((e as PageTransitionEvent).persisted) this.resume();
     });
+  }
+
+  /**
+   * Back from the back-forward cache: the pages the tab went to since may have sent chunks of the
+   * trace, stopped it or started another, so the stored trace replaces this page's copy. A trace
+   * that is still on attaches again with a fresh full snapshot.
+   */
+  resume() {
+    const stored = readTrace();
+    const old = this.trace;
+    if (old && stored?.id !== old.id) this.release(old);
+    if (!stored) {
+      if (old) this.changed();
+      return;
+    }
+    if (stored.id !== old?.id) this.pending = { events: [], rrweb: [] };
+    this.trace = stored;
+    this.unstash();
+    this.attach();
+    this.changed();
+  }
+
+  /** Lets go of a trace this page streamed into, without completing it. */
+  private release(t: TraceState) {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    this.command({ type: 'detach', recordingId: t.id });
+    this.trace = null;
+    this.pending = { events: [], rrweb: [] };
   }
 
   /** Puts the rows an earlier page of the tab could not send in front of this page's. */
@@ -258,17 +308,15 @@ export class PageSession implements Transport {
         return this.chain;
       }
     }
-    for (const stream of ['events', 'rrweb'] as const) {
+    for (const stream of STREAMS) {
       const rows = this.pending[stream];
       if (!rows.length) continue;
       this.pending[stream] = [];
-      // the seq is taken now and stored, so the next page of the tab never reuses it
-      const seq = t.seq[stream]++;
-      writeTrace(t);
+      // the seq is taken now and stored, so no other page of the tab reuses it
+      const seq = updateTrace(t, () => t.seq[stream]++);
       const send = async () => {
         const gz = await gzipText(ndjson(rows));
-        t.bytes[stream] += gz.size;
-        writeTrace(t);
+        updateTrace(t, () => (t.bytes[stream] += gz.size));
         await this.opts.client.putChunk(t, stream, seq, gz, timeOf(rows[0]) ?? t.startedAt, timeOf(rows[rows.length - 1]) ?? this.now(), unloading && gz.size < 60_000);
       };
       // chunks go one after another; a failed chunk is reported and the next ones still go
@@ -291,16 +339,21 @@ export class PageSession implements Transport {
     this.timer = null;
     this.command({ type: 'detach', recordingId: t.id });
     await this.flushTrace(false);
+    // chunks other pages of the tab sent count too
+    updateTrace(t, () => undefined);
     const { client } = this.opts;
-    for (const stream of ['events', 'rrweb'] as const) {
+    for (const stream of STREAMS) {
       if (t.seq[stream] > 0) await this.complete(t, stream);
     }
+    // the name the reviewer gave by now, which may be after the trace started (D-213)
+    const name = this.opts.reviewer?.().name;
     // the notes made during the trace went up as its feedback items (review.submit)
     await client.finalize(t, {
       title: titleOf(note || `Trace on ${t.title || new URL(t.url).host}`),
       description: note,
       durationMs: Math.max(0, Math.round(this.now() - t.startedAt)),
       annotations: [],
+      ...(name ? { reviewer: { name } } : {}),
     });
     this.trace = null;
     writeTrace(null);
