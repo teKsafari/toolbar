@@ -11,6 +11,7 @@
 // 4. A rotated or turned-off key: no UI.
 // 5. The X closes the toolbar on the site, across reloads; `?open-toolbar` brings it back.
 // 6. Behind a strict CSP (scripts from the page and the server, no inline styles) it renders styled.
+// 7. Settings, Projects: the owner sees the script tag, rotates the key, turns the embed off and on.
 import { expect, test, type Page } from '@playwright/test';
 import { LAB, OTHER, SERVER, embedCaptures, ensureProject, labUrl, nextCapture, rotateKey, signInOwner, sleep, toolbarShown, turnOff, ui, wake, watchConsole, type Owner } from './helpers.ts';
 
@@ -333,6 +334,35 @@ test('behind a strict CSP (scripts from the page and the server, no inline style
   expect(cap.title).toBe('CSP page');
   expect(violations).toEqual([]);
   expect(log.errors).toEqual([]);
+});
+
+test('Settings, Projects: the script tag with the key, Rotate, Turn off and Embed', async ({ page }) => {
+  watchConsole(page);
+  const dash = await owner.ctx.newPage();
+  await dash.goto(`${SERVER}/settings/projects`);
+  const row = dash.locator(`[data-testid=project-row][data-id="${projectId}"]`);
+  const snippet = row.getByTestId('embed-snippet');
+  await expect(snippet).toHaveText(`<script src="${SERVER}/embed.js" data-key="${key}"></script>`);
+  await expect(row.getByTestId('embed-npm')).toContainText(`init({ key: '${key}', server: '${SERVER}' });`);
+
+  await row.getByTestId('embed-rotate').click();
+  await dash.locator('dialog[open][data-testid=confirm-dialog]').getByTestId('confirm-button').click();
+  await expect(snippet).not.toContainText(key);
+  const rotated = /data-key="(tbk_[A-Za-z0-9_-]{22})"/.exec((await snippet.textContent())!)![1]!;
+
+  await row.getByTestId('embed-off').click();
+  await dash.locator('dialog[open][data-testid=confirm-dialog]').getByTestId('confirm-button').click();
+  await expect(row.getByTestId('project-embed')).toHaveCount(0);
+  await page.goto(labUrl(rotated));
+  await expect(page.locator('toolbar-root')).toHaveCount(0);
+
+  await row.getByTestId('embed-on').click();
+  await expect(snippet).toBeVisible();
+  key = /data-key="(tbk_[A-Za-z0-9_-]{22})"/.exec((await snippet.textContent())!)![1]!;
+  expect(key).not.toBe(rotated);
+  await page.goto(labUrl(key));
+  await toolbarShown(page);
+  await dash.close();
 });
 
 declare global {

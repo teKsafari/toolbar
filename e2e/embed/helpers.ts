@@ -1,6 +1,6 @@
 // Shared by the embed suite: the site owner's signed-in API, the lab's project with its embed
 // key, and the captures the embed made.
-import { expect, type APIRequestContext, type Browser, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { signInOidc } from '../fixtures/oidc.ts';
 
 export const SERVER = (process.env.SERVER_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
@@ -16,6 +16,8 @@ export function labUrl(key: string, path = '/', base = LAB, extra = ''): string 
 }
 
 export interface Owner {
+  /** the owner's signed-in browser context, for the dashboard */
+  ctx: BrowserContext;
   api: APIRequestContext;
   email: string;
   workspaceId: string;
@@ -31,7 +33,7 @@ export async function signInOwner(browser: Browser): Promise<Owner> {
   const me = (await (await ctx.request.get(`${SERVER}/api/v1/me`)).json()) as { activeWorkspaceId: string | null };
   expect(me.activeWorkspaceId, 'a first sign-in gets a workspace').toBeTruthy();
   await page.close();
-  return { api: ctx.request, email, workspaceId: me.activeWorkspaceId!, close: () => ctx.close() };
+  return { ctx, api: ctx.request, email, workspaceId: me.activeWorkspaceId!, close: () => ctx.close() };
 }
 
 const json = { origin: SERVER };

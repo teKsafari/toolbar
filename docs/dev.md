@@ -157,7 +157,7 @@ Three Playwright suites in `e2e/`. The area suites and the flows run headed Chro
 |---|---|---|---|---|
 | Area suites | `e2e/tests/**` (one folder per area, about 230 tests) | test build `chrome-mv3-test` (open shadow root, `globalThis.__tb`) | `playwright.config.ts` | `:101` |
 | User journeys | `e2e/flows/*.spec.ts`, flows A to O of `docs/jam/flows.md`, P (branding), Q (zero integration in the project sites mode, D-126, D-202), S (site access: add a site from the icon, the toolbar without a reload, close and reopen, a second origin stays clean; S2 the all sites mode with merge; D-202, D-203, D-205), R (reviewer keys, the title row and the toast's Open in the release build, D-206) and P2 (the owner's Part 2 scenario, D-163) | release build `chrome-mv3` | `playwright.flows.config.ts` | `:120` |
-| Embed (D-211, D-212) | `e2e/embed/*.spec.ts`: on a project origin a comment, an element screenshot, a text highlight and a voice note sent as one embed capture (author, assets, workspace access), a trace, the second origin's 403, rotated and turned-off keys, close and `?open-toolbar`, a strict CSP | none (plain Chromium, fake microphone) | `playwright.embed.config.ts` | headless |
+| Embed (D-211, D-212) | `e2e/embed/*.spec.ts`: on a project origin a comment, an element screenshot, a text highlight and a voice note sent as one embed capture (author, assets, workspace access), a trace, the second origin's 403, rotated and turned-off keys, close and `?open-toolbar`, a strict CSP, the Embed panel of Settings, Projects | none (plain Chromium, fake microphone) | `playwright.embed.config.ts` | headless |
 
 ### Everything, from a clean database
 
