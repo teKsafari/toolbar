@@ -7,11 +7,13 @@ The product is open-toolbar (D-083); the repo and package scope are `toolbar`.
 | Path | Package | What it is |
 |---|---|---|
 | `apps/server` | `@toolbar/server` | SvelteKit 3 app (adapter-node): dashboard, share pages, `/api/v1`, Better Auth, job worker |
-| `apps/extension` | `@toolbar/extension` | WXT + Svelte 5 MV3 extension; `page/` is the injector's page bundle (`build:page`) |
+| `apps/extension` | `@toolbar/extension` | WXT + Svelte 5 MV3 extension |
 | `apps/injector` | `@toolbar/injector` | Go reverse proxy that injects the page bundle for signed-in reviewers (D-157); its `package.json` wraps `go build`, `go vet` and `go test`, so `pnpm -r` needs Go 1.26 |
 | `packages/shared` | `@toolbar/shared` | Event envelope and kinds, zod schemas, constants, ids; `/api` endpoint contracts and route table; `/ext` extension messaging, session state machine, storage keys |
 | `packages/capture` | `@toolbar/capture` | Page-side capture: `Transport`, MAIN/ISOLATED bridge, hook installers |
 | `packages/ui` | `@toolbar/ui` | Design tokens (`tokens.ts`, generated `tokens.css`, and `tokens.shadow.css` with `:host`-only `!important` values for the extension's in-page shadow roots), the accent derivation (`accent.ts`), bundled fonts (`fonts/`, `fonts.css`, `fonts.ts`; SIL OFL 1.1), icons, Svelte primitives (Button, Icon, Popover, Segmented, Switch, Toaster) |
+| `packages/review` | `@toolbar/review` | The Part 2 reviewer toolbar (pill, composer, pins, drawing, highlight, notes list) behind a `ReviewPlatform` adapter; the extension and the embed each supply one (D-212) |
+| `packages/embed` | `@open-toolbar/embed` | The embed (D-211): the reviewer toolbar on a site through a script tag (`dist/embed.js`) or an npm package (`dist/index.js`, `dist/react.js`, `dist/open-toolbar-embed.tgz`), with the project's public key |
 | `packages/trace` | `@toolbar/trace` | Part 2 traces: the span engine (outcomes, `causedBy`), keyframe planner and dHash, SvelteKit and Next.js request names; runs in the extension worker and on the server (D-117 to D-122) |
 | `e2e` | `@toolbar/e2e` | Playwright 1.63.0 suite that loads the unpacked extension |
 | `lab` | (own project) | The capture test target; not in the workspace, own lockfile |
@@ -141,6 +143,15 @@ Site access (D-123, D-126, D-200, D-202, D-203, D-205): release builds hold the 
 
 The worker registers `content-scripts/capture-main.js` (MAIN) and `content-scripts/capture.js` (ISOLATED) at `document_start` for the allowed origins. The MAIN script installs the `@toolbar/capture` hooks and relays events over a private `MessageChannel`; the isolated script forwards them to the worker on the `capture` port and, in the top frame, mounts `<toolbar-root>` in a shadow root.
 
+## The embed
+
+```sh
+pnpm --filter @open-toolbar/embed build   # dist/embed.js (IIFE, one file), the fonts, dist/index.js and dist/react.js, dist/open-toolbar-embed.tgz
+pnpm --filter @open-toolbar/embed test    # session, client routes, boot, the page platform's send order, reviewer id
+```
+
+`embed.js` runs the `@toolbar/capture` hooks and recorder in the page's realm with `PageSession` as the Transport, fetches `GET /api/v1/embed/:key/config` and mounts the shared reviewer toolbar (`@toolbar/review`) in an open shadow root. Svelte compiles with `css: 'injected'` and its `append_styles` is swapped for constructed style sheets (`src/svelte-client.ts`), so a CSP without `'unsafe-inline'` styles still renders it; the shared contracts' `zod` import gets a stand-in (`src/zod-stub.ts`), since the page never validates. The server serves `dist/` at `/embed.js` and `/embed/<file>`.
+
 ## The injector
 
 ```sh
@@ -207,7 +218,7 @@ Points that keep the runs deterministic:
 | Jobs | register handlers with `registerJob()` in `apps/server/src/lib/server/jobs/worker.ts`, enqueue with `enqueue()` |
 | Viewer, dashboard, settings | `apps/server/src/routes/(app)/**`, share page `apps/server/src/routes/s/[token]` |
 | Transcription | `apps/server/src/lib/server/transcribe/` (providers in `index.ts`, settings `config.ts`, chunker `chunk.ts`, cues `vtt.ts`, guards `run.ts`, comment voice notes `notes.ts`) |
-| Reviewer toolbar (Part 2) | page UI `apps/extension/entrypoints/capture.content/review/`, worker `apps/extension/lib/bg/review.ts`, contracts `packages/shared/src/areas/reviewer.ts`, `api/areas/reviewer.ts`, `ext/areas/reviewer.ts`, server `apps/server/src/lib/server/feedback/`, viewer list `apps/server/src/lib/components/feedback/`; e2e `e2e/tests/reviewer/` and flow R `e2e/flows/r-reviewer-release.spec.ts` (D-134 to D-141) |
+| Reviewer toolbar (Part 2) | page UI `packages/review/src/` (platforms: `apps/extension/lib/review-platform.ts`, `packages/embed/src/platform.ts`), worker `apps/extension/lib/bg/review.ts`, contracts `packages/shared/src/areas/reviewer.ts`, `api/areas/reviewer.ts`, `ext/areas/reviewer.ts`, server `apps/server/src/lib/server/feedback/`, viewer list `apps/server/src/lib/components/feedback/`; e2e `e2e/tests/reviewer/` and flow R `e2e/flows/r-reviewer-release.spec.ts` (D-134 to D-141) |
 | Agent hand-off (feedback folder, share markdown, skill, resolve) | `apps/server/src/lib/server/handoff/*`, text and README in `packages/shared/src/areas/handoff.ts`, skill `skills/open-toolbar-feedback/SKILL.md` (regenerate with `node scripts/gen-skill.ts`), e2e `e2e/tests/handoff` (`handoff.spec.ts` needs `TOOLBAR_E2E_TOKEN`) |
 | Bulk export (INDEX.md, `/api/v1/feedback/*`, `list_feedback`, `get_feedback_index`) | digests and INDEX.md in `packages/shared/src/areas/feedback-index.ts`, page selection, digests and the streamed archive in `apps/server/src/lib/server/handoff/export.ts`, MCP tools in `mcp/handoff-tools.ts`; e2e `e2e/tests/handoff/export.spec.ts` (signs in through the mock OIDC provider, seeds six captures) |
 | Card images (thumbnails) | server chain and the placeholder card in `apps/server/src/lib/server/jobs/handlers.ts` (`makeThumbnail`, `backfill-thumbs`) and `media/placeholder.ts`; the extension's masked stills in `apps/extension/lib/capture/card-still.ts`; e2e `e2e/tests/handoff/thumbs.spec.ts` (real server, test build) |
