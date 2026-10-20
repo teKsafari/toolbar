@@ -34,7 +34,7 @@ export interface InitOptions {
   /** the open-toolbar server, for example `https://toolbar.example.com` */
   server: string;
   /** the signed-in person of the app, when it knows them: the composer then does not ask */
-  user?: { name?: string; email?: string };
+  user?: ReviewerUser;
 }
 
 export interface OpenToolbarApi {
@@ -42,7 +42,12 @@ export interface OpenToolbarApi {
   show(): void;
   /** close it on this site, as its X does (a running trace keeps running) */
   hide(): void;
+  /** name the reviewer again, as init's `user` does: the app's signed-in person changed */
+  setUser(user: ReviewerUser): void;
 }
+
+/** The app's signed-in person; a field left out is no longer known. */
+export type ReviewerUser = { name?: string; email?: string };
 
 declare global {
   interface Window {
@@ -51,6 +56,8 @@ declare global {
 }
 
 const BOOTED = Symbol.for('open-toolbar.embed');
+/** The started toolbar's reviewer, or the user named before init ran. */
+let named: { user: ReviewerUser | null; apply: ((u: ReviewerUser) => void) | null } = { user: null, apply: null };
 /** `?open-toolbar` in the page URL shows a toolbar the reviewer closed on this site. */
 export const SHOW_PARAM = 'open-toolbar';
 
@@ -83,6 +90,17 @@ export function serverOrigin(server: string): string | null {
 }
 
 /**
+ * Name the reviewer: the app's signed-in person, who changed after init (sign-in, sign-out). The
+ * name and email go with the next note or trace; a name the reviewer typed in the composer stays
+ * first. Before init it waits for it; during server rendering it does nothing.
+ */
+export function setUser(user: ReviewerUser): void {
+  const u = { name: user?.name, email: user?.email };
+  if (named.apply) named.apply(u);
+  else named = { ...named, user: u };
+}
+
+/**
  * Start the toolbar on this page. Idempotent; does nothing during server rendering (no window)
  * or inside an iframe. Never throws.
  */
@@ -112,7 +130,7 @@ function start(opts: InitOptions) {
 
   const client = createEmbedClient(nativeFetch, server, key);
   const configP: Promise<EmbedConfig> = client.config();
-  const reviewer = new ReviewerStore(opts.user ?? {});
+  const reviewer = new ReviewerStore(opts.user ?? named.user ?? {});
   let iso: ReturnType<typeof startIsolatedWorld> | null = null;
   const env = () => (iso ? iso.env() : Promise.reject(new Error('not started')));
   const session = new PageSession({
@@ -121,8 +139,10 @@ function start(opts: InitOptions) {
     env,
     reviewer: () => reviewer.get(),
   });
+  // Events wait in the isolated world until the config names the preset; the ring, a trace an
+  // earlier page of the tab started and its uploads start only then (session.boot), so a key that
+  // does not work sends nothing.
   iso = startIsolatedWorld({ transport: session, awaitConfig: true });
-  session.boot();
 
   // Locator packets for notes (D-164): the page's part from the isolated world (Svelte dev source
   // through the MAIN-world listener), route files from the app's SvelteKit route table and the last
@@ -177,6 +197,20 @@ function start(opts: InitOptions) {
       wanted = 'hide';
       apply();
     },
+    setUser,
+  };
+  named = {
+    user: null,
+    apply(u) {
+      reviewer.setSite(u);
+      // the composer's name field follows, once the toolbar has read it (review.ready)
+      if (mounted)
+        void review.ready.then(async () => {
+          const who = await reviewer.load();
+          review.reviewerName = who.name;
+          review.askName = who.ask;
+        });
+    },
   };
 
   const mountUi = (cfg: EmbedConfig) => {
@@ -213,11 +247,13 @@ function start(opts: InitOptions) {
     (cfg) => {
       // the project's preset and body policy (D-123, D-125): events held until now are released
       session.command({ type: 'config', maskingPreset: cfg.maskingPreset, bodyPolicy: { preset: cfg.maskingPreset, origins: [location.origin], allowlist: [...(cfg.bodyAllowlist ?? [])] } });
+      session.boot();
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => mountUi(cfg), { once: true });
       else mountUi(cfg);
     },
     (e: unknown) => {
-      // no UI and no capture: the key is unknown, turned off, or not for this origin
+      // no UI and no capture: the key is unknown, turned off, or not for this origin. The session
+      // never booted (no ring, no trace, no timer); a trace stored in the tab stays for a later page.
       main.stop();
       const why = e instanceof EmbedHttpError ? (e.status === 403 ? 'this origin is not one of the project' : e.status === 404 ? 'the key is unknown or turned off' : `the server answered ${e.code}`) : 'the server did not answer';
       console.info(`[open-toolbar] not started: ${why}`);
