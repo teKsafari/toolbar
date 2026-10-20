@@ -20,8 +20,10 @@ dist/
 # Test output
 test-results/
 test-results-flows/
+test-results-embed/
 playwright-report/
 playwright-report-flows/
+playwright-report-embed/
 e2e/flows-shots/
 e2e/parity-shots/
 test-results-parity/

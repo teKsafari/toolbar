@@ -151,12 +151,13 @@ pnpm --filter @open-toolbar/embed test    # session, client routes, boot, the pa
 
 ## E2E
 
-Two Playwright suites in `e2e/`, both headed Chromium on a private Xvfb display with openbox (never `:99`):
+Three Playwright suites in `e2e/`. The area suites and the flows run headed Chromium on a private Xvfb display with openbox (never `:99`); the embed suite runs headless:
 
 | Suite | Specs | Extension build | Config | Default display |
 |---|---|---|---|---|
 | Area suites | `e2e/tests/**` (one folder per area, about 230 tests) | test build `chrome-mv3-test` (open shadow root, `globalThis.__tb`) | `playwright.config.ts` | `:101` |
 | User journeys | `e2e/flows/*.spec.ts`, flows A to O of `docs/jam/flows.md`, P (branding), Q (zero integration in the project sites mode, D-126, D-202), S (site access: add a site from the icon, the toolbar without a reload, close and reopen, a second origin stays clean; S2 the all sites mode with merge; D-202, D-203, D-205), R (reviewer keys, the title row and the toast's Open in the release build, D-206) and P2 (the owner's Part 2 scenario, D-163) | release build `chrome-mv3` | `playwright.flows.config.ts` | `:120` |
+| Embed (D-211, D-212) | `e2e/embed/*.spec.ts`: on a project origin a comment, an element screenshot, a text highlight and a voice note sent as one embed capture (author, assets, workspace access), a trace, the second origin's 403, rotated and turned-off keys, close and `?open-toolbar`, a strict CSP | none (plain Chromium, fake microphone) | `playwright.embed.config.ts` | headless |
 
 ### Everything, from a clean database
 
@@ -166,7 +167,7 @@ AREA_DISPLAY=:121 RUNS=3 scripts/e2e-all.sh  # another display; three full runs,
 KEEP=1 scripts/e2e-all.sh                  # keep the running stack and its data
 ```
 
-Steps: `down -v`; `up --build` with the dev and whisper files, the mock OIDC provider, `ALLOWED_EMAIL_DOMAINS=test`, `AUTH_DEV_PASSWORD=1`, `AUTH_RATE_LIMIT=off`, `TRANSCRIBE_PROVIDER=local`; `db:seed` (its token becomes `TOOLBAR_E2E_TOKEN`); build the release and test extensions and the CLI; area suites, then flows. `MAIL=1` adds `docker-compose.mail.yml`; `FEATURES="FEATURE_AI=1 ..."` turns on paused features. Logs: `e2e/runs/area-N.log`, `e2e/runs/flows-N.log`; reports: `e2e/playwright-report`, `e2e/playwright-report-flows`; flow screenshots: `e2e/flows-shots/`.
+Steps: `down -v`; `up --build` with the dev and whisper files, the mock OIDC provider, `ALLOWED_EMAIL_DOMAINS=test`, `AUTH_DEV_PASSWORD=1`, `AUTH_RATE_LIMIT=off`, `TRANSCRIBE_PROVIDER=local`; `db:seed` (its token becomes `TOOLBAR_E2E_TOKEN`); build the release and test extensions and the CLI; area suites, then flows, then the embed suite. `MAIL=1` adds `docker-compose.mail.yml`; `FEATURES="FEATURE_AI=1 ..."` turns on paused features. Logs: `e2e/runs/area-N.log`, `e2e/runs/flows-N.log`, `e2e/runs/embed-N.log`; reports: `e2e/playwright-report`, `e2e/playwright-report-flows`; flow screenshots: `e2e/flows-shots/`.
 
 Needs the lab (`toolbar-lab` user service, :5173 and :5174), Xvfb, openbox, xdotool, xclip, ImageMagick and ffmpeg.
 
@@ -178,6 +179,8 @@ E2E_DISPLAY=:121 npx playwright test tests/viewer             # an area folder (
 E2E_DISPLAY=:120 npx playwright test -c playwright.flows.config.ts d-desktop   # one flow (release build)
 FLOWS_PICKER=fake npx playwright test -c playwright.flows.config.ts d-desktop e-recording  # the fallback path
 ```
+
+The embed suite (`cd e2e && npx playwright test -c playwright.embed.config.ts`, or `pnpm --filter @toolbar/e2e embed`) needs no display. It signs in a new site owner through the mock OIDC provider, gives the lab's origin a project with an embed key, and opens the lab's opt-in embed pages (`lab/server.js`): `?tb-embed=<key>` on any HTML page of :5173 or :5174 puts `<script src="http://localhost:3000/embed.js" data-key="<key>">` first in `<head>` (`&tb-name=` adds `data-name`), and `/__embed/csp?tb-embed=<key>` is a plain page behind a strict CSP. Without the parameter the lab answers as before. `EMBED_SERVER` on the `toolbar-lab` unit points the tag at another server. The voice note test needs the whisper file and `TRANSCRIBE_PROVIDER=local`.
 
 `e2e/global-setup.ts` starts Xvfb (and openbox) on `E2E_DISPLAY` when no X server owns it, and stops them at the end. Overrides: `E2E_DISPLAY`, `E2E_VIEWPORT` (area suites: `390x844` gives each new page that viewport, to run a suite at phone width; tests that set their own size keep it), `LAB_URL`, `SERVER_URL`, `OIDC_MOCK_URL`, `MAILPIT_URL`, `E2E_EXT_BUILD` (area suites), `FLOWS_EXT_BUILD` (flows), `DATABASE_URL` (defaults to the compose one), `E2E_CALLBACK_HOST`. The flows write to `test-results-flows/`, so both suites can run side by side on different displays.
 

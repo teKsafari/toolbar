@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Every e2e suite against a freshly seeded compose stack: the area suites (e2e/tests, test build
-# of the extension, mock and real servers) and the user journeys (e2e/flows, release build).
+# of the extension, mock and real servers), the user journeys (e2e/flows, release build) and the
+# embed (e2e/embed, headless Chromium without the extension on the lab's opt-in embed pages, D-211).
 #
 #   scripts/e2e-all.sh              # wipe the volumes, rebuild, seed, build, run both suites
 #   KEEP=1 scripts/e2e-all.sh       # keep the running stack and its data; seed again and run
@@ -68,6 +69,10 @@ for run in $(seq 1 "$RUNS"); do
   f=$?
   tail -n 6 "$LOGS/flows-$run.log"
   grep -h "LIMITATION" "$LOGS/flows-$run.log" || true
-  [ $a -eq 0 ] && [ $f -eq 0 ] || status=1
+  step "run $run of $RUNS: embed (headless)"
+  (cd e2e && npx playwright test -c playwright.embed.config.ts --reporter=list) >"$LOGS/embed-$run.log" 2>&1
+  e=$?
+  tail -n 6 "$LOGS/embed-$run.log"
+  [ $a -eq 0 ] && [ $f -eq 0 ] && [ $e -eq 0 ] || status=1
 done
 exit $status

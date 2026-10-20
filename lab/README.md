@@ -15,3 +15,4 @@ Run: `pnpm install && pnpm lab` (builds, then serves http://localhost:5173 and a
 | `/items/[id]` | A route with a parameter and one button (`item-buy`), for source location (route file candidates) |
 | `/slow-raw` | Plain HTML streamed in 8 chunks over 4 s |
 | `/anchors.html?case=doc\|nested\|sticky\|transform` | Two cards for reviewer drawings (D-204): a scrolling document, an app shell whose `<main>` scrolls, a fixed header with a badge, a transformed wrapper; Shift adds a banner above the cards, Remove card deletes the first |
+| `?tb-embed=<key>` on any page, `/__embed/csp?tb-embed=<key>`, `:5174/?tb-embed=<key>` | Opt-in pages for the embed suite (`e2e/embed`, D-211): the embed's script tag from `EMBED_SERVER` (default `http://localhost:3000`) first in `<head>`, `&tb-name=` adds `data-name`; the `/__embed/csp` page sends a strict CSP; the second origin answers a plain page with the tag. Without the parameter nothing changes |

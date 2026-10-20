@@ -8,7 +8,8 @@
     "e2e": "playwright test",
     "e2e:build": "pnpm --filter @toolbar/extension build:test && playwright test",
     "check": "tsc -p tsconfig.json",
-    "flows": "playwright test -c playwright.flows.config.ts"
+    "flows": "playwright test -c playwright.flows.config.ts",
+    "embed": "playwright test -c playwright.embed.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

@@ -10,8 +10,9 @@ const KEEP = [
   'FONTCONFIG_FILE', 'FONTCONFIG_PATH', 'GTK_PATH', 'NO_AT_BRIDGE', 'PULSE_SERVER',
 ];
 
-export function browserEnv(display: string): Record<string, string> {
-  const env: Record<string, string> = { DISPLAY: display };
+/** `display` is the X display of a headed browser; a headless one (the embed suite) passes none. */
+export function browserEnv(display?: string): Record<string, string> {
+  const env: Record<string, string> = display ? { DISPLAY: display } : {};
   for (const name of KEEP) {
     const v = process.env[name];
     if (v !== undefined) env[name] = v;
