@@ -10,6 +10,7 @@
   import Modal from '#lib/components/dashboard/Modal.svelte';
   import Confirm from '#lib/components/dashboard/Confirm.svelte';
   import MergeProjects from '#lib/components/dashboard/MergeProjects.svelte';
+  import ProjectEmbed from '#lib/components/dashboard/ProjectEmbed.svelte';
   import Field from '#lib/components/dashboard/Field.svelte';
   import Switch from '#lib/components/dashboard/Switch.svelte';
   import { api, errMsg } from '#lib/components/dashboard/api.ts';
@@ -80,6 +81,16 @@
     }
   }
 
+  /** D-211: a key for the project; the snippet shows on the row */
+  async function embedOn(p: Project) {
+    try {
+      await api('embed.rotateKey', { params: { id: p.id } });
+      await invalidateAll();
+    } catch (x) {
+      toasts.error(errMsg(x));
+    }
+  }
+
   async function del(p: Project) {
     await api('projects.delete', { params: { id: p.id } });
     toasts.success('Project removed');
@@ -114,6 +125,7 @@
       <ul class="chips" data-testid="project-origins">
         {#each p.origins as o (o)}<li><code>{o}</code></li>{/each}
       </ul>
+      <ProjectEmbed project={p} admin={data.admin} publicUrl={data.publicUrl} />
       {#if p.maskingPreset === 'production'}
         <p class="small muted">
           {p.bodyAllowlist.length ? `Bodies kept for ${p.bodyAllowlist.length} allowlisted ${p.bodyAllowlist.length === 1 ? 'URL' : 'URLs'}` : 'No request or response bodies are kept'}
@@ -127,6 +139,9 @@
           <Button size="sm" icon="pen" onclick={() => startEdit(p)} data-testid="project-edit">Edit</Button>
           {#if data.projects.length > 1}
             <Button size="sm" onclick={() => ((mergeInto = p), (mergeOpen = true))} data-testid="project-merge-row">Merge into this</Button>
+          {/if}
+          {#if !p.embedKey}
+            <Button size="sm" onclick={() => void embedOn(p)} data-testid="embed-on">Embed</Button>
           {/if}
           <Button size="sm" variant="ghost" icon="trash" onclick={() => (removing = p)} data-testid="project-delete">Remove</Button>
         </div>

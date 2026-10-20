@@ -161,7 +161,7 @@ describe.skipIf(!reachable)('embed (integration, D-211)', () => {
     // server.js rewrote Origin to the server for a Bearer request; its copy holds the real one
     expect((await getConfig(key, { origin: SERVER, [REQUEST_ORIGIN_HEADER]: SITE })).status).toBe(200);
     expect((await getConfig(key, { referer: `${SITE}/some/page?q=1` })).status).toBe(200);
-    for (const headers of [{ origin: 'http://localhost:5174' }, { [REQUEST_ORIGIN_HEADER]: 'https://evil.test' }, { origin: SERVER }, { referer: `${SERVER}/x` }, {}]) {
+    for (const headers of <Record<string, string>[]>[{ origin: 'http://localhost:5174' }, { [REQUEST_ORIGIN_HEADER]: 'https://evil.test' }, { origin: SERVER }, { referer: `${SERVER}/x` }, {}]) {
       const r = await getConfig(key, headers);
       expect(r.status, JSON.stringify(headers)).toBe(403);
       expect((await r.json()).error).toBe('origin_not_allowed');

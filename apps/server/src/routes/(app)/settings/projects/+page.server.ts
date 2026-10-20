@@ -3,6 +3,7 @@ import { db } from '#lib/server/db/index.ts';
 import { listProjects, projectDefaults, projectDto } from '#lib/server/projects.ts';
 import { siteAccessMode } from '#lib/server/projects/access.ts';
 import { getSettings } from '#lib/server/auth/workspaces.ts';
+import { env } from '#lib/server/env.ts';
 
 // D-123: every member sees the workspace's projects; admins change them and merge them (D-200).
 export const load = async ({ parent }) => {
@@ -15,6 +16,8 @@ export const load = async ({ parent }) => {
     /** what a new project starts with (D-194) */
     defaults: await projectDefaults(db, activeWorkspaceId),
     admin: activeWorkspace?.role === 'admin',
+    /** the embed snippets (D-211) point here */
+    publicUrl: env.publicUrl,
     /** D-200, D-203: project sites only (default), or all sites with a project per origin */
     siteAccess: siteAccessMode(),
     /** D-205: only admins add sites from the extension */
