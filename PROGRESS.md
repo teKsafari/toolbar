@@ -55,3 +55,11 @@ All five items of PLAN "Part 2, step 5" are done on main. Gate 5 waits on the ow
 - Site access: all sites by default with automatic per-origin projects and merging; strict mode is an admin setting (D-200, D-202).
 - Injector: cancelled and removed from the repo (D-210). Delivery 2 is the embed: a script tag or npm package with a public project key (D-211), the extension's reviewer toolbar shared through a platform adapter (D-212).
 - Docs: concise reference style (owner preference).
+
+## State on 2026-10-20
+- Branch `embed` (not merged, not pushed): the injector removed (D-210), embed keys and their public routes with CORS (D-211), the reviewer toolbar in `packages/review` behind `ReviewPlatform` with the extension's and the embed's platforms, and `packages/embed` (D-212). The server image builds `packages/embed`; `/embed.js` is served from it.
+- Local stack on :3000 rebuilt from `embed` with the dev and whisper files and seeded.
+- Unit tests: shared 182, cli 9, trace 57, capture 54, ui 184, review 6, extension 68, embed 28, server 361 (7 skipped: mail and the live transcription test). `pnpm -r check` clean.
+- e2e: the embed suite (`e2e/embed`, headless, 7 tests) passes on the lab's opt-in embed pages (`?tb-embed=<key>`, `/__embed/csp`, :5174). Reviewer area 24 passed, 1 skipped (vite dev lab on :5184 not running); dashboard and zero-integration 76 passed, 4 skipped (transcription set by the environment, paused features).
+- Fixed while integrating: the capture detail reported `access: anyone` to members whatever the capture's access (embed captures now read `workspace`); the area suites' OIDC sign-in now drops a session an earlier spec left in the shared browser (the reviewer suite's first test failed after `anchors.spec.ts`).
+- Not done: flows and the full `scripts/e2e-all.sh` were not run on this branch; an embed trace keeps the author it started with, so a name typed in the composer during a trace does not reach that trace.
