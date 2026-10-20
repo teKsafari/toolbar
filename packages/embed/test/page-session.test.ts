@@ -1,26 +1,14 @@
 // @vitest-environment happy-dom
-// The injector's page bundle (D-158): its route paths match the server's route table, the
-// one-minute ring keeps a replayable window, and comments and traces upload as the server expects.
+// The embed's capture session (D-158, D-212): the one-minute ring keeps a replayable window, and
+// traces upload as the server expects, with the capture's upload token, across page loads.
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';
-import { ROUTES } from '@toolbar/shared/api';
 import type { CaptureEvent } from '@toolbar/shared';
-import { PAGE_ROUTES, PageHttpError, type PageClient } from '../page/upload';
-import { PageSession, Ring, titleOf, uuid } from '../page/session';
+import { EmbedHttpError, type EmbedCapture, type EmbedClient } from '../src/client';
+import { PageSession, Ring, titleOf, uuid } from '../src/session';
 
 const ev = (t: number, kind: CaptureEvent['kind'] = 'console'): CaptureEvent => ({ v: 1, id: `x:${t}`, ctx: 'top', seq: t, t, kind, data: {} }) as unknown as CaptureEvent;
 const rr = (type: number, timestamp: number) => ({ type, timestamp, data: {} });
-
-describe('page routes', () => {
-  it('match the route table', () => {
-    for (const [name, r] of Object.entries(PAGE_ROUTES)) {
-      const def = ROUTES[name as keyof typeof ROUTES];
-      expect(def, name).toBeDefined();
-      expect(def.method, name).toBe(r.method);
-      expect(def.path, name).toBe(r.path);
-    }
-  });
-});
 
 describe('ring', () => {
   it('keeps the last minute of events and the env', () => {
@@ -50,12 +38,11 @@ function fakeClient() {
   const calls: { op: string; args: unknown[] }[] = [];
   const chunks: { stream: string; seq: number; rows: unknown[] }[] = [];
   const client = {
-    bootstrap: vi.fn(),
     createCapture: vi.fn(async (body: unknown) => {
       calls.push({ op: 'create', args: [body] });
-      return { id: 'rec-1', shareUrl: 'https://tb.example/s/abc' };
+      return { id: 'rec-1', uploadToken: 'tb_upl_abc' };
     }),
-    putChunk: vi.fn(async (id: string, stream: string, seq: number, gz: Blob) => {
+    putChunk: vi.fn(async (cap: EmbedCapture, stream: string, seq: number, gz: Blob) => {
       const rows = gunzipSync(Buffer.from(await gz.arrayBuffer()))
         .toString('utf8')
         .trim()
@@ -63,68 +50,50 @@ function fakeClient() {
         .filter(Boolean)
         .map((l) => JSON.parse(l) as unknown);
       chunks.push({ stream, seq, rows });
-      calls.push({ op: 'put', args: [id, stream, seq] });
+      calls.push({ op: 'put', args: [cap.id, stream, seq, cap.uploadToken] });
       return { seq };
     }),
-    completeStream: vi.fn(async (...args: unknown[]) => {
-      calls.push({ op: 'complete', args });
+    completeStream: vi.fn(async (cap: EmbedCapture, ...args: unknown[]) => {
+      calls.push({ op: 'complete', args: [cap.id, ...args] });
     }),
-    finalize: vi.fn(async (...args: unknown[]) => {
-      calls.push({ op: 'finalize', args });
-      return { id: 'rec-1', shareUrl: 'https://tb.example/s/abc', status: 'processing' };
+    finalize: vi.fn(async (cap: EmbedCapture, ...args: unknown[]) => {
+      calls.push({ op: 'finalize', args: [cap.id, ...args] });
+      return { id: 'rec-1', status: 'processing' };
     }),
   };
-  return { client: client as unknown as PageClient, calls, chunks };
+  return { client: client as unknown as EmbedClient, calls, chunks };
 }
 
 describe('page session', () => {
-  it('sends a comment with the last minute as a replay capture', async () => {
-    const { client, calls, chunks } = fakeClient();
-    const now = 200_000;
-    const s = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({ browser: 'x' }), now: () => now });
-    s.send([ev(100_000), ev(150_000)]);
-    s.sendRrweb([rr(4, 145_000), rr(2, 145_000)], true);
-    s.sendRrweb([rr(3, 190_000)], false);
-    const r = await s.comment({ comment: 'Button does nothing\nmore detail', t: 199_000, url: 'http://lab/' });
-    expect(r).toEqual({ shareUrl: 'https://tb.example/s/abc' });
-    const create = calls[0]!.args[0] as Record<string, unknown>;
-    expect(create).toMatchObject({ kind: 'replay', workspaceId: 'ws-1', source: 'injector', startedAt: 145_000 });
-    expect(chunks.map((c) => [c.stream, c.seq, c.rows.length])).toEqual([
-      ['events', 0, 1],
-      ['rrweb', 0, 3],
-    ]);
-    const fin = calls.find((c) => c.op === 'finalize')!.args[1] as { title: string; annotations: { t: number; comment: string }[] };
-    expect(fin.title).toBe('Button does nothing');
-    expect(fin.annotations[0]).toMatchObject({ t: 54_000, comment: 'Button does nothing\nmore detail' });
-  });
-
-  it('streams a trace in numbered chunks and finalizes it with its comments', async () => {
+  it('streams a trace in numbered chunks with its upload token and finalizes it', async () => {
     sessionStorage.clear();
     const { client, calls, chunks } = fakeClient();
     let now = 1_000;
-    const s = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}), now: () => now });
+    const s = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}), reviewer: () => ({ id: 'r_1', name: 'Ada' }), now: () => now });
     await s.startTrace();
-    expect(JSON.parse(sessionStorage.getItem('tb:page-trace')!).id).toBe('rec-1');
-    expect(calls[0]!.args[0]).toMatchObject({ kind: 'trace', source: 'injector', startedAt: 1_000 });
+    expect(JSON.parse(sessionStorage.getItem('tb:page-trace')!)).toMatchObject({ id: 'rec-1', uploadToken: 'tb_upl_abc' });
+    expect(calls[0]!.args[0]).toMatchObject({ kind: 'trace', source: 'embed', startedAt: 1_000, workspaceId: 'ws-1', reviewer: { id: 'r_1', name: 'Ada' } });
     s.send([ev(1_100)]);
     s.sendRrweb([rr(4, 1_100), rr(2, 1_100)], true);
     await s.flushTrace(false);
     now = 3_000;
     s.send([ev(2_900)]);
     await s.flushTrace(false);
-    await s.comment({ comment: 'Odd spacing', t: 2_950, url: 'http://lab/' });
+    // a note made during the trace becomes one of its actions
+    s.annotate('note-1');
     now = 5_000;
     const r = await s.stopTrace('Checking the lesson page');
-    expect(r.shareUrl).toBe('https://tb.example/s/abc');
-    expect(chunks.map((c) => `${c.stream}:${c.seq}`)).toEqual(['events:0', 'rrweb:0', 'events:1']);
+    expect(r.recordingId).toBe('rec-1');
+    expect(chunks.map((c) => `${c.stream}:${c.seq}`)).toEqual(['events:0', 'rrweb:0', 'events:1', 'events:2']);
+    expect(chunks[3]!.rows).toMatchObject([{ kind: 'annotation', data: { annotationId: 'note-1', op: 'create' } }]);
+    expect(calls.filter((c) => c.op === 'put').every((c) => c.args[3] === 'tb_upl_abc')).toBe(true);
     const completes = calls.filter((c) => c.op === 'complete').map((c) => c.args.slice(1, 3));
     expect(completes).toEqual([
-      ['events', 1],
+      ['events', 2],
       ['rrweb', 0],
     ]);
     const fin = calls.find((c) => c.op === 'finalize')!.args[1] as { title: string; description: string; durationMs: number; annotations: unknown[] };
-    expect(fin).toMatchObject({ title: 'Checking the lesson page', description: 'Checking the lesson page\n\nOdd spacing', durationMs: 4_000 });
-    expect(fin.annotations).toHaveLength(1);
+    expect(fin).toMatchObject({ title: 'Checking the lesson page', description: 'Checking the lesson page', durationMs: 4_000, annotations: [] });
     expect(sessionStorage.getItem('tb:page-trace')).toBeNull();
     expect(s.trace).toBeNull();
   });
@@ -159,19 +128,19 @@ describe('page session', () => {
     const { client, calls, chunks } = fakeClient();
     // the server holds events 0 and 2 (1 went missing with a closed tab) and counts bytes itself
     let completes = 0;
-    (client as unknown as { completeStream: unknown }).completeStream = vi.fn(async (_id: string, stream: string, lastSeq: number, totalBytes: number) => {
-      calls.push({ op: 'complete', args: [_id, stream, lastSeq, totalBytes] });
+    (client as unknown as { completeStream: unknown }).completeStream = vi.fn(async (cap: EmbedCapture, stream: string, lastSeq: number, totalBytes: number) => {
+      calls.push({ op: 'complete', args: [cap.id, stream, lastSeq, totalBytes] });
       if (stream !== 'events') return;
       completes++;
-      if (completes === 1) throw new PageHttpError(409, 'stream_incomplete', { error: 'stream_incomplete', stream, completed: false, missing: [1], issues: { missing: [1] } });
-      if (completes === 2) throw new PageHttpError(409, 'stream_incomplete', { error: 'stream_incomplete', stream, completed: false, missing: [], issues: { total: 123 } });
+      if (completes === 1) throw new EmbedHttpError(409, 'stream_incomplete', { error: 'stream_incomplete', stream, completed: false, missing: [1], issues: { missing: [1] } });
+      if (completes === 2) throw new EmbedHttpError(409, 'stream_incomplete', { error: 'stream_incomplete', stream, completed: false, missing: [], issues: { total: 123 } });
     });
     const s = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
     await s.startTrace();
     s.trace!.seq.events = 3;
     s.trace!.bytes.events = 90;
     const r = await s.stopTrace('gap');
-    expect(r.shareUrl).toBe('https://tb.example/s/abc');
+    expect(r.recordingId).toBe('rec-1');
     expect(chunks.filter((c) => c.stream === 'events').map((c) => [c.seq, c.rows.length])).toEqual([[1, 0]]);
     const ev = calls.filter((c) => c.op === 'complete' && c.args[1] === 'events').map((c) => c.args.slice(2));
     expect(ev[0]).toEqual([2, 90]);
@@ -183,7 +152,7 @@ describe('page session', () => {
     sessionStorage.clear();
     const { client } = fakeClient();
     (client as unknown as { completeStream: unknown }).completeStream = vi.fn(async () => {
-      throw new PageHttpError(403, 'forbidden', { error: 'forbidden' });
+      throw new EmbedHttpError(403, 'forbidden', { error: 'forbidden' });
     });
     const s = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
     await s.startTrace();
