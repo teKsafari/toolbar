@@ -1,7 +1,7 @@
 // Types of @open-toolbar/embed/react (written by hand; test/types.test.ts keeps them in step with src/).
 import type { InitOptions } from './index.js';
 
-export { init, type InitOptions } from './index.js';
+export { init, setUser, type InitOptions, type ReviewerUser } from './index.js';
 
 export interface OpenToolbarProps {
   /** the project's embed key, `tbk_...` */

@@ -31,12 +31,19 @@ import { init } from '@open-toolbar/embed';
 init({ key: 'tbk_...', server: 'https://toolbar.example.com', user: { name: 'Ada' } });
 ```
 
+When the signed-in person changes (sign-in, sign-out), name the reviewer again with
+`setUser({ name, email })`, or `window.openToolbar.setUser(...)` from a script tag page. A name the
+reviewer typed in the toolbar stays first.
+
 React:
 
 ```tsx
 import { OpenToolbar } from '@open-toolbar/embed/react';
-<OpenToolbar siteKey="tbk_..." server="https://toolbar.example.com" />;
+<OpenToolbar siteKey="tbk_..." server="https://toolbar.example.com" user={{ name, email }} />;
 ```
+
+The component starts the toolbar on its first render and calls `setUser` when `user` changes.
+`dist/react.js` starts with `'use client'`, so a Next.js app router layout can render it.
 
 `init` does nothing during server rendering and inside iframes, and runs once per page.
 
