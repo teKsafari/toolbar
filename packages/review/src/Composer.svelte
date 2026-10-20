@@ -78,6 +78,10 @@
   </div>
   {#if d.quote}<blockquote data-testid="review-composer-quote">{d.quote.length > 200 ? d.quote.slice(0, 199) + '…' : d.quote}</blockquote>{/if}
   <textarea bind:this={box} bind:value={r.draft!.comment} rows="3" {placeholder} onkeydown={key} data-testid="review-comment"></textarea>
+  {#if r.askName && !d.id}
+    <!-- the embed's reviewers have no account: an optional name, asked once and remembered (D-211) -->
+    <input class="name" type="text" bind:value={r.reviewerName} maxlength="80" placeholder="Your name (optional)" aria-label="Your name" autocomplete="name" spellcheck="false" onkeydown={key} data-testid="review-name" />
+  {/if}
   {#if d.cropPreview}
     <img class="crop" src={d.cropPreview} alt="Screenshot of the {d.kind === 'draw' ? 'drawing' : 'element'}" data-testid="review-crop" />
   {:else if d.cropBlobId && !d.cropAuto}
@@ -96,7 +100,7 @@
     </span>
   {/if}
   <div class="row">
-    {#if d.kind !== 'voice'}
+    {#if d.kind !== 'voice' && r.canScreenshot}
       <button type="button" class="ib" aria-label="Screenshot of what the note points at" title="Attach a screenshot" disabled={!!d.cropBlobId || r.busy} data-testid="review-composer-shot" onclick={() => void r.attachShot()}><Icon name="camera" size={16} /></button>
     {/if}
     <button type="button" class="ib" class:rec={r.voice?.for === 'draft'} aria-label={r.voice?.for === 'draft' ? 'Stop the voice note' : 'Record a voice note'} title={r.voice?.for === 'draft' ? 'Stop' : 'Voice note'} disabled={r.adding} data-testid="review-composer-voice-toggle" onclick={() => (r.voice ? void r.stopVoice() : void r.startVoice('draft'))}>
@@ -131,6 +135,9 @@
   blockquote { margin: 0; padding: 2px 8px; border-left: 2px solid var(--nb-capture-tint); color: var(--nb-text-body); font-style: italic; max-height: 4.2em; overflow: hidden; }
   textarea { all: unset; box-sizing: border-box; width: 100%; min-height: 60px; max-height: 180px; overflow: auto; padding: 8px 10px; border-radius: var(--nb-radius-md); background: var(--nb-surface); border: 1px solid var(--nb-border-strong); color: var(--nb-text); font: 13px/1.45 var(--nb-font-sans); white-space: pre-wrap; resize: vertical; transition: border-color var(--nb-dur-fast) var(--nb-ease-out), box-shadow var(--nb-dur-fast) var(--nb-ease-out); }
   textarea::placeholder { color: var(--nb-text-faint); }
+  .name { all: unset; box-sizing: border-box; width: 100%; height: 30px; padding: 0 10px; border-radius: var(--nb-radius-md); background: var(--nb-surface); border: 1px solid var(--nb-border); color: var(--nb-text); font: 12px/1 var(--nb-font-sans); transition: border-color var(--nb-dur-fast) var(--nb-ease-out), box-shadow var(--nb-dur-fast) var(--nb-ease-out); }
+  .name::placeholder { color: var(--nb-text-faint); }
+  .name:focus { border-color: var(--nb-focus); box-shadow: var(--nb-focus-ring); }
   textarea:focus { border-color: var(--nb-focus); box-shadow: var(--nb-focus-ring); }
   .crop { display: block; max-width: 100%; max-height: 140px; object-fit: contain; align-self: flex-start; border-radius: var(--nb-radius-sm); border: 1px solid var(--nb-border); background: #fff; }
   .att { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--nb-text-muted); }

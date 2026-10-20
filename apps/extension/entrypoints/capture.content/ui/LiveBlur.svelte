@@ -3,7 +3,7 @@
   // blurs it in the live page (and so in the video), a second click unblurs it. Escape or done
   // on the bar leaves the tool.
   import { onMount } from 'svelte';
-  import { setGuard } from './guard';
+  import { setGuard } from '@toolbar/review/guard';
   import { blurTarget, isBlurred, toggle } from './blur';
   import { send } from './send';
 

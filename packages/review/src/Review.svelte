@@ -8,7 +8,7 @@
   import { onMount } from 'svelte';
   import { getStroke } from 'perfect-freehand';
   import { REVIEW_KEYS, type FeedbackShape } from '@toolbar/shared/areas/reviewer';
-  import { setGuard, swallowClicksFor } from '../ui/guard';
+  import { setGuard, swallowClicksFor } from './guard';
   import { review as r, type Tool } from './state.svelte';
   import { samePage, setOwnRoot, typingIn } from './page';
   import { docPlacement, place, setActive, startTracking, type Placed, type Placement } from './track';

@@ -10,7 +10,7 @@
   import { review as r, type DockPos, type Tool } from './state.svelte';
   import { EDGE, fitIn, viewport } from './viewport.svelte';
   import { pointerIn } from './page';
-  import { swallowPress } from '../ui/guard';
+  import { swallowPress } from './guard';
 
   const tools: { tool: Tool; icon: IconName; label: string; key: string }[] = [
     { tool: 'comment', icon: 'comment', label: 'Comment on an element', key: 'C' },
@@ -206,7 +206,7 @@
     {/if}
     <div class="pill" role="toolbar" aria-label="Review toolbar" data-nb-interactive data-testid="review-pill">
       <button type="button" class="grip" aria-label="Move the toolbar (drag, or arrow keys)" title="Drag to move" data-testid="review-grip" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={cancel} onlostpointercapture={cancel} onkeydown={nudge}><Icon name="grip" size={14} /></button>
-      {#each tools as t (t.tool)}
+      {#each tools.filter((t) => t.tool !== 'shot' || r.canScreenshot) as t (t.tool)}
         <button type="button" class="ib" class:on={r.tool === t.tool} aria-pressed={r.tool === t.tool} aria-label="{t.label} ({t.key})" title="{t.label} ({t.key})" data-testid="review-tool-{t.tool}" onclick={() => r.setTool(t.tool)}>
           <Icon name={t.icon} size={17} />
           {#if t.tool === 'comment' && (r.context.errors || r.context.failed)}<span class="warn-dot" title="{r.context.errors} errors and {r.context.failed} failed requests in the last minute will go with a comment" data-testid="review-context-dot"></span>{/if}

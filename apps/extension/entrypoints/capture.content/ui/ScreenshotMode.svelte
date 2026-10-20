@@ -6,7 +6,7 @@
   import { onMount } from 'svelte';
   import { CURSOR_PILL_OFFSET, DRAG_THRESHOLD_PX, rectFromPoints } from '@toolbar/shared/areas/ext-ui';
   import type { Rect } from '@toolbar/shared/events';
-  import { setGuard, swallowClicksFor } from './guard';
+  import { setGuard, swallowClicksFor } from '@toolbar/review/guard';
   import { send, errorText } from './send';
   import { toasts } from '@toolbar/ui';
 

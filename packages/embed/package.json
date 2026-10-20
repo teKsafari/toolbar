@@ -1,0 +1,58 @@
+{
+  "name": "@open-toolbar/embed",
+  "version": "0.1.0",
+  "description": "The open-toolbar reviewer toolbar for a site: a script tag or an init() call, no browser extension.",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js",
+      "default": "./dist/react.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/index.js",
+    "dist/index.d.ts",
+    "dist/react.js",
+    "dist/react.d.ts",
+    "dist/init-*.js",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "vite build && vite build -c vite.esm.config.ts && node scripts/pack.mjs",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "@toolbar/capture": "workspace:*",
+    "@toolbar/review": "workspace:*",
+    "@toolbar/shared": "workspace:*",
+    "@toolbar/ui": "workspace:*",
+    "@types/node": "24.19.2",
+    "fake-indexeddb": "6.2.5",
+    "happy-dom": "21.0.1",
+    "modern-screenshot": "4.6.8",
+    "svelte": "5.57.2",
+    "svelte-check": "4.7.6",
+    "typescript": "6.0.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.4"
+  }
+}

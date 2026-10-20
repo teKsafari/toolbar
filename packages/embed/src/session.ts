@@ -1,13 +1,13 @@
-// The page bundle's side of capture (D-158): a Transport for @toolbar/capture that keeps the last
-// 60 seconds of events and DOM replay in memory (comments without a trace attach them), and,
-// while a trace runs, streams both to the server in gzip NDJSON chunks every two seconds. A trace
-// is a capture of kind `trace` (D-117), so the server derives its interaction spans as it does
-// for the extension's traces. It survives navigations within the tab: its id and chunk counters
-// live in sessionStorage, and each new page attaches to it with a fresh rrweb full snapshot.
+// The embed's side of capture (D-158, D-212): a Transport for @toolbar/capture that keeps the last
+// 60 seconds of events and DOM replay in memory (a note's context comes from it), and, while a
+// trace runs, streams both to the server in gzip NDJSON chunks every two seconds. A trace is a
+// capture of kind `trace` (D-117), so the server derives its interaction spans as it does for the
+// extension's traces. It survives navigations within the tab: its id, upload token and chunk
+// counters live in sessionStorage, and each new page attaches to it with a fresh rrweb full
+// snapshot.
 import type { Command, Transport } from '@toolbar/capture/transport';
-import type { CaptureEvent, TargetRef } from '@toolbar/shared';
-import type { LocatorPacket } from '@toolbar/shared/locator';
-import { gzipText, ndjson, PageHttpError, type PageClient, type PageStream } from './upload.ts';
+import { createEmitter, type CaptureEvent } from '@toolbar/shared/events';
+import { gzipText, ndjson, EmbedHttpError, type EmbedCapture, type EmbedClient, type EmbedReviewer, type PageStream } from './client.ts';
 
 export const RING_MS = 60_000;
 export const TRACE_FLUSH_MS = 2_000;
@@ -22,24 +22,12 @@ const RRWEB_FULL = 2;
 type Rr = { type?: number; timestamp?: number };
 const tsOf = (e: unknown) => (e as Rr).timestamp ?? 0;
 
-export interface PageComment {
-  comment: string;
-  target?: TargetRef;
-  /** locator packet taken at the click (D-164) */
-  locator?: LocatorPacket;
-  t: number;
-  url: string;
-}
-
-export interface TraceState {
-  id: string;
-  shareUrl: string;
+export interface TraceState extends EmbedCapture {
   startedAt: number;
   url: string;
   title: string;
   seq: Record<PageStream, number>;
   bytes: Record<PageStream, number>;
-  comments: PageComment[];
 }
 
 /** Last-minute buffer: events by time, rrweb in segments that each start at a full snapshot. */
@@ -139,11 +127,15 @@ function writeStash(id: string | null, rows?: Record<PageStream, unknown[]>): bo
 }
 
 export interface PageSessionOptions {
-  client: PageClient;
+  client: EmbedClient;
   workspaceId: () => Promise<string>;
   env: () => Promise<unknown>;
+  /** who starts a trace; read when it starts */
+  reviewer?: () => EmbedReviewer;
   now?: () => number;
 }
+
+const make = createEmitter('embed');
 
 export class PageSession implements Transport {
   readonly ring = new Ring();
@@ -175,6 +167,11 @@ export class PageSession implements Transport {
   }
   command(c: Command) {
     for (const h of this.handlers) h(c);
+  }
+
+  /** A note made during a trace becomes one of its actions (the span engine reads annotation events). */
+  annotate(annotationId: string) {
+    this.send([make('annotation', { annotationId, op: 'create' })]);
   }
 
   /** Events of the last `ms` from the ring (the locator's error window). */
@@ -222,48 +219,6 @@ export class PageSession implements Transport {
     this.timer ??= setInterval(() => this.flushTrace(false), TRACE_FLUSH_MS);
   }
 
-  // ---- comments ----
-
-  /** A comment: kept for the trace while one runs, else sent at once with the last minute. */
-  async comment(c: PageComment): Promise<{ shareUrl: string } | { queued: true }> {
-    if (this.trace) {
-      this.trace.comments.push(c);
-      writeTrace(this.trace);
-      this.changed();
-      return { queued: true };
-    }
-    // the workspace comes with the page's preset; events held until then are released first
-    const workspaceId = await this.opts.workspaceId();
-    this.command({ type: 'flush' });
-    const s = this.ring.slice(this.now());
-    const { client } = this.opts;
-    const created = await client.createCapture({
-      clientId: uuid(),
-      kind: 'replay',
-      workspaceId,
-      page: { url: location.href, title: document.title },
-      startedAt: s.start,
-      env: await this.opts.env().catch(() => undefined),
-      source: 'injector',
-      durationMs: Math.max(0, Math.round(this.now() - s.start)),
-    });
-    for (const [stream, rows] of [
-      ['events', s.events],
-      ['rrweb', s.rrweb],
-    ] as const) {
-      if (!rows.length) continue;
-      const gz = await gzipText(ndjson(rows));
-      await client.putChunk(created.id, stream, 0, gz, timeOf(rows[0]) ?? s.start, timeOf(rows[rows.length - 1]) ?? this.now());
-      await client.completeStream(created.id, stream, 0, gz.size);
-    }
-    const fin = await client.finalize(created.id, {
-      title: titleOf(c.comment),
-      description: c.comment,
-      annotations: [{ t: Math.max(0, Math.round(c.t - s.start)), shapes: [], comment: c.comment, ...(c.target ? { target: c.target } : {}), ...(c.locator ? { locator: c.locator } : {}) }],
-    });
-    return { shareUrl: fin.shareUrl || created.shareUrl };
-  }
-
   // ---- trace ----
 
   async startTrace() {
@@ -277,9 +232,10 @@ export class PageSession implements Transport {
       page: { url: location.href, title: document.title },
       startedAt,
       env: await this.opts.env().catch(() => undefined),
-      source: 'injector',
+      source: 'embed',
+      ...(this.opts.reviewer ? { reviewer: this.opts.reviewer() } : {}),
     });
-    this.trace = { id: created.id, shareUrl: created.shareUrl, startedAt, url: location.href, title: document.title, seq: { events: 0, rrweb: 0 }, bytes: { events: 0, rrweb: 0 }, comments: [] };
+    this.trace = { id: created.id, uploadToken: created.uploadToken, startedAt, url: location.href, title: document.title, seq: { events: 0, rrweb: 0 }, bytes: { events: 0, rrweb: 0 } };
     writeTrace(this.trace);
     this.pending = { events: [], rrweb: [] };
     this.attach();
@@ -313,7 +269,7 @@ export class PageSession implements Transport {
         const gz = await gzipText(ndjson(rows));
         t.bytes[stream] += gz.size;
         writeTrace(t);
-        await this.opts.client.putChunk(t.id, stream, seq, gz, timeOf(rows[0]) ?? t.startedAt, timeOf(rows[rows.length - 1]) ?? this.now(), unloading && gz.size < 60_000);
+        await this.opts.client.putChunk(t, stream, seq, gz, timeOf(rows[0]) ?? t.startedAt, timeOf(rows[rows.length - 1]) ?? this.now(), unloading && gz.size < 60_000);
       };
       // chunks go one after another; a failed chunk is reported and the next ones still go
       this.chain = this.chain.then(send).catch((e: unknown) => {
@@ -328,7 +284,7 @@ export class PageSession implements Transport {
     return completeWithGaps(this.opts.client, t, stream, this.now());
   }
 
-  async stopTrace(note: string): Promise<{ shareUrl: string }> {
+  async stopTrace(note = ''): Promise<{ recordingId: string }> {
     const t = this.trace;
     if (!t) throw new Error('no trace');
     if (this.timer) clearInterval(this.timer);
@@ -339,20 +295,19 @@ export class PageSession implements Transport {
     for (const stream of ['events', 'rrweb'] as const) {
       if (t.seq[stream] > 0) await this.complete(t, stream);
     }
-    const lines = t.comments.map((c) => c.comment);
-    const description = [note, ...lines].filter(Boolean).join('\n\n');
-    const fin = await client.finalize(t.id, {
-      title: titleOf(note || lines[0] || `Trace on ${t.title || new URL(t.url).host}`),
-      description,
+    // the notes made during the trace went up as its feedback items (review.submit)
+    await client.finalize(t, {
+      title: titleOf(note || `Trace on ${t.title || new URL(t.url).host}`),
+      description: note,
       durationMs: Math.max(0, Math.round(this.now() - t.startedAt)),
-      annotations: t.comments.map((c) => ({ t: Math.max(0, Math.round(c.t - t.startedAt)), shapes: [], comment: c.comment, ...(c.target ? { target: c.target } : {}), ...(c.locator ? { locator: c.locator } : {}) })),
+      annotations: [],
     });
     this.trace = null;
     writeTrace(null);
     writeStash(null);
     this.command({ type: 'ring', enabled: true, minutes: 1 });
     this.changed();
-    return { shareUrl: fin.shareUrl || t.shareUrl };
+    return { recordingId: t.id };
   }
 }
 
@@ -361,19 +316,19 @@ export class PageSession implements Transport {
  * to complete the stream and the whole trace would be lost. Fill each missing number with an
  * empty chunk and take the server's byte count, so the trace arrives with a short gap instead.
  */
-async function completeWithGaps(client: PageClient, t: TraceState, stream: PageStream, now: number): Promise<void> {
+async function completeWithGaps(client: EmbedClient, t: TraceState, stream: PageStream, now: number): Promise<void> {
   for (let attempt = 0; ; attempt++) {
     try {
-      await client.completeStream(t.id, stream, t.seq[stream] - 1, t.bytes[stream]);
+      await client.completeStream(t, stream, t.seq[stream] - 1, t.bytes[stream]);
       return;
     } catch (e) {
-      if (attempt >= 3 || !(e instanceof PageHttpError) || e.code !== 'stream_incomplete' || !e.body) throw e;
+      if (attempt >= 3 || !(e instanceof EmbedHttpError) || e.code !== 'stream_incomplete' || !e.body) throw e;
       const issues = (e.body.issues ?? {}) as { missing?: unknown; total?: unknown };
       const missing = (Array.isArray(e.body.missing) && e.body.missing.length ? e.body.missing : Array.isArray(issues.missing) ? issues.missing : []).filter((n): n is number => Number.isInteger(n) && n >= 0);
       if (missing.length) {
         const empty = await gzipText('');
         for (const seq of missing.slice(0, 1000)) {
-          await client.putChunk(t.id, stream, seq, empty, t.startedAt, now);
+          await client.putChunk(t, stream, seq, empty, t.startedAt, now);
           t.bytes[stream] += empty.size;
         }
       } else if (typeof issues.total === 'number') t.bytes[stream] = issues.total;

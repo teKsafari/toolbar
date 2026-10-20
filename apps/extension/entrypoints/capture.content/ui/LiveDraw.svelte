@@ -5,7 +5,7 @@
   import { onMount } from 'svelte';
   import { getStroke } from 'perfect-freehand';
   import { LIVE_STROKE_FADE_MS, LIVE_STROKE_FADE_OUT_MS } from '@toolbar/shared/areas/ext-ui';
-  import { setGuard } from './guard';
+  import { setGuard } from '@toolbar/review/guard';
   import { send } from './send';
 
   interface Props {

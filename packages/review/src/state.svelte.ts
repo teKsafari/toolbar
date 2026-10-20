@@ -1,14 +1,15 @@
 // State and actions of the in-page reviewer toolbar (Part 2). The view components read this one
-// object; every change of the tab's items goes through the service worker (lib/bg/review.ts),
-// which keeps them across reloads until the reviewer sends them.
-import { browser } from 'wxt/browser';
+// object; every change of the tab's items goes through the platform (platform.ts, D-212): the
+// extension's service worker (lib/bg/review.ts) or the embed's page store, which keep them across
+// reloads until the reviewer sends them.
 import { toasts } from '@toolbar/ui';
 import type { Rect, TargetRef } from '@toolbar/shared';
 import { DRAW_COLORS, autoFeedbackTitle, type FeedbackAnchor, type FeedbackIntent, type FeedbackKind, type FeedbackSeverity, type FeedbackShape, type ShapeType } from '@toolbar/shared/areas/reviewer';
-import type { BgError, BgRequest, LocatorTarget, NewReviewItem, ReviewItem } from '@toolbar/shared/ext';
+import type { LocatorTarget, NewReviewItem, ReviewItem } from '@toolbar/shared/ext';
 import type { LocatorPacket } from '@toolbar/shared/locator';
 import { TOOLBAR_CLOSED_KEY, toolbarClosedOn } from '@toolbar/shared/areas/ext-ui';
-import { send, errorText } from '../ui/send';
+import { errorText } from './errors';
+import { platform, type ReviewFailure, type ReviewRequestMap, type ReviewRequestType, type ReviewResult, type ReviewTrace } from './platform';
 import { docPlacement, place, resolve } from './track';
 import { anchorOf, elementAt, frameAt, frameOf, labelOf, marksBox, pageInfo, painted, pageSelection, selectionElement, shapesBox, targetOf, visibleRect } from './page';
 
@@ -58,11 +59,7 @@ export interface Draft {
   at: { x: number; y: number };
 }
 
-export interface TraceView {
-  recordingId: string;
-  startedAt: number;
-  spans?: number;
-}
+export type TraceView = ReviewTrace;
 
 export interface Hover {
   rect: { x: number; y: number; w: number; h: number };
@@ -79,17 +76,12 @@ export interface Chip {
   box: Rect;
 }
 
-/** Requests of other work packages (traces) that may be missing from this build. */
-async function sendLoose<T>(type: string, req: Record<string, unknown> = {}): Promise<({ ok: true } & T) | { ok: false; error: string; message?: string }> {
-  try {
-    const r = (await browser.runtime.sendMessage({ type, ...req })) as ({ ok: true } & T) | { ok: false; error: string; message?: string } | undefined;
-    return r ?? { ok: false, error: 'not_implemented' };
-  } catch (e) {
-    return { ok: false, error: 'not_implemented', message: e instanceof Error ? e.message : String(e) };
-  }
+/** A request through the platform; a missing handler answers not_implemented. */
+function send<K extends ReviewRequestType>(type: K, req: ReviewRequestMap[K]['req']): Promise<ReviewResult<K>> {
+  return platform().request(type, req);
 }
 
-/** origin -> DockPos, in chrome.storage.local (never the page's storage) */
+/** origin -> DockPos, in the platform's storage (the extension's, never the page's) */
 const POS_KEY = 'tb:review-pos';
 /** How long adding a note waits for its locator packet (source maps can be slow to fetch). */
 const LOCATOR_WAIT_MS = 8000;
@@ -158,12 +150,25 @@ export class Review {
   /** bumps on scroll, resize and a slow timer, so pins follow the page */
   tick = $state(0);
   now = $state(Date.now());
+  /** the platform asks who leaves the notes (the embed): the composer shows a name field until it is saved once */
+  askName = $state(false);
+  reviewerName = $state('');
+
+  /** the platform can crop the page (the extension always; the embed through its DOM rasteriser) */
+  get canScreenshot(): boolean {
+    return platform().caps.canScreenshot;
+  }
 
   // ---------- lifecycle ----------
 
+  private initDone: () => void = () => {};
+  /** resolves once init has read the stored state (the embed's show and hide wait for it) */
+  readonly ready = new Promise<void>((resolve) => (this.initDone = resolve));
+
   async init() {
+    const { storage, reviewer } = platform();
     try {
-      const got = (await browser.storage.local.get(POS_KEY))[POS_KEY] as Record<string, unknown> | undefined;
+      const got = await storage.get<Record<string, unknown>>(POS_KEY);
       const p = got?.[location.origin];
       if (validPos(p)) this.pos = { h: p.h, v: p.v, x: p.x, y: p.y };
     } catch {
@@ -171,20 +176,29 @@ export class Review {
     }
     // D-205: closed on this origin, in any tab, until the extension icon is clicked here
     try {
-      this.closed = toolbarClosedOn((await browser.storage.local.get(TOOLBAR_CLOSED_KEY))[TOOLBAR_CLOSED_KEY], location.origin);
+      this.closed = toolbarClosedOn(await storage.get(TOOLBAR_CLOSED_KEY), location.origin);
     } catch {
       /* storage unavailable */
     }
-    browser.storage.onChanged.addListener((changes, area) => {
-      if (area !== 'local' || !changes[TOOLBAR_CLOSED_KEY]) return;
-      const closed = toolbarClosedOn(changes[TOOLBAR_CLOSED_KEY].newValue, location.origin);
+    storage.onChange(TOOLBAR_CLOSED_KEY, (value) => {
+      const closed = toolbarClosedOn(value, location.origin);
       if (closed && !this.closed) this.sleep();
       this.closed = closed;
     });
+    if (reviewer) {
+      try {
+        const who = await reviewer.load();
+        this.reviewerName = who.name;
+        this.askName = who.ask;
+      } catch {
+        /* storage unavailable: the composer asks */
+      }
+    }
     await this.refresh();
     await this.refreshTrace();
     // a tab with unsent notes or a running trace wakes on load, so its pins stay on the page
     if ((this.items.length || this.trace) && !this.closed) this.awake = true;
+    this.initDone();
   }
 
   /**
@@ -206,10 +220,11 @@ export class Review {
     this.sleep();
     this.closed = true;
     const origin = location.origin;
+    const { storage } = platform();
     try {
-      const all = { ...((await browser.storage.local.get(TOOLBAR_CLOSED_KEY))[TOOLBAR_CLOSED_KEY] as Record<string, number> | undefined) };
+      const all = { ...(await storage.get<Record<string, number>>(TOOLBAR_CLOSED_KEY)) };
       all[origin] = Date.now();
-      await browser.storage.local.set({ [TOOLBAR_CLOSED_KEY]: all });
+      await storage.set(TOOLBAR_CLOSED_KEY, all);
     } catch {
       /* storage unavailable: closed on this page only */
     }
@@ -219,10 +234,11 @@ export class Review {
   async reopen() {
     this.closed = false;
     const origin = location.origin;
+    const { storage } = platform();
     try {
-      const all = { ...((await browser.storage.local.get(TOOLBAR_CLOSED_KEY))[TOOLBAR_CLOSED_KEY] as Record<string, number> | undefined) };
+      const all = { ...(await storage.get<Record<string, number>>(TOOLBAR_CLOSED_KEY)) };
       delete all[origin];
-      await browser.storage.local.set({ [TOOLBAR_CLOSED_KEY]: all });
+      await storage.set(TOOLBAR_CLOSED_KEY, all);
     } catch {
       /* storage unavailable */
     }
@@ -234,7 +250,7 @@ export class Review {
   }
 
   async refreshTrace() {
-    const r = await sendLoose<{ trace: TraceView | null }>('trace.get');
+    const r = await send('trace.get', {});
     if (r.ok) {
       this.traceAvailable = true;
       this.trace = r.trace ? { recordingId: r.trace.recordingId, startedAt: r.trace.startedAt, spans: r.trace.spans } : null;
@@ -281,13 +297,10 @@ export class Review {
     const pos = { h: p.h, v: p.v, x: Math.max(0, Math.round(p.x)), y: Math.max(0, Math.round(p.y)) };
     this.pos = pos;
     const origin = location.origin;
-    void browser.storage.local
-      .get(POS_KEY)
-      .then((got) => {
-        const all = { ...((got[POS_KEY] as Record<string, DockPos> | undefined) ?? {}) };
-        all[origin] = pos;
-        return browser.storage.local.set({ [POS_KEY]: all });
-      })
+    const { storage } = platform();
+    void storage
+      .get<Record<string, DockPos>>(POS_KEY)
+      .then((got) => storage.set(POS_KEY, { ...got, [origin]: pos }))
       .catch(() => undefined);
   }
 
@@ -316,6 +329,7 @@ export class Review {
   }
 
   setTool(t: Tool | null) {
+    if (t === 'shot' && !this.canScreenshot) return;
     if (this.draft) this.cancelDraft();
     this.tool = this.tool === t ? null : t;
     this.hover = null;
@@ -496,6 +510,7 @@ export class Review {
 
   /** Hides our UI (the draft's drawing stays), takes the viewport rect, keeps it on the draft. */
   async shoot(draft: Draft, rect: Rect, docRect: Rect, opts: { quiet?: boolean } = {}) {
+    if (!this.canScreenshot) return;
     this.hiding = true;
     try {
       await painted();
@@ -594,7 +609,7 @@ export class Review {
     if (!d.comment.trim() && !d.voiceBlobId && d.kind !== 'shot' && d.kind !== 'draw') return void toasts.show('Write a comment or record a voice note');
     this.draft = null;
     const job = this.saving.then(async () => {
-      let r: { ok: true } | { ok: false; error: BgError; message?: string };
+      let r: { ok: true } | ReviewFailure;
       if (d.id) {
         r = await send('review.update', { id: d.id, patch: { comment: d.comment, intent: d.intent, severity: d.severity, voiceBlobId: d.voiceBlobId, voiceDurationMs: d.voiceDurationMs } });
       } else {
@@ -621,10 +636,21 @@ export class Review {
         if (!this.draft) this.draft = d;
         return;
       }
+      if (this.askName) await this.saveName();
       await this.refresh();
     });
     this.saving = job.catch(() => undefined);
     await job;
+  }
+
+  /** Keep the name typed in the composer's first note; the composer stops asking. */
+  private async saveName() {
+    this.askName = false;
+    try {
+      await platform().reviewer?.save(this.reviewerName.trim().slice(0, 80));
+    } catch {
+      /* storage unavailable: asked again on the next page */
+    }
   }
 
   async remove(id: string) {
@@ -719,14 +745,14 @@ export class Review {
         const ok = await this.submit();
         if (!ok) return;
       }
-      const r = await sendLoose<{ result: { recordingId: string; shareUrl: string; spans: number } }>('trace.stop', { open: true });
+      const r = await send('trace.stop', { open: true });
       if (!r.ok) return void toasts.error(r.message ?? 'The trace did not stop');
       this.trace = null;
-      toasts.success(`Trace saved: ${r.result.spans} actions`);
+      toasts.success(r.result.spans != null ? `Trace saved: ${r.result.spans} actions` : 'Trace sent');
       void t;
       return;
     }
-    const r = await sendLoose<{ trace: TraceView }>('trace.start', {});
+    const r = await send('trace.start', {});
     if (!r.ok) return void toasts.error(r.error === 'not_signed_in' ? 'Sign in to start a trace' : (r.message ?? 'The trace did not start'));
     this.trace = { recordingId: r.trace.recordingId, startedAt: r.trace.startedAt, spans: 0 };
   }
@@ -782,11 +808,12 @@ export class Review {
         return false;
       }
       const n = r.result.count;
-      const open: BgRequest = { type: 'tab.open', url: r.result.url };
+      const result = r.result;
+      const { openCapture } = platform();
       toasts.update(toast, {
         kind: 'success',
-        message: r.result.trace ? `Added ${n} ${n === 1 ? 'note' : 'notes'} to the trace` : `Sent ${n} ${n === 1 ? 'note' : 'notes'}`,
-        ...(r.result.trace ? {} : { action: { label: 'Open', run: () => void browser.runtime.sendMessage(open) } }),
+        message: result.trace ? `Added ${n} ${n === 1 ? 'note' : 'notes'} to the trace` : `Sent ${n} ${n === 1 ? 'note' : 'notes'}`,
+        ...(result.trace || !openCapture ? {} : { action: { label: 'Open', run: () => openCapture(result) } }),
       });
       this.listOpen = false;
       await this.refresh();

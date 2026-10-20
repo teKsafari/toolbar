@@ -6,16 +6,16 @@
 	"license": "MIT",
 	"scripts": {
 		"dev": "wxt",
-		"build": "wxt build && vite build -c page/vite.config.ts",
+		"build": "wxt build",
 		"build:test": "WXT_TEST_HOOKS=1 wxt build",
 		"zip": "wxt zip",
 		"postinstall": "wxt prepare",
 		"check": "wxt prepare && svelte-check --tsconfig ./tsconfig.json",
-		"test": "vitest run",
-		"build:page": "vite build -c page/vite.config.ts"
+		"test": "vitest run"
 	},
 	"dependencies": {
 		"@toolbar/capture": "workspace:*",
+		"@toolbar/review": "workspace:*",
 		"@toolbar/shared": "workspace:*",
 		"@toolbar/trace": "workspace:*",
 		"@toolbar/ui": "workspace:*",
