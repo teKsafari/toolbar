@@ -479,7 +479,7 @@ describe.skipIf(!reachable)('embed (integration, D-211)', () => {
 
     // every upload-token call of the capture started under the old key: 410 revoked
     const id = before.id;
-    const calls: [string, () => Promise<Response>][] = [
+    const calls: [string, () => Response | Promise<Response>][] = [
       ['chunk', () => m.chunk.PUT(before.as(`/api/v1/recordings/${id}/streams/events/chunks/0`, { method: 'PUT', params: { id, stream: 'events', seq: '0' }, headers: { 'content-type': 'application/x-ndjson' } }) as never)],
       ['complete', () => m.complete.POST(before.as(`/api/v1/recordings/${id}/streams/events/complete`, { method: 'POST', params: { id, stream: 'events' }, json: { lastSeq: 0, totalBytes: 1 } }) as never)],
       ['finalize', () => before.finalize()],
