@@ -371,7 +371,7 @@ Read by the coding agent's shell, through the Agent Skill and the share-page pul
 - No host ports and no Traefik labels; Coolify's proxy routes the domain.
 - Garage builds from `deploy/garage.Dockerfile` with `deploy/garage.toml` baked in.
 - No optional variable is passed. To pin one, add it to the server's environment in the file and under Environment Variables.
-- `ADDRESS_HEADER=X-Forwarded-For` and `XFF_DEPTH=1` are wiring: Traefik appends the browser's address, and the per-address limits read it there. Add 1 to `XFF_DEPTH` for each proxy you put in front of Traefik, such as a CDN.
+- `ADDRESS_HEADER=X-Forwarded-For` and `XFF_DEPTH=1` are wiring: Traefik appends the browser's address, and the per-address limits read it there. Behind Cloudflare, Traefik does not trust Cloudflare's `X-Forwarded-For` by default, so the address it passes on is the Cloudflare edge's: change `ADDRESS_HEADER` to `CF-Connecting-IP` in the file.
 - Local transcription: `COMPOSE_PROFILES=whisper`; `WHISPER_URL` already points at it.
 - Validate: `OIDC_ISSUER=https://accounts.google.com OIDC_CLIENT_ID=x OIDC_CLIENT_SECRET=y ADMIN_EMAILS=you@example.com docker compose -f docker-compose.coolify.yml config -q` (warns about the `SERVICE_*` values).
 
