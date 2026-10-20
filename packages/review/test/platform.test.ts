@@ -16,7 +16,7 @@ function fakePlatform(over: Partial<ReviewPlatform> = {}) {
     'review.get': () => ({ items: items.slice() }),
     'review.context': () => ({ context: { errors: [], failedRequests: [] } }),
     'review.add': (req: { item: ReviewItem }) => {
-      const it = { ...req.item, id: `i${items.length + 1}`, n: items.length + 1, context: { errors: [], failedRequests: [] }, t: 1 } as ReviewItem;
+      const it = { ...req.item, id: `i${items.length + 1}`, n: items.length + 1, context: { windowMs: 60_000, errors: [], failedRequests: [] }, t: 1 } as ReviewItem;
       items.push(it);
       return { item: it };
     },

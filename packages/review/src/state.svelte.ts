@@ -161,6 +161,10 @@ export class Review {
 
   // ---------- lifecycle ----------
 
+  private initDone: () => void = () => {};
+  /** resolves once init has read the stored state (the embed's show and hide wait for it) */
+  readonly ready = new Promise<void>((resolve) => (this.initDone = resolve));
+
   async init() {
     const { storage, reviewer } = platform();
     try {
@@ -194,6 +198,7 @@ export class Review {
     await this.refreshTrace();
     // a tab with unsent notes or a running trace wakes on load, so its pins stay on the page
     if ((this.items.length || this.trace) && !this.closed) this.awake = true;
+    this.initDone();
   }
 
   /**
