@@ -19,11 +19,11 @@ export const createFeedback = defineRoute({
   body: createFeedbackBodySchema,
   response: z.object({ items: z.array(feedbackItemSchema) }),
   status: 201,
-  errors: ['unauthorized', 'forbidden', 'not_found', 'invalid_body'],
+  errors: ['unauthorized', 'forbidden', 'not_found', 'invalid_body', 'revoked', 'expired', 'rate_limited'],
   area: 'capture',
   tasks: ['P2-reviewer'],
   summary:
-    'Add the reviewer toolbar feedback items (element, text, drawing, element screenshot, voice note) to a capture, before or after it is finalized. Idempotent on clientId. Voice notes are transcribed in the background. With the upload token of the capture (the embed, D-211) the items take the author of the capture.',
+    'Add the reviewer toolbar feedback items (element, text, drawing, element screenshot, voice note) to a capture, before or after it is finalized. Idempotent on clientId. Voice notes are transcribed in the background. With the upload token of an embed capture (D-211) the items take the author of the capture; that token stops with the key, is rate-limited per address and ends LIMITS.embedWriteAfterFinalizeMs after finalize (D-213).',
 });
 
 export const listFeedback = defineRoute({

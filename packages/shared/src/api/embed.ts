@@ -4,7 +4,7 @@
 // goes through the `upload` routes with the capture's `tb_upl_` token, feedback items included.
 // routes.ts spreads this list into ROUTE_LIST.
 import { z } from 'zod';
-import { createCaptureBodySchema } from './captures.ts';
+import { createCaptureBodySchema, reviewerNameSchema } from './captures.ts';
 import { api, defineRoute, idSchema } from './common.ts';
 import { projectPresetSchema, projectSchema } from './projects.ts';
 
@@ -41,11 +41,7 @@ export type EmbedConfig = z.infer<typeof embedConfigSchema>;
 /** Who sends: a per-browser random id, and a name and email when the reviewer gave them. An email that is not one is dropped. */
 export const embedReviewerSchema = z.object({
   id: z.string().trim().min(1).max(64),
-  name: z
-    .string()
-    .transform((s) => s.trim().replace(/\s+/g, ' '))
-    .pipe(z.string().max(80))
-    .optional(),
+  name: reviewerNameSchema.optional(),
   email: z
     .string()
     .max(200)
@@ -66,7 +62,7 @@ export type EmbedCreateBody = z.input<typeof embedCreateBodySchema>;
 
 export const embedCreatedSchema = z.object({
   id: idSchema,
-  /** bearer for this capture's chunk, complete, finalize, asset and feedback calls */
+  /** bearer for this capture's chunk, complete, finalize, asset and feedback calls; revoked when the key changes */
   uploadToken: z.string(),
 });
 
@@ -95,7 +91,7 @@ export const embedCreateCapture = defineRoute({
   area: 'dashboard',
   tasks: ['D-211'],
   summary:
-    'Start a capture through a project embed key, from a page on one of the project origins. Visible to the workspace only. The upload token (tb_upl_) authorises chunk, complete, asset, feedback and finalize calls for this capture only.',
+    'Start a capture through a project embed key, from a page on one of the project origins. Visible to the workspace only. The upload token (tb_upl_) authorises chunk, complete, asset, feedback and finalize calls for this capture only, until the key is rotated or turned off (D-213). Through it: at most LIMITS.embedAssetCount assets of LIMITS.embedAssetBytes each and LIMITS.embedAssetTotalBytes in all, asset and feedback calls rate-limited per address, none later than LIMITS.embedWriteAfterFinalizeMs after finalize. Finalize takes reviewer.name, which fills an empty author name.',
 });
 
 const projectParams = z.object({ id: idSchema });

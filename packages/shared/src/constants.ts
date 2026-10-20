@@ -87,7 +87,34 @@ export const LIMITS = {
   videoCapMs: 5 * 60 * 1000,
   shareTokenBytes: 16,
   extAuthCodeTtlMs: 60_000,
+  /**
+   * What a capture started through an embed key (D-211, D-213) may store with its upload token:
+   * this many assets, this many bytes in all and per asset, and assets or feedback items only up to
+   * this long after finalize.
+   */
+  embedAssetCount: 40,
+  embedAssetTotalBytes: 100 * 1024 * 1024,
+  embedAssetBytes: 25 * 1024 * 1024,
+  embedWriteAfterFinalizeMs: 10 * 60_000,
 } as const;
+
+/**
+ * Author issuer of captures and feedback items from the embed (D-211). Their name and email are
+ * what the reviewer typed, never checked against an account (D-213).
+ */
+export const EMBED_ISSUER = 'embed';
+
+/** Is this author a person the server knows (a member, a signed-in viewer), or one who only typed a name? */
+export const authorVerified = (a: { issuer?: string | null }) => a.issuer !== EMBED_ISSUER;
+
+/**
+ * An author's name (else email) for text output, with " (embed)" after a name an embed reviewer
+ * typed, so nobody takes it for the member of the same name (D-213). Null when there is neither.
+ */
+export function authorLabel(a: { name?: string | null; email?: string | null; issuer?: string | null }): string | null {
+  const s = a.name || a.email || null;
+  return s && !authorVerified(a) ? `${s} (embed)` : s;
+}
 
 /** Token prefixes so leaked tokens are recognisable by secret scanners. */
 export const TOKEN_PREFIX = {

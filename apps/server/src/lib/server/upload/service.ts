@@ -2,7 +2,7 @@
 // by listing, complete, finalize; assets; discard and delete. Route files call these.
 import { createHash } from 'node:crypto';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import { HEADERS, LIMITS, STREAM_CONTENT_TYPES, uuidv7, type ShareAccess, type StreamName } from '@toolbar/shared';
+import { EMBED_ISSUER, HEADERS, LIMITS, STREAM_CONTENT_TYPES, uuidv7, type ShareAccess, type StreamName } from '@toolbar/shared';
 import {
   MAX_ASSET_BYTES,
   UPLOAD_ASSET_KINDS,
@@ -16,7 +16,7 @@ import {
 import type { z } from 'zod';
 import type { createCaptureBodySchema, finalizeCaptureBodySchema } from '@toolbar/shared/api';
 import type { Db } from '../db/index.ts';
-import { annotation, asset, folder, organization, recording, recordingChunk, recordingStream } from '../db/schema/index.ts';
+import { annotation, asset, feedbackItem, folder, organization, recording, recordingChunk, recordingStream } from '../db/schema/index.ts';
 import { deleteKeys, deletePrefix, keys, putObjectWith } from '../s3.ts';
 import { enqueue } from '../jobs/queue.ts';
 import { env } from '../env.ts';
@@ -322,9 +322,19 @@ export async function finalizeCapture(
     );
   }
 
+  // the embed (D-213): a name the reviewer typed after the capture started fills an empty author,
+  // and the items they sent before it
+  const reviewerName = !caller.userId && rec.source === 'embed' && !rec.authorName ? body.reviewer?.name || null : null;
+  if (reviewerName)
+    await db
+      .update(feedbackItem)
+      .set({ authorName: reviewerName })
+      .where(and(eq(feedbackItem.recordingId, rec.id), eq(feedbackItem.authorIssuer, EMBED_ISSUER), sql`${feedbackItem.authorName} is null`));
+
   const [updated] = await db
     .update(recording)
     .set({
+      ...(reviewerName ? { authorName: reviewerName } : {}),
       organizationId,
       folderId,
       title: body.title || rec.title,

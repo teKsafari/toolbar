@@ -1,15 +1,18 @@
 // The embed (D-210, D-211) against a throwaway Postgres database and the dev Garage bucket under a
 // key prefix of its own: the admin key routes, the public config and create routes with their
 // origin checks and rate limit, the capture they make (source, author, access, no share link),
-// feedback items and an asset through the capture's upload token, CORS, and key rotation. Route
+// feedback items and an asset through the capture's upload token, CORS, and key rotation. D-213:
+// what the token may still write (asset caps, a window after finalize, a per-address limit with
+// separate buckets per address), its revocation by rotation or turn-off, the reviewer name at
+// finalize, and the unverified marker on embed authors in summaries, MCP and the hand-off. Route
 // handlers are called directly with the locals and headers the hooks and server.js would set.
 // Skips when Postgres is down.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import postgres from 'postgres';
 import { execFileSync } from 'node:child_process';
 import type { RequestEvent } from '@sveltejs/kit';
-import { uuidv7 } from '@toolbar/shared';
-import { EMBED_KEY_RE, REQUEST_ORIGIN_HEADER } from '@toolbar/shared/api';
+import { LIMITS, uuidv7 } from '@toolbar/shared';
+import { EMBED_KEY_RE, REQUEST_ORIGIN_HEADER, feedbackFiltersSchema } from '@toolbar/shared/api';
 
 const base = process.env.DATABASE_URL ?? 'postgres://toolbar:toolbar@localhost:5432/toolbar';
 const name = `toolbar_embedtest_${process.pid}`;
@@ -41,6 +44,14 @@ describe.skipIf(!reachable)('embed (integration, D-211)', () => {
     create: typeof import('../src/routes/api/v1/embed/[key]/recordings/+server.ts');
     feedback: typeof import('../src/routes/api/v1/recordings/[id]/feedback/+server.ts');
     assets: typeof import('../src/routes/api/v1/assets/+server.ts');
+    finalize: typeof import('../src/routes/api/v1/recordings/[id]/finalize/+server.ts');
+    chunk: typeof import('../src/routes/api/v1/recordings/[id]/streams/[stream]/chunks/[seq]/+server.ts');
+    complete: typeof import('../src/routes/api/v1/recordings/[id]/streams/[stream]/complete/+server.ts');
+    capture: typeof import('../src/routes/api/v1/recordings/[id]/+server.ts');
+    token: typeof import('../src/lib/server/upload/token.ts');
+    core: typeof import('../src/lib/server/dashboard/core.ts');
+    mcp: typeof import('../src/lib/server/mcp/data.ts');
+    exp: typeof import('../src/lib/server/handoff/export.ts');
     cors: typeof import('../src/lib/server/embed/cors.ts');
     orm: typeof import('drizzle-orm');
   };
@@ -106,6 +117,14 @@ describe.skipIf(!reachable)('embed (integration, D-211)', () => {
       create: await import('../src/routes/api/v1/embed/[key]/recordings/+server.ts'),
       feedback: await import('../src/routes/api/v1/recordings/[id]/feedback/+server.ts'),
       assets: await import('../src/routes/api/v1/assets/+server.ts'),
+      finalize: await import('../src/routes/api/v1/recordings/[id]/finalize/+server.ts'),
+      chunk: await import('../src/routes/api/v1/recordings/[id]/streams/[stream]/chunks/[seq]/+server.ts'),
+      complete: await import('../src/routes/api/v1/recordings/[id]/streams/[stream]/complete/+server.ts'),
+      capture: await import('../src/routes/api/v1/recordings/[id]/+server.ts'),
+      token: await import('../src/lib/server/upload/token.ts'),
+      core: await import('../src/lib/server/dashboard/core.ts'),
+      mcp: await import('../src/lib/server/mcp/data.ts'),
+      exp: await import('../src/lib/server/handoff/export.ts'),
       cors: await import('../src/lib/server/embed/cors.ts'),
       orm: await import('drizzle-orm'),
     };
@@ -278,6 +297,147 @@ describe.skipIf(!reachable)('embed (integration, D-211)', () => {
     expect((await mine.json()).items[0].author).toMatchObject({ userId: owner.id, name: 'Ola' });
   });
 
+  // ---- D-213: what an embed capture's upload token may still write ----
+
+  /** A new embed capture started from an address of its own, and calls with its token. */
+  let starts = 0;
+  async function start(extra: Record<string, unknown> = {}, k = key) {
+    starts++;
+    const r = await create(k, body(extra), { ip: `10.1.0.${starts}` });
+    expect(r.status).toBe(201);
+    const out = (await r.json()) as { id: string; uploadToken: string };
+    const as = (path: string, init: Init) => ev(null, path, { ...init, headers: { authorization: `Bearer ${out.uploadToken}`, ...init.headers } });
+    const feedback = (n: number, ip = '10.9.0.1') =>
+      m.feedback.POST(as(`/api/v1/recordings/${out.id}/feedback`, { method: 'POST', params: { id: out.id }, json: { items: [item(n)] }, ip }) as never);
+    const asset = (bytes: Uint8Array, ip = '10.9.0.1') => {
+      const form = new FormData();
+      form.set('kind', 'feedback');
+      form.set('recordingId', out.id);
+      form.set('file', new File([bytes as BlobPart], 'crop.png', { type: 'image/png' }));
+      return m.assets.POST(as('/api/v1/assets', { method: 'POST', form, ip }) as never);
+    };
+    const finalize = (json: unknown = {}) => m.finalize.POST(as(`/api/v1/recordings/${out.id}/finalize`, { method: 'POST', params: { id: out.id }, json }) as never);
+    return { ...out, as, feedback, asset, finalize };
+  }
+  const png = () => new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 0, 4, 0, 0, 0, 4, 8, 6, 0, 0, 0]);
+  const errorOf = async (r: Response) => ((await r.json()) as { error: string }).error;
+
+  it('upload token: only embed captures take feedback items with it', async () => {
+    const [rl] = await m.db
+      .insert(m.schema.recording)
+      .values({ clientId: crypto.randomUUID(), organizationId: ws, kind: 'video', pageUrl: SITE, source: 'recording-link' })
+      .returning();
+    const t = m.token.mintUploadToken(rl!.id);
+    const r = await m.feedback.POST(ev(null, `/api/v1/recordings/${rl!.id}/feedback`, { method: 'POST', params: { id: rl!.id }, json: { items: [item(1)] }, headers: { authorization: `Bearer ${t}` } }) as never);
+    expect(r.status).toBe(403);
+  });
+
+  it('assets: at most 25 MB each, 40 per capture and 100 MB in all', async () => {
+    const big = await start();
+    const tooBig = await big.asset(new Uint8Array(LIMITS.embedAssetBytes + 1));
+    expect(tooBig.status).toBe(413);
+    expect(await errorOf(tooBig)).toBe('too_large');
+
+    const full = await start();
+    const row = (bytes: number) => ({ recordingId: full.id, kind: 'feedback' as const, s3Key: `x/${crypto.randomUUID()}`, contentType: 'image/png', bytes });
+    await m.db.insert(m.schema.asset).values(Array.from({ length: LIMITS.embedAssetCount - 1 }, () => row(10)));
+    expect((await full.asset(png())).status).toBe(201);
+    expect((await full.asset(png())).status).toBe(413);
+
+    const heavy = await start();
+    await m.db.insert(m.schema.asset).values({ recordingId: heavy.id, kind: 'feedback', s3Key: 'x/heavy', contentType: 'image/png', bytes: LIMITS.embedAssetTotalBytes - 10 });
+    expect((await heavy.asset(png())).status).toBe(413);
+  });
+
+  it('finalize: the reviewer name fills an empty author and the items sent before it, never replaces one', async () => {
+    const trace = await start({ kind: 'trace', reviewer: { id: 'rv-late' } });
+    expect((await trace.feedback(1)).status).toBe(201);
+    const done = await trace.finalize({ reviewer: { name: '  Late   Name ' } });
+    expect(done.status).toBe(200);
+    expect(await recordingOf(trace.id)).toMatchObject({ authorName: 'Late Name', authorIssuer: 'embed', authorSubject: 'rv-late' });
+    const items = await m.db.select().from(m.schema.feedbackItem).where(m.orm.eq(m.schema.feedbackItem.recordingId, trace.id));
+    expect(items.map((i) => i.authorName)).toEqual(['Late Name']);
+
+    const named = await start();
+    expect((await named.finalize({ reviewer: { name: 'Ola' } })).status).toBe(200);
+    expect((await recordingOf(named.id)).authorName).toBe('Rita Client');
+    // longer than 80 characters: refused like the create body
+    const long = await start({ reviewer: { id: 'rv-long' } });
+    expect((await long.finalize({ reviewer: { name: 'x'.repeat(81) } })).status).toBe(422);
+  });
+
+  it('after finalize: assets and items for ten minutes, then 410', async () => {
+    const c = await start();
+    expect((await c.finalize()).status).toBe(200);
+    expect((await c.feedback(1)).status).toBe(201);
+    expect((await c.asset(png())).status).toBe(201);
+    await m.db
+      .update(m.schema.recording)
+      .set({ finalizedAt: new Date(Date.now() - LIMITS.embedWriteAfterFinalizeMs - 1000) })
+      .where(m.orm.eq(m.schema.recording.id, c.id));
+    const late = await c.feedback(2);
+    expect(late.status).toBe(410);
+    expect(await errorOf(late)).toBe('expired');
+    expect((await c.asset(png())).status).toBe(410);
+  });
+
+  it('rate limit: asset and item calls per client address, ten times embedRateLimit an hour, each address its own bucket', async () => {
+    m.settings._setStoredForTest({ embedRateLimit: 1 } as never);
+    try {
+      const c = await start();
+      // two browsers behind one proxy: adapter-node gives each its own X-Forwarded-For address
+      const a = '203.0.113.7';
+      const b = '198.51.100.23';
+      for (let n = 1; n <= 9; n++) expect((await c.feedback(n, a)).status, `call ${n}`).toBe(201);
+      expect((await c.asset(png(), a)).status).toBe(201);
+      const over = await c.feedback(20, a);
+      expect(over.status).toBe(429);
+      expect(await errorOf(over)).toBe('rate_limited');
+      expect((await c.asset(png(), a)).status).toBe(429);
+      expect((await c.feedback(21, b)).status).toBe(201);
+      expect((await c.asset(png(), b)).status).toBe(201);
+    } finally {
+      m.settings._setStoredForTest({} as never);
+    }
+  });
+
+  it('create rate limit: two client addresses get separate buckets', async () => {
+    m.settings._setStoredForTest({ embedRateLimit: 1 } as never);
+    try {
+      expect((await create(key, body(), { ip: '203.0.113.50' })).status).toBe(201);
+      expect((await create(key, body(), { ip: '203.0.113.50' })).status).toBe(429);
+      expect((await create(key, body(), { ip: '203.0.113.51' })).status).toBe(201);
+    } finally {
+      m.settings._setStoredForTest({} as never);
+    }
+  });
+
+  it('unverified authors: summaries, MCP and the hand-off mark them, email filters skip them', async () => {
+    // a reviewer who types a member's name and email
+    const fake = await start({ reviewer: { id: 'rv-fake', name: 'Ola', email: owner.email } });
+    expect((await fake.finalize()).status).toBe(200);
+    const rec = await recordingOf(fake.id);
+    const [summary] = await m.core.toSummaries(m.db, [rec]);
+    expect(summary).toMatchObject({ authorVerified: false, author: { id: null, name: 'Ola', email: owner.email } });
+    const [mine] = await m.db
+      .insert(m.schema.recording)
+      .values({ clientId: crypto.randomUUID(), organizationId: ws, kind: 'feedback', pageUrl: SITE, authorUserId: owner.id, authorName: 'Ola', authorEmail: owner.email, status: 'ready', finalizedAt: new Date() })
+      .returning();
+    expect((await m.core.toSummaries(m.db, [mine!]))[0]!.authorVerified).toBe(true);
+
+    const brief = await m.mcp.briefOf(m.db, rec, { url: 'x' });
+    expect(brief.author).toEqual({ name: 'Ola (embed)', email: owner.email, verified: false });
+
+    const scope = { workspaceId: ws, userId: owner.id, seat: 'admin' as const };
+    const filters = (f: Record<string, unknown>) => feedbackFiltersSchema.parse({ status: 'all', ...f });
+    const byOwner = (await m.exp.feedbackList(m.db, scope, filters({ creator: owner.email }))).items.map((i) => i.id);
+    expect(byOwner).toContain(mine!.id);
+    expect(byOwner).not.toContain(fake.id);
+    const all = await m.exp.feedbackList(m.db, scope, filters({ limit: 200 }));
+    expect(all.items.find((i) => i.id === fake.id)?.reviewer).toBe('Ola (embed)');
+    expect(all.items.find((i) => i.id === mine!.id)?.reviewer).toBe('Ola');
+  });
+
   it('CORS: preflights and responses echo the origin, upload routes only for upload tokens, never credentials', async () => {
     const hook = (method: string, path: string, headers: Record<string, string>) =>
       m.cors.embedCors({ event: ev(null, path, { method, headers }), resolve: async () => new Response('{}', { headers: { 'content-type': 'application/json' } }) } as never);
@@ -306,18 +466,46 @@ describe.skipIf(!reachable)('embed (integration, D-211)', () => {
     expect((await hook('GET', '/api/v1/workspaces', fromSite())).headers.has('access-control-allow-origin')).toBe(false);
   });
 
-  it('rotating replaces the key at once; turning it off ends it', async () => {
+  it('rotating replaces the key at once and revokes the upload tokens issued under the old one; turning it off ends both', async () => {
     const old = key;
+    const before = await start();
+    expect((await before.feedback(1)).status).toBe(201);
     const r = await rotate(owner);
     const fresh = (await r.json()).embedKey;
     expect(fresh).not.toBe(old);
     expect((await getConfig(old)).status).toBe(404);
     expect((await create(old, body())).status).toBe(404);
     expect((await getConfig(fresh)).status).toBe(200);
+
+    // every upload-token call of the capture started under the old key: 410 revoked
+    const id = before.id;
+    const calls: [string, () => Promise<Response>][] = [
+      ['chunk', () => m.chunk.PUT(before.as(`/api/v1/recordings/${id}/streams/events/chunks/0`, { method: 'PUT', params: { id, stream: 'events', seq: '0' }, headers: { 'content-type': 'application/x-ndjson' } }) as never)],
+      ['complete', () => m.complete.POST(before.as(`/api/v1/recordings/${id}/streams/events/complete`, { method: 'POST', params: { id, stream: 'events' }, json: { lastSeq: 0, totalBytes: 1 } }) as never)],
+      ['finalize', () => before.finalize()],
+      ['asset', () => before.asset(png())],
+      ['feedback', () => before.feedback(2)],
+      ['discard', () => m.capture.DELETE(before.as(`/api/v1/recordings/${id}`, { method: 'DELETE', params: { id } }) as never)],
+    ];
+    for (const [name, call] of calls) {
+      const res = await call();
+      expect(res.status, name).toBe(410);
+      expect(await errorOf(res), name).toBe('revoked');
+    }
+    // a capture started under the new key works, until the embed is turned off
+    const after = await start({}, fresh);
+    expect((await after.feedback(1)).status).toBe(201);
+    // members are not affected by the key
+    expect((await m.feedback.POST(ev(owner, `/api/v1/recordings/${id}/feedback`, { method: 'POST', params: { id }, json: { items: [item(9)] } }) as never)).status).toBe(201);
+
     expect((await m.key.DELETE(ev(maker, `/api/v1/projects/${projectId}/embed-key`, { method: 'DELETE', params: { id: projectId } }) as never)).status).toBe(403);
     const off = await m.key.DELETE(ev(owner, `/api/v1/projects/${projectId}/embed-key`, { method: 'DELETE', params: { id: projectId } }) as never);
     expect(off.status).toBe(200);
     expect((await off.json()).embedKey).toBeNull();
     expect((await getConfig(fresh)).status).toBe(404);
+    expect((await after.feedback(2)).status).toBe(410);
+    // turned on again: a new key, and still no way back for the earlier tokens
+    key = (await (await rotate(owner)).json()).embedKey;
+    expect((await after.feedback(3)).status).toBe(410);
   });
 });

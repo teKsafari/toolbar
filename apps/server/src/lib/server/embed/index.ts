@@ -1,14 +1,14 @@
 // The embed (D-210, D-211): a project's public key, the config the embedded toolbar boots from, and
 // the capture it starts. The key is public by design, like an analytics id, and stored in clear;
 // the browser origin check stops casual reuse on other sites and the per-address limit the rest.
-import { eq } from 'drizzle-orm';
+import { count, eq, sql, sum } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
-import { randomToken } from '@toolbar/shared';
+import { LIMITS, randomToken } from '@toolbar/shared';
 import { EMBED_KEY_PREFIX, EMBED_KEY_RE, REQUEST_ORIGIN_HEADER, type EmbedConfig, type embedCreateBodySchema } from '@toolbar/shared/api';
 import { pageOrigin } from '@toolbar/shared/projects';
 import type { z } from 'zod';
 import type { Db } from '../db/index.ts';
-import { project, recording } from '../db/schema/index.ts';
+import { asset, project, recording } from '../db/schema/index.ts';
 import { fail } from '../share/http.ts';
 import { getBrand } from '../branding/index.ts';
 import { embedOriginAllowed } from '../projects/access.ts';
@@ -59,8 +59,11 @@ export async function embedConfigOf(db: Db, key: string, headers: Headers): Prom
   };
 }
 
-/** Client address for the rate limit; adapters without one share a bucket. */
-function clientAddress(event: RequestEvent): string {
+/**
+ * Client address for the rate limits; adapters without one share a bucket. Behind a proxy this is
+ * the address ADDRESS_HEADER and XFF_DEPTH point adapter-node at (docs/configuration.md).
+ */
+export function clientAddress(event: RequestEvent): string {
   try {
     return event.getClientAddress();
   } catch {
@@ -103,9 +106,34 @@ export async function embedCreate(db: Db, event: RequestEvent, key: string, body
   return { id: r.id, uploadToken: r.uploadToken, created: r.created };
 }
 
-/** Turn the embed on with a new key, or replace the key (the old one stops at once). */
+/**
+ * What an embed capture's upload token may still write (D-213), checked before an asset or
+ * feedback items are stored: nothing later than LIMITS.embedWriteAfterFinalizeMs after finalize,
+ * ten times the embed create limit of calls per address in an hour, and for an asset
+ * LIMITS.embedAssetBytes, LIMITS.embedAssetCount per capture and LIMITS.embedAssetTotalBytes in all.
+ * The token itself stops with the key (captureAccess).
+ */
+export async function embedUploadWrite(db: Db, event: RequestEvent, rec: typeof recording.$inferSelect, file?: { bytes: number }) {
+  if (rec.finalizedAt && Date.now() - rec.finalizedAt.getTime() > LIMITS.embedWriteAfterFinalizeMs)
+    fail('expired', 'This capture was sent too long ago to take more');
+  if (rateLimited(`embed-upload:${clientAddress(event)}`, 10 * (setting('embedRateLimit') ?? 60), 60 * 60_000))
+    fail('rate_limited', 'Too many uploads from here; try again later');
+  if (!file) return;
+  if (file.bytes > LIMITS.embedAssetBytes) fail('too_large', `Embed assets are at most ${LIMITS.embedAssetBytes} bytes`);
+  const [had] = await db
+    .select({ n: count(), bytes: sum(asset.bytes).mapWith(Number) })
+    .from(asset)
+    .where(eq(asset.recordingId, rec.id));
+  if ((had?.n ?? 0) >= LIMITS.embedAssetCount) fail('too_large', `An embed capture holds at most ${LIMITS.embedAssetCount} files`);
+  if ((had?.bytes ?? 0) + file.bytes > LIMITS.embedAssetTotalBytes) fail('too_large', `An embed capture holds at most ${LIMITS.embedAssetTotalBytes} bytes of files`);
+}
+
+/**
+ * Turn the embed on with a new key, or replace the key: the old one stops at once, and so do the
+ * upload tokens of captures started before (D-213), compared against this time at the database's clock.
+ */
 export async function rotateEmbedKey(db: Db, projectId: string): Promise<Row> {
-  const [r] = await db.update(project).set({ embedKey: newEmbedKey(), embedKeyCreatedAt: new Date(), updatedAt: new Date() }).where(eq(project.id, projectId)).returning();
+  const [r] = await db.update(project).set({ embedKey: newEmbedKey(), embedKeyCreatedAt: sql`now()`, updatedAt: new Date() }).where(eq(project.id, projectId)).returning();
   if (!r) fail('not_found', 'No such project');
   return r;
 }

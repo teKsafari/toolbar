@@ -39,6 +39,12 @@ export const TRANSCRIPT_STATUSES = ['pending', 'running', 'done', 'failed', 'ski
 
 const recordingIdParams = z.object({ id: idSchema });
 
+/** A name a reviewer typed (the embed, D-211): spaces collapsed, at most 80 characters. */
+export const reviewerNameSchema = z
+  .string()
+  .transform((s) => s.trim().replace(/\s+/g, ' '))
+  .pipe(z.string().max(80));
+
 // ---------- shared pieces ----------
 
 export const assetSchema = z.object({
@@ -87,6 +93,8 @@ export const captureSummarySchema = recordingSummarySchema.extend({
   folderId: idSchema.nullable(),
   source: z.enum(CAPTURE_SOURCES),
   author: personSchema.nullable(),
+  /** false when the author is an embed reviewer: a typed name and email, no account (D-213) */
+  authorVerified: z.boolean(),
   recordingLinkId: idSchema.nullable(),
   recordingLinkName: z.string().nullable(),
   commentCount: z.number().int().nonnegative(),
@@ -254,7 +262,7 @@ export const putChunk = defineRoute({
   body: 'binary',
   response: chunkStoredSchema,
   status: 201,
-  errors: ['unauthorized', 'forbidden', 'not_found', 'hash_mismatch', 'too_large', 'already_finalized'],
+  errors: ['unauthorized', 'forbidden', 'not_found', 'hash_mismatch', 'too_large', 'already_finalized', 'revoked'],
   area: 'server-core',
   tasks: ['X-01', 'J-087'],
   summary:
@@ -290,7 +298,7 @@ export const completeStream = defineRoute({
   body: completeStreamSchema,
   response: z.object({ stream: z.enum(STREAM_NAMES), completed: z.boolean(), missing: z.array(z.number().int()) }),
   status: 200,
-  errors: ['unauthorized', 'forbidden', 'not_found', 'stream_incomplete'],
+  errors: ['unauthorized', 'forbidden', 'not_found', 'stream_incomplete', 'revoked'],
   area: 'server-core',
   tasks: ['X-01'],
   summary: 'Mark a stream complete. 409 stream_incomplete lists missing seqs when chunks are absent.',
@@ -319,6 +327,11 @@ export const finalizeCaptureBodySchema = finalizeRecordingSchema.extend({
   aiAccepted: z.boolean().default(false),
   durationMs: z.number().int().nonnegative().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
+  /**
+   * The embed (D-213): the name the reviewer typed after the capture started (a trace records its
+   * author at start). Fills the author name only when it is empty, and only with the upload token.
+   */
+  reviewer: z.object({ name: reviewerNameSchema.optional() }).optional(),
 });
 export type FinalizeCaptureBody = z.input<typeof finalizeCaptureBodySchema>;
 
@@ -341,7 +354,7 @@ export const finalizeCapture = defineRoute({
   body: finalizeCaptureBodySchema,
   response: finalizedSchema,
   status: 200,
-  errors: ['unauthorized', 'forbidden', 'not_found', 'invalid_body', 'already_finalized'],
+  errors: ['unauthorized', 'forbidden', 'not_found', 'invalid_body', 'already_finalized', 'revoked'],
   area: 'server-core',
   tasks: ['X-01', 'J-086', 'J-087', 'J-227'],
   summary: 'Create the capture from the draft: title, description, annotations, trim, folder, destination. Enqueues finalize-recording.',
@@ -364,7 +377,7 @@ export const uploadAsset = defineRoute({
   scope: 'write',
   body: 'multipart',
   response: assetSchema,
-  errors: ['unauthorized', 'forbidden', 'too_large', 'unsupported_media_type', 'invalid_body'],
+  errors: ['unauthorized', 'forbidden', 'too_large', 'unsupported_media_type', 'invalid_body', 'revoked', 'expired', 'rate_limited'],
   area: 'server-core',
   tasks: ['X-01', 'J-002', 'J-082', 'J-132'],
   summary: 'Upload a screenshot PNG, crop, full viewport, attachment, comment image, avatar or logo (multipart: file + uploadAssetFieldsSchema).',

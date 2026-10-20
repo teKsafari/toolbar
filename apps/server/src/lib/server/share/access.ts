@@ -1,14 +1,15 @@
 // Who may see or change a capture. One place for the rules every area applies:
 // - workspace members by seat role (J-124), with private captures and private folders (J-237);
 // - share-token viewers (x-toolbar-share header) when the capture's general access is "anyone" (J-119);
-// - recording-link recipients with a per-capture upload token (D-030);
+// - recording-link recipients with a per-capture upload token (D-030), and embed reviewers with
+//   one that lasts as long as the project's embed key (D-211, D-213);
 // - nothing is reachable before finalize except by its uploader (J-189).
 // Pure decisions are exported for tests; `captureAccess()` loads the rows and throws ApiErrors.
 import type { RequestEvent } from '@sveltejs/kit';
 import { and, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
 import { roleAtLeast, seatRoleOf, SHARE_TOKEN_HEADER, type AuthMode, type SeatRole } from '@toolbar/shared/api';
 import type { Db } from '../db/index.ts';
-import { folder, folderAccess, folderMember, member, recording } from '../db/schema/index.ts';
+import { folder, folderAccess, folderMember, member, project, recording } from '../db/schema/index.ts';
 import { fail } from './http.ts';
 import { findShare, type ShareLinkRow } from './tokens.ts';
 import { uploadTokenFrom, verifyUploadToken } from '../upload/token.ts';
@@ -169,9 +170,31 @@ export async function captureAccess(
 
   const d = decideAccess({ mode: need.mode, role: need.role, rec, userId, seat, folderPrivacy, uploadGrant, shareGrant });
   if (!d.ok) fail(d.code, d.code === 'unauthorized' ? 'Sign in, or open the capture from its share link' : undefined);
+  if (d.via === 'upload' && rec.source === 'embed') await embedKeyLive(db, rec);
   const canEdit = d.via === 'upload' || (seat !== null && (seat === 'admin' || (seat === 'creator' && rec.authorUserId === userId)));
   if (need.own && !canEdit) fail('forbidden', 'Only the author or a workspace admin can change this capture');
   return { rec, via: d.via, seat, userId, share: d.via === 'share' ? share!.link : null, canEdit };
+}
+
+/**
+ * The upload token of an embed capture works while the key it was started with does (D-213):
+ * rotating or turning off the project's key revokes every token issued before, with no column of
+ * their own. Compared in SQL, at the database's own clock and precision.
+ */
+async function embedKeyLive(db: Db, rec: RecordingRow) {
+  const [live] = rec.projectId
+    ? await db
+        .select({ id: project.id })
+        .from(project)
+        .where(
+          and(
+            eq(project.id, rec.projectId),
+            sql`${project.embedKey} is not null and ${project.embedKeyCreatedAt} <= (select r.created_at from recording r where r.id = ${rec.id})`,
+          ),
+        )
+        .limit(1)
+    : [];
+  if (!live) fail('revoked', 'The embed key of this site changed or was turned off; start a new capture');
 }
 
 /** Workspace membership check for routes without a capture (create, assets). */
