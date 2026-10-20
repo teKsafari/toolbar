@@ -90,7 +90,8 @@ export async function captureDetail(ctx: ViewerCtx): Promise<CaptureDetail> {
   });
   const videoStream = streams.find((s) => s.name === 'video');
   const env0 = rec.env as CaptureDetail['env'];
-  const access = ctx.share?.link.access ?? 'anyone';
+  // a share-link viewer sees the link's access; a member the capture's own (the embed's are workspace only, D-211)
+  const access = ctx.share?.link.access ?? rec.access;
 
   return {
     ...summary,
