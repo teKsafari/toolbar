@@ -47,6 +47,7 @@ D-194. **Required**: boots the server. **Wiring**: filled in by compose or Cooli
 | `GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN` | Wiring | Garage's own secrets; the server never reads them. |
 | `WHISPER_URL` | Wiring, and Settings > Server | `docker-compose.whisper.yml` and the Coolify file point it at their whisper service; the admin page can point it elsewhere when the variable is unset. |
 | `PORT` | Wiring | Compose publishes this host port and pins the server to 3000 inside the container. |
+| `ADDRESS_HEADER`, `XFF_DEPTH` | Wiring | Where the client address comes from behind a proxy. The Coolify file sets them for its Traefik; behind a proxy of your own, set them in `.env` for `docker-compose.yml`. |
 | `ALLOWED_EMAIL_DOMAINS` | Settings > Server, Sign-in | Changes as the organisation does, and takes effect at the next request of each session. |
 | `OIDC_PROVIDER_NAME`, `OIDC_SCOPES` | Settings > Server, Sign-in | Read at each sign-in, so they need no restart; the provider itself stays in the environment. |
 | `TRANSCRIBE_PROVIDER`, `TRANSCRIBE_API_KEY`, `OPENAI_API_KEY`, `TRANSCRIBE_MODEL`, `TRANSCRIBE_BASE_URL`, `TRANSCRIBE_LANGUAGE`, `TRANSCRIBE_TIMESTAMPS`, `TRANSCRIBE_CHUNK_SECONDS`, `TRANSCRIBE_CONCURRENCY` | Settings > Server, Transcription | Read per job, so an admin can switch provider, try it with Test connection and roll back without a deploy. The key is sealed at rest. |
@@ -132,6 +133,8 @@ Projects list exact origins (`http://localhost:5173`) and domains (`*.nuru.sh`: 
 | `SITE_ACCESS` | `projects` | `all` | Settings > Server, Capture defaults (D-200, D-203). `projects`: run only on project origins; members add sites from the extension icon. `all`: run anywhere but this server and blocked sites, one project per new origin. See [Site access](#site-access). |
 | `SUPPORT_RECORDING_LINK` | empty | `https://feedback.example.com/r/abc`, or `off` | Settings > Server, Sharing and export. Target of the extension's "report a problem". Empty: a recording link owned by the first account. `off` hides it. |
 | `NODE_ENV` | `production` in the image, `development` in `pnpm dev` | `production` | Production behaviour: sign-in rate limits, no response-shape checks. Leave it to the image. |
+| `ADDRESS_HEADER` | empty (the TCP peer) | `X-Forwarded-For` | Header that holds the browser's address when a proxy sits in front. Per-address limits read it: embed captures and uploads, recording-link uploads. Unset, every request through the proxy shares the proxy's address and its limit. The Coolify file sets `X-Forwarded-For`. Set it only behind a proxy that writes the header, or a client can pick its own address. |
+| `XFF_DEPTH` | `1` | `2` | With `ADDRESS_HEADER=X-Forwarded-For`: how many proxies you run in front, counted from the server. `1` for one proxy (Coolify's Traefik); `2` for a CDN in front of it. |
 
 ## Sign-in
 
@@ -368,6 +371,7 @@ Read by the coding agent's shell, through the Agent Skill and the share-page pul
 - No host ports and no Traefik labels; Coolify's proxy routes the domain.
 - Garage builds from `deploy/garage.Dockerfile` with `deploy/garage.toml` baked in.
 - No optional variable is passed. To pin one, add it to the server's environment in the file and under Environment Variables.
+- `ADDRESS_HEADER=X-Forwarded-For` and `XFF_DEPTH=1` are wiring: Traefik appends the browser's address, and the per-address limits read it there. Add 1 to `XFF_DEPTH` for each proxy you put in front of Traefik, such as a CDN.
 - Local transcription: `COMPOSE_PROFILES=whisper`; `WHISPER_URL` already points at it.
 - Validate: `OIDC_ISSUER=https://accounts.google.com OIDC_CLIENT_ID=x OIDC_CLIENT_SECRET=y ADMIN_EMAILS=you@example.com docker compose -f docker-compose.coolify.yml config -q` (warns about the `SERVICE_*` values).
 

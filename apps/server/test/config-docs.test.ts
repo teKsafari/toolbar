@@ -143,7 +143,7 @@ function documented(): Row[] {
 /** The values a person sets to boot a server (D-194). AUTH_SECRET is BETTER_AUTH_SECRET's short name. */
 const REQUIRED = ['ADMIN_EMAILS', 'AUTH_SECRET', 'BETTER_AUTH_SECRET', 'OIDC_CLIENT_ID', 'OIDC_CLIENT_SECRET', 'OIDC_ISSUER', 'PUBLIC_URL'].sort();
 /** What the compose files fill in for the containers they run. */
-const WIRING = ['PORT', 'DATABASE_URL', 'S3_ENDPOINT', 'S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY', 'WHISPER_URL'];
+const WIRING = ['PORT', 'DATABASE_URL', 'S3_ENDPOINT', 'S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY', 'WHISPER_URL', 'ADDRESS_HEADER', 'XFF_DEPTH'];
 
 describe('docs/configuration.md', () => {
   const rows = documented();
@@ -200,6 +200,13 @@ describe('docs/configuration.md', () => {
     expect(live.sort()).toEqual(REQUIRED.filter((n) => n !== 'AUTH_SECRET'));
     expect(example.indexOf('# --- required')).toBeLessThan(example.indexOf('# --- optional overrides'));
     expect(example).toContain('docs/configuration.md');
+  });
+
+  it('reads the client address from the proxy on Coolify only (D-213)', () => {
+    // Traefik is in front on Coolify; the plain compose file publishes the server's own port
+    expect(serverEnvKeys(read('docker-compose.coolify.yml'))).toEqual(expect.arrayContaining(['ADDRESS_HEADER', 'XFF_DEPTH']));
+    expect(read('docker-compose.coolify.yml')).toMatch(/^ {6}ADDRESS_HEADER: X-Forwarded-For\n {6}XFF_DEPTH: "1"$/m);
+    expect(read('docker-compose.yml')).not.toMatch(/ADDRESS_HEADER|XFF_DEPTH/);
   });
 
   it('keeps development, test and paused switches out of the deployed compose files (D-194)', () => {
