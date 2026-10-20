@@ -31,6 +31,9 @@ export async function mockProviderLogin(page: Page, email: string, name = email.
  */
 export async function signInOidc(page: Page, server: string, email: string, opts: { next?: string; name?: string } = {}) {
   const next = opts.next ?? '/';
+  // A session left by an earlier spec in the same worker's browser (the area suites share one
+  // persistent context per worker) would send /login straight on to the dashboard.
+  await page.context().clearCookies({ domain: new URL(server).hostname, name: /^(__Secure-)?better-auth\./ });
   await page.goto(`${server}/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`);
   await page.waitForLoadState('networkidle');
   const button = page.locator('[data-provider]');
