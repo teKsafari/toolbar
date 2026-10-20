@@ -54,6 +54,7 @@ const RANGE: Partial<Record<InstanceKey, [number, number, boolean]>> = {
   transcribeMaxMinutes: [0.1, 1440, false],
   transcribeMonthlyMinutes: [0, 10_000_000, false],
   recordingLinkRateLimit: [1, 1000, true],
+  embedRateLimit: [1, 10_000, true],
 };
 
 /** TRANSCRIBE_PROVIDER: `none` (also `off`, `0`), `local` or `openai`; anything else is not valid. */
@@ -153,6 +154,7 @@ export function defaultOf<K extends InstanceKey>(key: K): Values[K] {
     transcribeMaxMinutes: () => 60,
     transcribeMonthlyMinutes: () => null,
     recordingLinkRateLimit: () => 10,
+    embedRateLimit: () => 60,
   };
   return d[key]() as Values[K];
 }

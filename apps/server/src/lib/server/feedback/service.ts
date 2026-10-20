@@ -6,7 +6,7 @@ import type { FeedbackItem, FeedbackItemInput } from '@toolbar/shared/areas/revi
 import { feedbackItemInputSchema } from '@toolbar/shared/areas/reviewer';
 import { db as defaultDb, type Db } from '../db/index.ts';
 import { asset, feedbackItem, recording } from '../db/schema/index.ts';
-import { authorSnapshot } from '../auth/author.ts';
+import type { AuthorSnapshot } from '../auth/author.ts';
 import { assetUrl } from '../upload/service.ts';
 import { getBytes } from '../s3.ts';
 import { createTranscriber, parseVtt, transcribeConfig } from '../transcribe/index.ts';
@@ -35,30 +35,34 @@ const VOICE_KIND = 'voice-note';
 
 /**
  * Takes the item's assets into the capture: an asset the caller uploaded without a capture, or one
- * already on this capture. Anything else (another capture, another person's upload) is refused.
+ * already on this capture (an upload-token caller's assets, `createdBy` null, are always there).
+ * Anything else (another capture, another person's upload) is refused.
  */
-async function claim(rec: RecordingRow, ids: string[], userId: string) {
+async function claim(rec: RecordingRow, ids: string[], userId: string | null) {
   if (!ids.length) return;
   const rows = await db.select().from(asset).where(inArray(asset.id, ids));
   for (const id of ids) {
     const a = rows.find((r) => r.id === id);
     if (!a) fail(422, 'invalid_body', `Asset ${id} not found`);
     if (a!.recordingId && a!.recordingId !== rec.id) fail(422, 'invalid_body', `Asset ${id} belongs to another capture`);
-    if (!a!.recordingId && a!.createdBy && a!.createdBy !== userId) fail(422, 'invalid_body', `Asset ${id} was uploaded by someone else`);
+    if (!a!.recordingId && (!userId || (a!.createdBy && a!.createdBy !== userId))) fail(422, 'invalid_body', `Asset ${id} was uploaded by someone else`);
   }
   await db.update(asset).set({ recordingId: rec.id }).where(inArray(asset.id, ids));
 }
 
-export async function createFeedbackItems(rec: RecordingRow, userId: string, input: FeedbackItemInput[]): Promise<FeedbackItem[]> {
+/**
+ * Store a submit's items as `who` left them: a member's snapshot, or the capture's author for an
+ * upload-token caller (the embed, D-211), whose `userId` is null.
+ */
+export async function createFeedbackItems(rec: RecordingRow, who: AuthorSnapshot, input: FeedbackItemInput[]): Promise<FeedbackItem[]> {
   const items = input.map((i) => feedbackItemInputSchema.parse(i));
   const cropIds = items.map((i) => i.cropAssetId).filter((x): x is string => !!x);
   const voiceIds = items.map((i) => i.voiceAssetId).filter((x): x is string => !!x);
-  await claim(rec, [...new Set([...cropIds, ...voiceIds])], userId);
+  await claim(rec, [...new Set([...cropIds, ...voiceIds])], who.userId);
   // a crop of a trace must not become the trace's main image: pickScreenshots reads screenshot and crop only
   if (cropIds.length) await db.update(asset).set({ kind: CROP_KIND }).where(inArray(asset.id, cropIds));
   if (voiceIds.length) await db.update(asset).set({ kind: VOICE_KIND }).where(inArray(asset.id, voiceIds));
 
-  const who = await authorSnapshot(db, userId);
   const transcriber = createTranscriber();
   const inserted = await db
     .insert(feedbackItem)
@@ -84,7 +88,7 @@ export async function createFeedbackItems(rec: RecordingRow, userId: string, inp
         intent: i.intent,
         severity: i.severity,
         t: Math.round(i.t),
-        authorUserId: userId,
+        authorUserId: who.userId,
         authorName: who.name,
         authorEmail: who.email,
         authorIssuer: who.issuer,

@@ -13,7 +13,7 @@
 // (`@toolbar/shared/projects` projectForUrl). Every origin check on the server goes through this
 // module.
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import { autoProjectOf, LIMITS_PROJECT, mergeOrigins, pageOrigin, projectForUrl, type SiteAccessMode } from '@toolbar/shared/projects';
+import { autoProjectOf, LIMITS_PROJECT, mergeOrigins, originMatches, pageOrigin, projectForUrl, type SiteAccessMode } from '@toolbar/shared/projects';
 import type { Db } from '../db/index.ts';
 import { member, project, recording } from '../db/schema/index.ts';
 import { env } from '../env.ts';
@@ -33,6 +33,16 @@ export function siteAccessMode(): SiteAccessMode {
 export function isServerUrl(url: string | null | undefined): boolean {
   const o = pageOrigin(url);
   return !!o && o === pageOrigin(env.publicUrl);
+}
+
+/**
+ * May a page on `origin` use the embed key of project `p` (D-211)? One of the project's origins
+ * must cover it (exact or wildcard), and it is never this server. Takes a page URL as well.
+ */
+export function embedOriginAllowed(p: Pick<Row, 'origins'>, origin: string | null | undefined): boolean {
+  const o = pageOrigin(origin);
+  if (!o || isServerUrl(o)) return false;
+  return p.origins.some((x) => originMatches(x, `${o}/`));
 }
 
 /** Projects of the given workspaces, oldest first (the tie-break of projectForUrl). */

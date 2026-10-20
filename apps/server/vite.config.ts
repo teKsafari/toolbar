@@ -22,6 +22,9 @@ const oauthFormOrigin = {
   name: 'tb-oauth-form-origin',
   configureServer(server: { middlewares: { use: (fn: (req: { url?: string; headers: Record<string, unknown> }, res: unknown, next: () => void) => void) => void } }) {
     server.middlewares.use((req, _res, next) => {
+      // as server.js: keep the browser's Origin for the embed (D-211) before it may be replaced
+      delete req.headers['x-toolbar-request-origin'];
+      if (req.headers.origin) req.headers['x-toolbar-request-origin'] = req.headers.origin;
       if ((req.url && OAUTH_FORM_PATHS.test(req.url)) || /^Bearer\s/i.test(String(req.headers.authorization ?? ''))) req.headers.origin = process.env.PUBLIC_URL || `http://localhost:${devPort}`;
       next();
     });

@@ -12,7 +12,7 @@ export const createFeedback = defineRoute({
   name: 'feedback.create',
   method: 'POST',
   path: api('/recordings/:id/feedback'),
-  auth: 'member',
+  auth: 'upload',
   role: 'creator',
   scope: 'write',
   params: z.object({ id: idSchema }),
@@ -23,7 +23,7 @@ export const createFeedback = defineRoute({
   area: 'capture',
   tasks: ['P2-reviewer'],
   summary:
-    'Add the reviewer toolbar feedback items (element, text, drawing, element screenshot, voice note) to a capture, before or after it is finalized. Idempotent on clientId. Voice notes are transcribed in the background.',
+    'Add the reviewer toolbar feedback items (element, text, drawing, element screenshot, voice note) to a capture, before or after it is finalized. Idempotent on clientId. Voice notes are transcribed in the background. With the upload token of the capture (the embed, D-211) the items take the author of the capture.',
 });
 
 export const listFeedback = defineRoute({

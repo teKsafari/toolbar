@@ -9,8 +9,10 @@ FROM base AS build
 COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store && \
-    pnpm install --frozen-lockfile --filter "@toolbar/server..."
+    pnpm install --frozen-lockfile --filter "@toolbar/server..." --filter "@open-toolbar/embed..."
 RUN pnpm --filter @toolbar/server build
+# the embed (D-210): /embed.js, /embed/<file> and the npm package tarball, served from ./embed
+RUN pnpm --filter @open-toolbar/embed build
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm --filter @toolbar/server deploy --prod --legacy /out
 
@@ -27,6 +29,7 @@ COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /repo/apps/server/build ./build
 COPY --from=build /repo/apps/server/drizzle ./drizzle
 COPY --from=build /repo/apps/server/server.js ./server.js
+COPY --from=build /repo/packages/embed/dist ./embed
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 BODY_SIZE_LIMIT=210M
 USER node
 EXPOSE 3000

@@ -69,6 +69,8 @@ export interface CreateInput {
   /** project the page belongs to and the preset applied (D-123, D-125) */
   projectId?: string | null;
   maskingPreset?: 'staging' | 'production' | 'none' | null;
+  /** link access; left out: the workspace default (J-120). The embed passes `workspace` (D-211). */
+  access?: ShareAccess;
 }
 
 /**
@@ -84,7 +86,7 @@ export async function createCaptureRecord(db: Db, input: CreateInput): Promise<{
     return { id: existing.id, shareUrl: await primaryShareUrl(db, existing, existing.authorUserId), uploadToken: mintUploadToken(existing.id), created: false };
   }
   const folderId = await checkFolder(db, input.folderId, input.organizationId);
-  const access = await defaultAccessOf(db, input.organizationId);
+  const access = input.access ?? (await defaultAccessOf(db, input.organizationId));
   const [rec] = await db
     .insert(recording)
     .values({

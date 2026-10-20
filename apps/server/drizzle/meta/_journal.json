@@ -92,6 +92,13 @@
       "when": 1792255543634,
       "tag": "0012_project_origin_added_by",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792530786870,
+      "tag": "0013_project_embed_key",
+      "breakpoints": true
     }
   ]
 }

@@ -20,6 +20,7 @@ export function projectDto(r: Row): Project {
     maskingPreset: r.maskingPreset,
     bodyAllowlist: r.bodyAllowlist,
     traceOpenMs: r.traceOpenMs,
+    embedKey: r.embedKey,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };

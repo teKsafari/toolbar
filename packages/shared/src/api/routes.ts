@@ -12,6 +12,7 @@ import { accountRoutes } from './account.ts';
 import { brandingRoutes } from './branding.ts';
 import { instanceSettingsRoutes } from './instance-settings.ts';
 import { projectRoutes } from './projects.ts';
+import { embedRoutes } from './embed.ts';
 import { serverCoreAreaRoutes } from './areas/server-core.ts';
 import { authAreaRoutes } from './areas/auth.ts';
 import { captureAreaRoutes } from './areas/capture.ts';
@@ -35,6 +36,7 @@ export const ROUTE_LIST = [
   ...brandingRoutes,
   ...instanceSettingsRoutes,
   ...projectRoutes,
+  ...embedRoutes,
   // per-area additions (src/api/areas/<area>.ts)
   ...serverCoreAreaRoutes,
   ...authAreaRoutes,

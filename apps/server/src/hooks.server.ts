@@ -8,6 +8,7 @@ import { env, assertSafeSecrets } from '#lib/server/env.ts';
 import { startWorker } from '#lib/server/jobs/worker.ts';
 import { bearerFrom, resolveApiToken } from '#lib/server/tokens.ts';
 import { apiGate } from '#lib/server/auth/http.ts';
+import { embedCors } from '#lib/server/embed/cors.ts';
 import { registerDashboard } from '#lib/server/dashboard/register.ts';
 import { markdownUrlOf, shareMarkdownResponse, wantsMarkdown } from '#lib/server/mcp/markdown.ts';
 import { restIdentityOfMcpToken } from '#lib/server/mcp/oauth.ts';
@@ -138,4 +139,5 @@ const brand: Handle = async ({ event, resolve }) => {
   return resolve(event, { transformPageChunk: ({ html }) => html.replace('%brand.head%', head) });
 };
 
-export const handle = sequence(securityHeaders, brand, authenticate, apiGate, shareMarkdown);
+// embedCors before apiGate: preflights carry no credentials, and error answers need the header too (D-211)
+export const handle = sequence(securityHeaders, embedCors, brand, authenticate, apiGate, shareMarkdown);

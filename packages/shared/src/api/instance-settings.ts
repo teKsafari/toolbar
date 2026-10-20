@@ -74,6 +74,7 @@ export const instanceValueSchemas = {
   transcribeMaxMinutes: z.number().min(0.1, 'At least 0.1 minutes').max(1440, 'At most 1440 minutes'),
   transcribeMonthlyMinutes: z.number().min(0, '0 or more minutes').max(10_000_000),
   recordingLinkRateLimit: z.number().int().min(1, 'At least 1').max(1000, 'At most 1000'),
+  embedRateLimit: z.number().int().min(1, 'At least 1').max(10_000, 'At most 10000'),
 } as const;
 
 export type InstanceKey = keyof typeof instanceValueSchemas;
@@ -209,6 +210,10 @@ export const INSTANCE_FIELDS: readonly InstanceFieldSpec[] = [
   {
     key: 'recordingLinkRateLimit', section: 'limits', kind: 'int', label: 'Recording link uploads', unit: 'per 10 min', env: [],
     hint: 'Recordings one address may start through one public recording link in 10 minutes.',
+  },
+  {
+    key: 'embedRateLimit', section: 'limits', kind: 'int', label: 'Embed captures', unit: 'per hour', env: [],
+    hint: 'Captures one address may start through one project embed key in an hour (D-211).',
   },
 ];
 

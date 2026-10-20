@@ -1,7 +1,11 @@
 // feedback.list and feedback.create: the reviewer toolbar's items on a capture (Part 2).
 import { json } from '@sveltejs/kit';
-import { ROUTES } from '@toolbar/shared/api';
-import { handle, jsonBody, memberAccess, viewerAccess } from '#lib/server/viewer/access.ts';
+import { ROUTES, UPLOAD_TOKEN_PREFIX } from '@toolbar/shared/api';
+import { db } from '#lib/server/db/index.ts';
+import { ApiFail, handle, jsonBody, memberAccess, viewerAccess } from '#lib/server/viewer/access.ts';
+import { captureAccess } from '#lib/server/share/access.ts';
+import { authorSnapshot } from '#lib/server/auth/author.ts';
+import { ApiError } from '#lib/server/share/http.ts';
 import { createFeedbackItems, listFeedbackItems } from '#lib/server/feedback/service.ts';
 import { mediaBase } from '#lib/server/viewer/detail.ts';
 
@@ -10,8 +14,23 @@ export const GET = handle(async (event) => {
   return json({ items: await listFeedbackItems(ctx.rec.id, mediaBase(ctx.rec, ctx)) });
 });
 
+// A member (creator or more), or the capture's own upload token (the embed, D-211): then the
+// items take the capture's author snapshot.
 export const POST = handle(async (event) => {
+  const bearer = (event.request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
+  if (bearer.startsWith(UPLOAD_TOKEN_PREFIX)) {
+    let rec;
+    try {
+      ({ rec } = await captureAccess(db, event, event.params.id!, { mode: 'upload', role: 'creator', own: true }));
+    } catch (e) {
+      if (e instanceof ApiError) throw new ApiFail(e.status, e.code, e.message);
+      throw e;
+    }
+    const body = await jsonBody(event.request, ROUTES['feedback.create'].body);
+    const who = { userId: rec.authorUserId, name: rec.authorName, email: rec.authorEmail, issuer: rec.authorIssuer, subject: rec.authorSubject };
+    return json({ items: await createFeedbackItems(rec, who, body.items) }, { status: 201 });
+  }
   const ctx = await memberAccess(event, event.params.id!, 'creator');
   const body = await jsonBody(event.request, ROUTES['feedback.create'].body);
-  return json({ items: await createFeedbackItems(ctx.rec, ctx.user!.id, body.items) }, { status: 201 });
+  return json({ items: await createFeedbackItems(ctx.rec, await authorSnapshot(db, ctx.user!.id), body.items) }, { status: 201 });
 });

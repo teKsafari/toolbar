@@ -55,6 +55,8 @@ export const projectSchema = z.object({
   bodyAllowlist: z.array(z.string()),
   /** traces: an action's span closes this long after it started while requests are still open */
   traceOpenMs: z.number().int(),
+  /** the public embed key (D-211); null while the embed is off */
+  embedKey: z.string().nullable(),
   createdAt: isoSchema,
   updatedAt: isoSchema,
 });
