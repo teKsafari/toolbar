@@ -67,7 +67,6 @@ Results from Claude Code, Codex and opencode on real bugs: `docs/agent-handoff-r
 
 - `docs/branding.md`: name, logo, accent, branded extension builds
 - `docs/extension-release.md`: zips, store item, managed policy, Firefox
-- `docs/injector-on-coolify.md`: the optional injector, for reviewers without the extension
 - `docs/scope.md`: what is in scope and what is paused (trackers, Slack, CLI, mail, AI text)
 - `docs/dev.md`: layout, ports, dev stack, tests
 - `docs/architecture.md`, `docs/decisions.md`: design and decision log

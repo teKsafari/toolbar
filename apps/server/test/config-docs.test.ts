@@ -59,18 +59,6 @@ function codeVars(): Map<string, string> {
   return found;
 }
 
-/** Variables the injector container (Go) reads: env("X", ...) and os.Getenv("X") (D-167). */
-function injectorVars(): Map<string, string> {
-  const found = new Map<string, string>();
-  const dir = 'apps/injector';
-  for (const f of readdirSync(join(root, dir)).filter((x) => x.endsWith('.go') && !x.endsWith('_test.go'))) {
-    const s = read(`${dir}/${f}`);
-    for (const m of s.matchAll(/\b(?:env|os\.Getenv|os\.LookupEnv)\(\s*"([A-Z][A-Z0-9_]*)"/g)) if (!found.has(m[1]!)) found.set(m[1]!, `${dir}/${f}`);
-  }
-  for (const m of read('deploy/injector/docker-compose.injector.yml').matchAll(/(?<!\$)\$\{([A-Z][A-Z0-9_]*)/g)) if (!found.has(m[1]!)) found.set(m[1]!, 'deploy/injector/docker-compose.injector.yml');
-  return found;
-}
-
 /** Variables the Agent Skill tells the agent's shell to set: $TOOLBAR_* in SKILL.md and the served copy. */
 function agentVars(): Map<string, string> {
   const found = new Map<string, string>();
@@ -174,10 +162,8 @@ describe('docs/configuration.md', () => {
     expect(missing).toEqual([]);
   });
 
-  it('documents every variable the injector container and the agent side read', () => {
-    const inj = injectorVars();
-    expect(inj.size).toBeGreaterThan(5);
-    const missing = [...inj, ...agentVars()].filter(([n]) => !names.has(n)).map(([n, f]) => `${n} (${f})`);
+  it('documents every variable the agent side reads', () => {
+    const missing = [...agentVars()].filter(([n]) => !names.has(n)).map(([n, f]) => `${n} (${f})`);
     expect(missing).toEqual([]);
   });
 
@@ -188,7 +174,7 @@ describe('docs/configuration.md', () => {
   });
 
   it('lists no variable that nothing reads', () => {
-    const known = new Set([...codeVars().keys(), ...composeVars().keys(), ...envExampleVars(), ...injectorVars().keys(), ...agentVars().keys(), ...COMPOSE_OWN]);
+    const known = new Set([...codeVars().keys(), ...composeVars().keys(), ...envExampleVars(), ...agentVars().keys(), ...COMPOSE_OWN]);
     const scripts = scriptText();
     const stale = [...names].filter((n) => !known.has(n) && !new RegExp(`\\b${n}\\b`).test(scripts));
     expect(stale).toEqual([]);
@@ -243,35 +229,6 @@ describe('docs/configuration.md', () => {
     const wrong = INSTANCE_FIELDS.flatMap((f) => f.env).filter((n) => !/Settings > Server/.test(where.get(n) ?? ''));
     expect(wrong).toEqual([]);
     for (const n of REQUIRED) expect(where.get(n), n).toBe('Required');
-  });
-
-  it('keeps the injector Coolify files in step with each other and the Go code (D-201)', () => {
-    const inj = read('deploy/injector/docker-compose.injector.yml');
-    // Coolify asks for exactly the two values it cannot know
-    expect([...inj.matchAll(/\$\{([A-Z_]+):\?\}/g)].map((m) => m[1]).sort()).toEqual(['INJECTOR_SECRET', 'TOOLBAR_SERVER_URL']);
-    expect(inj).toMatch(/^ {6}INJECTOR_LOOPBACK: https:\/\/coolify-proxy:443$/m);
-    expect(inj).not.toMatch(/INJECTOR_UPSTREAMS?:|^\s+ports:/m);
-    // optional, off unless set: for a proxy without publicly trusted certificates (Cloudflare tunnel)
-    expect(inj).toMatch(/^ {6}INJECTOR_LOOPBACK_INSECURE: \$\{INJECTOR_LOOPBACK_INSECURE:-0\}$/m);
-    expect(inj).toMatch(/aliases:\n\s+- open-toolbar-injector\n/);
-    const traefik = read('deploy/injector/traefik-open-toolbar-injector.yml');
-    // the router reaches the alias on the injector's default port, and checks its health route
-    expect(traefik).toContain('url: http://open-toolbar-injector:8080');
-    expect(read('apps/injector/main.go')).toContain('env("INJECTOR_LISTEN", ":8080")');
-    expect(traefik).toContain('path: /__toolbar/health');
-    // one pass value, named in the rule and set by the middleware, filled in by the owner
-    const yamlLines = traefik.split('\n').filter((l) => !l.trimStart().startsWith('#'));
-    expect(yamlLines.filter((l) => l.includes('REPLACE_WITH_PASS_VALUE'))).toHaveLength(2);
-    expect(traefik).toContain('!Header(`X-Open-Toolbar-Pass`, `REPLACE_WITH_PASS_VALUE`)');
-    expect(traefik).toContain('X-Open-Toolbar-Pass: REPLACE_WITH_PASS_VALUE');
-    expect(read('apps/injector/loop.go')).toContain('const passHeader = "X-Open-Toolbar-Pass"');
-    // the cookie names the rule matches are the ones the injector sets
-    const cookie = read('apps/injector/cookie.go');
-    expect(cookie).toContain('cookieNameSecure = "__Host-tb_review"');
-    expect(cookie).toContain('cookieNamePlain  = "tb_review"');
-    expect(traefik).toContain('HeaderRegexp(`Cookie`, `(^|;\\s*)(__Host-)?tb_review=`)');
-    // the lab for a Coolify test needs no values
-    expect(read('deploy/lab/docker-compose.lab.yml')).not.toMatch(/\$\{(?!SERVICE_)/);
   });
 
   it('keeps mail out of the default and Coolify compose files (docs/scope.md, D-171)', () => {

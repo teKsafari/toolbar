@@ -41,7 +41,7 @@ export const recording = pgTable(
     access: text('access', { enum: ['anyone', 'workspace'] }).notNull().default('anyone'),
     /** Private capture (J-237): only its author and workspace admins see it. */
     private: boolean('private').notNull().default(false),
-    source: text('source', { enum: ['extension', 'recording-link', 'upload', 'cli', 'injector'] }).notNull().default('extension'),
+    source: text('source', { enum: ['extension', 'recording-link', 'upload', 'cli', 'embed'] }).notNull().default('extension'),
     /** Kept range in video time, applied by finalize-recording (J-227). */
     trim: jsonb('trim'),
     /** recording start to first video frame (architecture s4 "Clock") */

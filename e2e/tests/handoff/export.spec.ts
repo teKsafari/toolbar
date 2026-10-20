@@ -9,7 +9,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, expect, test, type Browser, type Page } from '@playwright/test';
-import { SERVER, injectorCapture, newAccount, screenshotCapture, waitReady } from './seed.ts';
+import { SERVER, embedCapture, newAccount, screenshotCapture, waitReady } from './seed.ts';
 import { browserEnv } from '../../fixtures/browser-env.ts';
 
 test.describe.configure({ mode: 'serial', timeout: 240_000 });
@@ -36,14 +36,14 @@ test.afterAll(async () => {
   rmSync(work, { recursive: true, force: true });
 });
 
-test('six captures reach the server: four injector replays and traces, a screenshot, one resolved', async () => {
+test('six captures reach the server: four embed replays and traces, a screenshot, one resolved', async () => {
   const r = page.request;
-  ids.push(await injectorCapture(r, token, ws, { kind: 'replay', title: 'Submit order does nothing', comment: 'I press submit order and the spinner never stops.', events: 'checkout' }));
-  ids.push(await injectorCapture(r, token, ws, { kind: 'trace', title: 'Submit order button gives no feedback', comment: 'Submit order fails quietly, no message at all.', events: 'submit' }));
-  ids.push(await injectorCapture(r, token, ws, { kind: 'replay', title: 'Details form rejects my address', comment: 'The details form says my address is invalid.', events: 'form', url: 'http://localhost:5173/form', pageTitle: 'Details' }));
-  ids.push(await injectorCapture(r, token, ws, { kind: 'trace', title: 'Checkout spinner after submit order', comment: 'Again the spinner on submit order.', events: 'checkout' }));
+  ids.push(await embedCapture(r, token, ws, { kind: 'replay', title: 'Submit order does nothing', comment: 'I press submit order and the spinner never stops.', events: 'checkout' }));
+  ids.push(await embedCapture(r, token, ws, { kind: 'trace', title: 'Submit order button gives no feedback', comment: 'Submit order fails quietly, no message at all.', events: 'submit' }));
+  ids.push(await embedCapture(r, token, ws, { kind: 'replay', title: 'Details form rejects my address', comment: 'The details form says my address is invalid.', events: 'form', url: 'http://localhost:5173/form', pageTitle: 'Details' }));
+  ids.push(await embedCapture(r, token, ws, { kind: 'trace', title: 'Checkout spinner after submit order', comment: 'Again the spinner on submit order.', events: 'checkout' }));
   ids.push(await screenshotCapture(r, token, ws, 'Price label overlaps the button'));
-  resolvedId = await injectorCapture(r, token, ws, { kind: 'replay', title: 'Login loop', comment: 'Login sends me back to login.', url: 'http://localhost:5173/login', pageTitle: 'Login' });
+  resolvedId = await embedCapture(r, token, ws, { kind: 'replay', title: 'Login loop', comment: 'Login sends me back to login.', url: 'http://localhost:5173/login', pageTitle: 'Login' });
   for (const id of [...ids, resolvedId]) await waitReady(r, token, id);
   await r.post(`${SERVER}/api/v1/recordings/${ids[0]}/comments`, { headers: { authorization: `Bearer ${token}` }, data: { body: 'Same here: submit order hangs on the checkout.' } });
   const res = await r.post(`${SERVER}/api/v1/recordings/${resolvedId}/resolve`, { headers: { authorization: `Bearer ${token}` }, data: { note: 'cookie path fixed' } });

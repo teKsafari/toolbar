@@ -1,8 +1,7 @@
 // Site access (D-200, D-203, D-205) against a throwaway Postgres database. The default is now
 // `projects` (D-203); the `all` cases set SITE_ACCESS=all. In `all` mode the first
 // capture on an origin makes its project (once, even under concurrent first captures), captures
-// are grouped by project, an admin merges projects (origins and captures move), the shared origin
-// helper for the injector follows the precedence rules, and the strict mode (SITE_ACCESS=projects)
+// are grouped by project, an admin merges projects (origins and captures move), and the strict mode (SITE_ACCESS=projects)
 // refuses an unlisted origin and makes nothing, and members add a site from the extension (D-205):
 // to a project or a new one, unless the workspace lets only admins; admins or the person who added
 // it remove it. Route handlers are called directly with the
@@ -222,31 +221,6 @@ describe.skipIf(!reachable)('site access (integration, D-200)', () => {
     expect((await projectsOf(ws)).find((p) => p.id === plain)?.origins).toEqual(['http://116.nuru.test']);
   });
 
-  it('reviewOriginAllowed: the shared origin check (contract for the injector)', async () => {
-    const all = await projectsOf(ws);
-    const nuru = all.find((p) => p.name === 'Nuru')!;
-    const staging = all.find((p) => p.name === 'Nuru staging')!;
-    const check = m.access.reviewOriginAllowed;
-    expect(await check(m.db, 'https://staging.nuru.test', maker.id)).toEqual({ allowed: true, projectId: staging.id, workspaceId: ws });
-    expect(await check(m.db, 'https://a.nuru.test/some/path?q', maker.id)).toEqual({ allowed: true, projectId: nuru.id, workspaceId: ws });
-    // no project yet: allowed in `all` mode, in the user's active workspace
-    expect(await check(m.db, 'https://brand-new.test', maker.id)).toEqual({ allowed: true, workspaceId: ws });
-    // never: the server itself, non-web origins, wildcards, garbage, someone in no workspace
-    const { env } = await import('../src/lib/server/env.ts');
-    for (const o of [env.publicUrl, 'chrome-extension://abc', 'https://*.nuru.test', 'not an origin', '', null]) expect(await check(m.db, o, maker.id), String(o)).toEqual({ allowed: false });
-    const loner = await mkUser('Loner');
-    expect(await check(m.db, 'https://staging.nuru.test', loner.id)).toEqual({ allowed: false });
-    // a project of a workspace the user is not in does not count
-    expect(await check(m.db, 'https://foreign.test', maker.id)).toEqual({ allowed: true, workspaceId: ws });
-    expect((await check(m.db, 'https://foreign.test', other.id)).projectId).toBeDefined();
-
-    // review cookies (D-157) still need a project that names the origin, in either mode
-    const review = await import('../src/lib/server/review/index.ts');
-    const e = { ...env, injector: { secret: 's'.repeat(40), origins: [], cookieDays: 7 } } as typeof env;
-    expect((await review.reviewAccess(m.db, maker.id, 'https://staging.nuru.test', e)).allowed).toBe(true);
-    expect(await review.reviewAccess(m.db, maker.id, 'https://brand-new.test', e)).toEqual({ allowed: false, reason: 'not_in_project' });
-  });
-
   it('the extension bootstrap carries the mode and each workspace’s new-project defaults', async () => {
     const b = await m.boot.extBootstrap(m.db, { id: maker.id, name: maker.name, email: maker.email, image: null }, { serverVersion: 'test' });
     // a creator may add sites unless the workspace lets only admins (D-205)
@@ -263,8 +237,6 @@ describe.skipIf(!reachable)('site access (integration, D-200)', () => {
       expect((await refused.json()).error).toBe('origin_not_allowed');
       expect((await projectsOf(ws)).length).toBe(before);
       expect((await capture(maker, 'https://staging.nuru.test/')).status).toBe(201);
-      expect(await m.access.reviewOriginAllowed(m.db, 'https://unlisted.test', maker.id)).toEqual({ allowed: false });
-      expect((await m.access.reviewOriginAllowed(m.db, 'https://staging.nuru.test', maker.id)).allowed).toBe(true);
       const b = await m.boot.extBootstrap(m.db, { id: maker.id, name: maker.name, email: maker.email, image: null }, { serverVersion: 'test' });
       expect(b.siteAccess?.mode).toBe('projects');
     } finally {

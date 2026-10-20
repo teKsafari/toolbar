@@ -1,5 +1,5 @@
-// Site access (D-200, D-203): which origins the extension, the submit check and the injector's
-// review links accept, and the project an origin belongs to. Two modes, an instance setting
+// Site access (D-200, D-203): which origins the extension, the submit check and the embed (D-211)
+// accept, and the project an origin belongs to. Two modes, an instance setting
 // (`siteAccess`, env SITE_ACCESS):
 //
 // - `projects` (default, D-203): only origins listed in a project; nothing is made automatically.
@@ -11,7 +11,7 @@
 //
 // Matching precedence everywhere: an exact origin before the most specific wildcard domain
 // (`@toolbar/shared/projects` projectForUrl). Every origin check on the server goes through this
-// module; the injector's review links call `reviewOriginAllowed`, whose signature is stable.
+// module.
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { autoProjectOf, LIMITS_PROJECT, mergeOrigins, pageOrigin, projectForUrl, type SiteAccessMode } from '@toolbar/shared/projects';
 import type { Db } from '../db/index.ts';
@@ -19,7 +19,7 @@ import { member, project, recording } from '../db/schema/index.ts';
 import { env } from '../env.ts';
 import { fail } from '../share/http.ts';
 import { setting } from '../settings/index.ts';
-import { activeWorkspaceId, getSettings, listWorkspaces, seatRole } from '../auth/workspaces.ts';
+import { getSettings, seatRole } from '../auth/workspaces.ts';
 import { projectDefaults } from '../projects.ts';
 
 type Row = typeof project.$inferSelect;
@@ -39,44 +39,6 @@ export function isServerUrl(url: string | null | undefined): boolean {
 async function projectsIn(db: Db, workspaceIds: string[]): Promise<Row[]> {
   if (!workspaceIds.length) return [];
   return db.select().from(project).where(inArray(project.organizationId, workspaceIds)).orderBy(asc(project.createdAt), asc(project.id));
-}
-
-export interface OriginAccess {
-  allowed: boolean;
-  /** the project whose origins cover this origin, when one does */
-  projectId?: string;
-  /** the project's workspace; in `all` mode without a project, the user's active workspace */
-  workspaceId?: string;
-}
-
-/**
- * May `userId` capture (or review through the injector) on `origin`, and under which project?
- *
- * - `origin` is a page origin (`https://staging.nuru.sh`, `http://localhost:5173`) or any URL on
- *   it; a path is ignored. Anything but http(s), a wildcard, or this server's own origin is
- *   refused.
- * - A project of one of the user's workspaces that covers the origin (exact origin first, then
- *   the most specific wildcard; on a tie the active workspace, then the oldest project) gives
- *   `{ allowed: true, projectId, workspaceId }`, in either mode.
- * - Otherwise `all` mode gives `{ allowed: true, workspaceId: <active workspace> }` (the first
- *   capture there makes the project), and `projects` mode `{ allowed: false }`.
- * - A user in no workspace is refused.
- *
- * Never throws for a bad origin; reads the database only.
- */
-export async function reviewOriginAllowed(db: Db, origin: string | null | undefined, userId: string): Promise<OriginAccess> {
-  const o = pageOrigin(origin);
-  if (!o || !userId || isServerUrl(o)) return { allowed: false };
-  const workspaces = await listWorkspaces(db, userId);
-  if (!workspaces.length) return { allowed: false };
-  const active = await activeWorkspaceId(db, userId, workspaces);
-  const rows = await projectsIn(db, workspaces.map((w) => w.id));
-  // the active workspace first, so it wins a tie of equally specific origins
-  const ordered = [...rows.filter((r) => r.organizationId === active), ...rows.filter((r) => r.organizationId !== active)];
-  const hit = projectForUrl(ordered, `${o}/`);
-  if (hit) return { allowed: true, projectId: hit.id, workspaceId: hit.organizationId };
-  if (siteAccessMode() === 'projects') return { allowed: false };
-  return { allowed: true, workspaceId: active ?? workspaces[0]!.id };
 }
 
 /**

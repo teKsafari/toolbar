@@ -38,7 +38,7 @@ describe('production preset', () => {
     expect(JSON.stringify(clicks[0])).not.toContain('Secret label');
   });
 
-  it('without awaitConfig sends at once (injector, tests)', async () => {
+  it('without awaitConfig sends at once (embed, tests)', async () => {
     document.body.innerHTML = '<button>Hi</button>';
     const t = new MemoryTransport();
     startIsolatedWorld({ transport: t, dom: false, env: false, batchMs: 5 });

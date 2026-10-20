@@ -42,7 +42,7 @@ export async function captureSummary(rec: RecordingRow, ctx: Pick<ViewerCtx, 'sh
     thumbUrl: rec.thumbKey ? `${base}/thumb` : null,
     workspaceId: rec.organizationId,
     folderId: rec.folderId,
-    source: rec.recordingLinkId ? 'recording-link' : rec.source === 'injector' ? 'injector' : 'extension',
+    source: rec.recordingLinkId ? 'recording-link' : rec.source === 'embed' ? 'embed' : 'extension',
     author: author
       ? { id: author.id, name: author.name, email: author.email, image: author.image }
       : rec.authorName

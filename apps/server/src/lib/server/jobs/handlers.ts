@@ -234,7 +234,7 @@ async function runFinalize(rec: typeof recording.$inferSelect, attempts: number)
         height = main.height;
       }
     }
-    // nothing to take a picture from (an injector capture, an older DOM-only replay): the placeholder card (D-184)
+    // nothing to take a picture from (an embed replay or trace, an older DOM-only replay): the placeholder card (D-184)
     if (!thumbKey) thumbKey = await putPlaceholder(rec);
   });
 

@@ -106,5 +106,5 @@ export async function deleteProject(db: Db, id: string): Promise<void> {
   await db.delete(project).where(eq(project.id, id));
 }
 
-// The origin check on submit, projects made by a first capture, merging and the injector's
-// origin check live in ./projects/access.ts (D-200).
+// The origin check on submit, projects made by a first capture, merging and the embed's origin
+// check live in ./projects/access.ts (D-200, D-211).

@@ -82,14 +82,14 @@ describe.skipIf(!reachable)('thumbnails for every kind (integration)', () => {
     )[0]!;
 
   it('the startup check enqueues one backfill; the job uses a sent still, else the placeholder', async () => {
-    // a DOM replay that sent a still (an 800x500 PNG), an injector trace without one, a deleted one
+    // a DOM replay that sent a still (an 800x500 PNG), an embed trace without one, a deleted one
     const withStill = await mk('replay');
     const png = await sharp({ create: { width: 800, height: 500, channels: 3, background: '#3366cc' } }).png().toBuffer();
     const [a] = await db.insert(schema.asset).values({ recordingId: withStill.id, kind: 'thumb', s3Key: '', contentType: 'image/png', bytes: png.byteLength, width: 800, height: 500 }).returning();
     const key = keys.asset(withStill.id, a!.id);
     await putObjectWith(key, png, { contentType: 'image/png' });
     await db.update(schema.asset).set({ s3Key: key }).where(eq(schema.asset.id, a!.id));
-    const bare = await mk('trace', { source: 'injector', pageTitle: 'Checkout' });
+    const bare = await mk('trace', { source: 'embed', pageTitle: 'Checkout' });
     const gone = await mk('replay', { deletedAt: new Date() });
 
     await handlers.ensureRecurringJobs(db);

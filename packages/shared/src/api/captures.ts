@@ -20,7 +20,7 @@ import { api, boolQuery, csvOf, defineRoute, idSchema, isoSchema, pageOf, pageQu
 // ---------- enums ----------
 
 /** Where a capture came from (J-160 source filter). */
-export const CAPTURE_SOURCES = ['extension', 'recording-link', 'upload', 'cli', 'injector'] as const;
+export const CAPTURE_SOURCES = ['extension', 'recording-link', 'upload', 'cli', 'embed'] as const;
 export type CaptureSource = (typeof CAPTURE_SOURCES)[number];
 
 /**

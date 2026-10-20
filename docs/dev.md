@@ -7,8 +7,7 @@ The product is open-toolbar (D-083); the repo and package scope are `toolbar`.
 | Path | Package | What it is |
 |---|---|---|
 | `apps/server` | `@toolbar/server` | SvelteKit 3 app (adapter-node): dashboard, share pages, `/api/v1`, Better Auth, job worker |
-| `apps/extension` | `@toolbar/extension` | WXT + Svelte 5 MV3 extension; `page/` is the injector's page bundle (`build:page`) |
-| `apps/injector` | `@toolbar/injector` | Go reverse proxy that injects the page bundle for signed-in reviewers (D-157); its `package.json` wraps `go build`, `go vet` and `go test`, so `pnpm -r` needs Go 1.26 |
+| `apps/extension` | `@toolbar/extension` | WXT + Svelte 5 MV3 extension |
 | `packages/shared` | `@toolbar/shared` | Event envelope and kinds, zod schemas, constants, ids; `/api` endpoint contracts and route table; `/ext` extension messaging, session state machine, storage keys |
 | `packages/capture` | `@toolbar/capture` | Page-side capture: `Transport`, MAIN/ISOLATED bridge, hook installers |
 | `packages/ui` | `@toolbar/ui` | Design tokens (`tokens.ts`, generated `tokens.css`, and `tokens.shadow.css` with `:host`-only `!important` values for the extension's in-page shadow roots), the accent derivation (`accent.ts`), bundled fonts (`fonts/`, `fonts.css`, `fonts.ts`; SIL OFL 1.1), icons, Svelte primitives (Button, Icon, Popover, Segmented, Switch, Toaster) |
@@ -38,8 +37,6 @@ Internal packages ship TypeScript source (`exports` point at `src/*.ts`); Vite a
 | 8025 | Mailpit inbox UI (override `docker-compose.mail.yml`, only for the paused mail) |
 | 1025 | Mailpit SMTP (`docker-compose.mail.yml`) |
 | 5173, 5174 | Lab app (user service `toolbar-lab`), second origin |
-| 3506 | Injector compose test (`apps/injector/test/run.sh`): the injector in front of the lab, and `csp.localhost:3506` for its strict-CSP page |
-| 3650, 3651, 3652 | Injector behind a Coolify-like Traefik (`apps/injector/test/coolify-like/run.sh`): the dev server it uses, the proxy's https and http ports (`lab.localhost`, `csp.localhost`, `whoami.localhost`) |
 | `:101`, `:120` | Xvfb displays for the area suites and the flows (`E2E_DISPLAY`); `:99` is the shared browser, never use it |
 | 9341, 9351 | CDP ports of the flows' browsers (the popup is reached over CDP) |
 
@@ -140,19 +137,6 @@ WXT's browser runner is off (`webExt.disabled`).
 Site access (D-123, D-126, D-200, D-202, D-203, D-205): release builds hold the server and `<all_urls>` as required host permissions. `SITE_ACCESS` decides where the capture scripts run: `projects` (default: only project origins; the worker keeps no webRequest metadata for other tabs; the popup's add row puts a site in a project and injects the scripts, `lib/bg/sites.ts`) or `all` (everywhere but the server and blocked sites; the first capture on an origin makes its project). The pill's X stores the origin in `tb:toolbar-closed` until the popup opens there. Test builds hold `<all_urls>` and ignore the mode unless storage key `tb:test-scope` is `release` or `projects`.
 
 The worker registers `content-scripts/capture-main.js` (MAIN) and `content-scripts/capture.js` (ISOLATED) at `document_start` for the allowed origins. The MAIN script installs the `@toolbar/capture` hooks and relays events over a private `MessageChannel`; the isolated script forwards them to the worker on the `capture` port and, in the top frame, mounts `<toolbar-root>` in a shadow root.
-
-## The injector
-
-```sh
-cd apps/injector && go test -race ./...      # unit tests: streaming injection, chunk boundaries, nonce, gzip, errors, cookie, relay
-pnpm --filter @toolbar/extension build:page  # the page bundle, apps/extension/.output/page/toolbar.js
-apps/injector/test/run.sh                    # compose test: builds the image, runs e2e/injector in a browser without the extension
-apps/injector/test/coolify-like/run.sh       # the same behind traefik:v3.7 set up like Coolify's (D-201)
-```
-
-`run.sh` reads the repo root `.env` and needs a server on `SERVER_URL` (default http://localhost:3306) with `INJECTOR_SECRET` and the mock OIDC provider; the container reaches it as `host.docker.internal`.
-
-`coolify-like/run.sh` needs a dev server on `SERVER_URL` (default http://localhost:3650) with `INJECTOR_SECRET` and the mock OIDC provider, and Xvfb. It renders the Traefik file into `apps/injector/test/coolify-like/dynamic/` (git-ignored, self-signed certificate), builds the lab and injector images and runs `e2e/injector/coolify.spec.ts` headed on `E2E_DISPLAY` (default `:350`). `KEEP=1` leaves the stack up; `docker compose -f apps/injector/test/coolify-like/docker-compose.yml down` stops it.
 
 ## E2E
 

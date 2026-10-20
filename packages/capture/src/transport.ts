@@ -1,5 +1,5 @@
 // The only exit of the capture code (architecture section 2). The extension implements it
-// with chrome.runtime ports; the Part 2 injector implements it with fetch to the server.
+// with chrome.runtime ports; the embed (packages/embed) implements it with fetch to the server.
 import type { CaptureEvent, MaskingPreset } from '@toolbar/shared';
 import type { BodyPolicy } from '@toolbar/shared/projects';
 

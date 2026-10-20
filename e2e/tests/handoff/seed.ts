@@ -1,7 +1,7 @@
 // Seeding for the bulk export and thumbnail specs (D-183, D-184): a fresh account through the
 // mock OIDC provider (its own workspace, on a domain no other test uses), a personal token, and
-// captures made over the HTTP API the way the injector's page bundle makes them
-// (apps/extension/page/session.ts): source "injector", events and rrweb streams as gzipped
+// captures made over the HTTP API the way the embed's page bundle makes them
+// (packages/embed, session.ts): source "embed", events and rrweb streams as gzipped
 // NDJSON chunks, finalize with the reviewer's words. No still is sent, so the server draws the card.
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -56,8 +56,8 @@ export interface Seed {
   pageTitle?: string;
 }
 
-/** One capture as the injector's page bundle makes it; returns its id once the server took it. */
-export async function injectorCapture(request: APIRequestContext, token: string, workspaceId: string, s: Seed): Promise<string> {
+/** One capture as the embed's page bundle makes it; returns its id once the server took it. */
+export async function embedCapture(request: APIRequestContext, token: string, workspaceId: string, s: Seed): Promise<string> {
   const auth = { authorization: `Bearer ${token}` };
   const t0 = Date.now() - 90_000;
   const url = s.url ?? 'http://localhost:5173/checkout';
@@ -65,7 +65,7 @@ export async function injectorCapture(request: APIRequestContext, token: string,
   const lastT = events.length ? Math.max(...events.map((e) => e.t)) : t0 + 5000;
   const created = await request.post(`${SERVER}/api/v1/recordings`, {
     headers: auth,
-    data: { clientId: crypto.randomUUID(), kind: s.kind, workspaceId, page: { url, title: s.pageTitle ?? 'Lab checkout' }, startedAt: t0, source: 'injector', durationMs: lastT - t0 },
+    data: { clientId: crypto.randomUUID(), kind: s.kind, workspaceId, page: { url, title: s.pageTitle ?? 'Lab checkout' }, startedAt: t0, source: 'embed', durationMs: lastT - t0 },
   });
   expect(created.ok(), await created.text()).toBe(true);
   const { id } = (await created.json()) as { id: string };

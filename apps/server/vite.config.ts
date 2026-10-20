@@ -54,10 +54,9 @@ export default defineConfig({
     }),
   ],
   // DEV_PORT lets area worktrees run side by side (docs/parallel.md: 3100 + area index).
-  // host.docker.internal: containers on this machine (the injector's compose test) call the dev server.
   // fs.allow: Kit allows only src/ and node_modules/, so `vite dev` answered 403 for the bundled
   // fonts that packages/ui/src/fonts.css points at, and pages fell back to system faces.
-  server: { port: devPort, strictPort: true, host: true, allowedHosts: ['host.docker.internal'], fs: { allow: [FONT_DIR.pathname] } },
+  server: { port: devPort, strictPort: true, host: true, fs: { allow: [FONT_DIR.pathname] } },
   preview: { port: devPort, strictPort: true },
   test: { include: ['src/**/*.test.ts', 'test/**/*.test.ts'], environment: 'node' },
 });

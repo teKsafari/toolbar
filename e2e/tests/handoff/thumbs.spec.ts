@@ -1,14 +1,14 @@
 // Card images for every capture kind (D-184) against a real server (SERVER_URL) with the mock
 // OIDC provider: the extension makes a screenshot, a tab video, an instant replay without video
-// and a trace on the lab app; an injector capture comes over the HTTP API as the page bundle
+// and a trace on the lab app; an embed capture comes over the HTTP API as the page bundle
 // sends it (no still). Each one shows a loaded image in the dashboard grid: the screenshot, the
 // video's poster frame, the stills the extension sent for the replay and the trace (the
-// viewport's shape), and the placeholder card for the injector capture (640x400). The last test
+// viewport's shape), and the placeholder card for the embed capture (640x400). The last test
 // checks the production preset's mask on a still: the text of a lab button is painted over.
 //   SERVER_URL=http://localhost:3550 E2E_DISPLAY=:250 npx playwright test tests/handoff/thumbs.spec.ts
 import type { Page, Worker } from '@playwright/test';
 import { LAB_URL, expect, session, setSettings, sleep, svc, tabIdOf, test } from '../capture/helpers.ts';
-import { SERVER, injectorCapture, newAccount, waitReady } from './seed.ts';
+import { SERVER, embedCapture, newAccount, waitReady } from './seed.ts';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const chrome: any;
@@ -108,8 +108,8 @@ test('every capture kind gets a card image in the dashboard grid', async ({ tabB
   await sleep(1500);
   ids.trace = (await tb<{ recordingId: string }>(sw, 'trace.stop', { open: false })).recordingId;
 
-  // injector capture: events and rrweb over the HTTP API, no still
-  ids.injector = await injectorCapture(page.request, token, workspaceId, { kind: 'replay', title: 'Thumbs: injector', comment: 'From the injector', events: 'submit' });
+  // embed capture: events and rrweb over the HTTP API, no still
+  ids.embed = await embedCapture(page.request, token, workspaceId, { kind: 'replay', title: 'Thumbs: embed', comment: 'From the embed', events: 'submit' });
 
   for (const id of Object.values(ids)) await waitReady(page.request, token, id);
 
@@ -124,7 +124,7 @@ test('every capture kind gets a card image in the dashboard grid', async ({ tabB
     expect(sizes[k]!.w, `${k} card width`).toBeLessThanOrEqual(640);
     expect(sizes[k]!.h, `${k} is not the 640x400 placeholder: ${JSON.stringify(sizes[k])}`).not.toBe(400);
   }
-  expect(sizes.injector).toMatchObject({ w: 640, h: 400 });
+  expect(sizes.embed).toMatchObject({ w: 640, h: 400 });
   await grid.screenshot({ path: test.info().outputPath('grid.png') });
   await Promise.all([setup.close(), page.close(), grid.close()]);
 });

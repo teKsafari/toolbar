@@ -187,15 +187,9 @@ These come from the owner's research. Apply them in step 4.
 
 ### Zero integration
 
-- No package, script tag or config in each app. The tool must work on an app without any change to that app.
+- No package, script tag or config in each app. The tool must work on an app without any change to that app. The embed (delivery 2, D-210) is the opt-in exception.
 - **Delivery 1, now: the browser extension.** It asks for host permissions only for the project's origins, which it gets from the server after sign-in (`optional_host_permissions`, then `chrome.permissions.request` from a click, then `chrome.scripting.registerContentScripts` for those origins only). The competitors ask for all sites; this tool must not.
-- **Delivery 2, after the extension works: the injector.** A small Go or Rust proxy container on the Coolify server. Traefik sends only chosen hosts to it, through a high-priority router in a file in `/data/coolify/proxy/dynamic/`. It adds the toolbar to HTML pages only for requests with a signed reviewer cookie. Requirements:
-  - it streams the HTML (use lol-html or similar) and changes only the `<head>`;
-  - it asks the app for uncompressed responses and passes through everything that is not plain HTML;
-  - it reuses the CSP nonce from the response header on its script tag, and serves the toolbar from `/__toolbar/` on the same origin;
-  - it honors an `x-review-skip` header for automated tests;
-  - on any error, it passes the response through without change.
-  Do not use a Traefik plugin on the whole entry point; Traefik plugins buffer full responses and would sit in front of every app, Coolify's dashboard included. Do not use a separate review domain; it breaks app logins.
+- **Delivery 2: the embed (D-210, amends the rule above).** The injector proxy planned here was cancelled and removed. For reviewers who cannot install the extension, a site owner opts in with a script tag (`<script src="<server>/embed.js" data-key="tbk_...">`) or the `@open-toolbar/embed` package. The key is public and per project, bound to the project's origins and rate-limited (D-211); reviewers need no account. The extension still needs no change to the app.
 - **Delivery 3, later and for developers only:** a review browser started from the CLI that uses the same scripts.
 - Distribution: an unlisted Chrome Web Store item for testers; a signed unlisted Firefox add-on from AMO in a later phase; Safari later.
 

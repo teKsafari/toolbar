@@ -53,5 +53,5 @@ All five items of PLAN "Part 2, step 5" are done on main. Gate 5 waits on the ow
 - Production: open-toolbar on Coolify (Lab), https://toolbar.teksafari.com, Google OIDC, builds from main via the GitHub app webhook (never deploy through the API).
 - Extension: store item laobpjhffglefallhhojihfdbdkoendk, private to teKsafari; 0.1.0 published, 0.1.4 (required all-sites access, managed serverUrl policy) in review with auto-publish. GitHub releases up to v0.1.4.
 - Site access: all sites by default with automatic per-origin projects and merging; strict mode is an admin setting (D-200, D-202).
-- Injector: removed from production by the owner; code stays as an optional delivery (docs/injector-on-coolify.md). Parity with the extension toolbar not planned; if clients review through it, add element screenshot, voice note and text highlight only.
+- Injector: cancelled and removed from the repo (D-210). Delivery 2 is the embed: a script tag or npm package with a public project key (D-211), the extension's reviewer toolbar shared through a platform adapter (D-212).
 - Docs: concise reference style (owner preference).

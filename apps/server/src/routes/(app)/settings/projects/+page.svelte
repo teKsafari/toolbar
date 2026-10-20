@@ -9,7 +9,6 @@
   import Section from '#lib/components/dashboard/Section.svelte';
   import Modal from '#lib/components/dashboard/Modal.svelte';
   import Confirm from '#lib/components/dashboard/Confirm.svelte';
-  import ReviewLinks from '#lib/components/dashboard/ReviewLinks.svelte';
   import MergeProjects from '#lib/components/dashboard/MergeProjects.svelte';
   import Field from '#lib/components/dashboard/Field.svelte';
   import Switch from '#lib/components/dashboard/Switch.svelte';
@@ -101,11 +100,6 @@
     A project is a web app your team reviews. The extension runs on project origins only. To add a site, open it and click the extension icon.
   {/if}
 </p>
-{#if data.reviewLinks}
-  <p class="muted lead" data-testid="review-links-hint">
-    Each origin also has a review link. Whoever opens it signs in and lands on the site with the toolbar, no extension needed. The site must be behind the injector.
-  </p>
-{/if}
 
 <Section title="Projects in this workspace" testid="projects-section">
   {#if !data.projects.length}
@@ -120,7 +114,6 @@
       <ul class="chips" data-testid="project-origins">
         {#each p.origins as o (o)}<li><code>{o}</code></li>{/each}
       </ul>
-      {#if data.reviewLinks?.[p.id]}<ReviewLinks links={data.reviewLinks[p.id] ?? []} />{/if}
       {#if p.maskingPreset === 'production'}
         <p class="small muted">
           {p.bodyAllowlist.length ? `Bodies kept for ${p.bodyAllowlist.length} allowlisted ${p.bodyAllowlist.length === 1 ? 'URL' : 'URLs'}` : 'No request or response bodies are kept'}

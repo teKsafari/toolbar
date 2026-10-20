@@ -8,7 +8,6 @@
   import FilterBar from '#lib/components/dashboard/FilterBar.svelte';
   import MergeProjects from '#lib/components/dashboard/MergeProjects.svelte';
   import DIcon from '#lib/components/dashboard/DIcon.svelte';
-  import ReviewLinks from '#lib/components/dashboard/ReviewLinks.svelte';
   import { api, errMsg } from '#lib/components/dashboard/api.ts';
 
   let { data } = $props();
@@ -85,7 +84,6 @@
           </li>
         {/if}
       </ul>
-      {#if data.reviewLinks?.length}<div class="reviewlinks"><ReviewLinks links={data.reviewLinks} /></div>{/if}
       {#if data.admin}<p class="hint"><code>*.example.com</code> covers example.com and every subdomain, over https; add <code>http://*.example.com</code> for http. An exact origin wins over a domain when both match.</p>{/if}
       {#if total !== 0 || loading}<FilterBar members={data.dash.members} />{/if}
     {/snippet}
@@ -116,7 +114,6 @@
   .x:focus-visible { outline: 2px solid var(--nb-focus); }
   form { display: flex; gap: 6px; width: 100%; }
   form input { flex: 1; min-width: 0; height: 28px; padding: 0 8px; font: var(--nb-text-sm) var(--nb-font-mono, monospace); }
-  .reviewlinks { margin: 4px 0 12px; }
   .hint { margin: 0 0 16px; font-size: var(--nb-text-sm); color: var(--nb-text-muted); }
   .empty h2 { margin: 6px 0 0; color: var(--nb-text); }
   .empty p { margin: 0 0 8px; overflow-wrap: anywhere; }

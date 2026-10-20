@@ -1,6 +1,6 @@
 // The card image of a capture that has no picture to take one from (D-184): a DOM-only replay or
-// a trace without a keyframe from before the extension sent stills, and injector captures, whose
-// page bundle cannot take a screenshot. Drawn as SVG and rasterised with sharp (librsvg): a
+// a trace without a keyframe from before the extension sent stills, and embed replays and traces,
+// whose page bundle cannot take a screenshot of the page. Drawn as SVG and rasterised with sharp (librsvg): a
 // browser window with the page's host in the address bar, the capture kind, the page title and
 // the path. Light palette of @toolbar/ui (D-175), 640x400 like the other thumbnails (16:10, the
 // grid card's ratio); the lower band stays empty for the card's author and duration chips.

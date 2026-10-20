@@ -1,7 +1,7 @@
 // Completes the page's part of a locator packet (D-128, D-164): candidate route files from the
 // app's SvelteKit route table and the console errors of the last minute with stacks mapped
 // through the app's source maps. Shared by the extension's service worker (`locator.capture`,
-// which the reviewer toolbar calls for each note) and the injector's page bundle, which runs in
+// which the reviewer toolbar calls for each note) and the embed's page bundle, which runs in
 // the page and fetches with the fetch it saved before the capture hooks.
 import type { CaptureEvent, ConsoleEntry, PageError } from './events.ts';
 import { candidateRouteFiles, kitBaseFromEntry, parseRouteDictionary, stripBase, type KitRoute, type LocatorError, type LocatorPacket } from './locator.ts';

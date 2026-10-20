@@ -2,7 +2,7 @@
 
 Six variables are required. Everything else is optional, and most of it lives in Settings > Server; a variable that backs a Settings > Server field wins over the stored value and locks the field.
 
-`apps/server/test/config-docs.test.ts` checks this page against the code, the instance settings, the injector, the Agent Skill, the compose files and `.env.example`: every variable read needs a row here and a place in [Where each setting lives](#where-each-setting-lives), and no row may name an unread variable.
+`apps/server/test/config-docs.test.ts` checks this page against the code, the instance settings, the Agent Skill, the compose files and `.env.example`: every variable read needs a row here and a place in [Where each setting lives](#where-each-setting-lives), and no row may name an unread variable.
 
 ## The basic deployment
 
@@ -56,6 +56,7 @@ D-194. **Required**: boots the server. **Wiring**: filled in by compose or Cooli
 | (no variable) masking preset and trace step window for new projects | Settings > Server, Capture defaults, and Workspace | Instance defaults that each workspace admin can replace for their workspace. |
 | `SHARE_LINK_DAYS`, `EXPORT_MAX_MB`, `SUPPORT_RECORDING_LINK` | Settings > Server, Sharing and export | Policies read per request. |
 | (no variable) recording link uploads per address | Settings > Server, Limits | Abuse limit of the public recording links, read per request. |
+| (no variable) embed captures per address and key | Settings > Server, Limits | Abuse limit of the embed keys (D-211), read per request. |
 | `APP_NAME`, `APP_LOGO_URL`, `APP_LOGO_DARK_URL`, `APP_ACCENT` | Settings > Server, Branding | Already admin settings (D-112). |
 | `EXTENSION_IDS`, `EXTENSION_GECKO_IDS` | Optional environment | Read once at start; only a self-built extension needs them. |
 | `OIDC_DISCOVERY_URL`, `OIDC_PROVIDER_ID` | Optional environment | Part of the provider set at start; changing the id unlinks every account. |
@@ -63,13 +64,11 @@ D-194. **Required**: boots the server. **Wiring**: filled in by compose or Cooli
 | `S3_PUBLIC_URL`, `S3_KEY_PREFIX`, `POSTGRES_PORT`, `S3_PORT` | Optional environment | Storage layout and host ports, fixed per deployment. |
 | `WHISPER_MODEL`, `WHISPER_PORT` | Optional environment | Settings of the whisper container, which downloads the model at its first start. |
 | `OCR_BIN`, `OCR_LANGS`, `FFMPEG_PATH`, `FFPROBE_PATH` | Optional environment | Depend on what the image installs. |
-| `INJECTOR_SECRET`, `INJECTOR_ORIGINS`, `INJECTOR_COOKIE_DAYS` | Optional environment | Deployed together with the injector container, whose secret must match. |
 | `COMPOSE_PROFILES` | Optional environment | Docker Compose's own switch; on Coolify it starts the whisper service. |
 | `AUTH_DEV_PASSWORD`, `AUTH_RATE_LIMIT`, `OIDC_MOCK_PORT`, `DEV_PORT`, `SERVER_URL`, `PROTOCOL_HEADER`, `HOST_HEADER` | Dev and tests | Password sign-in and rate limits off would weaken a real server; `docker-compose.dev.yml` and `pnpm dev` pass them. |
 | `FEATURE_EMAIL`, `FEATURE_TRACKERS`, `FEATURE_SLACK`, `FEATURE_CLI`, `FEATURE_AI`, `FEATURE_ADMIN_EXTRAS`, `CLI_BUNDLE_PATH`, `AUTH_MAGIC_LINK` | Paused | Features paused by docs/scope.md; the flags stay in the code. |
 | `SMTP_URL`, `MAIL_FROM`, `SMTP_PORT`, `MAILPIT_UI_PORT` | Paused | Mail, only through `docker-compose.mail.yml`. |
 | `AI_PROVIDER`, `AI_BASE_URL`, `AI_MODEL`, `AI_API_KEY`, `AI_TIMEOUT_MS` | Paused | AI text, only with `FEATURE_AI`. |
-| `INJECTOR_LOOPBACK`, `INJECTOR_LOOPBACK_INSECURE`, `INJECTOR_UPSTREAMS`, `INJECTOR_UPSTREAM`, `TOOLBAR_SERVER_URL`, `TOOLBAR_PUBLIC_URL`, `INJECTOR_TRUST_FORWARDED`, `INJECTOR_SCAN_LIMIT`, `INJECTOR_LISTEN`, `INJECTOR_ASSETS` | Injector container | Read by the injector, never by this server. |
 | `TOOLBAR_SERVER`, `TOOLBAR_TOKEN` | Agent side | Read by the coding agent's shell. |
 | `WXT_SERVER_URL`, `WXT_APP_NAME`, `WXT_APP_ICON`, `WXT_MANIFEST_KEY`, `WXT_GECKO_ID`, `RELEASE_TAG`, `FIREFOX`, `WXT_DEV_PORT`, `WXT_TEST_HOOKS`, `WXT_OUT_SUFFIX` | Build | Read when you build the extension. |
 
@@ -83,7 +82,7 @@ Instance admins only (others get 404). Each section saves only changed fields; a
 | Transcription | Provider (off, local whisper.cpp, an OpenAI-compatible endpoint), API key, model, endpoint, whisper.cpp URL, languages, timestamps, chunk length, parallel requests, with Test connection |
 | Capture defaults | Site access (project sites only, or all sites), masking preset and trace step window for new projects, longest recording |
 | Sharing and export | Share link lifetime, export page size, the extension's "report a problem" link |
-| Limits | Longest audio transcribed, hosted transcription minutes per month, recording link uploads per address in 10 minutes |
+| Limits | Longest audio transcribed, hosted transcription minutes per month, recording link uploads per address in 10 minutes, embed captures per address and key in an hour (default 60) |
 
 - **Precedence**: variable (field shows "Set by environment"; the API answers `locked_by_env`), then stored value, then default.
 - **No restart**: other replicas re-read within 15 seconds.
@@ -330,33 +329,6 @@ Paused with `FEATURE_AI` (D-084). Any OpenAI-compatible chat endpoint.
 | `AI_MODEL` | `llama3.2` | `qwen2.5:7b` | The chat model. |
 | `AI_API_KEY` | empty | `sk-...` | Bearer token, when the endpoint needs one. |
 | `AI_TIMEOUT_MS` | `20000` | `60000` | Per-request timeout. |
-
-## Injector
-
-Optional, not part of the default deployment (`apps/injector/README.md`, [docs/injector-on-coolify.md](injector-on-coolify.md), D-157, D-201). This table is for the server; the next is for the injector container. `INJECTOR_SECRET` goes in both.
-
-| Variable | Default | Example | Purpose and when to change |
-|---|---|---|---|
-| `INJECTOR_SECRET` | empty | output of `openssl rand -base64 48` | Both sides, same value, 32+ characters: signs reviewer cookies and derives the `X-Open-Toolbar-Pass` value (`/injector pass-value`). Empty on the server: review links off. Empty on the injector: pass-through; too short: exits. Changing it signs reviewers out and changes the pass value. |
-| `INJECTOR_ORIGINS` | empty | `https://nuru.example.org` | Allowlist on top of project origins. Empty: every project origin. |
-| `INJECTOR_COOKIE_DAYS` | `7` | `30` | Reviewer cookie and device token lifetime, 1 to 90. Tokens show as "Review on <host>" under Settings, Connected browsers. |
-
-### Injector container
-
-Read by `apps/injector` only. It exits at start on a malformed URL or with none of `INJECTOR_LOOPBACK`, `INJECTOR_UPSTREAMS`, `INJECTOR_UPSTREAM` set. Routing order: `INJECTOR_UPSTREAMS` entry, then `INJECTOR_LOOPBACK`, then `INJECTOR_UPSTREAM`.
-
-| Variable | Default | Example | Purpose and when to change |
-|---|---|---|---|
-| `INJECTOR_LOOPBACK` | empty | `https://coolify-proxy:443` | Loopback mode (D-201): the proxy to send reviewer requests back to, with the original `Host` and SNI and no reviewer cookie. Use https on Coolify. |
-| `INJECTOR_LOOPBACK_INSECURE` | `0` | `1` | `1` skips the certificate check on the loopback hop, for a proxy without publicly trusted certificates. |
-| `INJECTOR_UPSTREAMS` | empty | `nuru.example.org=http://nuru-app:3000,admin.nuru.example.org=http://nuru-admin:3000` | Explicit mode: `host=url` pairs (comma, space or newline separated; host case-insensitive, no port). |
-| `INJECTOR_UPSTREAM` | empty | `http://nuru-app:3000` | Explicit mode: the app for unlisted hosts when `INJECTOR_LOOPBACK` is empty. |
-| `TOOLBAR_SERVER_URL` | empty | `https://toolbar.example.org` | The server as the container reaches it, for upload relay and token revocation. Empty: uploads answer 503. Required in the Coolify file. |
-| `TOOLBAR_PUBLIC_URL` | `TOOLBAR_SERVER_URL` | `https://feedback.example.org` | The server's `PUBLIC_URL`, for `/__toolbar/login`. Set it when `TOOLBAR_SERVER_URL` is internal. |
-| `INJECTOR_TRUST_FORWARDED` | `1` | `0` | Trust `X-Forwarded-Proto` and `X-Forwarded-Host`. `0` when browsers reach the injector directly. |
-| `INJECTOR_SCAN_LIMIT` | `262144` (256 KB) | `524288` | Bytes scanned for `<head>` before passing the page through unchanged. |
-| `INJECTOR_LISTEN` | `:8080` | `127.0.0.1:9090` | Listen address. Update `deploy/injector/traefik-open-toolbar-injector.yml` to match. |
-| `INJECTOR_ASSETS` | `/srv/toolbar` | `/opt/toolbar` | Folder holding the page bundle `toolbar.js`. |
 
 ## Agent side
 

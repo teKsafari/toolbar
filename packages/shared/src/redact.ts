@@ -1,5 +1,5 @@
 // Redaction applied in the isolated world before an event leaves the page (architecture s10,
-// J-185 to J-187). Pure functions, no DOM: the extension, the Part 2 injector and the server's
+// J-185 to J-187). Pure functions, no DOM: the extension, the embed and the server's
 // tests share them. Owned by the capture area.
 import type { CaptureEvent, Headers } from './events.ts';
 import { REDACT_HEADER_RE } from './constants.ts';
