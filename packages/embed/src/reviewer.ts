@@ -34,7 +34,8 @@ export class ReviewerStore implements ReviewerIdentity {
   private site: { name?: string; email?: string };
 
   constructor(site: { name?: string; email?: string } = {}, private storage: Storage | null = local()) {
-    this.site = { name: clean(site.name, 80), email: clean(site.email, 200) };
+    this.site = {};
+    this.setSite(site);
     let s: Stored | null = null;
     try {
       const raw = this.storage?.getItem(REVIEWER_KEY);
@@ -45,6 +46,11 @@ export class ReviewerStore implements ReviewerIdentity {
     if (!s || typeof s.id !== 'string' || !/^[\w-]{1,64}$/.test(s.id)) s = { ...(s ?? {}), id: randomId() };
     this.stored = s;
     this.write();
+  }
+
+  /** The site's own name for the reviewer (init's `user`, setUser), replacing the last one. */
+  setSite(site: { name?: string; email?: string }) {
+    this.site = { name: clean(site?.name, 80), email: clean(site?.email, 200) };
   }
 
   private write() {

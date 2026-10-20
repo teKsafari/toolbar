@@ -11,9 +11,13 @@ describe('published types', () => {
     expectTypeOf<pub.InitOptions>().toEqualTypeOf<src.InitOptions>();
     expectTypeOf<pub.OpenToolbarApi>().toEqualTypeOf<src.OpenToolbarApi>();
     expectTypeOf<typeof pub.init>().toEqualTypeOf<typeof src.init>();
+    expectTypeOf<typeof pub.setUser>().toEqualTypeOf<typeof src.setUser>();
+    expectTypeOf<pub.ReviewerUser>().toEqualTypeOf<src.ReviewerUser>();
+    expectTypeOf<typeof pubReact.setUser>().toEqualTypeOf<typeof srcReact.setUser>();
     expectTypeOf<pubReact.OpenToolbarProps>().toEqualTypeOf<srcReact.OpenToolbarProps>();
     expectTypeOf<typeof pubReact.OpenToolbar>().toEqualTypeOf<typeof srcReact.OpenToolbar>();
     expect(typeof src.init).toBe('function');
+    expect(typeof src.setUser).toBe('function');
     expect(typeof srcReact.OpenToolbar).toBe('function');
   });
 });

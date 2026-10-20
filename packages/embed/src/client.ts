@@ -121,7 +121,7 @@ export function createEmbedClient(nativeFetch: typeof fetch, server: string, key
     },
     completeStream: (cap: EmbedCapture, stream: PageStream, lastSeq: number, totalBytes: number) =>
       call('captures.completeStream', { id: cap.id, stream }, { json: { lastSeq, totalBytes }, token: cap.uploadToken }),
-    finalize: (cap: EmbedCapture, body: { title: string; description: string; annotations: unknown[]; durationMs?: number }) =>
+    finalize: (cap: EmbedCapture, body: { title: string; description: string; annotations: unknown[]; durationMs?: number; reviewer?: { name: string } }) =>
       call<{ id: string; status: string }>('captures.finalize', { id: cap.id }, { json: body, token: cap.uploadToken }),
     uploadAsset: async (cap: EmbedCapture, kind: 'feedback' | 'voice-note', file: Blob, filename: string) => {
       const fd = new FormData();

@@ -160,6 +160,97 @@ describe('page session', () => {
     await expect(s.stopTrace('x')).rejects.toThrow('forbidden');
   });
 
+  it('sends the reviewer name known when the trace stops with its finalize', async () => {
+    sessionStorage.clear();
+    const { client, calls } = fakeClient();
+    let who: { id: string; name?: string } = { id: 'r_1' };
+    const s = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}), reviewer: () => who });
+    await s.startTrace();
+    expect(calls[0]!.args[0]).toMatchObject({ reviewer: { id: 'r_1' } });
+    // the composer asked for the name after the trace had started
+    who = { id: 'r_1', name: 'Ada' };
+    await s.stopTrace('x');
+    expect(calls.find((c) => c.op === 'finalize')!.args[1]).toMatchObject({ reviewer: { name: 'Ada' } });
+    // no name known: no reviewer field
+    who = { id: 'r_1' };
+    await s.startTrace();
+    await s.stopTrace('y');
+    expect(calls.filter((c) => c.op === 'finalize')[1]!.args[1]).not.toHaveProperty('reviewer');
+  });
+
+  it('two live pages of one trace never take the same chunk number', async () => {
+    sessionStorage.clear();
+    const { client, chunks } = fakeClient();
+    const a = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
+    await a.startTrace();
+    // b is the page the tab went to while a sat in the back-forward cache
+    const b = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
+    b.send([ev(1_000)]);
+    await b.flushTrace(false);
+    b.send([ev(2_000)]);
+    await b.flushTrace(false);
+    a.send([ev(3_000)]);
+    await a.flushTrace(false);
+    expect(chunks.map((c) => `${c.stream}:${c.seq}`)).toEqual(['events:0', 'events:1', 'events:2']);
+    expect(JSON.parse(sessionStorage.getItem('tb:page-trace')!).seq.events).toBe(3);
+    // the byte counts of both pages add up in the stored trace
+    const bytes = JSON.parse(sessionStorage.getItem('tb:page-trace')!).bytes.events as number;
+    expect(bytes).toBeGreaterThan(0);
+    expect(bytes).toBe(a.trace!.bytes.events);
+    expect(a.trace!.bytes.events).toBeGreaterThan(b.trace!.bytes.events);
+  });
+
+  it('back from the back-forward cache, takes the stored trace and attaches again', async () => {
+    sessionStorage.clear();
+    const { client, chunks } = fakeClient();
+    const a = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
+    await a.startTrace();
+    const cmds: string[] = [];
+    a.onCommand((c) => cmds.push(c.type));
+    // a goes into the cache with a row it stashed; the next page sends chunks 0 and 1
+    a.send([ev(1_000)]);
+    await a.flushTrace(true);
+    const b = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
+    b.boot();
+    b.send([ev(2_000)]);
+    await b.flushTrace(false);
+    b.send([ev(2_500)]);
+    await b.flushTrace(false);
+    expect(chunks.map((c) => c.rows.map((r) => (r as { t: number }).t))).toEqual([[1_000, 2_000], [2_500]]);
+    // the reviewer goes back to a; b went away with a row of its own
+    b.send([ev(2_800)]);
+    await b.flushTrace(true);
+    cmds.length = 0;
+    a.resume();
+    expect(a.trace!.seq.events).toBe(2);
+    expect(cmds).toEqual(['attach', 'checkout']);
+    a.send([ev(3_000)]);
+    await a.flushTrace(false);
+    expect(chunks.slice(2).map((c) => [c.seq, c.rows.map((r) => (r as { t: number }).t)])).toEqual([[2, [2_800, 3_000]]]);
+  });
+
+  it('back from the back-forward cache, lets go of a trace another page stopped', async () => {
+    sessionStorage.clear();
+    const { client, chunks } = fakeClient();
+    const a = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
+    const changed = vi.fn();
+    a.subscribe(changed);
+    await a.startTrace();
+    const cmds: { type: string; recordingId?: string }[] = [];
+    a.onCommand((c) => cmds.push(c as { type: string; recordingId?: string }));
+    const b = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
+    await b.stopTrace('done');
+    changed.mockClear();
+    a.resume();
+    expect(a.trace).toBeNull();
+    expect(cmds).toEqual([{ type: 'detach', recordingId: 'rec-1' }]);
+    expect(changed).toHaveBeenCalled();
+    a.send([ev(5_000)]);
+    await a.flushTrace(false);
+    expect(chunks).toEqual([]);
+    expect(sessionStorage.getItem('tb:page-trace')).toBeNull();
+  });
+
   it('titles and ids', () => {
     expect(titleOf('\n  first line  \nsecond')).toBe('first line');
     expect(titleOf('x'.repeat(100))).toHaveLength(80);
