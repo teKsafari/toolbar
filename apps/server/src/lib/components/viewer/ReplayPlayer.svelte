@@ -3,6 +3,7 @@
   // recording downloads, then the rrweb replay scaled into the media card with a pointer glyph,
   // and a small control bar: play, back and forward 5 s, time, speed, fullscreen, with error
   // markers above the seek bar. No download, share-at-time, mute, quality or chapters.
+  import EmbedMark from '../EmbedMark.svelte';
   import { onMount } from 'svelte';
   import { fmtClock } from '@toolbar/ui/viewer';
   import VIcon from './VIcon.svelte';
@@ -153,7 +154,7 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="card" bind:this={card} data-testid="replay-card">
-  {#if v.detail.author}<span class="chip"><Avatar name={v.detail.author.name} size={20} />{v.detail.author.name}</span>{/if}
+  {#if v.detail.author}<span class="chip"><Avatar name={v.detail.author.name} size={20} />{v.detail.author.name}{#if !v.detail.authorVerified}<EmbedMark />{/if}</span>{/if}
   <div class="stage" bind:this={stage}>
     <!-- inert: the replayed page is a picture of the session, so Tab and screen readers skip its
          recorded controls (D-180); the frame stays readable for tests and the clock -->

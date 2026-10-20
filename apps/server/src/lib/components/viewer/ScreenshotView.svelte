@@ -2,6 +2,7 @@
   // Screenshot card (J-099): the image (scrolls when tall), creator chip and download; a click
   // opens a lightbox that Escape or an outside click closes. Area captures that kept the full
   // viewport show a crop/full switcher, crop first (J-209, J-004).
+  import EmbedMark from '../EmbedMark.svelte';
   import VIcon from './VIcon.svelte';
   import Avatar from './Avatar.svelte';
   import { useViewer } from './viewer.svelte.ts';
@@ -38,7 +39,7 @@
 
 <div class="card" data-testid="screenshot-card">
   <div class="top">
-    {#if v.detail.author}<span class="chip"><Avatar name={v.detail.author.name} size={20} />{v.detail.author.name}</span>{/if}
+    {#if v.detail.author}<span class="chip"><Avatar name={v.detail.author.name} size={20} />{v.detail.author.name}{#if !v.detail.authorVerified}<EmbedMark />{/if}</span>{/if}
     <span class="grow"></span>
     <button type="button" class="ib" onclick={download} aria-label="Download image" title="Download" data-testid="download"><VIcon name="download" size={16} /></button>
   </div>

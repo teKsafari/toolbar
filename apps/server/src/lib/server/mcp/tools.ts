@@ -18,7 +18,7 @@ import {
   signalsOf,
   type Prepared,
 } from '@toolbar/shared/derive';
-import { PRODUCT_NAME, RECORDING_KINDS } from '@toolbar/shared/constants';
+import { EMBED_ISSUER, PRODUCT_NAME, RECORDING_KINDS, authorLabel, authorVerified } from '@toolbar/shared/constants';
 import type { Db } from '../db/index.ts';
 import { comment, folder, member, organization, recording, recordingLink, user } from '../db/schema/index.ts';
 import { getBytes } from '../s3.ts';
@@ -120,7 +120,8 @@ async function captureRows(db: Db, where: SQL, opts: { limit: number; offset: nu
     pageUrl: r.pageUrl,
     createdAt: iso(r.createdAt),
     durationMs: r.durationMs,
-    author: r.authorName ?? r.authorEmail,
+    author: authorLabel({ name: r.authorName, email: r.authorEmail, issuer: r.authorIssuer }),
+    authorVerified: authorVerified({ issuer: r.authorIssuer }),
     folder: r.folderId ? { id: r.folderId, name: folderName } : null,
     commentCount: Number(comments),
   }));
@@ -171,6 +172,7 @@ const getCapture = define({
       workspace: { id: c.rec.organizationId, name: ws?.name ?? null },
       folder: brief.folder,
       author: brief.author,
+      authorVerified: brief.author?.verified ?? true,
       createdAt: brief.createdAt,
       startedAt: iso(c.rec.startedAt),
       durationMs: c.rec.durationMs,
@@ -489,7 +491,7 @@ const searchCaptures = define({
     text: z.string().max(500).optional(),
     kinds: z.array(z.enum(RECORDING_KINDS)).optional(),
     folderId: z.string().uuid().optional().describe('Only this folder.'),
-    authorEmail: z.string().optional(),
+    authorEmail: z.string().optional().describe('Captures by the member with this email. Embed reviewers typed theirs, so their captures never match.'),
     createdAfter: z.string().optional().describe('ISO date or datetime.'),
     createdBefore: z.string().optional().describe('ISO date or datetime.'),
     sort: z.enum(['newest', 'oldest']).default('newest'),
@@ -505,7 +507,8 @@ const searchCaptures = define({
     if (a.text) conds.push(textMatch(a.text));
     if (a.kinds?.length) conds.push(inArray(recording.kind, a.kinds));
     if (a.folderId) conds.push(eq(recording.folderId, a.folderId));
-    if (a.authorEmail) conds.push(ilike(recording.authorEmail, a.authorEmail));
+    // an embed reviewer's email is typed, not checked: it never stands for a member (D-213)
+    if (a.authorEmail) conds.push(and(ilike(recording.authorEmail, a.authorEmail), sql`${recording.authorIssuer} is distinct from ${EMBED_ISSUER}`));
     if (a.createdAfter) conds.push(sql`${recording.createdAt} >= ${new Date(a.createdAfter).toISOString()}`);
     if (a.createdBefore) conds.push(lt(recording.createdAt, new Date(a.createdBefore)));
     return json(await captureRows(db, and(...conds)!, { limit: a.limit, offset: decodeCursor(a.cursor), sort: a.sort }));

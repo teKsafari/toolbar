@@ -83,6 +83,13 @@ describe('README', () => {
     expect(renderReadme(base())).not.toContain('No screenshots');
   });
 
+  it('marks an embed reviewer as typed, not verified (D-213)', () => {
+    const md = renderReadme(base({ reviewer: { name: 'Ola', email: 'ola@client.test', issuer: 'embed', subject: 'rv-1' } }));
+    expect(md).toContain('| Reviewer | `Ola <ola@client.test> (embed)` |');
+    expect(md).toContain('| Identity | `embed reviewer, name and email as typed, not verified (browser rv-1)` |');
+    expect(renderReadme(base())).toContain('| Reviewer | `Dana <dana@x.test>` |');
+  });
+
   it('stays under 8k tokens with a long session', () => {
     const timeline = Array.from({ length: 3000 }, (_, i) => ({ atMs: i * 100, span: `s${i}`, outcome: i % 7 ? 'changed' : 'dead', text: `Click "Button ${i}" then POST /api/thing/${i} 200 ${'x'.repeat(80)}` }));
     const words = Array.from({ length: 40 }, (_, i) => ({ source: 'comment', author: `Person ${i}`, atMs: i * 1000, text: 'long words '.repeat(500) }));

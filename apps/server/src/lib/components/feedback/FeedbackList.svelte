@@ -4,6 +4,8 @@
   // failed requests that came with it. Shown on the capture page above the title. Those last two
   // are chips; on a page with the dev tools, a chip opens Console or Network on the note's window
   // with its entries selected (D-206).
+  import EmbedMark from '../EmbedMark.svelte';
+  import { authorVerified } from '@toolbar/shared';
   import { onMount } from 'svelte';
   import type { FeedbackItem } from '@toolbar/shared/areas/reviewer';
   import type { Resolution } from '@toolbar/shared/api';
@@ -150,7 +152,7 @@
           {/if}
           <div class="foot muted">
             <span title={it.page.url}>{pathOf(it.page.url)}</span>
-            {#if it.author.name}<span>{it.author.name}</span>{/if}
+            {#if it.author.name}<span>{it.author.name}{#if !authorVerified(it.author)}<EmbedMark />{/if}</span>{/if}
           </div>
         </li>
       {/each}

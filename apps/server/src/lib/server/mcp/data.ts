@@ -3,7 +3,7 @@
 // queries, the MCP tools, the markdown share page and the agent tab. Owner: agent area.
 import { gunzipSync } from 'node:zlib';
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
-import type { CaptureEvent, EnvInfo } from '@toolbar/shared';
+import { authorLabel, authorVerified, type CaptureEvent, type EnvInfo } from '@toolbar/shared';
 import { prepare, type BriefComment, type CaptureBrief, type Prepared } from '@toolbar/shared/derive';
 import type { Db } from '../db/index.ts';
 import { asset, comment, commentAttachment, folder, project, recordingStream, transcript, user } from '../db/schema/index.ts';
@@ -180,7 +180,10 @@ export async function briefOf(db: Db, rec: RecordingRow, opts: { url: string; im
     pageTitle: rec.pageTitle,
     createdAt: rec.createdAt.toISOString(),
     durationMs: rec.durationMs,
-    author: rec.authorName || rec.authorEmail ? { name: rec.authorName, email: rec.authorEmail } : null,
+    author:
+      rec.authorName || rec.authorEmail
+        ? { name: rec.authorName && authorLabel({ name: rec.authorName, issuer: rec.authorIssuer }), email: rec.authorEmail, verified: authorVerified({ issuer: rec.authorIssuer }) }
+        : null,
     env: (rec.env as EnvInfo | null) ?? null,
     folder: f?.name ?? null,
     imageUrl: opts.imageUrl ?? null,

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import EmbedMark from '../EmbedMark.svelte';
   import { focusNow } from '#lib/components/focus.ts';
   // Title and description under the media (J-110, J-111, J-116, J-135): click the title, type,
   // Enter saves and the tab title follows; the description saves on blur, keeps lists and bold,
@@ -107,7 +108,7 @@
   {/if}
 
   <div class="byline" data-testid="byline">
-    {#if v.detail.author}<Avatar name={v.detail.author.name} image={v.detail.author.image} size={20} /><span class="who">{v.detail.author.name}</span>{/if}
+    {#if v.detail.author}<Avatar name={v.detail.author.name} image={v.detail.author.image} size={20} /><span class="who">{v.detail.author.name}{#if !v.detail.authorVerified}<EmbedMark />{/if}</span>{/if}
     <span class="dim">{relTime(v.detail.createdAt)}</span>
     {#if v.detail.pageUrl}<span class="dim">·</span><a class="dim url" href={v.detail.pageUrl} target="_blank" rel="noopener noreferrer">{v.detail.pageUrl.replace(/^https?:\/\//, '')}</a>{/if}
   </div>

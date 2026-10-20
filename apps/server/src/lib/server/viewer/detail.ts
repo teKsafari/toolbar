@@ -2,6 +2,7 @@
 // Media URLs point at the Range-capable proxies: /api/v1/recordings/:id/media/:name for members
 // and /s/:token/media/:name for share-token viewers (server-core owns both handlers).
 import { and, count, eq, isNull } from 'drizzle-orm';
+import { authorVerified } from '@toolbar/shared';
 import { buildPath, ROUTES, type CaptureDetail, type CaptureSummary } from '@toolbar/shared/api';
 import { db } from '#lib/server/db/index.ts';
 import { annotation, asset, comment, folder, project, recordingChunk, recordingLink, recordingStream, transcript, user } from '#lib/server/db/schema/index.ts';
@@ -48,6 +49,7 @@ export async function captureSummary(rec: RecordingRow, ctx: Pick<ViewerCtx, 'sh
       : rec.authorName
         ? { id: null, name: rec.authorName, email: rec.authorEmail, image: null }
         : null,
+    authorVerified: authorVerified({ issuer: rec.authorIssuer }),
     recordingLinkId: rec.recordingLinkId,
     recordingLinkName: link?.name ?? null,
     commentCount: cc?.n ?? 0,

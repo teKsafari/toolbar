@@ -56,6 +56,7 @@ describe('dashboard helpers', () => {
     expect(durationLabel(null)).toBeNull();
     expect(fallbackTitle({ title: '', authorName: 'Dana Reviewer', kind: 'screenshot' })).toBe("Dana's screenshot");
     expect(fallbackTitle({ title: '', authorName: null, kind: 'link', recordingLinkName: 'Support' })).toBe("A guest's recording");
+    expect(fallbackTitle({ title: '', authorName: 'Ola Owner', kind: 'feedback', authorVerified: false })).toBe("A reviewer's feedback");
     expect(fallbackTitle({ title: 'Kept', authorName: null, kind: 'video' })).toBe('Kept');
   });
 

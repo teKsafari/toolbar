@@ -5,6 +5,7 @@
 // area has to call in. `auto-delete` (J-178) archives captures older than a workspace's limit.
 import { and, eq, gt, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import type { WebhookPayload } from '@toolbar/shared/api';
+import { authorLabel } from '@toolbar/shared';
 import type { Db } from '../db/index.ts';
 import { captureNotice, captureView, job, organization, recording, recordingLink, user } from '../db/schema/index.ts';
 import { enqueue } from '../jobs/queue.ts';
@@ -32,7 +33,8 @@ export function capturePayload(r: RecordingRow): WebhookPayload['data']['capture
     title: r.title,
     url: captureUrl(r.id),
     pageUrl: r.pageUrl,
-    author: personOf({ id: r.authorUserId, name: r.authorName, email: r.authorEmail }),
+    // an embed reviewer's typed name carries " (embed)" (D-213)
+    author: personOf({ id: r.authorUserId, name: authorLabel({ name: r.authorName, email: r.authorEmail, issuer: r.authorIssuer }), email: r.authorEmail }),
     env: (r.env as WebhookPayload['data']['capture']['env']) ?? null,
     mediaUrls: media,
     createdAt: (r.finalizedAt ?? r.createdAt).toISOString(),

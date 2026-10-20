@@ -8,7 +8,7 @@
 import { Readable } from 'node:stream';
 import { createGzip } from 'node:zlib';
 import { and, asc, count, desc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
-import type { EnvInfo, RecordingKind } from '@toolbar/shared';
+import { EMBED_ISSUER, authorLabel, type EnvInfo, type RecordingKind } from '@toolbar/shared';
 import type { SeatRole } from '@toolbar/shared/api';
 import type { FeedbackFilters, FeedbackList, FeedbackListItem } from '@toolbar/shared/api';
 import { prepare } from '@toolbar/shared/derive';
@@ -102,7 +102,8 @@ async function filterWhere(db: Db, scope: ExportScope, f: FeedbackFilters): Prom
     if (c === 'me') conds.push(eq(recording.authorUserId, scope.userId));
     else if (c.includes('@'))
       conds.push(
-        sql`(lower(${recording.authorEmail}) = lower(${c}) or exists (select 1 from "user" u where u.id = ${recording.authorUserId} and lower(u.email) = lower(${c})))`,
+        // an embed reviewer's typed email never stands for a member (D-213)
+        sql`((lower(${recording.authorEmail}) = lower(${c}) and ${recording.authorIssuer} is distinct from ${EMBED_ISSUER}) or exists (select 1 from "user" u where u.id = ${recording.authorUserId} and lower(u.email) = lower(${c})))`,
       );
     else if (/^[0-9a-f-]{36}$/i.test(c)) conds.push(eq(recording.authorUserId, c));
     else fail('invalid_query', 'creator is a user id, an email address or "me".');
@@ -167,7 +168,7 @@ const isHttp = (n: { type: string }) => n.type !== 'websocket' && n.type !== 'ev
 /** The INDEX row of one capture: words, outcome counts, console errors and failed requests. */
 export async function digestOf(db: Db, rec: RecordingRow): Promise<CaptureDigest> {
   const masking: MaskingPresetName = (rec.maskingPreset ?? (rec.env as EnvInfo | null)?.maskingPreset ?? 'none') as MaskingPresetName;
-  const reviewer = rec.authorName || rec.authorEmail || 'reviewer';
+  const reviewer = authorLabel({ name: rec.authorName, email: rec.authorEmail, issuer: rec.authorIssuer }) ?? 'reviewer';
   const events = await loadEvents(db, rec);
   const startedAt = rec.startedAt?.getTime();
   const [video] = await db
@@ -195,7 +196,7 @@ export async function digestOf(db: Db, rec: RecordingRow): Promise<CaptureDigest
     .orderBy(asc(annotation.createdAt));
   for (const a of anns) if (a.text?.trim()) words.push({ source: 'annotation', author: a.name ?? reviewer, text: a.text });
   for (const it of await feedbackItemsOf(db, rec.id)) {
-    const who = it.authorName ?? it.authorEmail ?? reviewer;
+    const who = authorLabel({ name: it.authorName, email: it.authorEmail, issuer: it.authorIssuer }) ?? reviewer;
     if (it.comment.trim()) words.push({ source: `note ${it.n}`, author: who, text: it.comment });
     if (it.transcriptStatus === 'done' && it.transcriptText?.trim()) words.push({ source: `voice note ${it.n}`, author: who, text: it.transcriptText });
   }
@@ -219,7 +220,7 @@ export async function digestOf(db: Db, rec: RecordingRow): Promise<CaptureDigest
     createdAt: rec.createdAt.toISOString(),
     kind: rec.kind,
     title: rec.title,
-    reviewer: rec.authorName || rec.authorEmail || null,
+    reviewer: authorLabel({ name: rec.authorName, email: rec.authorEmail, issuer: rec.authorIssuer }),
     pageUrl: rec.pageUrl ? redactUrl(rec.pageUrl) : null,
     status: res ? 'resolved' : 'open',
     masking,

@@ -217,7 +217,7 @@ describe('assembleFolder', () => {
     expect(JSON.parse(gunzipSync(get('raw/rrweb-000.json.gz') as Uint8Array).toString())).toHaveLength(2);
 
     const fb = JSON.parse(str('feedback.json'));
-    expect(fb.reviewer).toEqual({ name: 'Dana', email: 'dana@x.test', issuer: 'https://accounts.google.com', subject: '42' });
+    expect(fb.reviewer).toEqual({ name: 'Dana', email: 'dana@x.test', issuer: 'https://accounts.google.com', subject: '42', verified: true });
     expect(fb.app.deployCommit).toBe('commit: deadbeef');
     expect(fb.masking).toBe('staging');
 

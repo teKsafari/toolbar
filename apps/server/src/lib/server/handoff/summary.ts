@@ -1,7 +1,7 @@
 // The summary a share URL answers to agents (sharePageMarkdown): counts only, built from the
 // events without the folder's images and OCR, so it stays fast for a plain fetch.
 import { and, count, eq, isNull } from 'drizzle-orm';
-import type { EnvInfo } from '@toolbar/shared';
+import { authorLabel, type EnvInfo } from '@toolbar/shared';
 import { sharePageMarkdown, type MaskingPresetName } from '@toolbar/shared/areas/handoff';
 import type { Db } from '../db/index.ts';
 import { annotation, asset, comment, feedbackResolution } from '../db/schema/index.ts';
@@ -35,7 +35,7 @@ export async function sharePageOf(db: Db, rec: RecordingRow, shareUrl: string, d
     kind: rec.kind,
     createdAt: rec.createdAt.toISOString(),
     durationMs: rec.durationMs,
-    reviewer: rec.authorName || rec.authorEmail,
+    reviewer: authorLabel({ name: rec.authorName, email: rec.authorEmail, issuer: rec.authorIssuer }),
     app,
     browser: e ? `${e.browser ? `${e.browser.name} ${e.browser.version}` : 'browser'}${e.os ? ` on ${e.os.name}` : ''}, ${e.viewport.w}x${e.viewport.h}` : null,
     masking: ((rec as RecordingRow & { maskingPreset?: MaskingPresetName | null }).maskingPreset ?? e?.maskingPreset ?? 'none') as MaskingPresetName,

@@ -3,7 +3,7 @@
 // network.jsonl, raw/. No database access here; images, OCR and video frames come in through
 // `io`, so tests run it on fixtures.
 import { gzipSync, gunzipSync } from 'node:zlib';
-import type { CaptureEvent, EnvInfo, Nav, TargetRef } from '@toolbar/shared';
+import { authorLabel, authorVerified, type CaptureEvent, type EnvInfo, type Nav, type TargetRef } from '@toolbar/shared';
 import type { Prepared } from '@toolbar/shared/derive';
 import { redactBody, redactHeaders, redactUrl, scrubText } from '@toolbar/shared/redact';
 import {
@@ -323,7 +323,7 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
   const add = (path: string, data: Uint8Array | string, about: string, contentType: string) => files.push({ path, data, about, contentType });
   const p = d.prepared;
   const spans: FolderSpan[] = d.spans?.spans ?? [];
-  const reviewer = d.rec.authorName || d.rec.authorEmail || 'reviewer';
+  const reviewer = authorLabel({ name: d.rec.authorName, email: d.rec.authorEmail, issuer: d.rec.authorIssuer }) ?? 'reviewer';
 
   // ---- annotations ----
   const anns = [...d.annotations].sort((a, b) => (a.t ?? a.createdAt.getTime()) - (b.t ?? b.createdAt.getTime()));
@@ -846,7 +846,8 @@ export async function assembleFolder(d: FolderData, io: FolderIo): Promise<Built
     durationMs: d.rec.durationMs,
     title: d.rec.title,
     description: d.rec.description,
-    reviewer: { name: d.rec.authorName, email: d.rec.authorEmail, issuer: d.rec.authorIssuer, subject: d.rec.authorSubject },
+    // verified false: an embed reviewer typed this name and email; no account stands behind them (D-213)
+    reviewer: { name: d.rec.authorName, email: d.rec.authorEmail, issuer: d.rec.authorIssuer, subject: d.rec.authorSubject, verified: authorVerified({ issuer: d.rec.authorIssuer }) },
     app: { url: d.rec.pageUrl, title: d.rec.pageTitle, deployCommit, project: d.rec.project, workspace: d.rec.workspace, folder: d.rec.folder },
     environment: d.rec.env,
     masking,

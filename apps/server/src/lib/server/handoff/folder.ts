@@ -1,7 +1,7 @@
 // Load a capture for the feedback folder and build it (assemble.ts), with a short-lived cache so
 // the tarball, the file listing and the MCP file reads of one agent session build it once.
 import { and, asc, desc, eq, inArray, max, sql } from 'drizzle-orm';
-import type { EnvInfo, TargetRef } from '@toolbar/shared';
+import { authorLabel, type EnvInfo, type TargetRef } from '@toolbar/shared';
 import { prepare } from '@toolbar/shared/derive';
 import type { MaskingPresetName } from '@toolbar/shared/areas/handoff';
 import type { Db } from '../db/index.ts';
@@ -95,7 +95,7 @@ export async function collectFolder(db: Db, rec: RecordingRow): Promise<FolderDa
       target: (a.target as TargetRef | null) ?? null,
       locator: ((a as Record<string, unknown>).locator as Record<string, unknown> | null | undefined) ?? null,
       comment: a.comment,
-      author: name ?? email ?? rec.authorName ?? 'reviewer',
+      author: name ?? email ?? authorLabel({ name: rec.authorName, issuer: rec.authorIssuer }) ?? 'reviewer',
       createdAt: a.createdAt,
     })).concat(
       items.map((it) => ({
@@ -107,7 +107,7 @@ export async function collectFolder(db: Db, rec: RecordingRow): Promise<FolderDa
         // the packet the extension took with the note (D-164)
         locator: it.locator ?? null,
         comment: it.comment || null,
-        author: it.authorName ?? it.authorEmail ?? rec.authorName ?? 'reviewer',
+        author: authorLabel({ name: it.authorName, email: it.authorEmail, issuer: it.authorIssuer }) ?? authorLabel({ name: rec.authorName, issuer: rec.authorIssuer }) ?? 'reviewer',
         createdAt: it.createdAt,
         item: {
           n: it.n,

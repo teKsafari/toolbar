@@ -3,6 +3,7 @@
   // recording-link captures, title (or a creator-based fallback) and relative time. Hover lifts
   // the card and swaps the overlay for a checkbox and a round copy-link button. The card is a real
   // link; in selection mode a click toggles it instead. Cards drag onto sidebar folders (J-166).
+  import EmbedMark from '../EmbedMark.svelte';
   import { toasts } from '@toolbar/ui';
   import type { CaptureSummary } from '@toolbar/shared/api';
   import { durationLabel, fallbackTitle, relativeTime } from '@toolbar/shared/areas/dashboard';
@@ -74,6 +75,7 @@
     <span class="who">
       <UserAvatar name={c.author?.name ?? 'Guest'} image={c.author?.image ?? null} size={20} />
       <span>{c.author?.name ?? 'Guest'}</span>
+      {#if !c.authorVerified}<EmbedMark />{/if}
     </span>
     <button
       class="check"
@@ -116,7 +118,7 @@
     background: rgb(11 11 11 / 0.66); color: #fafafa; font-size: var(--nb-text-xs); backdrop-filter: blur(6px);
   }
   .who { left: 8px; bottom: 8px; padding: 2px 8px 2px 2px; max-width: calc(100% - 70px); }
-  .who span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dur { right: 8px; bottom: 8px; padding: 2px 7px; font-family: var(--nb-font-mono); font-variant-numeric: tabular-nums; }
   .chip { left: 8px; top: 8px; padding: 2px 8px; max-width: calc(100% - 60px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .state { right: 8px; top: 8px; padding: 2px 8px; }

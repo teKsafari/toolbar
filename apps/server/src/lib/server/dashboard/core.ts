@@ -4,6 +4,7 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { DEFAULT_USER_SETTINGS, roleAtLeast, type AUDIT_ACTIONS, type CaptureSummary, type Person, type SeatRole, type UserSettings } from '@toolbar/shared/api';
 import { SHORT_ID_ALPHABET } from '@toolbar/shared/areas/dashboard';
+import { authorVerified } from '@toolbar/shared';
 import { randomBytes } from 'node:crypto';
 import type { Db } from '../db/index.ts';
 import { auditLog, comment, folder, linkedIssue, organization, recording, recordingLink, user, userSettings } from '../db/schema/index.ts';
@@ -85,6 +86,7 @@ export async function toSummaries(db: Db, recs: RecordingRow[]): Promise<Capture
       folderId: r.folderId,
       source: r.source,
       author,
+      authorVerified: authorVerified({ issuer: r.authorIssuer }),
       recordingLinkId: r.recordingLinkId,
       recordingLinkName: r.recordingLinkId ? (linkName.get(r.recordingLinkId) ?? null) : null,
       commentCount: commentCount.get(r.id) ?? 0,

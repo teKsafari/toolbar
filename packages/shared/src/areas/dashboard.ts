@@ -131,9 +131,10 @@ export function durationLabel(ms: number | null | undefined): string | null {
 }
 
 /** Title shown on a card when the capture has none (J-158): based on the creator. */
-export function fallbackTitle(c: { title: string; authorName: string | null; kind: RecordingKind; recordingLinkName?: string | null }): string {
+export function fallbackTitle(c: { title: string; authorName: string | null; kind: RecordingKind; recordingLinkName?: string | null; authorVerified?: boolean }): string {
   if (c.title.trim()) return c.title;
-  const who = c.authorName?.split(' ')[0] ?? (c.recordingLinkName ? 'A guest' : 'Someone');
+  // an embed reviewer's typed name stays out of titles, where no marker follows it (D-213)
+  const who = c.authorVerified === false ? 'A reviewer' : (c.authorName?.split(' ')[0] ?? (c.recordingLinkName ? 'A guest' : 'Someone'));
   if (c.kind === 'feedback') return `${who}'s feedback`;
   const what = c.kind === 'screenshot' ? 'screenshot' : c.kind === 'replay' ? 'replay' : c.kind === 'trace' ? 'trace' : 'recording';
   return `${who}'s ${what}`;

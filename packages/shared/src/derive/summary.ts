@@ -29,7 +29,8 @@ export interface CaptureBrief {
   pageTitle: string | null;
   createdAt: string;
   durationMs: number | null;
-  author: { name: string | null; email: string | null } | null;
+  /** verified false: an embed reviewer's typed name, shown with " (embed)" (D-213) */
+  author: { name: string | null; email: string | null; verified?: boolean } | null;
   env: EnvInfo | null;
   folder: string | null;
   /** public poster or screenshot URL, when the reader may fetch it */
@@ -131,6 +132,7 @@ export function shareMarkdown(b: CaptureBrief, s: Signals | null, ptr: Pointers)
     `time_zone: ${yaml(env?.tz)}`,
     `locale: ${yaml(env?.locale)}`,
     `author: ${yaml(b.author?.name ?? null)}`,
+    ...(b.author?.verified === false ? ['author_verified: false'] : []),
     `created: ${yaml(b.createdAt)}`,
     ...(b.project ? [`project: ${yaml(b.project)}`] : []),
     ...(b.maskingPreset ? [`masking_preset: ${yaml(b.maskingPreset)}`] : []),

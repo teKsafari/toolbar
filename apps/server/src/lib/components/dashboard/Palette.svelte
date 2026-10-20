@@ -3,6 +3,7 @@
   // viewed captures. Typing: live results grouped as members, folders and captures, a preview of
   // the highlighted capture with the matched text, arrows to move, Enter to open, Ctrl+C to copy
   // the link, Escape to close. The footer shows the count and what Enter will do.
+  import EmbedMark from '../EmbedMark.svelte';
   import { goto } from '$app/navigation';
   import { toasts } from '@toolbar/ui';
   import type { CaptureSummary, SearchResult } from '@toolbar/shared/api';
@@ -33,7 +34,7 @@
     type: 'capture',
     key: `c:${c.id}`,
     label: fallbackTitle(c),
-    sub: `${c.authorName ?? 'Guest'} · ${relativeTime(c.createdAt)}`,
+    sub: `${c.authorName ?? 'Guest'}${c.authorVerified ? '' : ' (embed)'} · ${relativeTime(c.createdAt)}`,
     href: `/c/${c.id}`,
     url: c.url,
     c,
@@ -263,7 +264,7 @@
             {#if durationLabel(c.durationMs) && c.kind !== 'screenshot'}<span class="dur">{durationLabel(c.durationMs)}</span>{/if}
           </div>
           <strong class="ptitle">{fallbackTitle(c)}</strong>
-          <span class="sub">{c.authorName ?? 'Guest'} · {relativeTime(c.createdAt)}</span>
+          <span class="sub">{c.authorName ?? 'Guest'}{#if !c.authorVerified}<EmbedMark />{/if} · {relativeTime(c.createdAt)}</span>
           {#if c.pageUrl}<span class="purl">{c.pageUrl}</span>{/if}
           {#if c.match && q.trim()}
             <div class="match">

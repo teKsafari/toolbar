@@ -4,6 +4,7 @@
   // download, fullscreen), the seek bar with error, request, pen and comment markers (J-072,
   // J-095, J-128), hover preview (J-094), share at the current time (J-097), keyboard (J-093)
   // and a replay prompt at the end. The <video> element is the clock master (architecture s12).
+  import EmbedMark from '../EmbedMark.svelte';
   import { onMount } from 'svelte';
   import { toasts } from '@toolbar/ui';
   import { fmtClock, fmtClockPrecise, secondsParam } from '@toolbar/ui/viewer';
@@ -209,7 +210,7 @@
 
   <div class="top">
     {#if v.detail.author}
-      <span class="chip"><Avatar name={v.detail.author.name} size={20} />{v.detail.author.name}</span>
+      <span class="chip"><Avatar name={v.detail.author.name} size={20} />{v.detail.author.name}{#if !v.detail.authorVerified}<EmbedMark />{/if}</span>
     {/if}
     <span class="grow"></span>
     <button type="button" class="pill" onclick={shareAtTime} title="Copy a link that opens at this moment" data-testid="share-at-time">

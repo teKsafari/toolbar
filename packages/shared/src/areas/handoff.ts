@@ -2,7 +2,7 @@
 // with `curl ... | tar xz`, its README.md, the fencing of captured text, the short markdown page a
 // share URL answers to agents, and the Agent Skill. Pure functions only: the server gathers the
 // data (apps/server/src/lib/server/handoff) and the tests feed fixtures.
-import { PRODUCT_NAME, PRODUCT_SLUG } from '../constants.ts';
+import { PRODUCT_NAME, PRODUCT_SLUG, authorVerified } from '../constants.ts';
 
 /** The folder an agent pulls lands in `.feedback/<id>/` of the current directory. */
 export const FEEDBACK_DIR = '.feedback';
@@ -236,10 +236,16 @@ export interface ReadmeInput {
 }
 
 function header(r: ReadmeInput): string[] {
+  // an embed reviewer typed their name and email: marked, so nobody takes them for a member (D-213)
+  const typed = !!r.reviewer && !authorVerified(r.reviewer);
   const who = r.reviewer
-    ? [r.reviewer.name, r.reviewer.email ? `<${r.reviewer.email}>` : null].filter(Boolean).join(' ')
+    ? [r.reviewer.name, r.reviewer.email ? `<${r.reviewer.email}>` : null, typed ? '(embed)' : null].filter(Boolean).join(' ')
     : 'unknown';
-  const idp = r.reviewer?.issuer ? `${r.reviewer.issuer} (subject ${r.reviewer.subject ?? '?'})` : null;
+  const idp = typed
+    ? `embed reviewer, name and email as typed, not verified (browser ${r.reviewer!.subject ?? '?'})`
+    : r.reviewer?.issuer
+      ? `${r.reviewer.issuer} (subject ${r.reviewer.subject ?? '?'})`
+      : null;
   const rows: [string, string][] = [
     ['Reviewer', code(who)],
     ...(idp ? ([['Identity', code(idp)]] as [string, string][]) : []),

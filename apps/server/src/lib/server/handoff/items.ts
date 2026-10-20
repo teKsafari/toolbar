@@ -32,6 +32,7 @@ export interface ItemRow {
   t: number;
   authorName: string | null;
   authorEmail: string | null;
+  authorIssuer: string | null;
   createdAt: Date;
 }
 
@@ -76,6 +77,7 @@ export async function feedbackItemsOf(db: Db, recordingId: string): Promise<Item
     t: Number(r.t),
     authorName: (r.author_name as string | null) ?? null,
     authorEmail: (r.author_email as string | null) ?? null,
+    authorIssuer: (r.author_issuer as string | null) ?? null,
     createdAt: new Date(r.created_at as string),
   }));
 }
