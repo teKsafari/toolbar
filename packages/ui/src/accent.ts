@@ -147,3 +147,34 @@ export function accentCss(accent: string): string {
   const dark = decl(accentVars(accent, 'dark'));
   return `html:root,html[data-theme="light"]{${light}}@media (prefers-color-scheme: dark){html:root:not([data-theme="light"]){${dark}}}html[data-theme="dark"]{${dark}}`;
 }
+
+// ---------- applying an accent to a live element ----------
+
+const ACCENT_KEYS = Object.keys(accentVars(BASE_ACCENT, 'light'));
+const darkQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
+const following = new WeakMap<HTMLElement, () => void>();
+
+/**
+ * Accent variables for an element (or the page root), cleared when the default applies. The
+ * values come from the shared derivation (D-175), for the OS theme, and follow it when it
+ * changes: the black default would vanish on the dark theme if one value served both. The
+ * derivation picks the text colour of each theme itself.
+ */
+export function applyAccent(el: HTMLElement, accent: string | null): void {
+  following.get(el)?.();
+  following.delete(el);
+  const custom = accent && /^#[0-9a-fA-F]{6}$/.test(accent) && accent.toLowerCase() !== BASE_ACCENT ? accent.toLowerCase() : null;
+  const paint = () => {
+    const vars = custom ? accentVars(custom, darkQuery?.matches ? 'dark' : 'light') : null;
+    for (const k of ACCENT_KEYS) {
+      const v = vars?.[k];
+      if (v) el.style.setProperty(k, v);
+      else el.style.removeProperty(k);
+    }
+  };
+  paint();
+  if (custom && darkQuery) {
+    darkQuery.addEventListener('change', paint);
+    following.set(el, () => darkQuery.removeEventListener('change', paint));
+  }
+}

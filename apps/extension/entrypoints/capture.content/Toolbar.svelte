@@ -1,6 +1,6 @@
 <script lang="ts">
   // In-page UI root (ext-ui): screenshot mode, countdown veil, recording bar, live pen and blur,
-  // the Part 2 reviewer toolbar (review/), toasts. It is a view of the worker's capture session for this tab (ui/state.svelte.ts);
+  // the Part 2 reviewer toolbar (@toolbar/review), toasts. It is a view of the worker's capture session for this tab (ui/state.svelte.ts);
   // the editor (editor area) mounts on its own from ui.editor-open.
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
@@ -8,7 +8,7 @@
   import type { ContentCommand } from '@toolbar/shared/ext';
   import { LIVE_PEN_COLORS } from '@toolbar/shared/areas/ext-ui';
   import { ui } from './ui/state.svelte';
-  import { setUiRoot } from './ui/guard';
+  import { setUiRoot } from '@toolbar/review/guard';
   import { send } from './ui/send';
   import * as blur from './ui/blur';
   import ScreenshotMode from './ui/ScreenshotMode.svelte';
@@ -16,8 +16,9 @@
   import RecordingBar from './ui/RecordingBar.svelte';
   import LiveDraw from './ui/LiveDraw.svelte';
   import LiveBlur from './ui/LiveBlur.svelte';
-  import Review from './review/Review.svelte';
-  import { applyAccent, brand, loadBrand } from '../../lib/brand.svelte';
+  import { Review } from '@toolbar/review';
+  import { applyAccent } from '@toolbar/ui/accent';
+  import { brand, loadBrand } from '../../lib/brand.svelte';
 
   let root: HTMLDivElement | undefined = $state();
   let host: Element | null = $state(null);
