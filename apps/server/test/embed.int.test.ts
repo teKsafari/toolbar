@@ -444,7 +444,7 @@ describe.skipIf(!reachable)('embed (integration, D-211)', () => {
     const pre = await hook('OPTIONS', `/api/v1/embed/${key}/recordings`, { origin: SITE, [REQUEST_ORIGIN_HEADER]: SITE, 'access-control-request-method': 'POST' });
     expect(pre.status).toBe(204);
     expect(pre.headers.get('access-control-allow-origin')).toBe(SITE);
-    expect(pre.headers.get('access-control-allow-methods')).toBe('GET, POST, PUT, OPTIONS');
+    expect(pre.headers.get('access-control-allow-methods')).toBe('GET, POST, PUT, DELETE, OPTIONS');
     expect(pre.headers.get('access-control-allow-headers')).toBe('authorization, content-type, content-encoding, x-sha256, x-t0, x-t1');
     expect(pre.headers.get('access-control-max-age')).toBe('600');
     expect(pre.headers.get('vary')).toContain('Origin');
@@ -464,6 +464,8 @@ describe.skipIf(!reachable)('embed (integration, D-211)', () => {
     expect((await hook('PUT', chunk, { ...fromSite(), authorization: 'Bearer tb_pat_x' })).headers.has('access-control-allow-origin')).toBe(false);
     expect((await hook('GET', `/api/v1/recordings/${recId}`, { ...fromSite(), authorization: `Bearer ${token}` })).headers.has('access-control-allow-origin')).toBe(false);
     expect((await hook('GET', '/api/v1/workspaces', fromSite())).headers.has('access-control-allow-origin')).toBe(false);
+    // the capture itself only for DELETE: the embed discards its unsent trace session (D-214)
+    expect((await hook('DELETE', `/api/v1/recordings/${recId}`, { ...fromSite(), authorization: `Bearer ${token}` })).headers.get('access-control-allow-origin')).toBe(SITE);
   });
 
   it('rotating replaces the key at once and revokes the upload tokens issued under the old one; turning it off ends both', async () => {

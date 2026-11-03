@@ -255,9 +255,16 @@ test('P2.2: trace with clicks, a comment, a highlight, an arrow, an element scre
   await lab.keyboard.press('Enter');
   await expect.poll(async () => (await unsent(sw)).map((i) => i.kind), { timeout: 15_000 }).toEqual(['element', 'text', 'draw', 'shot', 'voice']);
 
-  // Stop trace sends the notes onto the trace first
+  // Stop trace keeps it and asks for its note (D-214); Send takes the trace and the notes as one capture
   await lab.keyboard.press('x');
-  await expect.poll(() => traceRunning(sw), { timeout: 60_000, message: 'the trace stopped' }).toBeNull();
+  const noteBox = lab.getByTestId('review-note');
+  await expect(noteBox).toBeFocused({ timeout: 15_000 });
+  await lab.keyboard.type('Submit order and Sync fail without telling the user');
+  await lab.keyboard.press('Enter');
+  await lab.getByTestId('review-send').click();
+  await expect(lab.getByTestId('review-title')).toBeFocused();
+  await lab.keyboard.press('Enter');
+  await expect.poll(() => traceRunning(sw), { timeout: 60_000, message: 'the trace session was sent' }).toBeNull();
   await expect.poll(async () => (await unsent(sw)).length, { timeout: 30_000 }).toBe(0);
 });
 

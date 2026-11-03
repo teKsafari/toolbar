@@ -106,7 +106,8 @@ test('every capture kind gets a card image in the dashboard grid', async ({ tabB
   await sleep(800);
   await page.getByTestId('works').click();
   await sleep(1500);
-  ids.trace = (await tb<{ recordingId: string }>(sw, 'trace.stop', { open: false })).recordingId;
+  await tb(sw, 'trace.stop');
+  ids.trace = (await tb<{ recordingId: string }>(sw, 'trace.send', tabId, { title: 'Thumbs: trace', description: '' })).recordingId;
 
   // embed capture: events and rrweb over the HTTP API, no still
   ids.embed = await embedCapture(page.request, token, workspaceId, { kind: 'replay', title: 'Thumbs: embed', comment: 'From the embed', events: 'submit' });
