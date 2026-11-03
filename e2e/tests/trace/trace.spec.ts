@@ -192,7 +192,10 @@ test('the popup starts and stops a trace', async ({ context, sw }) => {
     .toBe(tabId);
   await page.bringToFront();
   await page.getByTestId('works').click();
-  await sleep(1500);
+  // the live engine closes the click's span after its quiet time; under load that takes longer
+  await expect
+    .poll(() => sw.evaluate(() => (globalThis as unknown as { __tb: { trace: { state(): { takes: { spans: number }[] } | null } } }).__tb.trace.state()?.takes[0]?.spans ?? 0), { timeout: 15_000 })
+    .toBeGreaterThanOrEqual(1);
   const popup2 = await context.newPage();
   await popup2.goto(`chrome-extension://${new URL(sw.url()).host}/popup.html?tabId=${tabId}`);
   await expect(popup2.locator('[data-row="trace-stop"] [data-row-main]')).toHaveText(/Stop trace/);
