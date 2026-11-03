@@ -66,6 +66,8 @@ export interface ReviewPlatform {
   /** the success toast's Open; absent where the reviewer cannot open the capture */
   openCapture?: (result: ReviewSubmitResult) => void;
   reviewer?: ReviewerIdentity;
+  /** the trace session changed outside the toolbar (the extension's popup); returns the unsubscribe */
+  onTraceChange?: (fn: () => void) => () => void;
   caps: {
     /** element, text and drawing crops (`review.shot`) */
     canScreenshot: boolean;

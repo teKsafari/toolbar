@@ -1,8 +1,9 @@
 // Service-worker side of the in-page reviewer toolbar (Part 2, "What the reviewer can do").
 // Keeps each tab's unsent feedback items (chrome.storage.session, blobs in IndexedDB), reads the
 // 60 s context of a comment from the tab's ring, takes element screenshots, records voice notes
-// through the offscreen document and submits everything to the server: onto a running trace, or
-// into a new capture of kind `feedback`. background.ts registers it with registerReview(svc).
+// through the offscreen document and submits everything to the server: with the tab's trace
+// session as one capture of kind `trace` (D-214), or into a new capture of kind `feedback`.
+// background.ts registers it with registerReview(svc, traces).
 import { browser } from 'wxt/browser';
 import { createEmitter, type CaptureEvent, type EnvInfo } from '@toolbar/shared';
 import { ROUTES, buildPath } from '@toolbar/shared/api';
@@ -14,6 +15,7 @@ import { getBlob, idbDelete, putBlob } from '../idb';
 import { api, gzip, HttpError, sha256Hex, type UploadAuthLike } from '../upload/client';
 import { getAuth, getStore, serverUrl } from '../capture/store';
 import type { CaptureService } from '../capture/service';
+import type { TraceController } from './trace';
 import { noteShot, noteShotError, probeShots, shotAccess, SHOTS_BLOCKED_MESSAGE } from './shot-access';
 
 type ReviewKey = keyof Pick<BgRequestMap, 'review.get' | 'review.context' | 'review.shot' | 'review.add' | 'review.update' | 'review.remove' | 'review.clear' | 'review.voice' | 'review.submit'>;
@@ -137,14 +139,14 @@ async function postJson<T>(a: UploadAuthLike, path: string, body: unknown): Prom
   return data;
 }
 
-async function submit(svc: CaptureService, tabId: number, req: BgRequestMap['review.submit']['req']): Promise<ReviewSubmitResult> {
+async function submit(svc: CaptureService, traces: TraceController, tabId: number, req: BgRequestMap['review.submit']['req']): Promise<ReviewSubmitResult> {
   const st = tabOf(tabId);
   const items = st.items.slice();
-  if (!items.length) throw new ReviewFailure('invalid', 'Nothing to send yet');
+  const session = traces.state(tabId);
+  if (!items.length && !session) throw new ReviewFailure('invalid', 'Nothing to send yet');
   const a = await uploadAuth();
-  const onTrace = !!req.traceRecordingId;
-  let recordingId = req.traceRecordingId ?? '';
-  let shareUrl = '';
+  const onTrace = !!session;
+  let recordingId = session?.recordingId ?? '';
   if (!onTrace) {
     const startedAt = Math.min(...items.map((i) => Math.min(i.t, ...i.ctxEvents.map((e) => e.t))));
     const page = items[0]!.page;
@@ -157,7 +159,6 @@ async function submit(svc: CaptureService, tabId: number, req: BgRequestMap['rev
       env: await envOf(tabId),
     });
     recordingId = created.id;
-    shareUrl = created.shareUrl;
   }
 
   // assets first: crops at 1x CSS pixels and voice notes, claimed by the feedback rows
@@ -189,9 +190,14 @@ async function submit(svc: CaptureService, tabId: number, req: BgRequestMap['rev
       t: it.t,
     });
   }
-  await postJson(a, buildPath(ROUTES['feedback.create'].path, { id: recordingId }), { items: inputs });
+  if (inputs.length) await postJson(a, buildPath(ROUTES['feedback.create'].path, { id: recordingId }), { items: inputs });
 
-  if (!onTrace) {
+  const title = req.title?.trim().slice(0, 500) || autoFeedbackTitle(items, session?.takes ?? []);
+  const description = req.description?.trim().slice(0, 10_000) ?? '';
+  let sentTraces = 0;
+  if (session) {
+    sentTraces = (await traces.send(tabId, { title, description })).traces;
+  } else {
     // the errors and requests the items attached become the capture's console and network
     const seen = new Set<string>();
     const events = items
@@ -203,16 +209,14 @@ async function submit(svc: CaptureService, tabId: number, req: BgRequestMap['rev
       await api.putChunk(a, recordingId, 'events', 0, body, { sha256: await sha256Hex(body), t0: events[0]!.t, t1: events[events.length - 1]!.t, contentType: 'application/x-ndjson', contentEncoding: 'gzip' });
       await api.completeStream(a, recordingId, 'events', { lastSeq: 0, totalBytes: body.size });
     }
-    const fin = await api.finalize(a, recordingId, { title: req.title?.trim().slice(0, 500) || autoFeedbackTitle(items), description: '', annotations: [] });
-    shareUrl = fin.shareUrl || shareUrl;
+    await api.finalize(a, recordingId, { title, description, annotations: [] });
   }
   await dropBlobs(items);
   const sent = new Set(items.map((i) => i.id));
   st.items = st.items.filter((i) => !sent.has(i.id));
   if (!st.items.length) st.nextN = 1;
   await save();
-  const result: ReviewSubmitResult = { recordingId, url: `${a.serverUrl}/c/${recordingId}`, count: items.length, trace: onTrace };
-  void shareUrl;
+  const result: ReviewSubmitResult = { recordingId, url: `${a.serverUrl}/c/${recordingId}`, count: items.length, traces: sentTraces };
   if (TEST_HOOKS) hooks.submits.push(result);
   return result;
 }
@@ -222,7 +226,7 @@ async function offscreen(svc: CaptureService, msg: Record<string, unknown>) {
   return (await browser.runtime.sendMessage({ to: 'offscreen', ...msg })) as { ok: boolean; error?: string; message?: string; blobId?: string; durationMs?: number } | undefined;
 }
 
-function handlersFor(svc: CaptureService): { [K in ReviewKey]: (req: BgRequestMap[K]['req'], sender: Sender) => Promise<BgRequestMap[K]['res']> } {
+function handlersFor(svc: CaptureService, traces: TraceController): { [K in ReviewKey]: (req: BgRequestMap[K]['req'], sender: Sender) => Promise<BgRequestMap[K]['res']> } {
   return {
     'review.get': async (_req, sender) => {
       await load();
@@ -264,7 +268,7 @@ function handlersFor(svc: CaptureService): { [K in ReviewKey]: (req: BgRequestMa
       st.items.push(item);
       await save();
       // a running trace gets the note as an action (its span engine reads annotation events)
-      if (req.trace) {
+      if (traces.runningIn(tabId)) {
         const e = { ...make('annotation', { annotationId: item.id, op: 'create' }), tab: tabId } as CaptureEvent;
         svc.ring.appendEvents(tabId, [e]);
       }
@@ -297,6 +301,7 @@ function handlersFor(svc: CaptureService): { [K in ReviewKey]: (req: BgRequestMa
       await dropBlobs(tabOf(tabId).items);
       delete tabs[tabId];
       await save();
+      await traces.discard(tabId);
       return {};
     },
     'review.voice': async (req) => {
@@ -312,7 +317,7 @@ function handlersFor(svc: CaptureService): { [K in ReviewKey]: (req: BgRequestMa
     },
     'review.submit': async (req, sender) => {
       await load();
-      return { result: await submit(svc, tabIdOf(sender), req) };
+      return { result: await submit(svc, traces, tabIdOf(sender), req) };
     },
   };
 }
@@ -324,9 +329,9 @@ function asFailure(e: unknown): { ok: false; error: BgError; message?: string } 
   return { ok: false, error: typeof code === 'string' ? (code as BgError) : 'server', message: e instanceof Error ? e.message : String(e) };
 }
 
-export function registerReview(svc: CaptureService) {
+export function registerReview(svc: CaptureService, traces: TraceController) {
   void load();
-  const handlers = handlersFor(svc) as Record<string, (req: unknown, sender: Sender) => Promise<object>>;
+  const handlers = handlersFor(svc, traces) as Record<string, (req: unknown, sender: Sender) => Promise<object>>;
   browser.runtime.onMessage.addListener(((msg: { type?: string }, sender: Sender, reply: (r: unknown) => void) => {
     const h = msg?.type ? handlers[msg.type] : undefined;
     if (!h) return false;

@@ -41,6 +41,8 @@ export interface TraceBgRequests {
   'trace.get': { req: {}; res: { trace: TraceState | null } };
   /** Set a trace's note. */
   'trace.note': { req: { n: number; note: string }; res: { trace: TraceState } };
+  /** Bring the session's tab to the front (the popup, from another tab). */
+  'trace.focus': { req: {}; res: {} };
   /** Remove a trace (a running one is stopped first). Removing the last one discards the session. */
   'trace.remove': { req: { n: number }; res: { trace: TraceState | null } };
 }

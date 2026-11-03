@@ -1,13 +1,14 @@
 <script lang="ts">
   // The launcher and the tool pill (M-01, M-03, M-04, M-05). Asleep: one dark round button with
   // the count of unsent notes. Awake: a dark pill of 32 px icon buttons that grows from the
-  // launcher's corner. A running trace shows a red dot and the elapsed time (M-05). Drag the
+  // launcher's corner. A running trace shows a red dot and the elapsed time (M-05); its Stop keeps
+  // it for Send and asks for its note in one line above the pill (D-214). Drag the
   // launcher or the pill's grip anywhere (or move them with the arrow keys): the dock anchors to
   // the nearest corner, is remembered per origin, and stays inside the visible area (D-199).
   import { Icon, type IconName } from '@toolbar/ui';
   import { onMount } from 'svelte';
   import { DRAW_COLORS } from '@toolbar/shared/areas/reviewer';
-  import { review as r, type DockPos, type Tool } from './state.svelte';
+  import { review as r, sendingWhat, type DockPos, type Tool } from './state.svelte';
   import { EDGE, fitIn, viewport } from './viewport.svelte';
   import { pointerIn } from './page';
   import { swallowPress } from './guard';
@@ -158,6 +159,51 @@
       r.skipTitle();
     }
   }
+  // the context of the whole capture: a few lines under the title, Mod+Enter sends, Esc closes it
+  let contextBox: HTMLTextAreaElement | undefined = $state();
+  const modKey = /Mac|iPhone|iPad/.test(navigator.platform) ? 'Cmd' : 'Ctrl';
+  function toggleContext() {
+    r.contextOpen = !r.contextOpen;
+    if (r.contextOpen) queueMicrotask(() => contextBox?.focus());
+    else titleBox?.focus();
+  }
+  function contextKey(e: KeyboardEvent) {
+    e.stopPropagation(); // the toolbar's single-key shortcuts stay out of the text
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.isComposing) {
+      e.preventDefault();
+      void r.submit(r.title);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      r.contextOpen = false;
+      titleBox?.focus();
+    }
+  }
+
+  // ---- the note prompt after Stop trace (D-214): focused when it opens; Enter or a press outside
+  // with text typed keeps the note, Esc or Skip keeps the trace without one
+  let noteRow: HTMLDivElement | undefined = $state();
+  let noteBox: HTMLInputElement | undefined = $state();
+  $effect(() => {
+    if (r.noting === null) return;
+    noteBox?.focus();
+    const outside = (e: PointerEvent) => {
+      if (noteRow && pointerIn(e, noteRow)) return;
+      if (r.noteText.trim()) void r.saveNote();
+      else r.endNote();
+    };
+    addEventListener('pointerdown', outside, true);
+    return () => removeEventListener('pointerdown', outside, true);
+  });
+  function noteKey(e: KeyboardEvent) {
+    e.stopPropagation();
+    if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      void r.saveNote();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      r.endNote();
+    }
+  }
 
   /** the action's shortcut (Ctrl+Shift+Y): opening the menu on the tab lets Chrome grant screenshots (D-185) */
   const menuKey = /Mac|iPhone|iPad/.test(navigator.platform) ? 'Cmd+Shift+Y' : 'Ctrl+Shift+Y';
@@ -195,8 +241,8 @@
       onkeydown={nudge}
     >
       <Icon name="comment" size={20} />
-      {#if r.items.length}<span class="badge" data-testid="review-badge">{r.items.length}</span>{/if}
-      {#if r.trace}<span class="rec-dot" aria-label="Trace running"></span>{/if}
+      {#if r.pending}<span class="badge" data-testid="review-badge">{r.pending}</span>{/if}
+      {#if r.running}<span class="rec-dot" aria-label="Trace running"></span>{/if}
     </button>
   {:else}
     {#if r.shotsBlocked}
@@ -224,39 +270,52 @@
         {#if r.voice}<span class="time" data-testid="review-voice-time">{elapsed(r.now - r.voice.startedAt)}</span>{/if}
       </button>
       <span class="sep"></span>
-      {#if r.trace}
-        <button type="button" class="ib trace on-trace" aria-label="Stop trace (X)" title="Stop trace (X)" data-testid="review-trace-stop" onclick={() => r.toggleTrace()}>
-          <span class="rec-dot inline"></span><span class="time" data-testid="review-trace-time">{elapsed(r.now - r.trace.startedAt)}</span><Icon name="stop" size={15} />
+      {#if r.running}
+        <button type="button" class="ib trace on-trace" aria-label="Stop trace {r.running.n} (X)" title="Stop trace {r.running.n} and keep it (X)" data-testid="review-trace-stop" onclick={() => r.toggleTrace()}>
+          <span class="rec-dot inline"></span><span class="time" data-testid="review-trace-time">{elapsed(r.now - r.running.startedAt)}</span><Icon name="stop" size={15} />
         </button>
       {:else}
-        <button type="button" class="ib trace" aria-label="Start trace (X)" title={r.traceAvailable ? 'Start trace (X)' : 'Traces are not in this build'} disabled={!r.traceAvailable} data-testid="review-trace-start" onclick={() => r.toggleTrace()}>
+        <button type="button" class="ib trace" aria-label="Start trace (X)" title={r.traceAvailable ? (r.kept.length ? `Start trace ${r.kept.length + 1} (X)` : 'Start trace (X)') : 'Traces are not in this build'} disabled={!r.traceAvailable} data-testid="review-trace-start" onclick={() => r.toggleTrace()}>
           <Icon name="record" size={17} /><span class="lbl">Trace</span>
         </button>
       {/if}
       <span class="sep"></span>
-      <button type="button" class="ib" class:on={r.listOpen} aria-pressed={r.listOpen} aria-label="Notes on this tab (L)" title="Notes on this tab (L)" data-testid="review-list-toggle" onclick={() => (r.listOpen = !r.listOpen)}>
+      <button type="button" class="ib" class:on={r.listOpen} aria-pressed={r.listOpen} aria-label="Traces and notes on this tab (L)" title="Traces and notes on this tab (L)" data-testid="review-list-toggle" onclick={() => (r.listOpen = !r.listOpen)}>
         <Icon name="list" size={17} />
-        {#if r.items.length}<span class="count" data-testid="review-count">{r.items.length}</span>{/if}
+        {#if r.pending}<span class="count" data-testid="review-count">{r.pending}</span>{/if}
       </button>
       <button type="button" class="ib" aria-pressed={r.pinsHidden} aria-label={r.pinsHidden ? 'Show pins (H)' : 'Hide pins (H)'} title={r.pinsHidden ? 'Show pins (H)' : 'Hide pins (H)'} data-testid="review-hide-pins" onclick={() => (r.pinsHidden = !r.pinsHidden)}>
         <Icon name={r.pinsHidden ? 'eye' : 'eye-off'} size={17} />
       </button>
-      <button type="button" class="send" disabled={!r.items.length || r.busy} aria-label="Send {r.items.length} notes" title={r.trace ? 'Add the notes to the trace' : 'Send the notes'} data-testid="review-send" bind:this={sendBtn} onclick={() => void r.send()}>
-        <Icon name="send" size={15} />{r.items.length || ''}
+      <button type="button" class="send" disabled={(!r.pending && !r.running) || r.busy} aria-label="Send {sendingWhat(r.items.length, r.trace?.takes.length ?? 0)}" title="Send {sendingWhat(r.items.length, r.trace?.takes.length ?? 0)}" data-testid="review-send" bind:this={sendBtn} onclick={() => void r.send()}>
+        <Icon name="send" size={15} />{r.pending || ''}
       </button>
       <button type="button" class="ib" aria-label="Collapse (Esc)" title="Collapse (Esc)" data-testid="review-close" onclick={() => r.sleep()}><Icon name="chevron-down" size={17} /></button>
       <!-- D-205: closes the toolbar on this site until the extension icon is clicked here -->
       <button type="button" class="ib" aria-label="Close on this site" title="Close on this site" data-testid="review-close-site" onclick={() => void r.close()}><Icon name="close" size={17} /></button>
     </div>
     {#if r.naming}
-      <div class="title-row" bind:this={titleRow} use:fitIn data-nb-interactive data-testid="review-title-row">
-        <input bind:this={titleBox} bind:value={r.title} type="text" maxlength="500" placeholder={r.autoTitle} aria-label="Title" spellcheck="false" autocomplete="off" onkeydown={titleKey} data-testid="review-title" />
-        <button type="button" class="skip" data-testid="review-title-skip" onclick={() => r.skipTitle()}>Skip</button>
+      <div class="title-row" class:open={r.contextOpen} bind:this={titleRow} use:fitIn={r.contextOpen} data-nb-interactive data-testid="review-title-row">
+        <div class="line">
+          <input bind:this={titleBox} bind:value={r.title} type="text" maxlength="500" placeholder={r.autoTitle} aria-label="Title" spellcheck="false" autocomplete="off" onkeydown={titleKey} data-testid="review-title" />
+          <button type="button" class="skip" class:on={r.contextOpen || !!r.description.trim()} aria-expanded={r.contextOpen} title="Context for the agent: what you were doing, what you expected" data-testid="review-context-toggle" onclick={toggleContext}>Context</button>
+          <button type="button" class="skip" data-testid="review-title-skip" onclick={() => r.skipTitle()}>Skip</button>
+        </div>
+        {#if r.contextOpen}
+          <textarea bind:this={contextBox} bind:value={r.description} rows="3" maxlength="10000" placeholder="What were you doing, and what did you expect? {modKey}+Enter sends" aria-label="Context" onkeydown={contextKey} data-testid="review-context"></textarea>
+        {/if}
+      </div>
+    {/if}
+    {#if r.noting !== null}
+      <div class="title-row note-row" bind:this={noteRow} use:fitIn data-nb-interactive data-testid="review-note-row">
+        <span class="take"><Icon name="record" size={13} />Trace {r.noting}</span>
+        <input bind:this={noteBox} bind:value={r.noteText} type="text" maxlength="4000" placeholder="What should the agent notice here?" aria-label="Note on trace {r.noting}" spellcheck="true" autocomplete="off" onkeydown={noteKey} data-testid="review-note" />
+        <button type="button" class="skip" data-testid="review-note-skip" onclick={() => r.endNote()}>Skip</button>
       </div>
     {/if}
     {#if r.confirmClose}
-      <div class="confirm" use:fitIn role="alertdialog" aria-label={r.trace ? 'Stop trace?' : 'Stop voice note?'} data-nb-interactive data-testid="review-close-confirm">
-        <span>{r.trace ? 'Stop trace?' : 'Stop voice note?'}</span>
+      <div class="confirm" use:fitIn role="alertdialog" aria-label={r.running ? 'Stop trace?' : 'Stop voice note?'} data-nb-interactive data-testid="review-close-confirm">
+        <span>{r.running ? 'Stop trace?' : 'Stop voice note?'}</span>
         <button type="button" class="send" data-testid="review-close-stop" onclick={() => void r.close(true)}>Stop</button>
         <button type="button" class="ib" data-testid="review-close-keep" onclick={() => void r.close(false)}>Keep</button>
       </div>
@@ -303,6 +362,18 @@
   .skip { all: unset; box-sizing: border-box; flex: none; height: 28px; padding: 0 10px; border-radius: 14px; cursor: pointer; color: var(--nb-on-chrome-muted); font: var(--nb-weight-medium) 12px/28px var(--nb-font-sans); transition: background-color var(--nb-dur-fast) var(--nb-ease-out), color var(--nb-dur-fast) var(--nb-ease-out); }
   .skip:hover { background: var(--nb-chrome-2); color: var(--nb-on-chrome); }
   .skip:focus-visible { outline: 2px solid var(--nb-chrome-accent); outline-offset: 1px; color: var(--nb-on-chrome); }
+  .skip.on { color: var(--nb-on-chrome); }
+  /* with Context open the row is a card: the title line, then a few lines of context */
+  .title-row { flex-direction: column; align-items: stretch; }
+  .title-row .line { display: flex; align-items: center; gap: 4px; }
+  .title-row.open { border-radius: 18px; padding-bottom: 10px; }
+  .title-row textarea { all: unset; box-sizing: border-box; display: block; margin: 4px 10px 0 0; min-height: 60px; max-height: 40vh; padding: 8px 10px; border-radius: 10px; background: var(--nb-chrome-2); color: var(--nb-on-chrome); font: 13px/1.45 var(--nb-font-sans); letter-spacing: var(--nb-tracking-ui); white-space: pre-wrap; overflow-wrap: anywhere; overflow-y: auto; field-sizing: content; }
+  .title-row textarea::placeholder { color: var(--nb-on-chrome-muted); }
+  .title-row textarea:focus-visible { outline: 1px solid var(--nb-chrome-accent); }
+  /* the note prompt: the trace's name, then one line */
+  .note-row { flex-direction: row; align-items: center; padding-left: 10px; }
+  .take { flex: none; display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px 0 7px; margin-right: 4px; border-radius: 12px; background: var(--nb-chrome-2); color: var(--nb-on-chrome); font: var(--nb-weight-semibold) 11px/24px var(--nb-font-sans); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .take :global(svg) { color: var(--nb-chrome-danger); }
   /* phone width (390 px): the pill wraps onto two rows, so Send and Close stay on screen (D-185) */
   @media (max-width: 520px) {
     .pill { flex-wrap: wrap; justify-content: center; height: auto; padding: 6px; row-gap: 4px; max-width: calc(100vw - 24px); overflow: visible; }

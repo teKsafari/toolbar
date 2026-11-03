@@ -10,13 +10,15 @@ import type { BgError, NewReviewItem, ReviewSubmitResult } from '@toolbar/shared
 import type { LocatorTarget } from '@toolbar/shared/ext';
 import type { LocatorPacket } from '@toolbar/shared/locator';
 import type { Rect } from '@toolbar/shared';
-import type { ReviewPlatform, ReviewRequestMap, ReviewRequestType, ReviewStorage } from '@toolbar/review/platform';
+import type { ReviewPlatform, ReviewRequestMap, ReviewRequestType, ReviewStorage, ReviewTrace } from '@toolbar/review/platform';
 import { EmbedHttpError, gzipText, ndjson, type EmbedCapture, type EmbedClient, type EmbedConfig, type EmbedReviewer } from './client.ts';
-import type { PageSession } from './session.ts';
-import { uuid } from './session.ts';
+import { runningTake, uuid, type PageSession, type TraceState } from './session.ts';
 import { BlobStore, ItemStore, type StoredItem } from './store.ts';
 import { MicUnavailableError, VoiceRecorder, clipExt, requestMic } from './voice.ts';
 import { toDataUrl, type Shot } from './shot.ts';
+
+/** The session as the toolbar shows it; the server counts the actions. */
+const traceView = (t: TraceState | null): ReviewTrace | null => (t ? { recordingId: t.id, takes: t.takes.map((k) => ({ n: k.n, startedAt: k.startedAt, endedAt: k.endedAt, note: k.note })) } : null);
 
 class Failure extends Error {
   constructor(
@@ -116,14 +118,12 @@ export function createPagePlatform(deps: PagePlatformDeps): ReviewPlatform & { h
 
   async function submit(req: ReviewRequestMap['review.submit']['req']): Promise<ReviewSubmitResult> {
     const list = st.items.slice();
-    if (!list.length) throw new Failure('invalid', 'Nothing to send yet');
+    const traced = session.trace;
+    if (!list.length && !traced) throw new Failure('invalid', 'Nothing to send yet');
     const reviewer = deps.reviewer.get();
     let cap: EmbedCapture;
-    const onTrace = !!req.traceRecordingId;
-    if (onTrace) {
-      const t = session.trace;
-      if (!t || t.id !== req.traceRecordingId) throw new Failure('not_found', 'The trace is over');
-      cap = t;
+    if (traced) {
+      cap = traced;
     } else {
       const startedAt = Math.min(...list.map((i) => Math.min(i.t, ...i.ctxEvents.map((e) => e.t))));
       const page = list[0]!.page;
@@ -168,9 +168,14 @@ export function createPagePlatform(deps: PagePlatformDeps): ReviewPlatform & { h
         t: it.t,
       });
     }
-    await client.createFeedback(cap, inputs);
+    if (inputs.length) await client.createFeedback(cap, inputs);
 
-    if (!onTrace) {
+    const title = req.title?.trim().slice(0, 500) || autoFeedbackTitle(list, traced?.takes ?? [], location.href);
+    const description = req.description?.trim().slice(0, 10_000) ?? '';
+    let traces = 0;
+    if (traced) {
+      traces = (await session.sendTrace({ title, description })).traces;
+    } else {
       // the errors and requests the notes attached become the capture's console and network
       const seen = new Set<string>();
       const events = list
@@ -182,7 +187,7 @@ export function createPagePlatform(deps: PagePlatformDeps): ReviewPlatform & { h
         await client.putChunk(cap, 'events', 0, gz, events[0]!.t, events[events.length - 1]!.t);
         await client.completeStream(cap, 'events', 0, gz.size);
       }
-      await client.finalize(cap, { title: req.title?.trim().slice(0, 500) || autoFeedbackTitle(list), description: '', annotations: [] });
+      await client.finalize(cap, { title, description, annotations: [] });
     }
     await dropBlobs(list);
     const sent = new Set(list.map((i) => i.id));
@@ -190,7 +195,7 @@ export function createPagePlatform(deps: PagePlatformDeps): ReviewPlatform & { h
     if (!st.items.length) st.nextN = 1;
     items.save();
     // the reviewer cannot open the dashboard: no link
-    return { recordingId: cap.id, url: '', count: list.length, trace: onTrace };
+    return { recordingId: cap.id, url: '', count: list.length, traces };
   }
 
   const handlers: Handlers = {
@@ -218,7 +223,7 @@ export function createPagePlatform(deps: PagePlatformDeps): ReviewPlatform & { h
       };
       st.items.push(item);
       items.save();
-      if (req.trace && session.trace) session.annotate(item.id);
+      if (runningTake(session.trace)) session.annotate(item.id);
       return { item: view(item) };
     },
     'review.update': async (req) => {
@@ -242,6 +247,7 @@ export function createPagePlatform(deps: PagePlatformDeps): ReviewPlatform & { h
       st.items = [];
       st.nextN = 1;
       items.save();
+      await session.discardTrace();
       return {};
     },
     'review.voice': async (req) => {
@@ -267,17 +273,27 @@ export function createPagePlatform(deps: PagePlatformDeps): ReviewPlatform & { h
         return { granted: false };
       }
     },
-    'trace.get': async () => {
-      const t = session.trace;
-      return { trace: t ? { recordingId: t.id, startedAt: t.startedAt } : null };
-    },
+    'trace.get': async () => ({ trace: traceView(session.trace) }),
     'trace.start': async () => {
       await session.startTrace();
-      const t = session.trace;
-      if (!t) throw new Failure('server', 'The trace did not start');
-      return { trace: { recordingId: t.id, startedAt: t.startedAt } };
+      if (!session.trace) throw new Failure('server', 'The trace did not start');
+      return { trace: traceView(session.trace)! };
     },
-    'trace.stop': async () => ({ result: await session.stopTrace() }),
+    'trace.stop': async () => {
+      if (!runningTake(session.trace)) throw new Failure('not_found', 'No trace is running');
+      await session.stopTrace();
+      return { trace: traceView(session.trace)! };
+    },
+    'trace.note': async (req) => {
+      if (!session.trace?.takes.some((t) => t.n === req.n)) throw new Failure('not_found', 'That trace is gone');
+      session.noteTrace(req.n, req.note);
+      return { trace: traceView(session.trace)! };
+    },
+    'trace.remove': async (req) => {
+      if (!session.trace?.takes.some((t) => t.n === req.n)) throw new Failure('not_found', 'That trace is gone');
+      await session.removeTrace(req.n);
+      return { trace: traceView(session.trace) };
+    },
   };
 
   void blobs.sweep();
@@ -295,6 +311,8 @@ export function createPagePlatform(deps: PagePlatformDeps): ReviewPlatform & { h
     storage: deps.storage ?? localStore(),
     assetUrl: deps.assetUrl,
     reviewer: deps.reviewer,
+    // another page of the tab came back from the back-forward cache with the session moved on
+    onTraceChange: (fn) => session.subscribe(fn),
     caps: { canScreenshot: true },
   };
 }

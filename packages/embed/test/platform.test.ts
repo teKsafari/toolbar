@@ -70,7 +70,7 @@ describe('page platform', () => {
 
   it('answers every request the toolbar makes', () => {
     const { platform } = setup();
-    const types: ReviewRequestType[] = ['review.get', 'review.context', 'review.shot', 'review.add', 'review.update', 'review.remove', 'review.clear', 'review.voice', 'review.submit', 'locator.capture', 'mic.request', 'trace.get', 'trace.start', 'trace.stop'];
+    const types: ReviewRequestType[] = ['review.get', 'review.context', 'review.shot', 'review.add', 'review.update', 'review.remove', 'review.clear', 'review.voice', 'review.submit', 'locator.capture', 'mic.request', 'trace.get', 'trace.start', 'trace.stop', 'trace.note', 'trace.remove'];
     expect(Object.keys(platform.handlers).sort()).toEqual([...types].sort());
     expect(platform.caps.canScreenshot).toBe(true);
     expect(platform.openCapture).toBeUndefined();
@@ -87,7 +87,7 @@ describe('page platform', () => {
     expect(added.ok && added.item.context.errors).toHaveLength(1);
     await platform.request('review.add', { item: note({ kind: 'text', comment: 'Typo', quote: 'Totl' }) });
     const r = await platform.request('review.submit', { title: 'Cart problems' });
-    expect(r).toEqual({ ok: true, result: { recordingId: 'rec-9', url: '', count: 2, trace: false } });
+    expect(r).toEqual({ ok: true, result: { recordingId: 'rec-9', url: '', count: 2, traces: 0 } });
 
     expect(server.calls.map((c) => `${c.method} ${c.path}`)).toEqual([
       'POST /api/v1/embed/tbk_test/recordings',
@@ -128,22 +128,46 @@ describe('page platform', () => {
     expect(left.ok && left.items).toHaveLength(1);
   });
 
-  it('notes made during a trace go onto it with its token and become its actions', async () => {
+  it('a trace session: notes made during a trace become its actions; Stop keeps it; Send sends traces and notes as one capture', async () => {
     const { platform, session, server } = setup();
     (server.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => new Response(JSON.stringify({ id: 'tr-1', uploadToken: 'tb_upl_trace' }), { headers: { 'content-type': 'application/json' } }));
     const started = await platform.request('trace.start', {});
-    expect(started).toMatchObject({ ok: true, trace: { recordingId: 'tr-1' } });
+    expect(started).toMatchObject({ ok: true, trace: { recordingId: 'tr-1', takes: [{ n: 1, endedAt: null }] } });
     expect(await platform.request('trace.get', {})).toMatchObject({ ok: true, trace: { recordingId: 'tr-1' } });
     const spy = vi.spyOn(session, 'annotate');
-    const added = await platform.request('review.add', { item: note(), trace: true });
+    const added = await platform.request('review.add', { item: note() });
     expect(spy).toHaveBeenCalledWith(added.ok ? added.item.id : '');
+    const stopped = await platform.request('trace.stop', {});
+    expect(stopped).toMatchObject({ ok: true, trace: { takes: [{ n: 1, endedAt: expect.any(Number) }] } });
+    expect(server.calls.some((c) => c.path.endsWith('/finalize'))).toBe(false);
+    // a note made after the stop is not an action of the trace
+    spy.mockClear();
+    await platform.request('review.add', { item: note() });
+    expect(spy).not.toHaveBeenCalled();
+    expect(await platform.request('trace.note', { n: 1, note: 'The total jumps after Save' })).toMatchObject({ ok: true, trace: { takes: [{ note: 'The total jumps after Save' }] } });
     server.calls.length = 0;
-    const r = await platform.request('review.submit', { traceRecordingId: 'tr-1' });
-    expect(r).toMatchObject({ ok: true, result: { recordingId: 'tr-1', trace: true, count: 1 } });
-    expect(server.calls.map((c) => `${c.method} ${c.path} ${c.headers.authorization}`)).toEqual(['POST /api/v1/recordings/tr-1/feedback Bearer tb_upl_trace']);
-    const stopped = await platform.request('trace.stop', { open: true });
-    expect(stopped).toMatchObject({ ok: true, result: { recordingId: 'tr-1' } });
-    expect(server.calls.at(-1)!.path).toBe('/api/v1/recordings/tr-1/finalize');
+    const r = await platform.request('review.submit', { description: 'Checking out as a guest' });
+    expect(r).toMatchObject({ ok: true, result: { recordingId: 'tr-1', traces: 1, count: 2 } });
+    // the trace's events (its one action) went up at Stop: Send completes the stream and finalizes
+    expect(server.calls.map((c) => `${c.method} ${c.path} ${c.headers.authorization}`)).toEqual([
+      'POST /api/v1/recordings/tr-1/feedback Bearer tb_upl_trace',
+      'POST /api/v1/recordings/tr-1/streams/events/complete Bearer tb_upl_trace',
+      'POST /api/v1/recordings/tr-1/finalize Bearer tb_upl_trace',
+    ]);
+    const fin = server.calls.at(-1)!.body as { title: string; description: string; traces: { n: number; note: string }[] };
+    expect(fin).toMatchObject({ title: 'The total jumps after Save', description: 'Checking out as a guest', traces: [{ n: 1, note: 'The total jumps after Save' }] });
+    expect(await platform.request('trace.get', {})).toMatchObject({ ok: true, trace: null });
+  });
+
+  it('Discard all drops the trace session and its server draft', async () => {
+    const { platform, server } = setup();
+    (server.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => new Response(JSON.stringify({ id: 'tr-2', uploadToken: 'tb_upl_trace' }), { headers: { 'content-type': 'application/json' } }));
+    await platform.request('trace.start', {});
+    await platform.request('trace.stop', {});
+    server.calls.length = 0;
+    await platform.request('review.clear', {});
+    expect(server.calls.map((c) => `${c.method} ${c.path}`)).toEqual(['DELETE /api/v1/recordings/tr-2']);
+    expect(await platform.request('trace.get', {})).toMatchObject({ ok: true, trace: null });
   });
 
   it('keeps the notes for the next page of the tab', async () => {

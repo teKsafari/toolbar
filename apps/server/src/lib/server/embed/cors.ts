@@ -7,8 +7,11 @@ import { HEADERS } from '@toolbar/shared';
 import { REQUEST_ORIGIN_HEADER, UPLOAD_TOKEN_PREFIX } from '@toolbar/shared/api';
 
 const EMBED_API = /^\/api\/v1\/embed\//;
-/** Routes the upload token reaches: a capture's chunks, complete, finalize and feedback, and assets. */
-const UPLOAD_API = /^\/api\/v1\/(recordings\/[^/]+\/.+|assets\/?)$/;
+/**
+ * Routes the upload token reaches: a capture's chunks, complete, finalize and feedback, assets,
+ * and DELETE of the capture itself while it is a draft (a discarded trace session, D-214).
+ */
+const UPLOAD_API = /^\/api\/v1\/(recordings\/[^/]+(\/.+)?|assets\/?)$/;
 
 const ALLOW_HEADERS = ['authorization', 'content-type', 'content-encoding', HEADERS.sha256, HEADERS.t0, HEADERS.t1].join(', ');
 
@@ -28,7 +31,7 @@ export const embedCors: Handle = async ({ event, resolve }) => {
   if (!embed && !UPLOAD_API.test(path)) return resolve(event);
   const origin = originOf(event.request.headers);
   if (event.request.method === 'OPTIONS') {
-    const h = new Headers({ 'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS', 'Access-Control-Allow-Headers': ALLOW_HEADERS, 'Access-Control-Max-Age': '600' });
+    const h = new Headers({ 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Allow-Headers': ALLOW_HEADERS, 'Access-Control-Max-Age': '600' });
     if (origin) echo(h, origin);
     return new Response(null, { status: 204, headers: h });
   }

@@ -5,7 +5,7 @@ import { gunzipSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';
 import type { CaptureEvent } from '@toolbar/shared';
 import { EmbedHttpError, type EmbedCapture, type EmbedClient } from '../src/client';
-import { PageSession, Ring, titleOf, uuid } from '../src/session';
+import { PageSession, Ring, uuid } from '../src/session';
 
 const ev = (t: number, kind: CaptureEvent['kind'] = 'console'): CaptureEvent => ({ v: 1, id: `x:${t}`, ctx: 'top', seq: t, t, kind, data: {} }) as unknown as CaptureEvent;
 const rr = (type: number, timestamp: number) => ({ type, timestamp, data: {} });
@@ -65,7 +65,7 @@ function fakeClient() {
 }
 
 describe('page session', () => {
-  it('streams a trace in numbered chunks with its upload token and finalizes it', async () => {
+  it('streams a trace in numbered chunks with its upload token, keeps it at Stop and finalizes it at Send', async () => {
     sessionStorage.clear();
     const { client, calls, chunks } = fakeClient();
     let now = 1_000;
@@ -82,18 +82,42 @@ describe('page session', () => {
     // a note made during the trace becomes one of its actions
     s.annotate('note-1');
     now = 5_000;
-    const r = await s.stopTrace('Checking the lesson page');
-    expect(r.recordingId).toBe('rec-1');
+    await s.stopTrace();
+    // Stop sends what is left and keeps the trace: nothing completes or finalizes yet
     expect(chunks.map((c) => `${c.stream}:${c.seq}`)).toEqual(['events:0', 'rrweb:0', 'events:1', 'events:2']);
+    expect(calls.some((c) => c.op === 'complete' || c.op === 'finalize')).toBe(false);
+    expect(s.trace?.takes).toEqual([{ n: 1, startedAt: 1_000, endedAt: 5_000, note: '' }]);
+    // between traces nothing streams
+    s.send([ev(6_000)]);
+    await s.flushTrace(false);
+    expect(chunks).toHaveLength(4);
+    s.noteTrace(1, 'The lesson nav hides when you scroll up');
+    now = 8_000;
+    await s.startTrace();
+    expect(calls.filter((c) => c.op === 'create')).toHaveLength(1);
+    s.send([ev(8_100)]);
+    now = 9_000;
+    const r = await s.sendTrace({ title: 'Lesson page', description: 'Checking the lesson page' });
+    expect(r).toEqual({ recordingId: 'rec-1', traces: 2 });
+    expect(chunks.map((c) => `${c.stream}:${c.seq}`)).toEqual(['events:0', 'rrweb:0', 'events:1', 'events:2', 'events:3']);
     expect(chunks[3]!.rows).toMatchObject([{ kind: 'annotation', data: { annotationId: 'note-1', op: 'create' } }]);
     expect(calls.filter((c) => c.op === 'put').every((c) => c.args[3] === 'tb_upl_abc')).toBe(true);
     const completes = calls.filter((c) => c.op === 'complete').map((c) => c.args.slice(1, 3));
     expect(completes).toEqual([
-      ['events', 2],
+      ['events', 3],
       ['rrweb', 0],
     ]);
     const fin = calls.find((c) => c.op === 'finalize')!.args[1] as { title: string; description: string; durationMs: number; annotations: unknown[] };
-    expect(fin).toMatchObject({ title: 'Checking the lesson page', description: 'Checking the lesson page', durationMs: 4_000, annotations: [] });
+    expect(fin).toMatchObject({
+      title: 'Lesson page',
+      description: 'Checking the lesson page',
+      durationMs: 8_000,
+      annotations: [],
+      traces: [
+        { n: 1, startedAt: 1_000, endedAt: 5_000, note: 'The lesson nav hides when you scroll up' },
+        { n: 2, startedAt: 8_000, endedAt: 9_000, note: '' },
+      ],
+    });
     expect(sessionStorage.getItem('tb:page-trace')).toBeNull();
     expect(s.trace).toBeNull();
   });
@@ -139,7 +163,7 @@ describe('page session', () => {
     await s.startTrace();
     s.trace!.seq.events = 3;
     s.trace!.bytes.events = 90;
-    const r = await s.stopTrace('gap');
+    const r = await s.sendTrace({ title: 'gap', description: '' });
     expect(r.recordingId).toBe('rec-1');
     expect(chunks.filter((c) => c.stream === 'events').map((c) => [c.seq, c.rows.length])).toEqual([[1, 0]]);
     const ev = calls.filter((c) => c.op === 'complete' && c.args[1] === 'events').map((c) => c.args.slice(2));
@@ -157,10 +181,10 @@ describe('page session', () => {
     const s = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
     await s.startTrace();
     s.trace!.seq.events = 1;
-    await expect(s.stopTrace('x')).rejects.toThrow('forbidden');
+    await expect(s.sendTrace({ title: 'x', description: '' })).rejects.toThrow('forbidden');
   });
 
-  it('sends the reviewer name known when the trace stops with its finalize', async () => {
+  it('sends the reviewer name known at Send with its finalize', async () => {
     sessionStorage.clear();
     const { client, calls } = fakeClient();
     let who: { id: string; name?: string } = { id: 'r_1' };
@@ -169,12 +193,12 @@ describe('page session', () => {
     expect(calls[0]!.args[0]).toMatchObject({ reviewer: { id: 'r_1' } });
     // the composer asked for the name after the trace had started
     who = { id: 'r_1', name: 'Ada' };
-    await s.stopTrace('x');
+    await s.sendTrace({ title: 'x', description: '' });
     expect(calls.find((c) => c.op === 'finalize')!.args[1]).toMatchObject({ reviewer: { name: 'Ada' } });
     // no name known: no reviewer field
     who = { id: 'r_1' };
     await s.startTrace();
-    await s.stopTrace('y');
+    await s.sendTrace({ title: 'y', description: '' });
     expect(calls.filter((c) => c.op === 'finalize')[1]!.args[1]).not.toHaveProperty('reviewer');
   });
 
@@ -229,7 +253,7 @@ describe('page session', () => {
     expect(chunks.slice(2).map((c) => [c.seq, c.rows.map((r) => (r as { t: number }).t)])).toEqual([[2, [2_800, 3_000]]]);
   });
 
-  it('back from the back-forward cache, lets go of a trace another page stopped', async () => {
+  it('back from the back-forward cache, lets go of a session another page sent', async () => {
     sessionStorage.clear();
     const { client, chunks } = fakeClient();
     const a = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
@@ -239,7 +263,7 @@ describe('page session', () => {
     const cmds: { type: string; recordingId?: string }[] = [];
     a.onCommand((c) => cmds.push(c as { type: string; recordingId?: string }));
     const b = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
-    await b.stopTrace('done');
+    await b.sendTrace({ title: 'done', description: '' });
     changed.mockClear();
     a.resume();
     expect(a.trace).toBeNull();
@@ -251,9 +275,40 @@ describe('page session', () => {
     expect(sessionStorage.getItem('tb:page-trace')).toBeNull();
   });
 
-  it('titles and ids', () => {
-    expect(titleOf('\n  first line  \nsecond')).toBe('first line');
-    expect(titleOf('x'.repeat(100))).toHaveLength(80);
+  it('back from the back-forward cache, stops streaming a trace another page stopped', async () => {
+    sessionStorage.clear();
+    const { client } = fakeClient();
+    const a = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
+    await a.startTrace();
+    const cmds: string[] = [];
+    a.onCommand((c) => cmds.push(c.type));
+    const b = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
+    await b.stopTrace();
+    a.resume();
+    expect(a.trace?.takes[0]?.endedAt).not.toBeNull();
+    expect(cmds).toEqual(['detach', 'ring']);
+  });
+
+  it('removing the last trace discards the session and the server draft', async () => {
+    sessionStorage.clear();
+    const { client, calls } = fakeClient();
+    const discard = vi.fn(async () => ({ ok: true, purged: true }));
+    (client as unknown as { discard: unknown }).discard = discard;
+    const s = new PageSession({ client, workspaceId: async () => 'ws-1', env: async () => ({}) });
+    await s.startTrace();
+    await s.stopTrace();
+    await s.startTrace();
+    await s.removeTrace(2);
+    expect(s.trace?.takes.map((t) => t.n)).toEqual([1]);
+    expect(discard).not.toHaveBeenCalled();
+    await s.removeTrace(1);
+    expect(s.trace).toBeNull();
+    expect(sessionStorage.getItem('tb:page-trace')).toBeNull();
+    expect(discard).toHaveBeenCalledTimes(1);
+    expect(calls.some((c) => c.op === 'finalize')).toBe(false);
+  });
+
+  it('ids', () => {
     expect(uuid()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 });

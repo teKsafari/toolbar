@@ -69,4 +69,11 @@ describe('autoFeedbackTitle (D-206: the title row placeholder and the title of a
     expect(autoFeedbackTitle([{ comment: ' ', page }])).toBe('Feedback on /checkout');
     expect(autoFeedbackTitle([{ comment: '', page: { url: 'not a url' } }])).toBe('Feedback');
   });
+  it('with traces (D-214): the first trace note comes first, then the comments, then "N traces on" the page', () => {
+    const takes = [{ note: '' }, { note: 'Nav bar hides on scroll up\nand stays hidden' }];
+    expect(autoFeedbackTitle([{ comment: 'Save gives no feedback', page }], takes)).toBe('Nav bar hides on scroll up');
+    expect(autoFeedbackTitle([{ comment: 'Save gives no feedback', page }], [{ note: '' }])).toBe('Save gives no feedback');
+    expect(autoFeedbackTitle([], [{ note: '' }, { note: ' ' }], 'http://localhost:5173/lessons/3')).toBe('2 traces on /lessons/3');
+    expect(autoFeedbackTitle([], [{ note: '' }], 'http://localhost:5173/')).toBe('Trace on /');
+  });
 });

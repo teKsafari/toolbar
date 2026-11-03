@@ -18,6 +18,7 @@ export const EMBED_ROUTES = {
   'captures.finalize': { method: 'POST', path: '/api/v1/recordings/:id/finalize' },
   'captures.uploadAsset': { method: 'POST', path: '/api/v1/assets' },
   'feedback.create': { method: 'POST', path: '/api/v1/recordings/:id/feedback' },
+  'captures.delete': { method: 'DELETE', path: '/api/v1/recordings/:id' },
 } as const;
 
 type RouteName = keyof typeof EMBED_ROUTES;
@@ -121,7 +122,7 @@ export function createEmbedClient(nativeFetch: typeof fetch, server: string, key
     },
     completeStream: (cap: EmbedCapture, stream: PageStream, lastSeq: number, totalBytes: number) =>
       call('captures.completeStream', { id: cap.id, stream }, { json: { lastSeq, totalBytes }, token: cap.uploadToken }),
-    finalize: (cap: EmbedCapture, body: { title: string; description: string; annotations: unknown[]; durationMs?: number; reviewer?: { name: string } }) =>
+    finalize: (cap: EmbedCapture, body: { title: string; description: string; annotations: unknown[]; durationMs?: number; reviewer?: { name: string }; traces?: { n: number; startedAt: number; endedAt: number; note: string }[] }) =>
       call<{ id: string; status: string }>('captures.finalize', { id: cap.id }, { json: body, token: cap.uploadToken }),
     uploadAsset: async (cap: EmbedCapture, kind: 'feedback' | 'voice-note', file: Blob, filename: string) => {
       const fd = new FormData();
@@ -132,6 +133,8 @@ export function createEmbedClient(nativeFetch: typeof fetch, server: string, key
       fd.set('file', file, filename);
       return call<{ id: string; url: string; kind: string }>('captures.uploadAsset', {}, { body: fd, token: cap.uploadToken });
     },
+    /** a trace session the reviewer discarded: the server's draft goes at once (J-189) */
+    discard: (cap: EmbedCapture) => call<{ ok: true; purged: boolean }>('captures.delete', { id: cap.id }, { token: cap.uploadToken }),
     createFeedback: (cap: EmbedCapture, items: FeedbackItemInput[]) => call<{ items: unknown[] }>('feedback.create', { id: cap.id }, { json: { items }, token: cap.uploadToken }),
   };
 }

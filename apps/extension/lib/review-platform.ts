@@ -25,5 +25,13 @@ export const extensionPlatform: ReviewPlatform = {
   },
   assetUrl: (file) => (browser.runtime.getURL as (path: string) => string)(`/fonts/${file}`),
   openCapture: (result) => void send('tab.open', { url: result.url }),
+  // the worker keeps the trace session in storage (lib/bg/trace.ts)
+  onTraceChange(fn) {
+    const listener = (changes: Record<string, unknown>, area: string) => {
+      if (area === 'local' && 'tb:trace' in changes) fn();
+    };
+    browser.storage.onChanged.addListener(listener);
+    return () => browser.storage.onChanged.removeListener(listener);
+  },
   caps: { canScreenshot: true },
 };

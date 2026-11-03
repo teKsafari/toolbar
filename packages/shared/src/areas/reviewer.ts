@@ -163,14 +163,22 @@ export type FeedbackItem = z.infer<typeof feedbackItemSchema>;
  * comment (80 characters at most), else "Feedback on <path>". The title row shows it as its
  * placeholder, and the worker stores it when the row is skipped or left empty.
  */
-export function autoFeedbackTitle(items: readonly { comment: string; page: { url: string } }[]): string {
-  const first = items.find((i) => i.comment.trim())?.comment.trim().split('\n')[0]?.trim() ?? '';
+/**
+ * The title a capture gets when the reviewer types none: the first line of the first trace note
+ * (D-214), else of the first comment, else where it was made.
+ */
+export function autoFeedbackTitle(items: readonly { comment: string; page: { url: string } }[], takes: readonly { note: string }[] = [], pageUrl?: string): string {
+  const line = (s: string) => s.trim().split('\n')[0]?.trim() ?? '';
+  const first = takes.map((t) => line(t.note)).find(Boolean) ?? items.map((i) => line(i.comment)).find(Boolean) ?? '';
   if (first) return first.length > 80 ? `${first.slice(0, 79)}…` : first;
+  let where = '';
   try {
-    return `Feedback on ${new URL(items[0]!.page.url).pathname}`;
+    where = new URL(items[0]?.page.url ?? pageUrl ?? '').pathname;
   } catch {
-    return 'Feedback';
+    /* no page */
   }
+  const what = takes.length > 1 ? `${takes.length} traces` : takes.length ? 'Trace' : 'Feedback';
+  return where ? `${what} on ${where}` : what;
 }
 
 /** How far back a comment without a trace looks for errors and failed requests (PLAN). */

@@ -54,7 +54,8 @@
     return run(send('capture', { mode: 'replay', tabId }));
   }
 
-  // Part 2 traces: one trace at a time, beside any capture (lib/bg/trace.ts)
+  // Part 2 traces (D-214): one trace session at a time, in the tab it started in, beside any
+  // capture (lib/bg/trace.ts). Stop keeps the trace; the toolbar on the page sends the session.
   let trace = $state<TraceState | null>(null);
   let traceBusy = $state(false);
   $effect(() => {
@@ -63,14 +64,28 @@
     });
   });
   const traceHere = $derived(!!trace && trace.tabId === tabId);
+  const running = $derived(trace?.takes.at(-1)?.endedAt === null ? trace.takes.at(-1)! : null);
+  const kept = $derived(trace?.takes.filter((t) => t.endedAt !== null).length ?? 0);
   const traceLabel = $derived(
-    traceBusy ? (trace ? 'Stopping trace...' : 'Starting trace...') : trace ? (traceHere ? 'Stop trace' : 'Stop trace (other tab)') : 'Start trace',
+    traceBusy
+      ? running
+        ? 'Stopping trace...'
+        : 'Starting trace...'
+      : trace && !traceHere
+        ? 'Traces waiting in another tab'
+        : running
+          ? 'Stop trace'
+          : kept
+            ? `Start trace ${(trace?.takes.at(-1)?.n ?? 0) + 1}`
+            : 'Start trace',
   );
   async function toggleTrace() {
     if (traceBusy) return;
+    // the session's tab: it is sent or discarded from the toolbar there
+    if (trace && !traceHere) return run(send('trace.focus', {}));
     traceBusy = true;
     try {
-      if (trace) await run(send('trace.stop', {}));
+      if (running) await run(send('trace.stop', {}));
       else await run(send('trace.start', { tabId }));
     } finally {
       traceBusy = false;
@@ -191,10 +206,12 @@
   </CaptureRow>
 
   <!-- Part 2: a trace of this tab's actions, separate from the capture rows above -->
-  <CaptureRow id={trace ? 'trace-stop' : 'trace'} icon={trace ? 'stop' : 'eye'} label={traceLabel} tone={trace ? 'danger' : 'default'} disabled={traceBusy} onclick={toggleTrace}>
+  <CaptureRow id={running && traceHere ? 'trace-stop' : 'trace'} icon={running && traceHere ? 'stop' : 'eye'} label={traceLabel} tone={running && traceHere ? 'danger' : 'default'} disabled={traceBusy} onclick={toggleTrace}>
     {#snippet extra()}
-      {#if trace}
-        <span class="badge" data-trace-badge title="Actions so far in this trace">{trace.spans} {trace.spans === 1 ? 'action' : 'actions'}</span>
+      {#if running && traceHere}
+        <span class="badge" data-trace-badge title="Actions so far in this trace">{running.spans} {running.spans === 1 ? 'action' : 'actions'}</span>
+      {:else if kept}
+        <span class="badge" data-trace-kept title="Traces kept in this tab: send them from the toolbar on the page">{kept} to send</span>
       {/if}
     {/snippet}
   </CaptureRow>

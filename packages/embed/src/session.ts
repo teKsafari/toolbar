@@ -1,10 +1,12 @@
 // The embed's side of capture (D-158, D-212): a Transport for @toolbar/capture that keeps the last
 // 60 seconds of events and DOM replay in memory (a note's context comes from it), and, while a
-// trace runs, streams both to the server in gzip NDJSON chunks every two seconds. A trace is a
-// capture of kind `trace` (D-117), so the server derives its interaction spans as it does for the
-// extension's traces. It survives navigations within the tab: its id, upload token and chunk
-// counters live in sessionStorage, and each new page attaches to it with a fresh rrweb full
-// snapshot.
+// trace runs, streams both to the server in gzip NDJSON chunks every two seconds. The tab's trace
+// session (D-214) is one capture of kind `trace` (D-117), made at its first Start trace, holding
+// one or more traces with a note each; Stop keeps a trace, and Send (the platform's review.submit)
+// completes the streams and finalizes with the traces, so the server derives spans per trace as it
+// does for the extension's. The session survives navigations within the tab: its id, upload token,
+// chunk counters and traces live in sessionStorage, and each new page attaches to a running trace
+// with a fresh rrweb full snapshot.
 import type { Command, Transport } from '@toolbar/capture/transport';
 import { createEmitter, type CaptureEvent } from '@toolbar/shared/events';
 import { gzipText, ndjson, EmbedHttpError, type EmbedCapture, type EmbedClient, type EmbedReviewer, type PageStream } from './client.ts';
@@ -22,13 +24,28 @@ const RRWEB_FULL = 2;
 type Rr = { type?: number; timestamp?: number };
 const tsOf = (e: unknown) => (e as Rr).timestamp ?? 0;
 
-export interface TraceState extends EmbedCapture {
+/** One trace of the session: Start trace to Stop trace (endedAt null while it runs). */
+export interface TraceTake {
+  n: number;
   startedAt: number;
+  endedAt: number | null;
+  note: string;
+}
+
+export interface TraceState extends EmbedCapture {
   url: string;
   title: string;
+  takes: TraceTake[];
+  nextN: number;
   seq: Record<PageStream, number>;
   bytes: Record<PageStream, number>;
 }
+
+/** The trace running now, if any. */
+export const runningTake = (t: TraceState | null): TraceTake | null => {
+  const last = t?.takes.at(-1);
+  return last && last.endedAt === null ? last : null;
+};
 
 /** Last-minute buffer: events by time, rrweb in segments that each start at a full snapshot. */
 export class Ring {
@@ -103,10 +120,10 @@ function writeTrace(s: TraceState | null) {
 const STREAMS = ['events', 'rrweb'] as const;
 
 /**
- * Moves trace `t` on with `change`, against the stored copy: two live pages of one trace (one
+ * Moves session `t` on with `change`, against the stored copy: two live pages of one session (one
  * back from the back-forward cache, one it navigated to) share its chunk numbers and byte counts
- * through sessionStorage, so the stored counters are taken first and written back after. A trace
- * another page stopped or replaced is not written back.
+ * through sessionStorage, so the stored counters are taken first and written back after. A
+ * session another page sent or replaced is not written back.
  */
 function updateTrace<T>(t: TraceState, change: () => T): T {
   const s = readTrace();
@@ -178,11 +195,11 @@ export class PageSession implements Transport {
   // ---- Transport ----
   send(batch: CaptureEvent[]) {
     this.ring.addEvents(batch, this.now());
-    if (this.trace) this.pending.events.push(...batch);
+    if (runningTake(this.trace)) this.pending.events.push(...batch);
   }
   sendRrweb(batch: unknown[], full: boolean) {
     this.ring.addRrweb(batch, full, this.now());
-    if (this.trace) this.pending.rrweb.push(...batch);
+    if (runningTake(this.trace)) this.pending.rrweb.push(...batch);
   }
   onCommand(fn: (c: Command) => void) {
     this.handlers.push(fn);
@@ -205,10 +222,8 @@ export class PageSession implements Transport {
   /** Start the ring, and re-attach a trace that an earlier page of this tab started. */
   boot() {
     this.command({ type: 'ring', enabled: true, minutes: 1 });
-    if (this.trace) {
-      this.unstash();
-      this.attach();
-    }
+    if (this.trace) this.unstash();
+    if (runningTake(this.trace)) this.attach();
     addEventListener('pagehide', () => this.flushTrace(true));
     addEventListener('pageshow', (e) => {
       if ((e as PageTransitionEvent).persisted) this.resume();
@@ -231,7 +246,8 @@ export class PageSession implements Transport {
     if (stored.id !== old?.id) this.pending = { events: [], rrweb: [] };
     this.trace = stored;
     this.unstash();
-    this.attach();
+    if (runningTake(stored)) this.attach();
+    else this.detach();
     this.changed();
   }
 
@@ -263,30 +279,44 @@ export class PageSession implements Transport {
   }
 
   private attach() {
-    if (!this.trace) return;
-    this.command({ type: 'attach', recordingId: this.trace.id, t0: this.trace.startedAt });
+    const run = runningTake(this.trace);
+    if (!this.trace || !run) return;
+    this.command({ type: 'attach', recordingId: this.trace.id, t0: run.startedAt });
     this.command({ type: 'checkout' });
     this.timer ??= setInterval(() => this.flushTrace(false), TRACE_FLUSH_MS);
   }
 
-  // ---- trace ----
+  /** The running trace is over on this page: no more streaming; the ring goes on as before. */
+  private detach() {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    if (this.trace) this.command({ type: 'detach', recordingId: this.trace.id });
+    this.command({ type: 'ring', enabled: true, minutes: 1 });
+  }
 
+  // ---- trace session ----
+
+  /** Start a trace: the first one makes the session's capture. */
   async startTrace() {
-    if (this.trace) return;
-    const workspaceId = await this.opts.workspaceId();
+    if (runningTake(this.trace)) return;
     const startedAt = this.now();
-    const created = await this.opts.client.createCapture({
-      clientId: uuid(),
-      kind: 'trace',
-      workspaceId,
-      page: { url: location.href, title: document.title },
-      startedAt,
-      env: await this.opts.env().catch(() => undefined),
-      source: 'embed',
-      ...(this.opts.reviewer ? { reviewer: this.opts.reviewer() } : {}),
-    });
-    this.trace = { id: created.id, uploadToken: created.uploadToken, startedAt, url: location.href, title: document.title, seq: { events: 0, rrweb: 0 }, bytes: { events: 0, rrweb: 0 } };
-    writeTrace(this.trace);
+    if (!this.trace) {
+      const workspaceId = await this.opts.workspaceId();
+      const created = await this.opts.client.createCapture({
+        clientId: uuid(),
+        kind: 'trace',
+        workspaceId,
+        page: { url: location.href, title: document.title },
+        startedAt,
+        env: await this.opts.env().catch(() => undefined),
+        source: 'embed',
+        ...(this.opts.reviewer ? { reviewer: this.opts.reviewer() } : {}),
+      });
+      this.trace = { id: created.id, uploadToken: created.uploadToken, url: location.href, title: document.title, takes: [], nextN: 1, seq: { events: 0, rrweb: 0 }, bytes: { events: 0, rrweb: 0 } };
+    }
+    const t = this.trace;
+    updateTrace(t, () => t.takes.push({ n: t.nextN++, startedAt, endedAt: null, note: '' }));
+    writeTrace(t);
     this.pending = { events: [], rrweb: [] };
     this.attach();
     this.changed();
@@ -296,7 +326,7 @@ export class PageSession implements Transport {
   flushTrace(unloading: boolean): Promise<unknown> {
     const t = this.trace;
     if (!t) return this.chain;
-    if (!unloading) this.command({ type: 'flush' });
+    if (!unloading && runningTake(t)) this.command({ type: 'flush' });
     // A page that goes away rarely lives long enough to gzip and send: the chunk's number was
     // taken and the chunk never arrived, so the trace could not be completed (stream_incomplete,
     // docs/real-world/second-app.md). Keep the rows for the next page of the tab instead.
@@ -317,7 +347,7 @@ export class PageSession implements Transport {
       const send = async () => {
         const gz = await gzipText(ndjson(rows));
         updateTrace(t, () => (t.bytes[stream] += gz.size));
-        await this.opts.client.putChunk(t, stream, seq, gz, timeOf(rows[0]) ?? t.startedAt, timeOf(rows[rows.length - 1]) ?? this.now(), unloading && gz.size < 60_000);
+        await this.opts.client.putChunk(t, stream, seq, gz, timeOf(rows[0]) ?? t.takes[0]?.startedAt ?? this.now(), timeOf(rows[rows.length - 1]) ?? this.now(), unloading && gz.size < 60_000);
       };
       // chunks go one after another; a failed chunk is reported and the next ones still go
       this.chain = this.chain.then(send).catch((e: unknown) => {
@@ -328,16 +358,70 @@ export class PageSession implements Transport {
     return this.chain;
   }
 
-  private complete(t: TraceState, stream: PageStream) {
-    return completeWithGaps(this.opts.client, t, stream, this.now());
+  /** Stop the running trace and keep it: what it recorded goes up now, the session waits for Send. */
+  async stopTrace(): Promise<void> {
+    const t = this.trace;
+    const run = runningTake(t);
+    if (!t || !run) throw new Error('no trace');
+    this.command({ type: 'flush' });
+    this.detach();
+    await this.flushTrace(false);
+    updateTrace(t, () => (run.endedAt = this.now()));
+    writeTrace(t);
+    this.changed();
   }
 
-  async stopTrace(note = ''): Promise<{ recordingId: string }> {
+  /** Write the note of trace `n`. */
+  noteTrace(n: number, note: string) {
+    const take = this.trace?.takes.find((k) => k.n === n);
+    if (!this.trace || !take) throw new Error('no trace');
+    const t = this.trace;
+    updateTrace(t, () => (take.note = note.slice(0, 4000)));
+    writeTrace(t);
+    this.changed();
+  }
+
+  /**
+   * Remove trace `n` from the session (a running one stops, and what it had not sent yet is
+   * dropped; the server drops what it did send). Removing the last one discards the session.
+   */
+  async removeTrace(n: number): Promise<void> {
+    const t = this.trace;
+    const take = t?.takes.find((k) => k.n === n);
+    if (!t || !take) throw new Error('no trace');
+    if (take === runningTake(t)) {
+      this.detach();
+      this.pending = { events: [], rrweb: [] };
+      writeStash(null);
+    }
+    if (t.takes.length === 1) return this.discardTrace();
+    updateTrace(t, () => (t.takes = t.takes.filter((k) => k.n !== n)));
+    writeTrace(t);
+    this.changed();
+  }
+
+  /** Drop the whole session: the server's draft goes too (it would be swept after 7 days anyway). */
+  async discardTrace(): Promise<void> {
+    const t = this.trace;
+    if (!t) return;
+    if (runningTake(t)) this.detach();
+    this.pending = { events: [], rrweb: [] };
+    this.trace = null;
+    writeTrace(null);
+    writeStash(null);
+    this.changed();
+    await this.chain;
+    await this.opts.client.discard(t).catch(() => undefined);
+  }
+
+  /**
+   * Send the session (after its notes went up): stop a running trace, complete the streams and
+   * finalize with the traces, the title and the reviewer's context.
+   */
+  async sendTrace(text: { title: string; description: string }): Promise<{ recordingId: string; traces: number }> {
     const t = this.trace;
     if (!t) throw new Error('no trace');
-    if (this.timer) clearInterval(this.timer);
-    this.timer = null;
-    this.command({ type: 'detach', recordingId: t.id });
+    if (runningTake(t)) await this.stopTrace();
     await this.flushTrace(false);
     // chunks other pages of the tab sent count too
     updateTrace(t, () => undefined);
@@ -347,20 +431,25 @@ export class PageSession implements Transport {
     }
     // the name the reviewer gave by now, which may be after the trace started (D-213)
     const name = this.opts.reviewer?.().name;
-    // the notes made during the trace went up as its feedback items (review.submit)
+    const first = t.takes[0]!;
+    const last = t.takes.at(-1)!;
     await client.finalize(t, {
-      title: titleOf(note || `Trace on ${t.title || new URL(t.url).host}`),
-      description: note,
-      durationMs: Math.max(0, Math.round(this.now() - t.startedAt)),
+      title: text.title,
+      description: text.description,
+      durationMs: Math.max(0, Math.round((last.endedAt ?? this.now()) - first.startedAt)),
       annotations: [],
+      traces: t.takes.map((k) => ({ n: k.n, startedAt: Math.round(k.startedAt), endedAt: Math.round(k.endedAt ?? k.startedAt), note: k.note })),
       ...(name ? { reviewer: { name } } : {}),
     });
     this.trace = null;
     writeTrace(null);
     writeStash(null);
-    this.command({ type: 'ring', enabled: true, minutes: 1 });
     this.changed();
-    return { recordingId: t.id };
+    return { recordingId: t.id, traces: t.takes.length };
+  }
+
+  private complete(t: TraceState, stream: PageStream) {
+    return completeWithGaps(this.opts.client, t, stream, this.now());
   }
 }
 
@@ -381,7 +470,7 @@ async function completeWithGaps(client: EmbedClient, t: TraceState, stream: Page
       if (missing.length) {
         const empty = await gzipText('');
         for (const seq of missing.slice(0, 1000)) {
-          await client.putChunk(t, stream, seq, empty, t.startedAt, now);
+          await client.putChunk(t, stream, seq, empty, t.takes[0]?.startedAt ?? now, now);
           t.bytes[stream] += empty.size;
         }
       } else if (typeof issues.total === 'number') t.bytes[stream] = issues.total;
@@ -393,12 +482,6 @@ async function completeWithGaps(client: EmbedClient, t: TraceState, stream: Page
 function timeOf(row: unknown): number | undefined {
   const r = row as { t?: number; timestamp?: number };
   return typeof r?.t === 'number' ? r.t : typeof r?.timestamp === 'number' ? r.timestamp : undefined;
-}
-
-export function titleOf(text: string): string {
-  const line = text.split('\n').find((l) => l.trim()) ?? '';
-  const t = line.trim();
-  return t.length > 80 ? `${t.slice(0, 79)}…` : t;
 }
 
 /** v4 id; crypto.randomUUID needs a secure context, getRandomValues does not. */

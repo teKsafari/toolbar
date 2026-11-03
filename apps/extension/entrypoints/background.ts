@@ -37,9 +37,9 @@ export default defineBackground(() => {
   registerDraftHandlers();
   browser.runtime.onInstalled.addListener(() => void syncRegistration().catch(() => undefined));
   const capture = setupCapture();
-  registerTrace(capture);
+  const traces = registerTrace(capture);
   registerLocator(capture);
-  registerReview(capture);
+  registerReview(capture, traces);
   browser.runtime.onStartup.addListener(() => void syncRegistration().catch(() => undefined));
 
   browser.runtime.onConnect.addListener((port) => {
