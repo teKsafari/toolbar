@@ -545,6 +545,7 @@ test('Discard all asks once, then drops the traces and the server draft (D-214)'
   await page.getByTestId('works').click();
   await sleep(700);
   await ui(page, 'review-trace-stop').click();
+  await expect(ui(page, 'review-note')).toBeFocused();
   await page.keyboard.press('Escape');
   await page.keyboard.press('l');
   await ui(page, 'review-clear').click();
@@ -1038,8 +1039,9 @@ test('Send asks for a title in one row: the first comment is the placeholder, a 
   await expect(row).toBeVisible();
   await expect(ui(page, 'review-title')).toBeFocused();
   await expect(ui(page, 'review-title')).toHaveAttribute('placeholder', 'Save gives no feedback');
-  // one field and Skip, nothing more
-  await expect(row.locator('input, button, select, textarea')).toHaveCount(2);
+  // one field, Context (closed) and Skip, nothing more (D-214)
+  await expect(row.locator('input, button, select, textarea')).toHaveCount(3);
+  await expect(ui(page, 'review-context')).toHaveCount(0);
   // single keys are text here, not tools
   await page.keyboard.type('Checkout: save and export');
   await expect(ui(page, 'review-tool-comment')).toHaveAttribute('aria-pressed', 'true');

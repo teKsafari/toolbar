@@ -189,7 +189,7 @@ test('on a project origin: comment, screenshot, highlight and voice note, sent a
   expect(net.items.some((n) => n.url.startsWith(SERVER))).toBe(false);
 });
 
-test('Start and Stop trace from the pill make a trace capture with the note made during it, by the reviewer the site named', async ({ page }) => {
+test('two traces from the pill, one across a page load, a note on the first, sent with Send as one trace capture by the reviewer the site named (D-214)', async ({ page }) => {
   watchConsole(page);
   const before = (await embedCaptures(owner)).map((c) => c.id);
   // the site names its signed-in person (data-name): the composer does not ask

@@ -431,10 +431,11 @@ export function registerTrace(svc: CaptureService): TraceController {
   const handlers: Partial<Record<BgRequestType, Handler>> = {
     'trace.start': async (m, sender) => ({ trace: await ctl.start((m as Req<'trace.start'>).tabId ?? sender.tab?.id) }),
     'trace.stop': async () => ({ trace: await ctl.stop() }),
-    // a page sees its own tab's session; the popup (no sender tab) sees the one there is
+    // a web page's toolbar sees its own tab's session; the extension's pages (the popup) the one there is
     'trace.get': async (_m, sender) => {
       await ctl.loaded;
-      return { trace: ctl.state(sender.tab?.id) };
+      const own = sender.url?.startsWith(browser.runtime.getURL('/'));
+      return { trace: ctl.state(own ? undefined : sender.tab?.id) };
     },
     'trace.note': async (m) => ({ trace: await ctl.note((m as Req<'trace.note'>).n, (m as Req<'trace.note'>).note) }),
     'trace.remove': async (m) => ({ trace: await ctl.remove((m as Req<'trace.remove'>).n) }),

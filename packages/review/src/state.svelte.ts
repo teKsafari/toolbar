@@ -785,11 +785,15 @@ export class Review {
     if (!this.traceAvailable) return void toasts.show('Traces are not available in this build');
     if (this.busy) return;
     if (this.running) {
+      // the prompt opens at once; the worker reads and queues the trace meanwhile
       const n = this.running.n;
-      const r = await send('trace.stop', {});
-      if (!r.ok) return void toasts.error(r.message ?? 'The trace did not stop');
-      this.setTrace(r.trace);
       this.askNote(n);
+      const r = await send('trace.stop', {});
+      if (!r.ok) {
+        this.endNote();
+        return void toasts.error(r.message ?? 'The trace did not stop');
+      }
+      this.setTrace(r.trace);
       return;
     }
     this.endNote();
@@ -800,6 +804,7 @@ export class Review {
 
   /** Open the note prompt for trace `n`, with what it says so far. */
   askNote(n: number) {
+    if (this.noting === n) return; // already asking: keep what is typed
     this.naming = false;
     this.listOpen = false;
     this.noteText = this.trace?.takes.find((t) => t.n === n)?.note ?? '';
