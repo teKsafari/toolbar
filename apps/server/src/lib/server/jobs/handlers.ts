@@ -11,9 +11,10 @@ import { and, asc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm';
 import type { CaptureEvent, StreamName } from '@toolbar/shared';
 import type { Trim } from '@toolbar/shared/api';
 import { db as defaultDb, type Db } from '../db/index.ts';
-import { asset, commentAttachment, job, recording, recordingChunk, recordingStream, transcript } from '../db/schema/index.ts';
+import { contextEventIds, type FeedbackContext } from '@toolbar/shared/areas/reviewer';
+import { asset, commentAttachment, feedbackItem, job, recording, recordingChunk, recordingStream, transcript } from '../db/schema/index.ts';
 import { deleteKeys, getBytes, getObject, keys, putFile, putObjectWith } from '../s3.ts';
-import { computeEventIndex, dedupeEvents, parseNdjson, parseRrwebNdjson, rrwebNdjsonParts, sortEvents, trimEvents, trimRrweb, videoOffsetOf } from '../event-index.ts';
+import { computeEventIndex, dedupeEvents, keepRanges, parseNdjson, parseRrwebNdjson, rrwebNdjsonParts, sortEvents, traceRanges, tracesOf, trimEvents, trimRrweb, videoOffsetOf, type TimeRange } from '../event-index.ts';
 import { imageThumb, joinWebm, posterFrame, probe, RENDITION_HEIGHTS, renderRendition, trimWebm, withTmp, type Probe } from '../media/ffmpeg.ts';
 import { pickScreenshots, type Rendition } from '../media/proxy.ts';
 import { placeholderThumb } from '../media/placeholder.ts';
@@ -135,10 +136,20 @@ async function runFinalize(rec: typeof recording.$inferSelect, attempts: number)
   }
   events = sortEvents(dedupeEvents(events));
   const videoOffsetMs = videoOffsetOf(events, startedAt);
+  const traces = tracesOf(rec);
   if (trim) {
     // The DOM replay is cut to the same range as the logs (J-227), before startedAt moves.
-    if (has('rrweb')) await trimRrwebStream(id, startedAt + videoOffsetMs + trim.startMs, startedAt + videoOffsetMs + trim.endMs);
+    if (has('rrweb')) await trimRrwebStream(id, [{ from: startedAt + videoOffsetMs + trim.startMs, to: startedAt + videoOffsetMs + trim.endMs }]);
     ({ events, startedAt } = trimEvents(events, startedAt, videoOffsetMs, trim));
+  } else if (traces.length) {
+    // A trace capture keeps its traces' windows only (D-214): what ran between them or in a trace
+    // the reviewer removed is dropped from the logs and the replay. The capture starts at its
+    // first kept trace, and lasts to the end of its last.
+    const ranges = traceRanges(traces);
+    if (has('rrweb')) await trimRrwebStream(id, ranges);
+    events = keepRanges(events, ranges, await notedEventIds(id, events));
+    startedAt = traces[0]!.startedAt;
+    await dropCutKeyframes(id, events);
   }
   const eventsKey = keys.final(id, 'events.json.gz');
   const gz = gzipSync(JSON.stringify(events));
@@ -147,7 +158,7 @@ async function runFinalize(rec: typeof recording.$inferSelect, attempts: number)
   const index = computeEventIndex(events, startedAt);
   await setProgress(id, 0.3);
 
-  let durationMs: number | null = trim ? trim.endMs - trim.startMs : rec.durationMs;
+  let durationMs: number | null = trim ? trim.endMs - trim.startMs : traces.length ? traces[traces.length - 1]!.endedAt - startedAt : rec.durationMs;
   let width: number | null = rec.videoWidth;
   let height: number | null = rec.videoHeight;
   let thumbKey: string | null = rec.thumbKey;
@@ -275,11 +286,31 @@ async function runFinalize(rec: typeof recording.$inferSelect, attempts: number)
 }
 
 /**
- * Replace the rrweb chunks with the trimmed range (J-227). The new chunks go to fresh keys and the
+ * Keyframes of a removed trace (D-214): a keyframe is an asset with a `shot` event at its time,
+ * so one whose event was cut goes too, or the folder, the counts and the thumbnail would show it.
+ */
+async function dropCutKeyframes(id: string, events: CaptureEvent[]) {
+  const shown = new Set(events.filter((e) => e.kind === 'shot').map((e) => (e.data as { assetId?: string }).assetId));
+  const cut = (await db.select({ id: asset.id, key: asset.s3Key }).from(asset).where(and(eq(asset.recordingId, id), eq(asset.kind, 'keyframe')))).filter((a) => !shown.has(a.id));
+  if (!cut.length) return;
+  await db.delete(asset).where(inArray(asset.id, cut.map((a) => a.id)));
+  await deleteKeys(cut.map((a) => a.key).filter(Boolean));
+}
+
+/** Events the capture's notes name in their context (D-206): kept outside the trace windows. */
+async function notedEventIds(id: string, events: CaptureEvent[]): Promise<Set<string>> {
+  const items = await db.select({ context: feedbackItem.context }).from(feedbackItem).where(eq(feedbackItem.recordingId, id));
+  const ids = new Set<string>();
+  for (const it of items) if (it.context) for (const x of contextEventIds(events, it.context as FeedbackContext)) ids.add(x);
+  return ids;
+}
+
+/**
+ * Replace the rrweb chunks with the kept ranges (the trim, J-227; a trace capture's windows, D-214). The new chunks go to fresh keys and the
  * rows swap in one transaction, so a crash at any point leaves either the old or the new set; the
  * trim is idempotent, so a rerun on the new set gives the same chunks.
  */
-async function trimRrwebStream(id: string, from: number, to: number) {
+async function trimRrwebStream(id: string, ranges: TimeRange[]) {
   const rows = await chunksOf(id, 'rrweb');
   const bodies: Uint8Array[] = [];
   for (let i = 0; i < rows.length && rows[i]!.seq === i; i++) bodies.push(await getBytes(rows[i]!.s3Key));
@@ -289,7 +320,7 @@ async function trimRrwebStream(id: string, from: number, to: number) {
   } catch {
     rr = parseRrwebNdjson(gunzipMaybe(Buffer.concat(bodies)).toString('utf8'));
   }
-  const parts = rrwebNdjsonParts(trimRrweb(rr, from, to));
+  const parts = rrwebNdjsonParts(trimRrweb(rr, ranges));
   const gen = Date.now().toString(36);
   const fresh: (typeof recordingChunk.$inferInsert)[] = [];
   for (let seq = 0; seq < parts.length; seq++) {

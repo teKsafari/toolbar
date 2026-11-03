@@ -12,7 +12,7 @@ MIT licensed. No plans, seats, paid tiers or notifications.
 
 - **Annotations**: comment on an element, highlight text, draw, or screenshot one element and mark it up. Each note carries a locator: route, candidate route files (SvelteKit, Next.js), visible text, role, ids, classes, nearest heading and a crop.
 - **Voice notes**, per comment or per trace, transcribed to WebVTT on the server.
-- **Traces**: one tab recorded as interaction spans, each ending in `changed`, `error`, `dead`, `stuck` or `silent`, with keyframes on route changes, annotations and layout shifts. Comments outside a trace still carry the last 60 seconds of console errors and failed requests.
+- **Traces**: one tab recorded as interaction spans, each ending in `changed`, `error`, `dead`, `stuck` or `silent`, with keyframes on route changes, annotations and layout shifts. Stop keeps a trace instead of sending it: record several, write what the agent should notice in each (a nav bar that hides on scroll, a flow that feels wrong with no error behind it), add context for the whole session, then send them together. Comments outside a trace still carry the last 60 seconds of console errors and failed requests.
 - **Recordings**: screenshot, tab or screen video, instant replay, and recording links for people without the extension.
 - **Viewer**: replay, notes, console, network, actions and an Agent tab per capture. Share links expire after 14 days and can be revoked.
 - **Agent hand-off**: one folder per piece of feedback, or a bulk export with an index.
@@ -40,7 +40,7 @@ Deploy `docker-compose.coolify.yml` as a Docker Compose resource. Coolify genera
 
 Chrome Web Store item `laobpjhffglefallhhojihfdbdkoendk` (unlisted). `scripts/release-extension.sh` builds the same id as an unpacked zip in `dist/`; set `WXT_SERVER_URL` at build time to preconfigure the server. Managed policy keys: `serverUrl` (string) and `lockServerUrl` (boolean). Release, force-install and Firefox: [docs/extension-release.md](docs/extension-release.md).
 
-The extension holds all-sites access as a required permission but runs only on origins listed in projects (`SITE_ACCESS=projects`, the default). Click its icon on another site to add it to a project. `SITE_ACCESS=all` runs it everywhere, one project per captured origin. The toolbar's X hides it on a site until you click the icon there. Ctrl+Shift+. opens the toolbar; `c` comment, `t` comment on selection, `v` voice note, `x` start or stop a trace.
+The extension holds all-sites access as a required permission but runs only on origins listed in projects (`SITE_ACCESS=projects`, the default). Click its icon on another site to add it to a project. `SITE_ACCESS=all` runs it everywhere, one project per captured origin. The toolbar's X hides it on a site until you click the icon there. Ctrl+Shift+. opens the toolbar; `c` comment, `t` comment on selection, `v` voice note, `x` start or stop a trace, `l` the traces and notes waiting to be sent.
 
 ## Agent access
 

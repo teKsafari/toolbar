@@ -68,7 +68,7 @@ interface Submit {
   recordingId: string;
   url: string;
   count: number;
-  trace: boolean;
+  traces: number;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -182,7 +182,7 @@ test('comment on an element: hover label, the click never reaches the app, the l
   await expect(ui(page, 'review-count')).toHaveText('1');
 
   const res = await send(page, sw);
-  expect(res).toMatchObject({ count: 1, trace: false });
+  expect(res).toMatchObject({ count: 1, traces: 0 });
   await expect(ui(page, 'review-pin')).toHaveCount(0);
 
   const [it] = await items(page, res.recordingId);
@@ -445,7 +445,7 @@ test('pins stay on the page after a reload; the list shows the notes, opens and 
   await expect(ui(page, 'review-pill')).toBeVisible();
 });
 
-test('Start trace and Stop trace from the pill: notes made during the trace go onto it', async ({ context, sw }) => {
+test('a trace session from the pill (D-214): two traces, a note on each, notes, then one Send with a title and context', async ({ context, sw }) => {
   const page = await context.newPage();
   await signIn(page, sw);
   await openLab(page);
@@ -453,6 +453,7 @@ test('Start trace and Stop trace from the pill: notes made during the trace go o
   const start = ui(page, 'review-trace-start');
   test.skip(await start.isDisabled(), 'needs the trace work package (p4/trace): this build has no trace.start');
 
+  // trace 1, with a note made during it (one of its actions)
   await start.click();
   await expect(ui(page, 'review-trace-time')).toBeVisible({ timeout: 20_000 });
   await page.getByTestId('works').click(); // the app works normally while tracing
@@ -463,23 +464,96 @@ test('Start trace and Stop trace from the pill: notes made during the trace go o
   await page.keyboard.press('Enter');
   await page.keyboard.press('Escape');
 
+  // Stop keeps the trace and asks what the agent should notice; nothing is sent
   const before = (await submits(sw)).length;
   await ui(page, 'review-trace-stop').click();
-  await expect.poll(async () => (await submits(sw)).length, { timeout: 30_000 }).toBe(before + 1);
+  await expect(ui(page, 'review-note-row')).toContainText('Trace 1');
+  await expect(ui(page, 'review-note')).toBeFocused();
+  await page.keyboard.type('The status line jumps when Save works');
+  await page.keyboard.press('Enter');
+  await expect(ui(page, 'review-note-row')).toHaveCount(0);
+  expect((await submits(sw)).length).toBe(before);
+  await expect(ui(page, 'review-count')).toHaveText('2'); // one trace, one note
+
+  // between traces nothing is recorded; trace 2, its prompt skipped with Esc
+  await page.getByTestId('dead').click();
+  await sleep(500);
+  await page.keyboard.press('x');
+  await expect(ui(page, 'review-trace-time')).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId('hidden-500').click();
+  await sleep(1500);
+  await page.keyboard.press('x');
+  await expect(ui(page, 'review-note-row')).toContainText('Trace 2');
+  await page.keyboard.press('Escape');
+  await expect(ui(page, 'review-note-row')).toHaveCount(0);
+
+  // the list: both traces with their notes, editable, then the note
+  await page.keyboard.press('l');
+  const traces = page.getByTestId('review-list-trace');
+  await expect(traces).toHaveCount(2);
+  await expect(traces.nth(0).getByTestId('review-trace-note')).toHaveValue('The status line jumps when Save works');
+  await traces.nth(1).getByTestId('review-trace-note').fill('Submit order says saved but the order is gone');
+  await traces.nth(1).getByTestId('review-trace-note').blur();
+  await expect(page.getByTestId('review-list-item')).toHaveCount(1);
+
+  // one Send: the title row, with the context of the whole capture behind Context
+  await ui(page, 'review-list-send').click();
+  await expect(ui(page, 'review-title')).toBeFocused();
+  await expect(ui(page, 'review-title')).toHaveAttribute('placeholder', 'The status line jumps when Save works');
+  await ui(page, 'review-context-toggle').click();
+  await expect(ui(page, 'review-context')).toBeFocused();
+  await page.keyboard.type('Checking out as a guest on the lab');
+  await page.keyboard.press('Control+Enter');
+  await expect.poll(async () => (await submits(sw)).length, { timeout: 60_000 }).toBe(before + 1);
   const res = (await submits(sw))[before]!;
-  expect(res).toMatchObject({ count: 1, trace: true });
-  await expect(ui(page, 'review-trace-start')).toBeVisible({ timeout: 30_000 });
+  expect(res).toMatchObject({ count: 1, traces: 2 });
+  await expect(ui(page, 'review-count')).toHaveCount(0);
+
   const [it] = await items(page, res.recordingId);
   expect(it).toMatchObject({ kind: 'element', comment: 'Export is dead during the trace', target: { testId: 'dead' } });
-  const detail = await (await page.request.get(`${SERVER_URL}/api/v1/recordings/${res.recordingId}`)).json();
-  expect(detail.kind).toBe('trace');
-  // the note is an action of the trace: its span engine got an annotation event
   await expect
-    .poll(async () => {
-      const r = await page.request.get(`${SERVER_URL}/api/v1/recordings/${res.recordingId}/spans`);
-      return r.ok() ? ((await r.json()).items as { action: { type: string } }[]).filter((s) => s.action.type === 'annotation').length : -1;
-    }, { timeout: 30_000 })
-    .toBe(1);
+    .poll(async () => (await (await page.request.get(`${SERVER_URL}/api/v1/recordings/${res.recordingId}`)).json()).status, { timeout: 60_000 })
+    .toBe('ready');
+  const detail = await (await page.request.get(`${SERVER_URL}/api/v1/recordings/${res.recordingId}`)).json();
+  expect(detail).toMatchObject({
+    kind: 'trace',
+    title: 'The status line jumps when Save works',
+    description: 'Checking out as a guest on the lab',
+    traces: [
+      { n: 1, note: 'The status line jumps when Save works' },
+      { n: 2, note: 'Submit order says saved but the order is gone' },
+    ],
+  });
+  // spans per trace: the note is an action of trace 1, the click between the traces is in none
+  const spans = (await (await page.request.get(`${SERVER_URL}/api/v1/recordings/${res.recordingId}/spans`)).json()).items as { trace?: number; action: { type: string; target?: { testId?: string } } }[];
+  expect(spans.filter((s) => s.action.type === 'annotation').map((s) => s.trace)).toEqual([1]);
+  expect(spans.filter((s) => s.action.target?.testId === 'works').map((s) => s.trace)).toEqual([1]);
+  expect(spans.filter((s) => s.action.target?.testId === 'hidden-500').map((s) => s.trace)).toEqual([2]);
+  expect(spans.filter((s) => s.action.target?.testId === 'dead' && s.action.type !== 'annotation')).toHaveLength(0);
+});
+
+test('Discard all asks once, then drops the traces and the server draft (D-214)', async ({ context, sw }) => {
+  const page = await context.newPage();
+  await signIn(page, sw);
+  await openLab(page);
+  await wake(page);
+  const start = ui(page, 'review-trace-start');
+  test.skip(await start.isDisabled(), 'needs the trace work package (p4/trace): this build has no trace.start');
+  await start.click();
+  await expect(ui(page, 'review-trace-time')).toBeVisible({ timeout: 20_000 });
+  const recId = await sw.evaluate(() => ((globalThis as unknown as { __tb: { trace: { state(): { recordingId: string } | null } } }).__tb.trace.state()?.recordingId ?? ''));
+  await page.getByTestId('works').click();
+  await sleep(700);
+  await ui(page, 'review-trace-stop').click();
+  await expect(ui(page, 'review-note')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('l');
+  await ui(page, 'review-clear').click();
+  await expect(ui(page, 'review-clear')).toHaveText('Discard 1 trace?');
+  await ui(page, 'review-clear').click();
+  await expect(page.getByTestId('review-list-trace')).toHaveCount(0);
+  await expect.poll(() => sw.evaluate(() => (globalThis as unknown as { __tb: { trace: { state(): unknown } } }).__tb.trace.state())).toBeNull();
+  await expect.poll(async () => (await page.request.get(`${SERVER_URL}/api/v1/recordings/${recId}`)).status(), { timeout: 15_000 }).toBe(404);
 });
 
 test('the X closes the toolbar on this site, across reloads and tabs, until the extension icon is clicked; a running trace asks first (D-205)', async ({ context, sw }) => {
@@ -965,8 +1039,9 @@ test('Send asks for a title in one row: the first comment is the placeholder, a 
   await expect(row).toBeVisible();
   await expect(ui(page, 'review-title')).toBeFocused();
   await expect(ui(page, 'review-title')).toHaveAttribute('placeholder', 'Save gives no feedback');
-  // one field and Skip, nothing more
-  await expect(row.locator('input, button, select, textarea')).toHaveCount(2);
+  // one field, Context (closed) and Skip, nothing more (D-214)
+  await expect(row.locator('input, button, select, textarea')).toHaveCount(3);
+  await expect(ui(page, 'review-context')).toHaveCount(0);
   // single keys are text here, not tools
   await page.keyboard.type('Checkout: save and export');
   await expect(ui(page, 'review-tool-comment')).toHaveAttribute('aria-pressed', 'true');

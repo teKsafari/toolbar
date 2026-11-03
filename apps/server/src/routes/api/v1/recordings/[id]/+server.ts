@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import { ROUTES } from '@toolbar/shared/api';
 import { db } from '#lib/server/db/index.ts';
 import { folder, recording } from '#lib/server/db/schema/index.ts';
-import { apiRoute } from '#lib/server/share/http.ts';
+import { apiRoute, fail as apiFail } from '#lib/server/share/http.ts';
 import { captureAccess } from '#lib/server/share/access.ts';
 import { deleteCapture } from '#lib/server/upload/service.ts';
 import { fail, handle, jsonBody, memberAccess, viewerAccess } from '#lib/server/viewer/access.ts';
@@ -40,5 +40,7 @@ export const PATCH = handle(async (event) => {
 
 export const DELETE = apiRoute(ROUTES['captures.delete'], async ({ event, params }) => {
   const a = await captureAccess(db, event, params.id, { mode: 'upload', role: 'creator', own: true });
+  // an upload token (the embed's reviewer) discards its own draft only, never a sent capture (D-214)
+  if (a.via === 'upload' && a.rec.finalizedAt) apiFail('forbidden', 'A sent capture can only be deleted from the dashboard');
   return deleteCapture(db, a.rec);
 });

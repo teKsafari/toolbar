@@ -77,6 +77,10 @@ export interface EngineOptions {
   onKeyframe?: (k: KeyframeRequest) => void;
   /** Viewport size for the DOM-burst rule; read from `env` events when absent. */
   viewport?: { w: number; h: number };
+  /** The trace of a session these spans belong to (D-214): set as `trace` on each span. */
+  trace?: number;
+  /** Spans number from here (`s001` is 0): a session's later traces continue the count. */
+  firstSeq?: number;
 }
 
 const pad = (n: number) => String(n).padStart(3, '0');
@@ -180,6 +184,7 @@ export class SpanEngine {
   constructor(private opts: EngineOptions = {}) {
     this.config = { ...DEFAULT_CONFIG, ...(opts.config ?? {}) };
     this.startedAt = opts.startedAt ?? null;
+    this.seq = opts.firstSeq ?? 0;
     this.planner = new KeyframePlanner(this.config.keyframeGapMs);
     this.viewport = opts.viewport ?? null;
   }
@@ -447,6 +452,7 @@ export class SpanEngine {
     }
     const span: Span = {
       id,
+      ...(this.opts.trace !== undefined ? { trace: this.opts.trace } : {}),
       t0,
       t1: t0,
       startMs: Math.round(t0 - (this.startedAt ?? t0)),

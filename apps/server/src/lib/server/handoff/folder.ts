@@ -16,6 +16,7 @@ import { cropRegion, flatten, frameToCss, sizeOf, toCssPixels } from './images.t
 import { ocrAvailable, ocrPng } from './ocr.ts';
 import { deriveSpans } from './spans.ts';
 import { traceConfigOf } from '../projects.ts';
+import { tracesOf } from '../event-index.ts';
 import { feedbackItemsOf } from './items.ts';
 import { tarGz } from './tar.ts';
 import sharp from 'sharp';
@@ -57,6 +58,7 @@ export async function collectFolder(db: Db, rec: RecordingRow): Promise<FolderDa
         ...(startedAt !== undefined ? { startedAt } : {}),
         ...(startedAt !== undefined && rec.durationMs != null ? { endedAt: startedAt + rec.durationMs } : {}),
         config: await traceConfigOf(db, rec),
+        traces: tracesOf(rec),
       })
     : null;
   return {
@@ -82,6 +84,7 @@ export async function collectFolder(db: Db, rec: RecordingRow): Promise<FolderDa
       project: null,
       workspace: ws?.name ?? null,
       folder: f?.name ?? null,
+      traces: tracesOf(rec),
     },
     events,
     prepared,

@@ -8,6 +8,8 @@ import type { Page, Worker } from '@playwright/test';
 import { LAB_URL, SERVER_URL, expect, test } from '../../fixtures/extension.ts';
 import { signInOidc } from '../../fixtures/oidc.ts';
 
+const ui = (page: Page, id: string) => page.getByTestId(id);
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const chrome: any;
 
@@ -73,7 +75,7 @@ test('a trace of the lab buttons: each button gets its outcome, spans.jsonl come
   expect(tabId).toBeGreaterThan(0);
 
   const started = await sw.evaluate((tabId) => (globalThis as unknown as { __tb: { trace: { start(t: number): Promise<unknown> } } }).__tb.trace.start(tabId), tabId);
-  expect(started).toMatchObject({ tabId, spans: 0 });
+  expect(started).toMatchObject({ tabId, takes: [{ n: 1, endedAt: null, spans: 0 }] });
   await sleep(800);
 
   // one action at a time, each given time to close (500 ms quiet, 2.5 s without effect)
@@ -99,8 +101,14 @@ test('a trace of the lab buttons: each button gets its outcome, spans.jsonl come
 
   const kf = await sw.evaluate(() => (globalThis as unknown as { __tb: { trace: { stats: unknown } } }).__tb.trace.stats);
 
-  const result = (await sw.evaluate(() => (globalThis as unknown as { __tb: { trace: { stop(o: unknown): Promise<unknown> } } }).__tb.trace.stop({ open: false }))) as { recordingId: string; spans: number };
-  expect(result.recordingId).toBeTruthy();
+  // Stop keeps the trace in the tab's session (D-214); Send finalizes it
+  const kept = (await sw.evaluate(() => (globalThis as unknown as { __tb: { trace: { stop(): Promise<unknown> } } }).__tb.trace.stop())) as { takes: { endedAt: number | null }[] };
+  expect(kept.takes[0]!.endedAt).not.toBeNull();
+  const result = (await sw.evaluate(
+    (tabId) => (globalThis as unknown as { __tb: { trace: { send(t: number, x: unknown): Promise<unknown> } } }).__tb.trace.send(tabId, { title: 'Lab buttons', description: '' }),
+    tabId,
+  )) as { recordingId: string; traces: number };
+  expect(result).toMatchObject({ traces: 1 });
   // the worker's live engine saw the same actions
   const live = (await sw.evaluate(() => (globalThis as unknown as { __tb: { traceSpans(): unknown } }).__tb.traceSpans())) as SpanLite[];
   expect(live.length).toBeGreaterThanOrEqual(6);
@@ -184,15 +192,29 @@ test('the popup starts and stops a trace', async ({ context, sw }) => {
     .toBe(tabId);
   await page.bringToFront();
   await page.getByTestId('works').click();
-  await sleep(1500);
+  // the live engine closes the click's span after its quiet time; under load that takes longer
+  await expect
+    .poll(() => sw.evaluate(() => (globalThis as unknown as { __tb: { trace: { state(): { takes: { spans: number }[] } | null } } }).__tb.trace.state()?.takes[0]?.spans ?? 0), { timeout: 15_000 })
+    .toBeGreaterThanOrEqual(1);
   const popup2 = await context.newPage();
   await popup2.goto(`chrome-extension://${new URL(sw.url()).host}/popup.html?tabId=${tabId}`);
   await expect(popup2.locator('[data-row="trace-stop"] [data-row-main]')).toHaveText(/Stop trace/);
   await expect(popup2.locator('[data-trace-badge]')).toHaveText(/1 action/);
   await popup2.locator('[data-row="trace-stop"] [data-row-main]').click();
-  await expect.poll(() => sw.evaluate(() => (globalThis as unknown as { __tb: { trace: { state(): unknown } } }).__tb.trace.state()), { timeout: 30_000 }).toBeNull();
-  // stop opens the trace on the server
-  await expect.poll(() => context.pages().some((p) => p.url().startsWith(SERVER_URL)), { timeout: 15_000 }).toBe(true);
+  // Stop keeps the trace (D-214): nothing is sent, and the toolbar on the page asks for its note
+  await expect
+    .poll(() => sw.evaluate(() => (globalThis as unknown as { __tb: { trace: { state(): { takes: { endedAt: number | null }[] } | null } } }).__tb.trace.state()?.takes[0]?.endedAt ?? null), { timeout: 30_000 })
+    .not.toBeNull();
+  await page.bringToFront();
+  await expect(ui(page, 'review-note-row')).toBeVisible({ timeout: 15_000 });
+  await expect(ui(page, 'review-note-row')).toContainText('Trace 1');
+  expect(context.pages().some((p) => p.url().startsWith(SERVER_URL))).toBe(false);
+  const popup3 = await context.newPage();
+  await popup3.goto(`chrome-extension://${new URL(sw.url()).host}/popup.html?tabId=${tabId}`);
+  await expect(popup3.locator('[data-row="trace"] [data-row-main]')).toHaveText(/Start trace 2/);
+  await expect(popup3.locator('[data-trace-kept]')).toHaveText('1 to send');
+  await popup3.close();
+  await sw.evaluate((tabId) => (globalThis as unknown as { __tb: { trace: { discard(t: number): Promise<unknown> } } }).__tb.trace.discard(tabId), tabId);
 });
 
 // docs/real-world/second-app.md: Chrome clears a tab's own action badge when the tab loads a new
@@ -214,7 +236,8 @@ test('the trace badge stays on the tab across a full page load', async ({ contex
   await expect.poll(badge, { timeout: 10_000 }).toBe('TR');
   await page.reload();
   await expect.poll(badge, { timeout: 10_000 }).toBe('TR');
-  await sw.evaluate(() => (globalThis as unknown as { __tb: { trace: { stop(o: unknown): Promise<unknown> } } }).__tb.trace.stop({ open: false }));
+  await sw.evaluate(() => (globalThis as unknown as { __tb: { trace: { stop(): Promise<unknown> } } }).__tb.trace.stop());
   await expect.poll(badge).toBe('');
+  await sw.evaluate((tabId) => (globalThis as unknown as { __tb: { trace: { discard(t: number): Promise<unknown> } } }).__tb.trace.discard(tabId), tabId);
   await page.close();
 });

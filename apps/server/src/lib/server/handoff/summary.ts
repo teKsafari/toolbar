@@ -10,13 +10,16 @@ import type { RecordingRow } from '../share/access.ts';
 import { loadEvents, preparedOf } from '../mcp/data.ts';
 import { deriveSpans } from './spans.ts';
 import { traceConfigOf } from '../projects.ts';
+import { tracesOf } from '../event-index.ts';
 
 export async function sharePageOf(db: Db, rec: RecordingRow, shareUrl: string, devtools: boolean): Promise<string> {
   const e = (rec.env as EnvInfo | null) ?? null;
   const p = devtools ? await preparedOf(db, rec) : null;
   const events = devtools ? await loadEvents(db, rec) : null;
   const startedAt = rec.startedAt?.getTime();
-  const spans = events ? deriveSpans(events, { ...(startedAt !== undefined ? { startedAt } : {}), config: await traceConfigOf(db, rec) }) : null;
+  const traces = tracesOf(rec);
+  const spans = events ? deriveSpans(events, { ...(startedAt !== undefined ? { startedAt } : {}), config: await traceConfigOf(db, rec), traces }) : null;
+  const t0 = startedAt ?? traces[0]?.startedAt ?? 0;
   const [c] = await db.select({ n: count() }).from(comment).where(and(eq(comment.recordingId, rec.id), isNull(comment.deletedAt)));
   const [a] = await db.select({ n: count() }).from(annotation).where(eq(annotation.recordingId, rec.id));
   const [k] = await db.select({ n: count() }).from(asset).where(and(eq(asset.recordingId, rec.id), eq(asset.kind, 'keyframe')));
@@ -49,6 +52,14 @@ export async function sharePageOf(db: Db, rec: RecordingRow, shareUrl: string, d
       annotations: a?.n ?? 0,
       keyframes: k?.n ?? 0,
     },
+    // D-214: the traces and their notes; action counts need the events, so without dev tools none
+    traces: traces.map((t) => ({
+      n: t.n,
+      startMs: Math.max(0, t.startedAt - t0),
+      endMs: Math.max(0, t.endedAt - t0),
+      actions: spans ? spans.spans.filter((s) => s.trace === t.n).length : 0,
+      note: t.note,
+    })),
     shareUrl,
   });
 }

@@ -9,7 +9,7 @@ import type { LocatorTarget, NewReviewItem, ReviewItem } from '@toolbar/shared/e
 import type { LocatorPacket } from '@toolbar/shared/locator';
 import { TOOLBAR_CLOSED_KEY, toolbarClosedOn } from '@toolbar/shared/areas/ext-ui';
 import { errorText } from './errors';
-import { platform, type ReviewFailure, type ReviewRequestMap, type ReviewRequestType, type ReviewResult, type ReviewTrace } from './platform';
+import { platform, type ReviewFailure, type ReviewRequestMap, type ReviewRequestType, type ReviewResult, type ReviewTake, type ReviewTrace } from './platform';
 import { docPlacement, place, resolve } from './track';
 import { anchorOf, elementAt, frameAt, frameOf, labelOf, marksBox, pageInfo, painted, pageSelection, selectionElement, shapesBox, targetOf, visibleRect } from './page';
 
@@ -129,7 +129,11 @@ export class Review {
   typeaheadEnd: 'add' | 'cancel' | null = null;
   busy = $state(false);
   voice: { for: 'draft' | 'standalone'; startedAt: number } | null = $state(null);
+  /** the tab's trace session (D-214): traces kept until Send or Discard all, the last one maybe running */
   trace: TraceView | null = $state(null);
+  /** the trace whose note the one-line prompt above the pill asks for, right after its Stop */
+  noting: number | null = $state(null);
+  noteText = $state('');
   /** traces exist in this build (the trace work package answers trace.get) */
   traceAvailable = $state(true);
   context = $state({ errors: 0, failed: 0 });
@@ -147,6 +151,9 @@ export class Review {
   /** the title row above the pill is open (Send asks for a title first); `title` is what is typed */
   naming = $state(false);
   title = $state('');
+  /** the context the reviewer writes for the whole capture, under the title (opened from the row) */
+  contextOpen = $state(false);
+  description = $state('');
   /** bumps on scroll, resize and a slow timer, so pins follow the page */
   tick = $state(0);
   now = $state(Date.now());
@@ -157,6 +164,22 @@ export class Review {
   /** the platform can crop the page (the extension always; the embed through its DOM rasteriser) */
   get canScreenshot(): boolean {
     return platform().caps.canScreenshot;
+  }
+
+  /** the trace running now, if any */
+  get running(): ReviewTake | null {
+    const last = this.trace?.takes.at(-1);
+    return last && last.endedAt === null ? last : null;
+  }
+
+  /** traces stopped and kept for Send */
+  get kept(): ReviewTake[] {
+    return this.trace?.takes.filter((t) => t.endedAt !== null) ?? [];
+  }
+
+  /** what Send sends: the notes and the kept traces */
+  get pending(): number {
+    return this.items.length + this.kept.length;
   }
 
   // ---------- lifecycle ----------
@@ -196,7 +219,9 @@ export class Review {
     }
     await this.refresh();
     await this.refreshTrace();
-    // a tab with unsent notes or a running trace wakes on load, so its pins stay on the page
+    // a trace started or stopped elsewhere (the extension's popup): stopped there, it asks for its note here
+    platform().onTraceChange?.(() => void this.refreshTrace(true));
+    // a tab with unsent notes or traces wakes on load, so its pins stay on the page
     if ((this.items.length || this.trace) && !this.closed) this.awake = true;
     this.initDone();
   }
@@ -204,18 +229,20 @@ export class Review {
   /**
    * The pill's X (D-205): hide the toolbar and the launcher on this origin, in every tab and after
    * reloads. A running trace or voice note is never stopped silently: the first call asks, then
-   * `stop` true stops both, false keeps the trace running (a voice note is saved either way).
+   * `stop` true stops both (the trace is kept for Send), false keeps the trace running (a voice
+   * note is saved either way).
    */
   async close(stop?: boolean) {
-    if (stop === undefined && (this.trace || this.voice)) {
+    if (stop === undefined && (this.running || this.voice)) {
       this.confirmClose = true;
       return;
     }
     this.confirmClose = false;
     if (this.voice) await this.stopVoice();
-    if (stop && this.trace) {
-      await this.toggleTrace();
-      if (this.trace) return; // the notes or the trace did not go: stay open
+    if (stop && this.running) {
+      const r = await send('trace.stop', {});
+      if (!r.ok) return void toasts.error(r.message ?? 'The trace did not stop');
+      this.setTrace(r.trace);
     }
     this.sleep();
     this.closed = true;
@@ -249,15 +276,26 @@ export class Review {
     if (r.ok) this.items = r.items;
   }
 
-  async refreshTrace() {
+  /** `external`: the session changed outside this toolbar; a trace stopped there asks for its note here. */
+  async refreshTrace(external = false) {
     const r = await send('trace.get', {});
     if (r.ok) {
+      const was = this.running?.n ?? null;
       this.traceAvailable = true;
-      this.trace = r.trace ? { recordingId: r.trace.recordingId, startedAt: r.trace.startedAt, spans: r.trace.spans } : null;
+      this.setTrace(r.trace);
+      if (external && was !== null && !this.running && this.trace?.takes.some((t) => t.n === was)) {
+        if (!this.closed) this.awake = true;
+        this.askNote(was);
+      }
     } else if (r.error === 'not_implemented') {
       this.traceAvailable = false;
       this.trace = null;
     }
+  }
+
+  private setTrace(t: ReviewTrace | null) {
+    this.trace = t ? { recordingId: t.recordingId, takes: t.takes.map((k) => ({ ...k })) } : null;
+    if (this.noting !== null && !this.trace?.takes.some((k) => k.n === this.noting)) this.noting = null;
   }
 
   async refreshContext() {
@@ -278,6 +316,7 @@ export class Review {
   sleep() {
     this.confirmClose = false;
     this.naming = false;
+    this.endNote();
     if (this.voice) void this.cancelVoice();
     this.tool = null;
     this.draft = null;
@@ -307,6 +346,7 @@ export class Review {
   /** Esc: one level back. */
   back() {
     if (this.naming) return void (this.naming = false);
+    if (this.noting !== null) return this.endNote();
     if (this.voice) return void this.cancelVoice();
     if (this.draft) return this.cancelDraft();
     if (this.drawing) {
@@ -629,7 +669,7 @@ export class Review {
           ...(d.cropBlobId ? { cropBlobId: d.cropBlobId, cropRect: $state.snapshot(d.cropRect) as Rect } : {}),
           ...(d.voiceBlobId ? { voiceBlobId: d.voiceBlobId, voiceDurationMs: d.voiceDurationMs } : {}),
         };
-        r = await send('review.add', { item, trace: !!this.trace });
+        r = await send('review.add', { item });
       }
       if (!r.ok) {
         toasts.error(errorText(r));
@@ -709,7 +749,7 @@ export class Review {
       this.openDraft({
         id: null,
         kind: 'voice',
-        label: this.trace ? 'Voice note on the trace' : 'Voice note on this page',
+        label: this.running ? 'Voice note on the trace' : 'Voice note on this page',
         shapes: [],
         voiceBlobId: r.blobId,
         voiceDurationMs: r.durationMs,
@@ -735,45 +775,86 @@ export class Review {
     void this.startVoice(this.draft ? 'draft' : 'standalone');
   }
 
-  // ---------- trace and submit ----------
+  // ---------- traces and submit ----------
 
+  /**
+   * Start a trace, or stop the running one (D-214). Stop keeps the trace for Send and asks, in one
+   * line above the pill, what the agent should notice in it.
+   */
   async toggleTrace() {
     if (!this.traceAvailable) return void toasts.show('Traces are not available in this build');
-    if (this.trace) {
-      const t = this.trace;
-      if (this.items.length) {
-        const ok = await this.submit();
-        if (!ok) return;
+    if (this.busy) return;
+    if (this.running) {
+      // the prompt opens at once; the worker reads and queues the trace meanwhile
+      const n = this.running.n;
+      this.askNote(n);
+      const r = await send('trace.stop', {});
+      if (!r.ok) {
+        this.endNote();
+        return void toasts.error(r.message ?? 'The trace did not stop');
       }
-      const r = await send('trace.stop', { open: true });
-      if (!r.ok) return void toasts.error(r.message ?? 'The trace did not stop');
-      this.trace = null;
-      toasts.success(r.result.spans != null ? `Trace saved: ${r.result.spans} actions` : 'Trace sent');
-      void t;
+      this.setTrace(r.trace);
       return;
     }
+    this.endNote();
     const r = await send('trace.start', {});
     if (!r.ok) return void toasts.error(r.error === 'not_signed_in' ? 'Sign in to start a trace' : (r.message ?? 'The trace did not start'));
-    this.trace = { recordingId: r.trace.recordingId, startedAt: r.trace.startedAt, spans: 0 };
+    this.setTrace(r.trace);
+  }
+
+  /** Open the note prompt for trace `n`, with what it says so far. */
+  askNote(n: number) {
+    if (this.noting === n) return; // already asking: keep what is typed
+    this.naming = false;
+    this.listOpen = false;
+    this.noteText = this.trace?.takes.find((t) => t.n === n)?.note ?? '';
+    this.noting = n;
+  }
+
+  /** Enter in the prompt, or a press outside it with text typed: keep the note. */
+  async saveNote() {
+    const n = this.noting;
+    if (n === null) return;
+    const text = this.noteText.trim();
+    this.endNote();
+    if (text !== (this.trace?.takes.find((t) => t.n === n)?.note ?? '')) await this.setNote(n, text);
+  }
+
+  /** Esc or Skip in the prompt: the trace stays, without a note. */
+  endNote() {
+    this.noting = null;
+    this.noteText = '';
+  }
+
+  async setNote(n: number, note: string) {
+    const r = await send('trace.note', { n, note: note.slice(0, 4000) });
+    if (!r.ok) return void toasts.error(r.message ?? 'The note was not saved');
+    this.setTrace(r.trace);
+  }
+
+  async removeTake(n: number) {
+    const r = await send('trace.remove', { n });
+    if (!r.ok) return void toasts.error(r.message ?? 'The trace was not removed');
+    this.setTrace(r.trace);
   }
 
   /** The title the capture gets when none is typed (the title row's placeholder). */
   get autoTitle(): string {
-    return autoFeedbackTitle(this.items);
+    return autoFeedbackTitle(this.items, this.trace?.takes ?? [], location.href);
   }
 
   /**
-   * Send from the pill or the list: notes for a new capture first ask for a title in one row
-   * above the pill (Enter sends, Esc or Skip sends with the automatic title, a click elsewhere
-   * cancels). Notes that go onto a running trace send at once: the trace has its own title.
+   * Send from the pill or the list: one row above the pill asks for a title and, behind its
+   * Context button, the context of the whole capture (Enter sends, Esc or Skip sends with the
+   * automatic title, a click elsewhere cancels). The tab's traces and notes go as one capture.
    */
   async send() {
     if (this.busy) return;
-    if (this.trace) return void (await this.submit());
     if (this.naming) return void (await this.submit(this.title));
     if (!(await this.flush())) return;
     this.listOpen = false;
     this.hover = null;
+    this.endNote();
     this.title = '';
     this.naming = true;
   }
@@ -788,7 +869,7 @@ export class Review {
     if (this.voice) await this.stopVoice();
     if (this.draft) await this.saveDraft();
     await this.saving;
-    if (!this.items.length) {
+    if (!this.items.length && !this.trace?.takes.length) {
       toasts.show('Nothing to send yet');
       return false;
     }
@@ -800,23 +881,29 @@ export class Review {
     this.naming = false;
     if (!(await this.flush())) return false;
     this.busy = true;
-    const toast = toasts.loading(`Sending ${this.items.length} ${this.items.length === 1 ? 'note' : 'notes'}`);
+    const what = sendingWhat(this.items.length, this.trace?.takes.length ?? 0);
+    const toast = toasts.loading(`Sending ${what}`);
     try {
-      const r = await send('review.submit', { traceRecordingId: this.trace?.recordingId ?? null, ...(title?.trim() ? { title: title.trim() } : {}) });
+      const description = this.description.trim();
+      const r = await send('review.submit', { ...(title?.trim() ? { title: title.trim() } : {}), ...(description ? { description } : {}) });
       if (!r.ok) {
         toasts.update(toast, { kind: 'error', message: errorText(r), duration: 6000 });
+        await this.refreshTrace();
         return false;
       }
-      const n = r.result.count;
       const result = r.result;
       const { openCapture } = platform();
       toasts.update(toast, {
         kind: 'success',
-        message: result.trace ? `Added ${n} ${n === 1 ? 'note' : 'notes'} to the trace` : `Sent ${n} ${n === 1 ? 'note' : 'notes'}`,
-        ...(result.trace || !openCapture ? {} : { action: { label: 'Open', run: () => openCapture(result) } }),
+        message: `Sent ${sendingWhat(result.count, result.traces)}`,
+        ...(openCapture ? { action: { label: 'Open', run: () => openCapture(result) } } : {}),
       });
       this.listOpen = false;
+      this.description = '';
+      this.contextOpen = false;
+      this.trace = null;
       await this.refresh();
+      await this.refreshTrace();
       return true;
     } finally {
       this.busy = false;
@@ -826,8 +913,19 @@ export class Review {
   async clearAll() {
     await send('review.clear', {});
     this.draft = null;
+    this.endNote();
+    this.description = '';
+    this.contextOpen = false;
     await this.refresh();
+    await this.refreshTrace();
   }
+}
+
+/** "2 traces and 3 notes" */
+export function sendingWhat(notes: number, traces: number): string {
+  const part = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
+  if (traces && notes) return `${part(traces, 'trace')} and ${part(notes, 'note')}`;
+  return traces ? part(traces, 'trace') : part(notes, 'note');
 }
 
 export const review = new Review();

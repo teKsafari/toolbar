@@ -65,7 +65,12 @@ export class Viewer {
   actions = $derived(deriveActions(this.events, this.map));
   markers = $derived(deriveMarkers(this.consoleRows, this.network, this.events, this.map));
   /** Part 2 traces: interaction spans with outcomes, by the event that started each (Actions tab). */
-  spans: Span[] = $derived(this.detail.kind === 'trace' && this.events.length ? deriveTrace(this.events, { startedAt: this.map.startedAt, config: { maxOpenMs: traceOpenMsOf(this.detail.project) } }).spans : []);
+  /** one engine per trace when the capture has traces, so each span carries its trace (D-214) */
+  spans: Span[] = $derived(
+    this.detail.kind === 'trace' && this.events.length
+      ? deriveTrace(this.events, { startedAt: this.map.startedAt, config: { maxOpenMs: traceOpenMsOf(this.detail.project) }, traces: this.detail.traces }).spans
+      : [],
+  );
   spanByEvent = $derived(new Map(this.spans.map((s) => [s.action.eventId, s])));
   chapters: Chapter[] = $derived(this.computeChapters());
   /** Desktop recordings gather several tabs; show a Tab column then (J-224). */

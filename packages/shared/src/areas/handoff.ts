@@ -106,6 +106,8 @@ export function fmtOffset(ms: number): string {
 /** The parts of an interaction span the README reads (`Span` in @toolbar/trace has more). */
 export interface HandoffSpan {
   id: string;
+  /** the trace of a trace capture the span is in (D-214) */
+  trace?: number;
   startMs: number;
   durationMs: number;
   url?: string;
@@ -132,6 +134,24 @@ export interface TimelineEntry {
   files?: string[];
   /** epoch ms of the moment that shows the effect (for video stills); not printed */
   t?: number;
+  /** the trace of a trace capture the entry falls in (D-214) */
+  trace?: number;
+}
+
+/** One trace of a trace capture (D-214), as the README lists it. */
+export interface ReadmeTrace {
+  n: number;
+  /** offsets from the capture start */
+  startMs: number;
+  endMs: number;
+  /** interaction spans in the trace, and their outcomes */
+  actions: number;
+  outcomes: Record<string, number>;
+  /** what the reviewer wrote about the trace, verbatim */
+  note: string;
+  author: string;
+  /** keyframes/ and outline/ files of the trace's spans */
+  files: string[];
 }
 
 export interface ReviewerWords {
@@ -226,6 +246,8 @@ export interface ReadmeInput {
   notHappened: TimelineEntry[];
   timeline: TimelineEntry[];
   timelineSource: 'spans' | 'events';
+  /** a trace capture's traces (D-214); the timeline groups by them */
+  traces?: ReadmeTrace[];
   counts: { spans: Record<string, number> | null; consoleErrors: number; failedRequests: number; requests: number; comments: number; annotations: number; keyframes: number };
   files: FolderFile[];
   /** the browser refused the extension's screenshots on the reviewer's tab (env.shots, D-185) */
@@ -262,15 +284,16 @@ function header(r: ReadmeInput): string[] {
   return [`# ${PRODUCT_NAME} feedback ${r.id}`, '', '| | |', '|---|---|', ...rows.map(([k, v]) => `| ${k} | ${v.replace(/\|/g, '\\|')} |`)];
 }
 
-function entryLine(e: TimelineEntry): string {
+function entryLine(e: TimelineEntry, withTrace = false): string {
   const files = e.files?.length ? `  -> open ${e.files.join(', ')}` : '';
-  return `${fmtOffset(e.atMs).padStart(7)}  ${e.span ? `${e.span}  ` : ''}${e.outcome.padEnd(11)} ${oneLine(e.text, 240)}${files}`;
+  const trace = withTrace && e.trace != null ? `t${e.trace}  ` : '';
+  return `${fmtOffset(e.atMs).padStart(7)}  ${trace}${e.span ? `${e.span}  ` : ''}${e.outcome.padEnd(11)} ${oneLine(e.text, 240)}${files}`;
 }
 
-function entriesBlock(entries: TimelineEntry[], source: string, max: number): string[] {
+function entriesBlock(entries: TimelineEntry[], source: string, max: number, withTrace = false): string[] {
   if (!entries.length) return [];
   const shown = entries.slice(0, max);
-  const out = [fence(shown.map(entryLine).join('\n'), { source, author: 'page (labels quote page text)' })];
+  const out = [fence(shown.map((e) => entryLine(e, withTrace)).join('\n'), { source, author: 'page (labels quote page text)' })];
   if (entries.length > shown.length) out.push('', `${entries.length - shown.length} more entries are in spans.jsonl (one span per line, in time order).`);
   return out;
 }
@@ -288,6 +311,39 @@ function wordsBlock(words: ReviewerWords[], maxChars: number): string[] {
   return out;
 }
 
+const outcomeList = (o: Record<string, number>) =>
+  Object.entries(o)
+    .filter(([, n]) => n > 0)
+    .map(([k, n]) => `${n} ${k}`)
+    .join(', ');
+
+/**
+ * The traces of a trace capture (D-214), near the top: each one's range, actions and outcomes,
+ * the files of its spans and the reviewer's note in full (cut only to fit the budget). The note
+ * is often the only record of what went wrong: how a scroll felt, a bar that hid, a layout jump.
+ */
+function tracesBlock(traces: ReadmeTrace[], maxChars: number): string[] {
+  const out = [
+    `The reviewer recorded ${traces.length === 1 ? 'one trace' : `${traces.length} traces`} on purpose, with a note on each about what to notice. A note often names a problem no log shows (how a scroll feels, a bar that hides, a jump in the layout). Read it before the timeline, then open the keyframes and \`outline/\` files of that trace's spans and judge them against the note. Offsets count from the capture start; nothing between two traces was recorded. In spans.jsonl, \`trace\` holds the trace's number.`,
+    '',
+  ];
+  for (const t of traces) {
+    out.push(`### Trace ${t.n}: ${fmtOffset(t.startMs)} to ${fmtOffset(t.endMs)} (${fmtOffset(t.endMs - t.startMs)})`, '');
+    const oc = outcomeList(t.outcomes);
+    const files = t.files.slice(0, 8);
+    out.push(
+      `${t.actions} ${t.actions === 1 ? 'action' : 'actions'}${oc ? `: ${oc}` : ''}.${files.length ? ` Open ${files.join(', ')}${t.files.length > files.length ? ` and ${t.files.length - files.length} more (spans.jsonl, select(.trace==${t.n}))` : ''}.` : ''}`,
+      '',
+    );
+    if (t.note.trim()) {
+      let note = t.note;
+      if (note.length > maxChars) note = `${note.slice(0, maxChars)}\n[cut at ${maxChars} characters; the full note is in feedback.json, traces[].note]`;
+      out.push(`**The reviewer's note on trace ${t.n}** by ${code(t.author, 120)}:`, '', fence(note, { source: `trace ${t.n} note`, author: t.author, atMs: t.startMs }), '');
+    } else out.push('The reviewer wrote no note on this trace.', '');
+  }
+  return out;
+}
+
 function countsLine(r: ReadmeInput): string {
   const parts: string[] = [];
   if (r.counts.spans) parts.push(Object.entries(r.counts.spans).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${k}`).join(', ') || 'no spans');
@@ -298,7 +354,8 @@ function countsLine(r: ReadmeInput): string {
 
 /**
  * README.md in the order the PLAN fixes: header (who, app, browser, masking preset); the one
- * instruction about fenced data; the reviewer's words, fenced; what did not happen (dead, stuck,
+ * instruction about fenced data; a trace capture's traces with their notes (D-214); the
+ * reviewer's words, fenced; what did not happen (dead, stuck,
  * silent); the timeline; search hints and the index of files. Cut to stay under the token budget.
  */
 export function renderReadme(r: ReadmeInput, budget = README_CHAR_BUDGET): string {
@@ -317,6 +374,21 @@ export function renderReadme(r: ReadmeInput, budget = README_CHAR_BUDGET): strin
   return md.length <= budget ? md : `${md.slice(0, budget - 200)}\n\n[README cut at the size limit; read feedback.json and spans.jsonl for the rest]\n`;
 }
 
+/** The timeline of a trace capture, one block per trace (D-214); entries outside every trace last. */
+function tracedTimeline(timeline: TimelineEntry[], traces: ReadmeTrace[], maxLines: number): string[] {
+  const out: string[] = [];
+  const per = Math.max(10, Math.floor(maxLines / traces.length));
+  for (const t of traces) {
+    const entries = timeline.filter((e) => e.trace === t.n);
+    out.push(`Trace ${t.n} (${fmtOffset(t.startMs)} to ${fmtOffset(t.endMs)}):`, '');
+    if (entries.length) out.push(...entriesBlock(entries, `trace ${t.n}: timeline`, per), '');
+    else out.push('No actions in this trace.', '');
+  }
+  const loose = timeline.filter((e) => e.trace == null || !traces.some((t) => t.n === e.trace));
+  if (loose.length) out.push('Outside the traces (notes and comments made between them):', '', ...entriesBlock(loose, 'timeline outside the traces', per), '');
+  return out;
+}
+
 function renderOnce(r: ReadmeInput, maxLines: number, maxChars: number): string {
   const L: string[] = [];
   L.push(...header(r), '');
@@ -327,6 +399,8 @@ function renderOnce(r: ReadmeInput, maxLines: number, maxChars: number): string 
       "No screenshots: Chrome refused the extension's captures on the reviewer's tab (it allows them only after the reviewer opens the extension's menu on that tab), so there are no keyframes or element crops. The page's text is in the timeline, `outline/` and the DOM recording in `raw/`.",
       '',
     );
+
+  if (r.traces?.length) L.push('## Traces', '', ...tracesBlock(r.traces, maxChars));
 
   L.push("## The reviewer's words", '');
   if (r.words.length) L.push(...wordsBlock(r.words, maxChars));
@@ -339,7 +413,8 @@ function renderOnce(r: ReadmeInput, maxLines: number, maxChars: number): string 
         ? 'Actions whose span ended `dead` (nothing changed), `stuck` (a request was still pending) or `silent` (a request returned and the page did not change; the class says what it returned). Read these first.'
         : 'This capture has no interaction spans, so these are the requests that never answered or failed, and the errors, taken from the events.',
       '',
-      ...entriesBlock(r.notHappened, 'trace: what did not happen', Math.max(10, Math.floor(maxLines / 2))),
+      ...(r.traces?.length ? ['`tN` after the offset names the trace.', ''] : []),
+      ...entriesBlock(r.notHappened, 'trace: what did not happen', Math.max(10, Math.floor(maxLines / 2)), !!r.traces?.length),
       '',
     );
   } else
@@ -355,8 +430,7 @@ function renderOnce(r: ReadmeInput, maxLines: number, maxChars: number): string 
         ? 'One line per interaction span: offset from the start, span id (as in spans.jsonl), outcome, what happened. "-> open" names the image to look at for that moment; open images only when a line points at them.'
         : 'Reviewer actions, navigations, errors and failed requests in time order, from the events. "-> open" names the image for that moment.',
       '',
-      ...entriesBlock(r.timeline, 'trace: timeline', maxLines),
-      '',
+      ...(r.traces?.length ? tracedTimeline(r.timeline, r.traces, maxLines) : [...entriesBlock(r.timeline, 'trace: timeline', maxLines), '']),
     );
   } else L.push('No actions were recorded.', '');
 
@@ -397,6 +471,8 @@ export interface SharePageInput {
   masking: MaskingPresetName;
   resolved: boolean;
   counts: ReadmeInput['counts'];
+  /** a trace capture's traces (D-214): range, actions and the reviewer's note */
+  traces?: { n: number; startMs: number; endMs: number; actions: number; note: string }[];
   shareUrl: string;
 }
 
@@ -433,10 +509,22 @@ export function sharePageMarkdown(p: SharePageInput): string {
     '',
     fence(p.title || '(untitled)', { source: 'title', author: p.reviewer ?? 'reviewer' }),
     '',
+    ...(p.traces?.length ? sharePageTraces(p.traces, p.reviewer ?? 'reviewer') : []),
     `This page is a summary for link holders. The reviewer's words, the timeline, images, console and network are in the folder. In a browser: ${p.shareUrl}`,
     '',
   ];
   return L.join('\n');
+}
+
+/** The share page's traces (D-214): one line each, the note cut short; the folder has them in full. */
+function sharePageTraces(traces: NonNullable<SharePageInput['traces']>, author: string): string[] {
+  const out = [`## Traces`, '', `${traces.length === 1 ? 'One trace' : `${traces.length} traces`}, each with the reviewer's note on what to notice (the folder README has them in full, with the files of each trace):`, ''];
+  for (const t of traces) {
+    out.push(`- Trace ${t.n}: ${fmtOffset(t.startMs)} to ${fmtOffset(t.endMs)}, ${t.actions} ${t.actions === 1 ? 'action' : 'actions'}${t.note.trim() ? '' : ', no note'}`);
+    if (t.note.trim()) out.push('', fence(t.note.length > 300 ? `${t.note.slice(0, 300)}...` : t.note, { source: `trace ${t.n} note`, author, atMs: t.startMs }), '');
+  }
+  out.push('');
+  return out;
 }
 
 // ---------- the Agent Skill ----------

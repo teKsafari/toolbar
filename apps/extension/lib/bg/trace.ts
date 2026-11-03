@@ -1,20 +1,27 @@
-// "Start trace" and "Stop trace" (Part 2, PLAN "What a trace is"). A trace is a capture of kind
-// `trace`: the events and the DOM replay of one tab between start and stop. While it runs, the
-// tab is attached like a recording (rrweb, canvas samples), its ring is kept whole, and the span
-// engine runs live here to time keyframes: screenshots on route changes, annotations, changed
-// spans and DOM bursts, at most one every 1.5 s, near-duplicates (33x32 dHash) dropped. Stop reads the
-// ring, uploads the events and the replay, and finalizes; the server derives spans.jsonl from the
-// stored events (GET /api/v1/recordings/:id/spans).
+// Trace sessions (Part 2, PLAN "What a trace is", D-214). A tab's session is one server capture of
+// kind `trace`, made at its first Start trace, holding one or more traces: each the events and DOM
+// replay of the tab between a Start trace and its Stop trace, with a note the reviewer writes
+// about it. While a trace runs, the tab is attached like a recording (rrweb, canvas samples), its
+// ring is kept whole, and the span engine runs live here to time keyframes: screenshots on route
+// changes, annotations, changed spans and DOM bursts, at most one every 1.5 s, near-duplicates
+// (33x32 dHash) dropped.
+//
+// Stop reads the trace from the ring and queues its events and replay as chunks (the ring keeps
+// only its normal window once the tab is detached, so this happens once per trace, D-190), then
+// uploads them in the background; nothing is sent to anyone. `send` (from review.submit, with the
+// tab's notes) uploads what is left, completes the streams and finalizes with the traces and
+// their notes; the server keeps only what lies inside them, so a removed trace leaves nothing.
 //
 // Separate from the capture session of lib/bg/ui.ts: a trace can run beside a screenshot or a
-// recording of the same tab. The running trace lives in storage (tb:trace), so a worker restart
-// re-attaches it; the live engine then starts afresh (keyframes resume, spans come from the server).
+// recording of the same tab. The session lives in storage (tb:trace), so a worker restart
+// re-attaches a running trace; the live engine then starts afresh (keyframes resume, spans come
+// from the server).
 import { browser, type Browser } from 'wxt/browser';
 import { toNdjson, type CaptureEvent } from '@toolbar/shared';
 import { uuidv7 } from '@toolbar/shared/ids';
 import { projectForUrl, traceOpenMsOf } from '@toolbar/shared/projects';
-import type { BgError, BgRequest, BgRequestType, TraceResult, TraceState } from '@toolbar/shared/ext';
-import { KEYFRAME_HASH_SIZE, LiveTrace, dHash, isNearDuplicate, type KeyframeRequest, type Span } from '@toolbar/trace';
+import type { BgError, BgRequest, BgRequestType, TraceState, TraceTakeState } from '@toolbar/shared/ext';
+import { KEYFRAME_HASH_SIZE, LiveTrace, TRACE_LEAD_MS, dHash, isNearDuplicate, type KeyframeRequest, type Span } from '@toolbar/trace';
 import { CaptureError, isRestrictedUrl, type CaptureService } from '../capture/service';
 import { noteShot, noteShotError, probeShots } from './shot-access';
 import { getAuth, getPrivate, serverUrl, setPrivate } from '../capture/store';
@@ -23,33 +30,28 @@ import { TEST_HOOKS } from '../flags';
 import { projects } from '../scope';
 import { api, HttpError, type UploadAuthLike } from '../upload/client';
 import { enqueueNdjson } from '../upload/draft';
-import { drain, withRetry } from '../upload/queue';
+import { drain, dropRows, withRetry } from '../upload/queue';
 
 const KEY = 'tb:trace';
 const TICK_MS = 250;
+const STREAMS = ['events', 'rrweb'] as const;
+type Stream = (typeof STREAMS)[number];
 
 interface Stored {
   recordingId: string;
   tabId: number;
-  windowId: number;
-  startedAt: number;
-  url: string;
-  title: string;
   /** span window for open requests, from the page's project (D-166) */
   openMs?: number;
-  /**
-   * Set once Stop has detached the tab and queued the events and the replay. A stop that fails
-   * after this (the server is down) is retried from the queued chunks: the ring is not read
-   * again, since it keeps only its normal window once the trace is detached (D-190).
-   */
-  prepared?: Prepared;
+  takes: TraceTakeState[];
+  nextN: number;
+  /** chunks queued so far per stream: the next trace's chunks continue the numbering */
+  queued: Record<Stream, { seq: number; bytes: number }>;
 }
 
-interface Prepared {
-  stoppedAt: number;
-  streams: [string, { lastSeq: number; totalBytes: number }][];
-  spans: number;
-  outcomes: Record<string, number>;
+/** What `send` finalizes with, besides the traces. */
+export interface SendText {
+  title: string;
+  description: string;
 }
 
 export class TraceController {
@@ -60,8 +62,9 @@ export class TraceController {
   private lastHash: string | null = null;
   private keyframeCount = 0;
   private shots = new CaptureQueue(600);
-  private stopping: Promise<TraceResult> | null = null;
-  /** the card image taken at Stop, kept for a retried upload */
+  /** one change to the session at a time (popup, toolbar and tab events can race) */
+  private chain: Promise<unknown> = Promise.resolve();
+  /** the card image, taken at each Stop; the last one goes up with the session */
   private still: Awaited<ReturnType<CaptureService['cardStillOf']>> = null;
   /** The live engine's spans of the last trace that stopped (e2e compares them with the server's). */
   lastSpans: readonly Span[] = [];
@@ -76,21 +79,46 @@ export class TraceController {
   private async restore() {
     const s = await getPrivate<Stored | null>(KEY, null);
     if (!s) return;
-    const tab = await browser.tabs.get(s.tabId).catch(() => null);
     this.cur = s;
-    // a stop that already queued its chunks only needs its upload retried
-    if (s.prepared) return;
-    this.svc.attachTrace(s.tabId, s.recordingId, s.startedAt);
-    this.begin();
-    if (!tab) void this.stop({ open: false }).catch(() => undefined);
+    const tab = await browser.tabs.get(s.tabId).catch(() => null);
+    if (!tab) return void this.discard().catch(() => undefined);
+    const run = this.running();
+    if (!run) return;
+    this.svc.attachTrace(s.tabId, s.recordingId, run.startedAt);
+    this.begin(run);
   }
 
-  state(): TraceState | null {
+  private serial<T>(fn: () => Promise<T>): Promise<T> {
+    const p = this.chain.then(async () => {
+      await this.loaded;
+      return fn();
+    });
+    this.chain = p.catch(() => undefined);
+    return p;
+  }
+
+  private running(): TraceTakeState | null {
+    const last = this.cur?.takes.at(-1);
+    return last && last.endedAt === null ? last : null;
+  }
+
+  /** The session, with the running trace's live counts. `tabId`: only the session of that tab. */
+  state(tabId?: number): TraceState | null {
     const c = this.cur;
-    if (!c) return null;
-    const outcomes: Record<string, number> = {};
-    for (const s of this.live?.spans ?? []) outcomes[s.outcome] = (outcomes[s.outcome] ?? 0) + 1;
-    return { recordingId: c.recordingId, tabId: c.tabId, startedAt: c.startedAt, url: c.url, title: c.title, spans: this.live?.spans.length ?? 0, outcomes, keyframes: this.keyframeCount };
+    if (!c || (tabId !== undefined && c.tabId !== tabId)) return null;
+    const run = this.running();
+    const takes = c.takes.map((t) => {
+      if (t !== run || !this.live) return { ...t };
+      const outcomes: Record<string, number> = {};
+      for (const s of this.live.spans) outcomes[s.outcome] = (outcomes[s.outcome] ?? 0) + 1;
+      return { ...t, spans: this.live.spans.length, outcomes };
+    });
+    return { recordingId: c.recordingId, tabId: c.tabId, takes, keyframes: this.keyframeCount };
+  }
+
+  /** The tab whose running trace takes annotations (review.add). */
+  runningIn(tabId: number): boolean {
+    return this.cur?.tabId === tabId && !!this.running();
   }
 
   private async auth(): Promise<UploadAuthLike & { workspaceId: string | null }> {
@@ -99,50 +127,60 @@ export class TraceController {
     return { serverUrl: a.serverUrl || (await serverUrl()), token: a.token, workspaceId: a.activeWorkspaceId };
   }
 
-  async start(tabId?: number): Promise<TraceState> {
-    await this.loaded;
-    if (this.cur) throw new CaptureError('busy', 'A trace is already running. Stop it first.');
-    const auth = await this.auth();
-    if (!auth.workspaceId) throw new CaptureError('invalid', 'Pick a workspace first');
-    const tab = tabId !== undefined ? await browser.tabs.get(tabId).catch(() => null) : (await browser.tabs.query({ active: true, lastFocusedWindow: true }))[0];
-    if (!tab?.id) throw new CaptureError('not_found', 'No tab to trace');
-    if (isRestrictedUrl(tab.url)) throw new CaptureError('restricted_page', 'This page cannot be traced');
-    const startedAt = Date.now();
-    const env = await this.svc.envFor(tab.id);
-    // keyframes need captureVisibleTab: say in the capture when the browser refuses it (D-185)
-    if (env && tab.active && tab.windowId != null) {
-      const windowId = tab.windowId;
-      const shots = await probeShots(tab.id, () => this.shots.run(() => browser.tabs.captureVisibleTab(windowId, { format: 'jpeg', quality: 10 })), { retryMs: 0 });
-      if (shots !== 'unknown') env.shots = shots;
-    }
-    const created = await api.createCapture(auth, {
-      clientId: uuidv7(),
-      kind: 'trace',
-      workspaceId: auth.workspaceId,
-      page: { url: tab.url ?? '', title: tab.title ?? '' },
-      startedAt,
-      source: 'extension',
-      ...(env ? { env } : {}),
-    });
-    const openMs = traceOpenMsOf(projectForUrl(await projects(), tab.url ?? ''));
-    this.cur = { recordingId: created.id, tabId: tab.id, windowId: tab.windowId ?? -1, startedAt, url: tab.url ?? '', title: tab.title ?? '', openMs };
+  private async save() {
     await setPrivate(KEY, this.cur);
-    this.svc.attachTrace(tab.id, created.id, startedAt);
-    this.keyframeCount = 0;
-    this.lastHash = null;
-    this.begin();
-    await this.badge(tab.id, true);
-    // the page as the trace begins
-    setTimeout(() => void this.keyframe({ t: Date.now(), reason: 'start' }), 300);
-    return this.state()!;
   }
 
-  private begin() {
+  start(tabId?: number): Promise<TraceState> {
+    return this.serial(async () => {
+      const tab = tabId !== undefined ? await browser.tabs.get(tabId).catch(() => null) : (await browser.tabs.query({ active: true, lastFocusedWindow: true }))[0];
+      if (!tab?.id) throw new CaptureError('not_found', 'No tab to trace');
+      if (this.cur && this.cur.tabId !== tab.id) throw new CaptureError('busy', 'Traces are waiting in another tab. Send or discard them there first.');
+      if (this.running()) throw new CaptureError('busy', 'A trace is already running. Stop it first.');
+      if (isRestrictedUrl(tab.url)) throw new CaptureError('restricted_page', 'This page cannot be traced');
+      const startedAt = Date.now();
+      if (!this.cur) {
+        const auth = await this.auth();
+        if (!auth.workspaceId) throw new CaptureError('invalid', 'Pick a workspace first');
+        const env = await this.svc.envFor(tab.id);
+        // keyframes need captureVisibleTab: say in the capture when the browser refuses it (D-185)
+        if (env && tab.active && tab.windowId != null) {
+          const windowId = tab.windowId;
+          const shots = await probeShots(tab.id, () => this.shots.run(() => browser.tabs.captureVisibleTab(windowId, { format: 'jpeg', quality: 10 })), { retryMs: 0 });
+          if (shots !== 'unknown') env.shots = shots;
+        }
+        const created = await api.createCapture(auth, {
+          clientId: uuidv7(),
+          kind: 'trace',
+          workspaceId: auth.workspaceId,
+          page: { url: tab.url ?? '', title: tab.title ?? '' },
+          startedAt,
+          source: 'extension',
+          ...(env ? { env } : {}),
+        });
+        const openMs = traceOpenMsOf(projectForUrl(await projects(), tab.url ?? ''));
+        this.cur = { recordingId: created.id, tabId: tab.id, openMs, takes: [], nextN: 1, queued: { events: { seq: 0, bytes: 0 }, rrweb: { seq: 0, bytes: 0 } } };
+        this.keyframeCount = 0;
+      }
+      const take: TraceTakeState = { n: this.cur.nextN++, startedAt, endedAt: null, note: '', url: tab.url ?? '', title: tab.title ?? '', spans: 0, outcomes: {} };
+      this.cur.takes.push(take);
+      await this.save();
+      this.svc.attachTrace(tab.id, this.cur.recordingId, startedAt);
+      this.lastHash = null;
+      this.begin(take);
+      await this.badge(tab.id, true);
+      // the page as the trace begins
+      setTimeout(() => void this.keyframe({ t: Date.now(), reason: 'start' }), 300);
+      return this.state()!;
+    });
+  }
+
+  private begin(take: TraceTakeState) {
     const c = this.cur!;
-    this.live = new LiveTrace({ startedAt: c.startedAt, config: { maxOpenMs: traceOpenMsOf({ traceOpenMs: c.openMs }) }, onKeyframe: (k) => void this.keyframe(k) });
+    this.live = new LiveTrace({ startedAt: take.startedAt, config: { maxOpenMs: traceOpenMsOf({ traceOpenMs: c.openMs }) }, onKeyframe: (k) => void this.keyframe(k) });
     this.untap?.();
     this.untap = this.svc.onEvents((batch) => {
-      const mine = batch.filter((e) => e.tab === c.tabId && e.t >= c.startedAt);
+      const mine = batch.filter((e) => e.tab === c.tabId && e.t >= take.startedAt);
       // keyframe shots are our own output, not input
       if (mine.length) this.live?.add(mine.filter((e) => !(e.kind === 'shot' && e.data.reason === 'keyframe')));
     });
@@ -160,7 +198,7 @@ export class TraceController {
   /** Screenshot of the traced tab for a keyframe, at 1x CSS pixels, unless it is a near-duplicate. */
   private async keyframe(k: KeyframeRequest) {
     const c = this.cur;
-    if (!c) return;
+    if (!c || !this.running()) return;
     try {
       const tab = await browser.tabs.get(c.tabId).catch(() => null);
       // captureVisibleTab sees only the active tab of a window
@@ -177,7 +215,7 @@ export class TraceController {
         this.stats.duplicates++;
         return;
       }
-      if (this.cur?.recordingId !== c.recordingId) return;
+      if (this.cur?.recordingId !== c.recordingId || !this.running()) return;
       const auth = await this.auth();
       const asset = await withRetry(() => api.uploadAsset(auth, { kind: 'keyframe', recordingId: c.recordingId, width: css.width, height: css.height }, css.blob, `keyframe-${k.reason}.png`));
       this.lastHash = hash;
@@ -190,72 +228,156 @@ export class TraceController {
     }
   }
 
-  async stop(opts: { open?: boolean } = {}): Promise<TraceResult> {
-    await this.loaded;
-    if (this.stopping) return this.stopping;
-    if (!this.cur) throw new CaptureError('not_found', 'No trace is running');
-    this.stopping = this.finish(this.cur, opts).finally(() => (this.stopping = null));
-    return this.stopping;
+  stop(): Promise<TraceState> {
+    return this.serial(async () => {
+      if (!this.running()) throw new CaptureError('not_found', 'No trace is running');
+      await this.stopRunning(true);
+      this.upload();
+      return this.state()!;
+    });
   }
 
-  /** Detach the tab, read the trace from the ring and queue it as chunks: once per trace. */
-  private async prepare(c: Stored): Promise<Prepared> {
+  /**
+   * Detach the tab and end the running trace. `keep`: read it from the ring and queue it as
+   * chunks; a trace that is being removed is only detached.
+   */
+  private async stopRunning(keep: boolean) {
+    const c = this.cur!;
+    const take = this.running()!;
     const stoppedAt = Date.now();
     const tab = await browser.tabs.get(c.tabId).catch(() => null);
-    this.still = tab?.active ? await this.svc.cardStillOf(tab) : null;
+    if (keep && tab?.active) this.still = (await this.svc.cardStillOf(tab)) ?? this.still;
     await this.svc.flushTabs([c.tabId]).catch(() => undefined);
     this.svc.detachTrace(c.tabId);
     await new Promise((r) => setTimeout(r, 150)); // the pages' last batches after detach
     await this.svc.ring.flush();
     this.end();
     const spans = this.live?.stop(stoppedAt) ?? [];
+    this.live = null;
     this.lastSpans = spans;
-    const outcomes: Record<string, number> = {};
-    for (const s of spans) outcomes[s.outcome] = (outcomes[s.outcome] ?? 0) + 1;
-    const slice = await this.svc.ring.read(c.tabId, c.startedAt - 250, Date.now());
-    const events = slice.events.filter((e) => e.t >= c.startedAt - 250).sort((a, b) => a.t - b.t || (a.ctx < b.ctx ? -1 : a.ctx > b.ctx ? 1 : a.seq - b.seq));
-    const id = c.recordingId;
-    const streams: [string, { lastSeq: number; totalBytes: number }][] = [];
-    const ev = await enqueueNdjson(id, 'events', toNdjson(events as CaptureEvent[]));
-    if (ev) streams.push(['events', ev]);
-    if (slice.rrweb.length) {
-      const rr = await enqueueNdjson(id, 'rrweb', slice.rrweb.map((r) => JSON.stringify(r)).join('\n'));
-      if (rr) streams.push(['rrweb', rr]);
-    }
-    const p: Prepared = { stoppedAt, streams, spans: spans.length, outcomes };
-    this.cur = { ...c, prepared: p };
-    await setPrivate(KEY, this.cur);
-    return p;
+    await this.badge(c.tabId, false);
+    if (!keep) return;
+    take.spans = spans.length;
+    take.outcomes = {};
+    for (const s of spans) take.outcomes[s.outcome] = (take.outcomes[s.outcome] ?? 0) + 1;
+    const from = take.startedAt - TRACE_LEAD_MS;
+    const slice = await this.svc.ring.read(c.tabId, from, Date.now());
+    const events = slice.events.filter((e) => e.t >= from).sort((a, b) => a.t - b.t || (a.ctx < b.ctx ? -1 : a.ctx > b.ctx ? 1 : a.seq - b.seq));
+    await this.queue('events', toNdjson(events as CaptureEvent[]));
+    if (slice.rrweb.length) await this.queue('rrweb', slice.rrweb.map((r) => JSON.stringify(r)).join('\n'));
+    take.endedAt = stoppedAt;
+    await this.save();
   }
 
-  private async finish(c: Stored, opts: { open?: boolean }): Promise<TraceResult> {
-    const p = c.prepared ?? (await this.prepare(c));
-    const { stoppedAt, streams, outcomes } = p;
-    const auth = await this.auth();
-    const id = c.recordingId;
-    const still = this.still;
-    for (let attempt = 1; ; attempt++) {
-      const r = await drain(auth, id, id, { parallel: 4 });
-      if (!r.failed) break;
-      if (r.lastError && !r.lastError.retryable) throw r.lastError;
-      if (attempt >= 6) throw r.lastError ?? new HttpError(0, 'network', 'upload failed');
-      await new Promise((res) => setTimeout(res, Math.min(30_000, 1000 * 2 ** (attempt - 1))));
-    }
-    for (const [stream, s] of streams) await withRetry(() => api.completeStream(auth, id, stream as 'events' | 'rrweb', s));
-    // the card image: the page as the trace stopped, masked per preset (D-184)
-    if (still) await withRetry(() => api.uploadAsset(auth, { kind: 'thumb', recordingId: id, width: still.width, height: still.height }, still.blob, 'thumb.webp')).catch(() => undefined);
-    const durationMs = Math.max(0, stoppedAt - c.startedAt);
-    const fin = await withRetry(() => api.finalize(auth, id, { title: `Trace: ${c.title || c.url}`.slice(0, 200), durationMs }));
+  private async queue(stream: Stream, ndjson: string) {
+    const c = this.cur!;
+    const q = c.queued[stream];
+    const r = await enqueueNdjson(c.recordingId, stream, ndjson, q.seq);
+    if (r) c.queued[stream] = { seq: r.lastSeq + 1, bytes: q.bytes + r.totalBytes };
+  }
+
+  /** Upload the queued chunks now, so Send has little left to do; failures wait for Send. */
+  private upload() {
+    const c = this.cur;
+    if (!c) return;
+    void this.auth()
+      .then((auth) => drain(auth, c.recordingId, c.recordingId, { parallel: 4 }))
+      .catch(() => undefined);
+  }
+
+  note(n: number, note: string): Promise<TraceState> {
+    return this.serial(async () => {
+      const take = this.cur?.takes.find((t) => t.n === n);
+      if (!take) throw new CaptureError('not_found', 'That trace is gone');
+      take.note = note.slice(0, 4000);
+      await this.save();
+      return this.state()!;
+    });
+  }
+
+  remove(n: number): Promise<TraceState | null> {
+    return this.serial(async () => {
+      const c = this.cur;
+      const take = c?.takes.find((t) => t.n === n);
+      if (!c || !take) throw new CaptureError('not_found', 'That trace is gone');
+      if (take === this.running()) await this.stopRunning(false);
+      c.takes = c.takes.filter((t) => t !== take);
+      if (!c.takes.length) {
+        await this.drop();
+        return null;
+      }
+      await this.save();
+      return this.state();
+    });
+  }
+
+  /** Discard the tab's session: the server's draft and the queued chunks go too. */
+  discard(tabId?: number): Promise<void> {
+    return this.serial(async () => {
+      if (!this.cur || (tabId !== undefined && this.cur.tabId !== tabId)) return;
+      if (this.running()) await this.stopRunning(false);
+      await this.drop();
+    });
+  }
+
+  private async drop() {
+    const c = this.cur!;
     this.cur = null;
-    this.live = null;
-    await setPrivate(KEY, null);
-    await this.badge(c.tabId, false);
-    const tabGone = !(await browser.tabs.get(c.tabId).catch(() => null));
-    if (tabGone) await this.svc.ring.purgeTab(c.tabId);
     this.still = null;
-    const result: TraceResult = { recordingId: fin.id, shareUrl: fin.shareUrl, spans: p.spans, outcomes, durationMs };
-    if (opts.open !== false) await browser.tabs.create({ url: fin.shareUrl, ...(tabGone ? {} : { openerTabId: c.tabId }) }).catch(() => undefined);
-    return result;
+    this.live = null;
+    await this.save();
+    await dropRows(c.recordingId).catch(() => undefined);
+    await this.auth()
+      .then((auth) => api.deleteCapture(auth, c.recordingId))
+      .catch(() => undefined); // the server sweeps drafts left behind (J-189)
+  }
+
+  /** The session's capture, when the tab has one (review.submit sends the notes onto it first). */
+  recordingOf(tabId: number): string | null {
+    return this.cur?.tabId === tabId ? this.cur.recordingId : null;
+  }
+
+  /**
+   * Send the tab's session (review.submit, after the notes went up): stop a running trace, upload
+   * what is queued, complete the streams and finalize with the traces and their notes.
+   */
+  send(tabId: number, text: SendText): Promise<{ recordingId: string; shareUrl: string; traces: number }> {
+    return this.serial(async () => {
+      const c = this.cur;
+      if (!c || c.tabId !== tabId) throw new CaptureError('not_found', 'No traces to send');
+      if (this.running()) await this.stopRunning(true);
+      const auth = await this.auth();
+      const id = c.recordingId;
+      for (let attempt = 1; ; attempt++) {
+        const r = await drain(auth, id, id, { parallel: 4 });
+        if (!r.failed) break;
+        if (r.lastError && !r.lastError.retryable) throw r.lastError;
+        if (attempt >= 6) throw r.lastError ?? new HttpError(0, 'network', 'upload failed');
+        await new Promise((res) => setTimeout(res, Math.min(30_000, 1000 * 2 ** (attempt - 1))));
+      }
+      for (const stream of STREAMS) {
+        const q = c.queued[stream];
+        if (q.seq > 0) await withRetry(() => api.completeStream(auth, id, stream, { lastSeq: q.seq - 1, totalBytes: q.bytes }));
+      }
+      // the card image: the page as the last trace stopped, masked per preset (D-184)
+      const still = this.still;
+      if (still) await withRetry(() => api.uploadAsset(auth, { kind: 'thumb', recordingId: id, width: still.width, height: still.height }, still.blob, 'thumb.webp')).catch(() => undefined);
+      const first = c.takes[0]!;
+      const last = c.takes.at(-1)!;
+      const fin = await withRetry(() =>
+        api.finalize(auth, id, {
+          title: text.title.slice(0, 500),
+          description: text.description,
+          durationMs: Math.max(0, (last.endedAt ?? Date.now()) - first.startedAt),
+          traces: c.takes.map((t) => ({ n: t.n, startedAt: t.startedAt, endedAt: t.endedAt ?? t.startedAt, note: t.note })),
+        }),
+      );
+      this.cur = null;
+      this.still = null;
+      await this.save();
+      if (!(await browser.tabs.get(tabId).catch(() => null))) await this.svc.ring.purgeTab(tabId);
+      return { recordingId: fin.id, shareUrl: fin.shareUrl, traces: c.takes.length };
+    });
   }
 
   private async badge(tabId: number, on: boolean) {
@@ -268,8 +390,9 @@ export class TraceController {
     }
   }
 
+  /** A closed tab's session goes with it, as its unsent notes do (lib/bg/review.ts). */
   async onTabRemoved(tabId: number) {
-    if (this.cur?.tabId === tabId) await this.stop({ open: false }).catch(() => undefined);
+    await this.discard(tabId).catch(() => undefined);
   }
 
   /**
@@ -280,7 +403,7 @@ export class TraceController {
   async onTabUpdated(tabId: number, status: string | undefined) {
     if (!status) return;
     await this.loaded;
-    if (this.cur?.tabId !== tabId) return;
+    if (this.cur?.tabId !== tabId || !this.running()) return;
     await this.badge(tabId, true);
   }
 }
@@ -300,16 +423,29 @@ async function hashOf(blob: Blob): Promise<string> {
 }
 
 type Handler = (msg: BgRequest, sender: Browser.runtime.MessageSender) => Promise<Record<string, unknown>>;
+type Req<K extends BgRequestType> = Extract<BgRequest, { type: K }>;
 
 /** Wires the trace requests (popup, in-page UI, e2e). Called once from background.ts. */
 export function registerTrace(svc: CaptureService): TraceController {
   const ctl = new TraceController(svc);
   const handlers: Partial<Record<BgRequestType, Handler>> = {
-    'trace.start': async (m, sender) => ({ trace: await ctl.start((m as Extract<BgRequest, { type: 'trace.start' }>).tabId ?? sender.tab?.id) }),
-    'trace.stop': async (m) => ({ result: await ctl.stop({ open: (m as Extract<BgRequest, { type: 'trace.stop' }>).open }) }),
-    'trace.get': async () => {
+    'trace.start': async (m, sender) => ({ trace: await ctl.start((m as Req<'trace.start'>).tabId ?? sender.tab?.id) }),
+    'trace.stop': async () => ({ trace: await ctl.stop() }),
+    // a web page's toolbar sees its own tab's session; the extension's pages (the popup) the one there is
+    'trace.get': async (_m, sender) => {
       await ctl.loaded;
-      return { trace: ctl.state() };
+      const own = sender.url?.startsWith(browser.runtime.getURL('/'));
+      return { trace: ctl.state(own ? undefined : sender.tab?.id) };
+    },
+    'trace.note': async (m) => ({ trace: await ctl.note((m as Req<'trace.note'>).n, (m as Req<'trace.note'>).note) }),
+    'trace.remove': async (m) => ({ trace: await ctl.remove((m as Req<'trace.remove'>).n) }),
+    'trace.focus': async () => {
+      await ctl.loaded;
+      const tab = ctl.state() && (await browser.tabs.get(ctl.state()!.tabId).catch(() => null));
+      if (!tab?.id) throw new CaptureError('not_found', 'No traces are waiting');
+      await browser.tabs.update(tab.id, { active: true });
+      await browser.windows.update(tab.windowId, { focused: true }).catch(() => undefined);
+      return {};
     },
   };
   browser.runtime.onMessage.addListener((msg: unknown, sender, reply) => {

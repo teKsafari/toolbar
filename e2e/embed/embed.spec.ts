@@ -6,7 +6,7 @@
 //    highlight and a voice note, then Send: one capture of source embed in the owner's workspace,
 //    visible to the workspace only, with the four notes, their crops and clip, and the name the
 //    reviewer typed as the author.
-// 2. Start and Stop trace from the pill make a trace capture.
+// 2. Start and Stop trace from the pill keep a trace; Send makes the trace capture (D-214).
 // 3. On the lab's second origin (not a project origin) no UI, one console line, and the server's 403.
 // 4. A rotated or turned-off key: no UI.
 // 5. The X closes the toolbar on the site, across reloads; `?open-toolbar` brings it back.
@@ -189,7 +189,7 @@ test('on a project origin: comment, screenshot, highlight and voice note, sent a
   expect(net.items.some((n) => n.url.startsWith(SERVER))).toBe(false);
 });
 
-test('Start and Stop trace from the pill make a trace capture with the note made during it, by the reviewer the site named', async ({ page }) => {
+test('two traces from the pill, one across a page load, a note on the first, sent with Send as one trace capture by the reviewer the site named (D-214)', async ({ page }) => {
   watchConsole(page);
   const before = (await embedCaptures(owner)).map((c) => c.id);
   // the site names its signed-in person (data-name): the composer does not ask
@@ -208,14 +208,32 @@ test('Start and Stop trace from the pill make a trace capture with the note made
   await page.keyboard.press('Enter');
   await expect(ui(page, 'review-pin')).toHaveCount(1);
   await page.keyboard.press('Escape');
-  // Stop sends the notes onto the trace (it has its own title) and ends it
+  // Stop keeps the trace and asks for its note; a second trace survives a full page load
   await ui(page, 'review-trace-stop').click();
-  await expect(page.locator('toolbar-root [role=status]', { hasText: 'Trace sent' })).toBeVisible({ timeout: 30_000 });
-  await expect(ui(page, 'review-trace-start')).toBeVisible({ timeout: 30_000 });
+  await expect(ui(page, 'review-note')).toBeFocused({ timeout: 15_000 });
+  await page.keyboard.type('Export shows nothing at all');
+  await page.keyboard.press('Enter');
+  // nothing went to the workspace: an unsent session is a draft, not in the list
+  expect((await embedCaptures(owner)).filter((c) => !before.includes(c.id) && c.kind === 'trace')).toHaveLength(0);
+  await page.keyboard.press('x');
+  await expect(ui(page, 'review-trace-time')).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId('hidden-500').click();
+  await sleep(1500);
+  await page.reload();
+  await toolbarShown(page);
+  await wake(page);
+  await expect(ui(page, 'review-trace-time')).toBeVisible({ timeout: 20_000 });
+  await page.keyboard.press('x');
+  await page.keyboard.press('Escape');
+  // one Send for both traces and the note
+  await ui(page, 'review-send').click();
+  await expect(ui(page, 'review-title')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('toolbar-root [role=status]', { hasText: 'Sent 2 traces and 1 note' })).toBeVisible({ timeout: 30_000 });
 
   const cap = await nextCapture(owner, before, 'trace');
-  const detail = (await (await owner.api.get(`${SERVER}/api/v1/recordings/${cap.id}`)).json()) as { source: string; kind: string; access: string; authorSnapshot: Item['author'] };
-  expect(detail).toMatchObject({ source: 'embed', kind: 'trace', access: 'workspace' });
+  const detail = (await (await owner.api.get(`${SERVER}/api/v1/recordings/${cap.id}`)).json()) as { source: string; kind: string; access: string; title: string; authorSnapshot: Item['author']; traces: { n: number; note: string }[] };
+  expect(detail).toMatchObject({ source: 'embed', kind: 'trace', access: 'workspace', title: 'Export shows nothing at all', traces: [{ n: 1, note: 'Export shows nothing at all' }, { n: 2, note: '' }] });
   expect(detail.authorSnapshot).toMatchObject({ userId: null, name: 'Sam Site', issuer: 'embed' });
   const list = await items(cap.id);
   expect(list).toHaveLength(1);

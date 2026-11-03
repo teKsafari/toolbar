@@ -121,6 +121,7 @@ async function data(): Promise<FolderData> {
       project: 'Nuru',
       workspace: 'Team',
       folder: null,
+      traces: [],
     },
     events,
     prepared: prepare(events, T0, false),
@@ -278,6 +279,89 @@ describe('assembleFolder', () => {
     // with images the line would be wrong: it only shows when nothing came through
     const withImages = await assembleFolder({ ...d, rec: { ...d.rec, env: { ...d.rec.env!, shots: 'blocked' as const } } }, (globalThis as { __io?: FolderIo }).__io!);
     expect(withImages.readme).not.toContain('No screenshots');
+  });
+});
+
+describe('trace sessions (D-214)', () => {
+  // two traces: s001 and the annotation in the first, s003 in the second; a note pin made between them
+  async function sessionData(): Promise<FolderData> {
+    const d = await data();
+    const note = 'The page jumps back to the top when I scroll the lesson list.\nIt never shows in the console.';
+    d.rec.traces = [
+      { n: 1, startedAt: T0 + 500, endedAt: T0 + 2500, note },
+      { n: 3, startedAt: T0 + 6000, endedAt: T0 + 9000, note: '' },
+    ];
+    d.spans!.spans[0]!.trace = 1;
+    d.spans!.spans[1]!.trace = 1;
+    d.spans!.spans.push({ id: 's003', trace: 3, startMs: 6500, durationMs: 400, action: { type: 'click', label: 'Click "Export"', interactive: true }, outcome: 'dead', summary: 'Click "Export" -> dead: nothing happened' });
+    d.annotations.push({
+      id: 'n9',
+      assetId: null,
+      t: T0 + 4000,
+      shapes: [],
+      target: null,
+      locator: null,
+      comment: 'Between the traces',
+      author: 'Dana',
+      createdAt: new Date(T0 + 4000),
+      item: { n: 9, kind: 'page', quote: null, intent: 'fix', severity: 'important', status: 'pending', voiceText: null, context: null, page: null, cropRect: null },
+    });
+    return d;
+  }
+
+  it('lists the traces with their notes near the top and groups the timeline by trace', async () => {
+    const f = await assembleFolder(await sessionData(), (globalThis as { __io?: FolderIo }).__io!);
+    const md = f.readme;
+    const at = (s: string) => md.indexOf(s);
+    expect(f.readmeTokens).toBeLessThan(README_TOKEN_LIMIT);
+    expect(at('## Traces')).toBeGreaterThan(at(FENCE_RULE));
+    expect(at('## Traces')).toBeLessThan(at("## The reviewer's words"));
+    expect(md).toContain('### Trace 1: 0.5s to 2.5s (2.0s)');
+    expect(md).toContain('### Trace 3: 6.0s to 9.0s (3.0s)');
+    // counts, the files of the trace's spans, and the note fenced as the reviewer's words
+    expect(md).toMatch(/2 actions: 1 silent, 1 note\. Open keyframes\/k01\.png, outline\/s001\.md\./);
+    expect(md).toContain('1 action: 1 dead.');
+    expect(md).toContain('captured source="trace 1 note" author="Dana" at="0.5s"\nThe page jumps back to the top');
+    expect(md).toContain('The reviewer wrote no note on this trace.');
+    const outside = md.replace(/(`{3,})text captured[^\n]*\n[\s\S]*?\n\1(?=\n|$)/g, '');
+    expect(outside).not.toContain('jumps back');
+    // the timeline: one block per trace, the pin made between them after
+    const tl = md.slice(at('## Timeline'), at('## Search hints and files'));
+    expect(tl.indexOf('Trace 1 (0.5s to 2.5s):')).toBeLessThan(tl.indexOf('s001'));
+    expect(tl.indexOf('Trace 3 (6.0s to 9.0s):')).toBeLessThan(tl.indexOf('s003'));
+    expect(tl.indexOf('s003')).toBeLessThan(tl.indexOf('Outside the traces'));
+    expect(tl.slice(tl.indexOf('Outside the traces'))).toContain('Between the traces');
+    // what did not happen names the trace
+    expect(md.slice(at('## What did not happen'), at('## Timeline'))).toMatch(/6\.5s {2}t3 {2}s003 {2}dead/);
+    // which trace a pin was made in
+    expect(md).toContain('page pin 9 = a02 (fix, important, pending, made between traces)');
+  });
+
+  it('puts the traces into feedback.json with offsets, spans and outcomes', async () => {
+    const f = await assembleFolder(await sessionData(), (globalThis as { __io?: FolderIo }).__io!);
+    const fb = JSON.parse(String(f.files.find((x) => x.path === 'feedback.json')!.data));
+    expect(fb.traces).toEqual([
+      { n: 1, startedAt: T0 + 500, endedAt: T0 + 2500, startMs: 500, endMs: 2500, durationMs: 2000, note: expect.stringContaining('jumps back'), spans: ['s001', 's002'], outcomes: { silent: 1, note: 1 } },
+      { n: 3, startedAt: T0 + 6000, endedAt: T0 + 9000, startMs: 6000, endMs: 9000, durationMs: 3000, note: '', spans: ['s003'], outcomes: { dead: 1 } },
+    ]);
+    expect(fb.annotations.map((a: { n: string; trace: number | null }) => [a.n, a.trace])).toEqual([
+      ['a01', 1],
+      ['a02', null],
+    ]);
+  });
+
+  it('keeps a long note under the README budget', async () => {
+    const d = await sessionData();
+    d.rec.traces = Array.from({ length: 30 }, (_, i) => ({ n: i + 1, startedAt: T0 + i * 1000, endedAt: T0 + i * 1000 + 900, note: 'x'.repeat(4000) }));
+    const f = await assembleFolder(d, (globalThis as { __io?: FolderIo }).__io!);
+    expect(f.readmeTokens).toBeLessThan(README_TOKEN_LIMIT);
+    expect(f.readme).toContain('## Traces');
+  });
+
+  it('a capture without traces has no traces section and an empty traces list', async () => {
+    const f = await assembleFolder(await data(), (globalThis as { __io?: FolderIo }).__io!);
+    expect(f.readme).not.toContain('## Traces');
+    expect(JSON.parse(String(f.files.find((x) => x.path === 'feedback.json')!.data)).traces).toEqual([]);
   });
 });
 

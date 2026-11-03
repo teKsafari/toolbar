@@ -33,6 +33,7 @@ import { visibleCapturesWhere, type RecordingRow } from '../share/access.ts';
 import { loadEvents, memberUrlOf } from '../mcp/data.ts';
 import { parseVtt } from '../transcribe/vtt.ts';
 import { traceConfigOf } from '../projects.ts';
+import { tracesOf } from '../event-index.ts';
 import { assembleFolder } from './assemble.ts';
 import { collectFolder, serverIo } from './folder.ts';
 import { feedbackItemsOf } from './items.ts';
@@ -181,6 +182,7 @@ export async function digestOf(db: Db, rec: RecordingRow): Promise<CaptureDigest
         ...(startedAt !== undefined ? { startedAt } : {}),
         ...(startedAt !== undefined && rec.durationMs != null ? { endedAt: startedAt + rec.durationMs } : {}),
         config: await traceConfigOf(db, rec),
+        traces: tracesOf(rec),
       })
     : null;
 
@@ -188,6 +190,8 @@ export async function digestOf(db: Db, rec: RecordingRow): Promise<CaptureDigest
   const title = humanTitle(rec);
   if (title) words.push({ source: 'title', author: reviewer, text: title });
   if (rec.description?.trim()) words.push({ source: 'description', author: reviewer, text: rec.description });
+  // D-214: what the reviewer wrote about each trace
+  for (const t of tracesOf(rec)) if (t.note.trim()) words.push({ source: `trace ${t.n} note`, author: reviewer, text: t.note });
   const anns = await db
     .select({ text: annotation.comment, name: user.name })
     .from(annotation)

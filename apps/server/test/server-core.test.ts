@@ -8,7 +8,8 @@ import type { CaptureEvent } from '@toolbar/shared';
 import { decideAccess, memberCanSee } from '../src/lib/server/share/access.ts';
 import { chunkDecision, missingSeqs, imageSize, assetTypeAllowed } from '../src/lib/server/upload/service.ts';
 import { mintUploadToken, verifyUploadToken, uploadTokenFrom } from '../src/lib/server/upload/token.ts';
-import { computeEventIndex, dedupeEvents, mergeMarkers, parseNdjson, parseRrwebNdjson, rrwebNdjsonParts, sortEvents, trimEvents, trimRrweb, videoOffsetOf } from '../src/lib/server/event-index.ts';
+import { computeEventIndex, dedupeEvents, keepRanges, mergeMarkers, parseNdjson, parseRrwebNdjson, rrwebNdjsonParts, sortEvents, traceRanges, trimEvents, trimRrweb, videoOffsetOf } from '../src/lib/server/event-index.ts';
+import { TRACE_LEAD_MS } from '@toolbar/trace';
 import { normaliseVtt, openAiCompatible, parseVtt, whisperCpp } from '../src/lib/server/transcribe/index.ts';
 import { aiConfig, chaptersPrompt, normaliseChapters, secondsOf } from '../src/lib/server/jobs/chapters.ts';
 import { decodeEventChunks } from '../src/lib/server/jobs/handlers.ts';
@@ -144,7 +145,7 @@ describe('event index, trim and clock', () => {
       { type: 3, timestamp: 4500, data: { i: 4 } },
       { type: 3, timestamp: 6000, data: { i: 5 } },
     ];
-    const out = trimRrweb(rr, 3000, 5000);
+    const out = trimRrweb(rr, [{ from: 3000, to: 5000 }]);
     // lead-in: the second Meta and FullSnapshot plus the increment before 3000, all moved to 3000
     expect(out.map((e) => [e.type, e.timestamp])).toEqual([
       [4, 3000],
@@ -154,14 +155,68 @@ describe('event index, trim and clock', () => {
       [3, 4500],
     ]);
     expect(out[1]!.data).toEqual({ node: 2 });
-    expect(trimRrweb(out, 3000, 5000)).toEqual(out);
+    expect(trimRrweb(out, [{ from: 3000, to: 5000 }])).toEqual(out);
     // no snapshot before the start: only the range is kept
-    expect(trimRrweb(rr, 500, 1600).map((e) => e.timestamp)).toEqual([1000, 1001, 1500]);
+    expect(trimRrweb(rr, [{ from: 500, to: 1600 }]).map((e) => e.timestamp)).toEqual([1000, 1001, 1500]);
     const parts = rrwebNdjsonParts(out, 60);
     expect(parts.length).toBeGreaterThan(1);
     expect(parts.flatMap((p) => parseRrwebNdjson(p.text))).toEqual(out);
     expect(parts[0]!.t0).toBe(3000);
     expect(parseRrwebNdjson('{"type":2,"timestamp":1}\n{broken\n{"kind":"x"}\n').length).toBe(1);
+  });
+  it('trims rrweb to several ranges, each from its own snapshot lead-in (D-214)', () => {
+    const rr = [
+      { type: 4, timestamp: 1000, data: { href: 'a' } },
+      { type: 2, timestamp: 1001, data: { node: 1 } },
+      { type: 3, timestamp: 1500, data: { i: 1 } },
+      { type: 3, timestamp: 2500, data: { i: 2 } },
+      { type: 3, timestamp: 3500, data: { i: 3 } },
+      { type: 4, timestamp: 4000, data: { href: 'b' } },
+      { type: 2, timestamp: 4001, data: { node: 2 } },
+      { type: 3, timestamp: 4500, data: { i: 4 } },
+      { type: 3, timestamp: 5500, data: { i: 5 } },
+      { type: 3, timestamp: 6500, data: { i: 6 } },
+    ];
+    const ranges = [
+      { from: 900, to: 1600 },
+      { from: 3000, to: 3600 },
+      { from: 5000, to: 6000 },
+    ];
+    const out = trimRrweb(rr, ranges);
+    // the second range replays from the first snapshot, the third from the second; 2500 and 4500
+    // are cut from the timeline but replayed at once in the lead-ins
+    expect(out.map((e) => [e.type, e.timestamp, (e.data as { i?: number }).i ?? null])).toEqual([
+      [4, 1000, null],
+      [2, 1001, null],
+      [3, 1500, 1],
+      [4, 3000, null],
+      [2, 3000, null],
+      [3, 3000, 1],
+      [3, 3000, 2],
+      [3, 3500, 3],
+      [4, 5000, null],
+      [2, 5000, null],
+      [3, 5000, 4],
+      [3, 5500, 5],
+    ]);
+    expect(trimRrweb(out, ranges)).toEqual(out);
+    expect(trimRrweb(rr, [])).toEqual([]);
+  });
+  it('keeps the events of the trace windows, env, stackmaps and noted context (D-214)', () => {
+    expect(
+      traceRanges([
+        { startedAt: 10_000, endedAt: 12_000 },
+        { startedAt: 1000, endedAt: 2000 },
+        { startedAt: 12_100, endedAt: 13_000 },
+      ]),
+    ).toEqual([
+      { from: 1000 - TRACE_LEAD_MS, to: 2000 },
+      { from: 10_000 - TRACE_LEAD_MS, to: 13_000 },
+    ]);
+    const ev = (id: string, kind: string, t: number) => ({ v: 1, id, ctx: 'c', seq: 0, t, kind, data: {} }) as unknown as CaptureEvent;
+    const all = [ev('env0', 'env', 0), ev('a', 'user', 900), ev('b', 'user', 1500), ev('c', 'console', 5000), ev('d', 'console', 5100), ev('sm', 'stackmap', 5200), ev('e', 'user', 11_000), ev('f', 'user', 14_000)];
+    const kept = keepRanges(all, traceRanges([{ startedAt: 1000, endedAt: 2000 }, { startedAt: 10_000, endedAt: 13_000 }]), new Set(['d']));
+    expect(kept.map((e) => e.id)).toEqual(['env0', 'a', 'b', 'd', 'sm', 'e']);
   });
   it('dedupes retried events and parses NDJSON leniently', () => {
     expect(dedupeEvents([...events, events[0]!]).length).toBe(events.length);

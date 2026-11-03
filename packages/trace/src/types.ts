@@ -116,6 +116,8 @@ export interface CausedBy {
 export interface Span {
   /** `s001`, in start order. */
   id: string;
+  /** The trace of the session the span is in (D-214), when the capture has traces. */
+  trace?: number;
   t0: Ms;
   t1: Ms;
   /** Offset of t0 from the start of the trace. */

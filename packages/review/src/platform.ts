@@ -5,12 +5,22 @@
 // one that does the same work in the page (packages/embed/src/platform.ts).
 import type { BgError, BgRequestMap, LocatorBgRequests, ReviewSubmitResult, ReviewerBgRequests } from '@toolbar/shared/ext';
 
-/** A running trace as the toolbar shows it. */
-export interface ReviewTrace {
-  recordingId: string;
+/** One trace of the tab's trace session (D-214). */
+export interface ReviewTake {
+  n: number;
   startedAt: number;
+  /** null while it runs */
+  endedAt: number | null;
+  note: string;
   /** actions closed so far, where the platform counts them live */
   spans?: number;
+  outcomes?: Record<string, number>;
+}
+
+/** The tab's trace session as the toolbar shows it: traces kept until Send or Discard. */
+export interface ReviewTrace {
+  recordingId: string;
+  takes: ReviewTake[];
 }
 
 /**
@@ -22,8 +32,10 @@ export interface ReviewRequestMap extends ReviewerBgRequests, LocatorBgRequests 
   'mic.request': BgRequestMap['mic.request'];
   'trace.get': { req: {}; res: { trace: ReviewTrace | null } };
   'trace.start': { req: {}; res: { trace: ReviewTrace } };
-  /** `spans` absent: the platform does not count actions (the server derives them) */
-  'trace.stop': { req: { open?: boolean }; res: { result: { recordingId: string; spans?: number } } };
+  'trace.stop': { req: {}; res: { trace: ReviewTrace } };
+  'trace.note': { req: { n: number; note: string }; res: { trace: ReviewTrace } };
+  /** removing the last trace discards the session: `trace` is null */
+  'trace.remove': { req: { n: number }; res: { trace: ReviewTrace | null } };
 }
 export type ReviewRequestType = keyof ReviewRequestMap;
 export type ReviewFailure = { ok: false; error: BgError; message?: string };
@@ -54,6 +66,8 @@ export interface ReviewPlatform {
   /** the success toast's Open; absent where the reviewer cannot open the capture */
   openCapture?: (result: ReviewSubmitResult) => void;
   reviewer?: ReviewerIdentity;
+  /** the trace session changed outside the toolbar (the extension's popup); returns the unsubscribe */
+  onTraceChange?: (fn: () => void) => () => void;
   caps: {
     /** element, text and drawing crops (`review.shot`) */
     canScreenshot: boolean;
