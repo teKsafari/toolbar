@@ -1,8 +1,10 @@
 // Event index for captureDetailSchema.index: counts and timeline markers, computed once at
-// finalize so lists and the info header need no event fetch. Also the trim filter (J-227) and the
-// video offset (architecture s4 "Clock"). Pure functions; finalize-recording calls them.
+// finalize so lists and the info header need no event fetch. Also the trim filter (J-227), the
+// trace windows (D-214) and the video offset (architecture s4 "Clock"). Pure functions;
+// finalize-recording calls them.
 import type { CaptureEvent, ConsoleLevel, EventKind } from '@toolbar/shared';
-import type { EventIndex, TimelineMarker } from '@toolbar/shared/api';
+import type { EventIndex, TimelineMarker, TraceTake } from '@toolbar/shared/api';
+import { TRACE_LEAD_MS, type TraceWindow } from '@toolbar/trace';
 
 const MERGE_MS = 250;
 
@@ -50,6 +52,46 @@ export function trimEvents(
   const to = startedAt + videoOffsetMs + trim.endMs;
   const kept = events.filter((e) => e.kind === 'env' || (e.t >= from && e.t <= to));
   return { events: kept, startedAt: startedAt + trim.startMs };
+}
+
+/** A capture row's traces (D-214), in order; empty when it has none. */
+export function tracesOf(rec: { traces: unknown }): TraceTake[] {
+  return Array.isArray(rec.traces) ? (rec.traces as TraceTake[]) : [];
+}
+
+/** A kept stretch of capture time, epoch ms, both ends included. */
+export interface TimeRange {
+  from: number;
+  to: number;
+}
+
+/**
+ * The capture time a trace capture keeps (D-214): each trace's window from TRACE_LEAD_MS before
+ * its start (the extension reads its ring from there, and deriveTrace reads the same lead) to its
+ * end, in order, windows that touch merged.
+ */
+export function traceRanges(traces: readonly Pick<TraceWindow, 'startedAt' | 'endedAt'>[]): TimeRange[] {
+  const sorted = traces.map((w) => ({ from: w.startedAt - TRACE_LEAD_MS, to: w.endedAt })).sort((a, b) => a.from - b.from);
+  const out: TimeRange[] = [];
+  for (const r of sorted) {
+    const last = out[out.length - 1];
+    if (last && r.from <= last.to) last.to = Math.max(last.to, r.to);
+    else out.push({ ...r });
+  }
+  return out;
+}
+
+/** Event kinds a trace capture keeps whatever their time: the page and viewport, source-mapped stacks. */
+const TIMELESS = new Set<EventKind>(['env', 'stackmap']);
+
+/**
+ * Keep the events inside the ranges (a removed trace leaves nothing). `env` and `stackmap` events
+ * stay whatever their time: deriveTrace takes the newest env before each window, and every env
+ * is kept rather than guessing which one a later reader wants. Events in `keep` (the ones a
+ * note's context names, D-206) stay too, so a note made between traces still shows its errors.
+ */
+export function keepRanges(events: CaptureEvent[], ranges: readonly TimeRange[], keep: ReadonlySet<string> = new Set()): CaptureEvent[] {
+  return events.filter((e) => TIMELESS.has(e.kind) || keep.has(e.id) || ranges.some((r) => e.t >= r.from && e.t <= r.to));
 }
 
 const statusClass = (s: number) => (s >= 500 ? '5xx' : s >= 400 ? '4xx' : s >= 300 ? '3xx' : s >= 200 ? '2xx' : '1xx') as '1xx' | '2xx' | '3xx' | '4xx' | '5xx';
@@ -237,32 +279,37 @@ export function parseRrwebNdjson(text: string): RrwebEvent[] {
 }
 
 /**
- * Keep the rrweb events of the trimmed range [from, to] (capture clock, epoch ms). A DOM replay
- * needs a full snapshot to start from, so the last Meta and FullSnapshot at or before `from` and
- * the incremental events between them and `from` are kept as a lead-in with their timestamps moved
- * to `from`: the replayer applies them at once and the replay starts at the trim start. Running it
- * again on its own output gives the same events (finalize may run twice after a crash).
+ * Keep the rrweb events of the kept ranges (capture clock, epoch ms; sorted, not overlapping: the
+ * trim's one range, J-227, or a trace capture's windows, D-214). A DOM replay needs a full
+ * snapshot to start from, so for each range the last Meta and FullSnapshot at or before its
+ * `from` and the incremental events between them and `from` are kept as a lead-in with their
+ * timestamps moved to `from`: the replayer applies them at once and each range replays from its
+ * start, whatever was cut before it. Running it again on its own output gives the same events
+ * (finalize may run twice after a crash).
  */
-export function trimRrweb(events: RrwebEvent[], from: number, to: number): RrwebEvent[] {
+export function trimRrweb(events: RrwebEvent[], ranges: readonly TimeRange[]): RrwebEvent[] {
   const sorted = events.map((e, i) => ({ e, i })).sort((a, b) => a.e.timestamp - b.e.timestamp || a.i - b.i).map((x) => x.e);
-  let snap = -1;
-  for (let i = 0; i < sorted.length && sorted[i]!.timestamp <= from; i++) if (sorted[i]!.type === RR_FULL_SNAPSHOT) snap = i;
-  let start = snap;
-  if (snap > 0) {
-    for (let i = snap - 1; i >= 0; i--) {
-      if (sorted[i]!.type === RR_META) {
-        start = i;
-        break;
-      }
-      if (sorted[i]!.type === RR_FULL_SNAPSHOT) break;
-    }
-  }
   const out: RrwebEvent[] = [];
-  for (let i = 0; i < sorted.length; i++) {
-    const e = sorted[i]!;
-    if (e.timestamp <= from) {
-      if (start >= 0 && i >= start) out.push(e.timestamp === from ? e : { ...e, timestamp: from });
-    } else if (e.timestamp <= to) out.push(e);
+  for (const { from, to } of ranges) {
+    let snap = -1;
+    for (let i = 0; i < sorted.length && sorted[i]!.timestamp <= from; i++) if (sorted[i]!.type === RR_FULL_SNAPSHOT) snap = i;
+    let start = snap;
+    if (snap > 0) {
+      for (let i = snap - 1; i >= 0; i--) {
+        if (sorted[i]!.type === RR_META) {
+          start = i;
+          break;
+        }
+        if (sorted[i]!.type === RR_FULL_SNAPSHOT) break;
+      }
+    }
+    for (let i = Math.max(0, start); i < sorted.length; i++) {
+      const e = sorted[i]!;
+      if (e.timestamp <= from) {
+        if (start >= 0) out.push(e.timestamp === from ? e : { ...e, timestamp: from });
+      } else if (e.timestamp <= to) out.push(e);
+      else break;
+    }
   }
   return out;
 }

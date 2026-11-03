@@ -295,6 +295,9 @@ export async function finalizeCapture(
   }
   const folderId = body.folderId === undefined ? rec.folderId : await checkFolder(db, body.folderId, organizationId);
   if (body.metadata && JSON.stringify(body.metadata).length > 10_240) fail('invalid_body', 'metadata is limited to 10 KB');
+  // D-214: only a trace capture holds traces; the finalize job keeps what is inside their windows
+  if (body.traces && rec.kind !== 'trace') fail('invalid_body', 'Only a trace capture takes traces');
+  if (body.traces && body.trim) fail('invalid_body', 'A capture with traces takes no trim');
 
   await claimAsset(db, rec, body.screenshotAssetId, null, caller.userId);
   await claimAsset(db, rec, body.fullScreenshotAssetId, 'screenshot', caller.userId);
@@ -340,6 +343,7 @@ export async function finalizeCapture(
       title: body.title || rec.title,
       description: body.description,
       trim: body.trim ?? null,
+      traces: body.traces ?? null,
       durationMs: body.durationMs ?? rec.durationMs,
       metadata: body.metadata ?? null,
       status: 'processing',

@@ -99,6 +99,13 @@
       "when": 1792530786870,
       "tag": "0013_project_embed_key",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793666163021,
+      "tag": "0014_recording_traces",
+      "breakpoints": true
     }
   ]
 }

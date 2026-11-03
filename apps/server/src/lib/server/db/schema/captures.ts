@@ -65,6 +65,8 @@ export const recording = pgTable(
     projectId: uuid('project_id').references(() => project.id, { onDelete: 'set null' }),
     /** masking preset the browser applied: staging, production or none (no project) */
     maskingPreset: text('masking_preset', { enum: ['staging', 'production', 'none'] }),
+    /** a trace capture's traces, [{ n, startedAt, endedAt, note }] in epoch ms, from finalize (D-214) */
+    traces: jsonb('traces'),
   },
   (t) => [
     index('recording_org_created_idx').on(t.organizationId, t.createdAt),
