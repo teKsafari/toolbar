@@ -87,6 +87,20 @@ export type LinkedIssue = z.infer<typeof linkedIssueSchema>;
 
 export const chapterSchema = z.object({ title: z.string(), startMs: z.number(), endMs: z.number(), thumbUrl: z.string().nullable() });
 
+/**
+ * One trace of a trace capture (D-214): the window between a Start trace and its Stop trace, in
+ * epoch ms, and what the reviewer wrote about it. A capture of kind `trace` holds one or more;
+ * its events, replay and spans are those inside the windows.
+ */
+export const traceTakeSchema = z.object({
+  n: z.number().int().min(1).max(999),
+  startedAt: z.number().int().nonnegative(),
+  endedAt: z.number().int().nonnegative(),
+  note: z.string().max(4000).default(''),
+});
+export type TraceTakeInput = z.input<typeof traceTakeSchema>;
+export type TraceTake = z.infer<typeof traceTakeSchema>;
+
 /** Card in the grid and search results (J-158). Superset of the older recordingSummarySchema. */
 export const captureSummarySchema = recordingSummarySchema.extend({
   workspaceId: idSchema,
@@ -214,6 +228,8 @@ export const captureDetailSchema = captureSummarySchema.extend({
   project: z.object({ id: idSchema, name: z.string(), traceOpenMs: z.number().int() }).nullable().optional(),
   /** Masking preset applied in the browser when the capture was made (D-125). */
   maskingPreset: z.enum(['staging', 'production', 'none']).nullable().optional(),
+  /** A trace capture's traces in order (D-214); empty for other kinds. */
+  traces: z.array(traceTakeSchema),
 });
 export type CaptureDetail = z.infer<typeof captureDetailSchema>;
 
@@ -332,6 +348,16 @@ export const finalizeCaptureBodySchema = finalizeRecordingSchema.extend({
    * author at start). Fills the author name only when it is empty, and only with the upload token.
    */
   reviewer: z.object({ name: reviewerNameSchema.optional() }).optional(),
+  /**
+   * A trace capture's traces (D-214), at least one, windows in order and not overlapping. Events
+   * and replay outside them (a trace the reviewer removed) are dropped at finalize.
+   */
+  traces: z
+    .array(traceTakeSchema)
+    .min(1)
+    .max(50)
+    .refine((ts) => ts.every((t, i) => t.endedAt >= t.startedAt && (i === 0 || t.startedAt >= ts[i - 1]!.endedAt)), 'traces must be in order and must not overlap')
+    .optional(),
 });
 export type FinalizeCaptureBody = z.input<typeof finalizeCaptureBodySchema>;
 

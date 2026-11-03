@@ -40,9 +40,10 @@ export interface ReviewSubmitResult {
   recordingId: string;
   /** the capture page on the server */
   url: string;
+  /** notes sent */
   count: number;
-  /** items went onto a running trace rather than a new capture */
-  trace: boolean;
+  /** traces sent: the capture is the tab's trace session (kind `trace`), else a new `feedback` capture */
+  traces: number;
 }
 
 export interface ReviewerBgRequests {
@@ -58,19 +59,21 @@ export interface ReviewerBgRequests {
    * own UI first. `preview` is a data URL for the composer.
    */
   'review.shot': { req: { rect: Rect; /** window.innerWidth, for the device-pixel scale */ vw: number }; res: { blobId: string; preview: string; width: number; height: number } };
-  /** `trace`: a trace runs in this tab, so the note also goes into its event stream as an annotation */
-  'review.add': { req: { item: NewReviewItem; trace?: boolean }; res: { item: ReviewItem } };
+  /** a note made while a trace runs in the tab also goes into the trace's events as an annotation */
+  'review.add': { req: { item: NewReviewItem }; res: { item: ReviewItem } };
   'review.update': { req: { id: string; patch: ReviewPatch }; res: { item: ReviewItem } };
   'review.remove': { req: { id: string }; res: {} };
-  /** drop every unsent item of the tab */
+  /** drop every unsent item of the tab, and discard its trace session */
   'review.clear': { req: {}; res: {} };
   /** voice note through the offscreen document's microphone */
   'review.voice': { req: { op: 'start' | 'stop' | 'cancel' }; res: { recording: boolean; blobId?: string; durationMs?: number } };
   /**
-   * Send the tab's items: onto `traceRecordingId` when a trace runs, else into a new capture of
-   * kind `feedback` with the errors and requests the items attached.
+   * Send what the tab holds (D-214). With a trace session: its traces (a running one is stopped
+   * first) and the notes, as one capture of kind `trace`. Without: the notes, as a new capture
+   * of kind `feedback` with the errors and requests they attached. `description` is the context
+   * the reviewer wrote for the whole capture.
    */
-  'review.submit': { req: { traceRecordingId?: string | null; title?: string }; res: { result: ReviewSubmitResult } };
+  'review.submit': { req: { title?: string; description?: string }; res: { result: ReviewSubmitResult } };
 }
 
 /** Worker to page. */
